@@ -1502,7 +1502,10 @@ function renderStepMetricsChart(container, timings) {
       grootModel = session.groot_model || 'groot-reviewed-step10000';
       if (session.groot_enabled) {
         $('runGroot').textContent = 'Run ' + (session.groot_label || 'GR00T');
-        $('provider').append(Object.assign(document.createElement('option'), {value:'groot',textContent:session.groot_label || 'GR00T'}));
+        const grootOption = Object.assign(document.createElement('option'), {value:'groot',textContent:session.groot_label || 'GR00T'});
+        grootOption.dataset.model = grootModel;
+        grootOption.dataset.label = grootOption.textContent;
+        $('provider').append(grootOption);
       }
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
