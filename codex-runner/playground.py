@@ -136,7 +136,7 @@ class HostedRunner:
                  max_sessions: int = 32, idle_seconds: float = 1800,
                  lifetime_seconds: float = 7200, api_factory=None,
                  provider_factory=None, api_depth_provider_factory=None, use_api_depth=False, extra_providers=None, chat_database=None, share_conversation=True,
-                 groot_key_file="", local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None):
+                 groot_key_file="", groot_config=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None):
         parsed = urlsplit(public_origin)
         if (not parsed.hostname or parsed.path not in {"", "/"} or parsed.query
                 or parsed.fragment or parsed.username or parsed.password):
@@ -181,7 +181,10 @@ class HostedRunner:
             raise ValueError('Codex subscription access is restricted to the local runner')
         if local_claude and not (development and parsed.scheme == 'http' and parsed.hostname in {'127.0.0.1', 'localhost'}):
             raise ValueError('Claude subscription access is restricted to the local runner')
-        self.groot_key_file = groot_key_file if robot_id == "yam-1" and self.hardware == "yam" else ""
+        self.groot_config = dict(groot_config or {})
+        self.groot_model = self.groot_config.get('model', 'groot-reviewed-step10000')
+        self.groot_label = self.groot_config.get('label', 'GR00T')
+        self.groot_key_file = groot_key_file if robot_id in self.groot_config.get('robot_ids', ['yam-1']) and self.hardware == "yam" else ""
         self.local_codex = local_codex
         self.local_claude = local_claude
         self.default_provider = default_provider
@@ -482,7 +485,7 @@ class HostedRunner:
                 from remote_yam.subscription_setup import subscription_status
                 local_setup = {**local_setup, 'local_runner': True, 'default_provider': self.default_provider,
                                'claude': await asyncio.to_thread(subscription_status, 'claude'), 'claude_model': CLAUDE_MODEL}
-            await self.json(send, 200, {**local_setup, **application_setup, "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file),
+            await self.json(send, 200, {**local_setup, **application_setup, "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},
@@ -819,9 +822,12 @@ class HostedRunner:
                 provider = self.extra_providers[name](model, visitor.directory)
             elif name == 'groot':
                 from remote_yam.groot_policy import GrootAdapter
-                if model not in ('', 'groot-reviewed-step10000'):
+                if model not in ('', self.groot_model):
                     raise RequestError(400, 'Unknown GR00T checkpoint')
-                provider = GrootAdapter(Path(self.groot_key_file).read_text().strip(), camera_source=self.camera_source)
+                settings = {key: self.groot_config[key] for key in
+                            ('endpoint', 'norm_tag', 'artifact_sha256') if key in self.groot_config}
+                provider = GrootAdapter(Path(self.groot_key_file).read_text().strip(),
+                                        camera_source=self.camera_source, model=self.groot_model, **settings)
             elif self.hardware == 'makerarm' and not self.provider_factory:
                 from remote_yam.makerarm_policy import MakerArmOpenAIAdapter, MakerArmCodexAdapter, MakerArmClaudeAdapter, MakerArmAnthropicAdapter
                 mapping = ROOT / '.local' / 'robot-calibrations' / (hashlib.sha256(self.robot_id.encode()).hexdigest() + '.json')

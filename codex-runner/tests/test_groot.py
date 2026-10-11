@@ -41,6 +41,38 @@ def test_wait_cancelled_and_public_config_never_exposes_key():
     assert 'private-secret' not in str(p.public_config())
 
 
+def test_configured_checkpoint_routes_exact_identity_and_hides_endpoint():
+    p, observation = policy_and_observation()
+    model = 'groot-northstar-purple-crate-step10000'
+    p = GrootAdapter('private-secret', camera_source=p._camera_source, model=model,
+                     endpoint='https://testendpoint.api.runpod.ai',
+                     norm_tag='yam_northstar_purple_crate', artifact_sha256='a' * 64)
+    p._ready.set()
+    seen = []
+    def send(path, payload):
+        seen.append(payload)
+        return {'model': model, 'checkpoint_step': 10000, 'action_units': 'radians',
+                'actions': [[0] * 6 + [.2] + [0] * 6 + [.8]] * 30}
+    p._json = send
+    assert len(p.build_trajectory('Place the cubes into the purple crate', observation, 0)) == 10
+    assert seen[0]['model'] == model
+    assert p.public_config()['model'] == model
+    assert 'testendpoint' not in str(p.public_config())
+    with pytest.raises(ValueError, match='RunPod'):
+        GrootAdapter('private-secret', camera_source=None, endpoint='https://example.com')
+
+
+def test_wrong_artifact_cannot_finish_warmup():
+    p = GrootAdapter('secret', camera_source=None, artifact_sha256='a' * 64)
+    p._json = lambda path: {'ok': True, 'cuda_available': True, 'device': 'cuda:0',
+        'checkpoint_step': 10000, 'action_dim': 14, 'num_actions': 30,
+        'norm_tag': 'yam_reviewed_groot', 'available_models': [MODEL], 'artifact_sha256': 'b' * 64}
+    with patch('remote_yam.groot_policy.time.monotonic', side_effect=[0, 601]):
+        p._keep_ready(lambda: False)
+    assert not p._ready.is_set()
+    assert p._warm_state == 'failed'
+
+
 def policy_and_observation():
     b=io.BytesIO();Image.new('RGB',(640,360)).save(b,format='JPEG')
     class Cameras:

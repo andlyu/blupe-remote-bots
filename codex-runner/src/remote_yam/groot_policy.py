@@ -6,6 +6,8 @@ import math
 import threading
 import time
 from urllib import request
+from urllib.parse import urlsplit
+import re
 from .cameras import NoRedirect
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
 
@@ -18,9 +20,22 @@ class GrootAdapter:
     provider_name = 'groot'
     model = MODEL
 
-    def __init__(self, api_key, *, camera_source):
+    def __init__(self, api_key, *, camera_source, model=MODEL, endpoint=ENDPOINT,
+                 norm_tag='yam_reviewed_groot', artifact_sha256=''):
         if not api_key.strip():
             raise ValueError('GR00T service credential is missing')
+        location = urlsplit(endpoint)
+        if (location.scheme != 'https' or not re.fullmatch(r'[a-z0-9]+\.api\.runpod\.ai', location.netloc)
+                or location.path not in ('', '/') or location.query or location.fragment):
+            raise ValueError('GR00T requires a configured RunPod endpoint')
+        match = re.fullmatch(r'groot-[a-z0-9-]+-step(\d+)', model)
+        if not match or artifact_sha256 and not re.fullmatch(r'[0-9a-f]{64}', artifact_sha256):
+            raise ValueError('Invalid GR00T checkpoint identity')
+        self.model = model
+        self._step = int(match[1])
+        self._endpoint = endpoint.rstrip('/')
+        self._norm_tag = norm_tag
+        self._artifact_sha256 = artifact_sha256
         self._api_key = api_key.strip()
         self._camera_source = camera_source
         self.cancelled = lambda: False
@@ -36,7 +51,7 @@ class GrootAdapter:
                 'warmup': self._warm_state, 'api_key_configured': bool(self._api_key)}
 
     def _json(self, path, payload=None):
-        req = request.Request(ENDPOINT + path, data=None if payload is None else json.dumps(payload).encode(),
+        req = request.Request(self._endpoint + path, data=None if payload is None else json.dumps(payload).encode(),
                               headers={'Authorization': 'Bearer '+self._api_key, 'Content-Type':'application/json'})
         try:
             with self._opener.open(req, timeout=12) as response:
@@ -58,8 +73,10 @@ class GrootAdapter:
             try:
                 h = self._json('/health')
                 if not (h.get('ok') and h.get('cuda_available') and h.get('device') == 'cuda:0'
-                        and h.get('checkpoint_step') == 10000 and h.get('action_dim') == 14
-                        and h.get('num_actions') == 30 and h.get('norm_tag') == 'yam_reviewed_groot'):
+                        and h.get('checkpoint_step') == self._step and h.get('action_dim') == 14
+                        and h.get('num_actions') == 30 and h.get('norm_tag') == self._norm_tag
+                        and self.model in h.get('available_models', [])
+                        and (not self._artifact_sha256 or h.get('artifact_sha256') == self._artifact_sha256)):
                     raise RuntimeError('GR00T checkpoint contract mismatch')
                 self._warm_state = 'ready'; self._ready.set(); deadline = time.monotonic()+600
                 delay = 30
@@ -101,9 +118,9 @@ class GrootAdapter:
                 image.convert('RGB').resize((640,360)).save(output,format='JPEG')
             images[frame.name+'_cam'] = {'encoding':'jpeg_base64','data':base64.b64encode(output.getvalue()).decode()}
         if self.cancelled(): raise RuntimeError('GR00T cancelled')
-        result = self._json('/act', {'model':MODEL,'instruction':prompt,'state':state,'images':images,'action_units':'radians'})
+        result = self._json('/act', {'model':self.model,'instruction':prompt,'state':state,'images':images,'action_units':'radians'})
         rows = result.get('actions')
-        if (result.get('model') != MODEL or result.get('checkpoint_step') != 10000
+        if (result.get('model') != self.model or result.get('checkpoint_step') != self._step
                 or result.get('action_units') != 'radians' or not isinstance(rows,list) or len(rows)!=30
                 or any(not isinstance(r,list) or len(r)!=14 or not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in r) for r in rows)
                 or any(not 0<=r[i]<=1 for r in rows for i in (6,13))):
