@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../static/hosted.js'),'utf8');
 const html=fs.readFileSync(path.join(__dirname,'../static/hosted.html'),'utf8');
-const body=source.split('  function providerChanged() {')[1].split("  $('provider').addEventListener('change'")[0];
+const body=source.split('  function providerChanged(preview = true) {')[1].split("  if (window.createBlupeModelPicker) {")[0];
 test('API depth starts unchecked and is exposed only for configured Astra',()=>{
  const checkbox=html.match(/<input\b[^>]*id="useApiDepth"[^>]*>/)[0];
  assert.doesNotMatch(checkbox,/\bchecked\b/);

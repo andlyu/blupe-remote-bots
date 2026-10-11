@@ -532,7 +532,7 @@ function createRunLaunchGuard() {
     $('recheckSubscription').disabled = true;
     $('subscriptionSetupStatus').textContent = 'Verifying a small request through your subscription…';
     try {
-      const setup = await api(`/api/${provider}/check`, {});
+      const setup = await api(`/api/${provider}/check`, {model:$('model').value.trim()});
       if (provider !== setupProvider) return;
       if (setup.ready) {
         $('subscriptionHelp').close();
@@ -582,6 +582,7 @@ function createRunLaunchGuard() {
     $('localRunMessage').textContent = '';
     $('localRunDialog').showModal();
     $('provider').focus();
+    void window.yamModelPicker?.refresh();
   };
   $('closeLocalRun').onclick = () => $('localRunDialog').close();
   function updateRunLabel() {
@@ -624,7 +625,8 @@ function createRunLaunchGuard() {
     $('apiKey').placeholder = saved ? 'Key saved for this session · enter a new key to replace it' : 'Paste a dedicated API key';
     updateRunLabel();
   }
-  function providerChanged() {
+  function providerChanged(preview = true) {
+    window.yamModelPicker?.saveSelection();
     if ($('provider').value !== 'local_raise_lower' && $('prompt').value === 'Raise and lower both arms.') {
       $('prompt').value = $('prompt').dataset?.defaultPrompt || '';
     }
@@ -665,13 +667,15 @@ function createRunLaunchGuard() {
       $('policyHelp').textContent = aspireRunAvailable
         ? 'ASPIRE reuses compatible saved programs without a coding request. Otherwise it generates Python and validates a complete offline native plan before queue/Home. Every run captures fresh cameras and fully plans before task motion.'
         : 'ASPIRE is unavailable for this robot. Choose a configured model or policy.';
-      if(aspireRunAvailable) openAspireTaskPanel();
+      if(aspireRunAvailable) openAspireTaskPanel(preview);
+      window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel();return;
     }
     if ($('provider').value === 'groot') {
       $('providerFields').hidden = true; $('apiKey').required = false;
       $('apiKey').value = ''; $('model').value = 'groot-reviewed-step10000';
       $('policyHelp').textContent = 'GR00T warms up as soon as you join the queue. It runs when your turn and the GPU are ready.';
+      window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel(); return;
     }
     $('prompt').readOnly = $('provider').value === 'local_raise_lower';
@@ -685,8 +689,9 @@ function createRunLaunchGuard() {
       $('forget').hidden = true;
       $('model').value = claude ? claudeModel : 'gpt-6-astra';
       $('policyHelp').textContent = claude
-        ? `Opus runs through Claude Code on this computer using your Claude subscription (${claudeModel}). Join the same robot queue; no model API key is needed.`
-        : 'Astra runs through Codex on this computer using your ChatGPT subscription. Join the same robot queue; no model API key is needed.';
+        ? 'The selected Opus model runs through Claude Code using your Claude subscription.'
+        : 'The selected OpenAI model runs through Codex using your ChatGPT subscription.';
+      window.yamModelPicker?.providerChanged();
       updateRunLabel();
       return;
     }
@@ -697,7 +702,9 @@ function createRunLaunchGuard() {
     $('apiKeyCreditProvider').textContent = anthropic ? 'Anthropic' : 'OpenAI';
     $('apiKeyCreate').href = anthropic ? 'https://platform.claude.com/settings/keys' : 'https://platform.openai.com/api-keys';
     $('apiKeyBilling').href = anthropic ? 'https://platform.claude.com/settings/billing' : 'https://platform.openai.com/account/billing/overview';
-    if (window.yamApplication?.providerChanged?.(applicationContext())) return;
+    if (window.yamApplication?.providerChanged?.(applicationContext())) {
+      window.yamModelPicker?.providerChanged({fixed:!['guest_astra','guest_claude'].includes($('provider').value)}); return;
+    }
     const builtIn = $('provider').value === 'local_raise_lower';
     $('providerFields').hidden = builtIn;
     $('apiKey').required = !builtIn; updateSavedKey();
@@ -705,6 +712,14 @@ function createRunLaunchGuard() {
     if (builtIn) $('prompt').value = 'Raise and lower both arms.';
     else if (!$('prompt').value.trim()) $('prompt').value = $('prompt').dataset?.defaultPrompt || '';
     $('policyHelp').textContent = builtIn ? 'The built-in policy performs three raise/lower cycles. No model calls or API key are needed.' : 'The model observes the cameras, chooses a move, and waits for robot feedback before deciding again.';
+    window.yamModelPicker?.providerChanged();
+  }
+  if (window.createBlupeModelPicker) {
+    let modelStorage; try { modelStorage = localStorage; } catch (_) {}
+    window.yamModelPicker = window.createBlupeModelPicker({$, api, storage:modelStorage,
+      context:() => robotGeneration + ':' + csrf, changed:() => {
+        applyModelName(lastLive); document.dispatchEvent(new Event('blupe-model-changed'));
+      }});
   }
   $('provider').addEventListener('change', () => { providerChanged(); updateAspireSetupGuidance(); applyModelName(lastLive); window.yamAnalytics?.selected($('provider').value, $('model').value.trim()); });
   $('automaticRetryLimit').addEventListener('change',()=>{
@@ -714,7 +729,7 @@ function createRunLaunchGuard() {
   $('codexCheck').addEventListener('click', async () => {
     $('codexCheck').disabled = true;
     try {
-      const setup = await api('/api/codex/check', {});
+      const setup = await api('/api/codex/check', {model:$('model').value.trim()});
       $('codexStatus').textContent = setup.message;
       if (!setup.ready) showSubscriptionSetup(setup);
     }
@@ -724,7 +739,7 @@ function createRunLaunchGuard() {
   $('claudeCheck').addEventListener('click', async () => {
     $('claudeCheck').disabled = true;
     try {
-      const setup = await api('/api/claude/check', {});
+      const setup = await api('/api/claude/check', {model:$('model').value.trim()});
       $('claudeStatus').textContent = setup.message;
       if (!setup.ready) showSubscriptionSetup(setup);
     }
@@ -769,7 +784,7 @@ function createRunLaunchGuard() {
     if ($('provider').value === 'aspire') {payload.use_api_depth = true;payload.automatic_retry_limit=aspireRetryLimit($('automaticRetryLimit').value);}
     else if(aspireRunAvailable && payload.provider === 'codex') payload.use_api_depth = false;
     else if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
-    if (['codex', 'claude'].includes(payload.provider)) payload.reasoning_effort = $('provider').value === 'aspire' ? 'high' : $('reasoningEffort').value;
+    if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('provider').value === 'aspire' ? 'high' : $('reasoningEffort').value;
     if (['openai', 'codex', 'anthropic', 'claude'].includes(payload.provider)) payload.response_speed = $('provider').value === 'aspire' ? 'standard' : $('responseSpeed').value;
     $('subscriptionHelp').close();
     submitting = true; buttons(); if(!aspireRequest) message(['codex', 'claude'].includes(payload.provider) ? 'Checking your subscription connection…' : 'Joining the robot queue…');
@@ -1002,10 +1017,11 @@ function createRunLaunchGuard() {
     const provider = $('provider').value;
     if(provider === 'aspire') return 'ASPIRE · Codex/Astra';
     if (provider === 'claude' || provider === 'anthropic') {
-      const m = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?$/.exec(claudeModel);
+      const m = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?/.exec($('model').value.trim());
       return m ? m[1][0].toUpperCase() + m[1].slice(1) + ' ' + m[2] + (m[3] ? '.' + m[3] : '') : 'Claude';
     }
-    return provider === 'groot' ? 'GR00T' : provider === 'local_raise_lower' ? 'Built-in policy' : 'Astra';
+    return provider === 'groot' ? 'GR00T' : provider === 'local_raise_lower' ? 'Built-in policy'
+      : $('model').value.trim() === 'gpt-6-astra' ? 'Astra' : $('model').value.trim();
   }
   function applyModelName(live) {
     lastLive = live;
@@ -1920,6 +1936,7 @@ function createRunLaunchGuard() {
       $('useApiDepth').checked = session.api_depth?.enabled === true;
       aspireRunAvailable = aspireConfiguredRun(session);
       $('apiDepthSettings').hidden = !$('useApiDepth').dataset.available;
+      window.yamModelPicker?.reset();
       configureLocalRunDialog(!!session.local_runner);
       $('provider').innerHTML = originalProviderMarkup;
       window.yamAnalytics?.init(session.simulation, session.paid_runs);
@@ -1929,14 +1946,14 @@ function createRunLaunchGuard() {
       if (session.local_runner) {
         if (session.codex) {
           const option = document.createElement('option');
-          option.value = 'codex'; option.textContent = 'Codex subscription · Astra';
+          option.value = 'codex'; option.textContent = 'Codex subscription';
           if (!$('provider').querySelector('[value=codex]')) $('provider').prepend(option);
           $('codexStatus').textContent = session.codex.message;
         }
         if (session.claude) {
           claudeModel = session.claude_model || claudeModel;
           const option = document.createElement('option');
-          option.value = 'claude'; option.textContent = 'Claude subscription · Opus'; option.dataset.model = claudeModel;
+          option.value = 'claude'; option.textContent = 'Claude subscription · Opus 5.5+'; option.dataset.model = claudeModel;
           if (!$('provider').querySelector('[value=claude]')) $('provider').prepend(option);
           $('claudeStatus').textContent = session.claude.message;
         }
@@ -1964,6 +1981,7 @@ function createRunLaunchGuard() {
       $('runGroot').hidden = !session.groot_enabled;
       if (session.groot_enabled) $('provider').append(Object.assign(document.createElement('option'), {value:'groot',textContent:'GR00T'}));
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
+      if (!session.local_runner && !session.joint_policy) providerChanged(false);
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
       camerasDisconnected = robotCatalog?.robots.find(robot => robot.id === selectedRobot)?.connected === false;
       modelCameraNames = new Set(session.model_cameras || []);
@@ -2224,6 +2242,7 @@ window.yamRecordingView = function(video, roles) {
   if ($('collectionProgress')) sizing.observe($('collectionProgress'));
   new MutationObserver(fitCameras).observe($('liveViewer'), {attributes:true,attributeFilter:['data-layout']});
   provider.addEventListener('change', updateComposer);
+  document.addEventListener('blupe-model-changed', updateComposer);
   window.addEventListener('resize', fitCameras);
   updateComposer(); sizePrompt(); fitCameras();
 })();

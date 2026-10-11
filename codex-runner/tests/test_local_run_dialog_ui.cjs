@@ -4,7 +4,7 @@ const body=source.slice(source.indexOf('  function configureLocalRunDialog('),so
 test('local and online setup use the same dialog without submitting and retain runner attribution',()=>{
  const nodes={}; const $=id=>nodes[id]||=( {dataset:{},classList:{toggle(){},add(){}},open:false,hidden:false,
  append(node){node.parent=this},before(node){node.parent='form'},showModal(){this.open=true},close(){this.open=false},focus(){this.focused=true}} );
- const context=vm.createContext({$,active:false,submitting:false,ended:false,csrf:'valid',updateRunLabel(){}});
+ const context=vm.createContext({$,window:{},active:false,submitting:false,ended:false,csrf:'valid',updateRunLabel(){}});
  vm.runInContext(body,context);
  vm.runInContext('configureLocalRunDialog(true)',context);
  assert.equal($('runSettings').parent,$('localRunDialogBody'));

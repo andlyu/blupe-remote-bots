@@ -24,6 +24,7 @@ import signal
 import subprocess
 import tempfile
 import time
+from types import MethodType
 import uuid
 
 from .codex_policy import DECISION_SCHEMA, decision_response as _shared_decision_response
@@ -136,6 +137,26 @@ def claude_failure(raw):
         return 'Claude Code needs sign-in. ' + LOGIN_HELP
     return ('Claude request failed. Check subscription limits, model access and `claude auth status`; '
             'no motion sent.')
+
+
+def use_claude_executor(provider, executor, *, close=None):
+    """Attach a private model-only transport to the robot's existing validator."""
+    from .codex_policy import CodexAdapter, use_codex_executor
+    provider = use_codex_executor(provider, executor, close=close)
+    if not hasattr(provider, '_decision_response'):
+        provider._decision_response = decision_response
+    def post(self, payload):
+        try:
+            return CodexAdapter._post_json(self, payload)
+        except RuntimeError as exc:
+            raise RuntimeError(str(exc).replace('Codex', 'Claude')) from None
+    provider._post_json = MethodType(post, provider)
+    original_config = provider.public_config
+    def config():
+        return {**original_config(), 'authentication':'claude_subscription',
+                'transport':'claude_executor', 'funding':'sponsored_claude_subscription'}
+    provider.public_config = config
+    return provider
 
 
 class ClaudeAdapter(RoboCurveResponsesAdapter):

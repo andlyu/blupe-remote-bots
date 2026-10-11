@@ -50,7 +50,7 @@ under `.codex-runtime/` if needed (Node.js/npm required), and reuses your existi
 ChatGPT login. If sign-in is needed, Codex opens its browser login flow. Later
 launches can omit `--codex-login`. This does not change your global Codex install.
 
-Select **Codex subscription** and keep model **gpt-6-astra**. This routes Astra
+Select **Codex subscription**; the default model is **gpt-6-astra**. This routes decisions
 decisions through local Codex and your ChatGPT subscription limits. It does not
 use the separately billed Responses API. No API key is requested, and there is
 no automatic API-key fallback. **Check Codex connection** checks local setup,
@@ -140,6 +140,47 @@ and the existing local IK and gateway validate and execute them. Token counts an
 reported cost are recorded with the run for the eval report.
 
 This provider is local-only, on the same terms as Codex above.
+
+### Discover and select newer models
+
+Subscription setup includes a reasoning bar showing the selected model and effort.
+**Extra High** sends `xhigh`, including on resumed decisions. The bar uses the
+model catalog's supported levels, remembers choices per provider/model in this
+browser, and offers a reset to the model default. Claude Opus 5.5 supports Low,
+Medium, High, Extra High and Max. Reasoning effort is separate from inference speed.
+
+Open **+ → Model** to select a model from the provider's current catalog or enter
+an explicit model ID. OpenAI supports Astra (`gpt-6-astra`) and GPT 6.1 or newer,
+including `gpt-6.1-sol`. Claude supports **Opus 5.5 or newer**. The same release
+limits apply to manually entered IDs; older models and other Claude families
+are rejected before joining the queue.
+
+The catalog loads when you choose a provider. **Refresh models** fetches it again;
+reopening settings also refreshes lists older than five minutes. New matching
+releases appear without a runner code update when the provider lists them.
+Selections are remembered separately for each provider in this browser, and
+refreshing never replaces your selected model. Connection checks and Run both
+use that selected ID. Fixed policies such as GR00T and ASPIRE retain their
+configured models, as do station-specific deployments and hosted payment flows.
+
+Codex uses the installed CLI's `model/list` catalog. Claude Code uses its
+initialization catalog and resolves aliases to explicit version IDs. Discovery
+does not start an inference turn or join the robot queue. API-key providers use
+their authenticated model-list endpoints; keys are never stored in browser
+storage or returned with catalogs. If discovery fails, the picker preserves
+your selection and allows a manually entered model ID. A newer CLI may be needed
+when its catalog or transport does not yet recognize a release.
+
+Catalog presence does not guarantee account access or compatibility. Models must
+accept images and structured decisions/tools through the existing adapter;
+explicitly text-only catalog entries are excluded. Existing camera, decision,
+trajectory and robot-feedback validation still applies. A new provider or robot
+policy architecture requires its own adapter.
+
+Discovery contracts: [Codex model/list](https://developers.openai.com/codex/app-server#models),
+[OpenAI models](https://platform.openai.com/docs/api-reference/models/list),
+[Anthropic models](https://platform.claude.com/docs/en/api/models/list), and the
+[Claude Agent SDK initialization protocol](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/query.py).
 
 ### API-key or built-in provider
 

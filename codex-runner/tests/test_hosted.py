@@ -25,6 +25,60 @@ class HeldProvider(ScriptedAdapter):
 
 
 class HostedTests(unittest.IsolatedAsyncioTestCase):
+    async def test_model_catalog_requires_session_csrf_and_keeps_keys_private(self):
+        with patch('remote_yam.model_catalog.discover_models', return_value={
+                'models':[{'id':'gpt-6.1-sol','label':'Sol 6.1'}], 'source':'provider'}) as discover:
+            payload = {'provider':'openai','api_key':'private-catalog-key'}
+            self.assertEqual((await self.call('/api/models', method='POST', payload=payload))[0], 401)
+            browser = await self.session()
+            self.assertEqual((await self.call('/api/models', method='POST', payload=payload,
+                cookie=browser['cookie'], csrf='wrong'))[0], 403)
+            discover.assert_not_called()
+            code, data, _ = await self.call('/api/models', method='POST', payload=payload, **browser)
+            self.assertEqual(code, 200)
+            discover.assert_called_once_with('openai','private-catalog-key')
+            self.assertNotIn('private-catalog-key', json.dumps(data))
+            visitor = list(self.app.visitors.values())[-1]
+            self.assertFalse(visitor.saved_keys)
+            self.assertEqual(visitor.controller.status()['status'], 'idle')
+            self.assertFalse(self.providers)
+            visitor.saved_keys['openai'] = 'saved-private-key'
+            await self.call('/api/models', method='POST', payload={'provider':'openai'}, **browser)
+            discover.assert_called_with('openai','saved-private-key')
+            self.assertEqual((await self.call('/api/models', method='POST',
+                payload={'provider':'codex'}, **browser))[0], 400)
+
+    async def test_new_model_reaches_verification_and_provider_without_replacement(self):
+        self.app.local_codex = True
+        browser = await self.session()
+        calls = []
+        original = self.app.provider_factory
+        def factory(name, key, model, directory):
+            calls.append((name, model))
+            return original(name, key, model, directory)
+        self.app.provider_factory = factory
+        with patch('remote_yam.subscription_setup.verify_subscription', return_value={
+                'ready':True,'setup_prompt':''}) as verify:
+            code, _, _ = await self.call('/api/codex/check', method='POST',
+                payload={'model':'gpt-6.1-sol'}, **browser)
+            self.assertEqual(code, 200)
+            verify.assert_called_with('codex', 'gpt-6.1-sol')
+            code, _, _ = await self.call('/api/run', method='POST', payload={
+                'provider':'codex','model':'gpt-6.1-sol','prompt':'Move the block'}, **browser)
+            self.assertEqual(code, 200)
+            verify.assert_called_with('codex', 'gpt-6.1-sol')
+        self.assertEqual(calls, [('codex','gpt-6.1-sol')])
+        self.assertEqual(hosted.model_display_name({'provider':'codex','model':'gpt-6.1-sol'}), 'gpt-6.1-sol')
+
+    async def test_model_floor_cannot_be_bypassed_by_manually_entered_id(self):
+        browser = await self.session()
+        for provider, model in [('openai','gpt-6-sol'),('anthropic','claude-opus-5-4'),
+                                ('anthropic','claude-sonnet-6')]:
+            code, _, _ = await self.call('/api/run', method='POST', payload={
+                'provider':provider,'model':model,'api_key':'private-key','prompt':'Move block'}, **browser)
+            self.assertEqual(code, 400)
+        self.assertFalse(self.providers)
+
     async def asyncSetUp(self):
         self.apis, self.providers = [], []
         def api_factory():
@@ -49,7 +103,7 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
             provider.close_transport=lambda:calls.append('closed')
             provider._api_key=''
             return provider
-        self.app.launch(visitor,{'provider':'openai','api_key':'placeholder','model':'test','prompt':'Move'},
+        self.app.launch(visitor,{'provider':'openai','api_key':'placeholder','model':'gpt-6-astra','prompt':'Move'},
                         paid=True,provider_transform=transform)
         self.assertEqual(calls,[False])
         self.assertEqual(visitor.saved_keys,{})
@@ -94,7 +148,8 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
     async def test_subscription_effort_reaches_provider_and_invalid_values_are_rejected(self):
         self.app.local_codex = self.app.local_claude = True
         for name in ('codex', 'claude'):
-            for effort in ('low', 'medium', 'high'):
+            efforts = ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra') if name == 'codex' else ('low', 'medium', 'high', 'xhigh', 'max')
+            for effort in efforts:
                 _, visitor = self.app.new_visitor()
                 with patch('remote_yam.subscription_setup.verify_subscription',
                            return_value={'ready': True, 'setup_prompt': ''}):
@@ -102,7 +157,8 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
                                              'reasoning_effort': effort})
                 self.assertEqual(self.providers[-1].reasoning_effort, effort)
                 visitor.controller.stop()
-            for invalid in ('none', 'minimal', '', None, []):
+            invalid_efforts = ('unknown', '', None, []) + (('none', 'minimal', 'ultra') if name == 'claude' else ())
+            for invalid in invalid_efforts:
                 _, visitor = self.app.new_visitor()
                 with self.assertRaises(hosted.RequestError) as caught:
                     self.app.launch(visitor, {'provider': name, 'prompt': 'Move block',
@@ -185,7 +241,7 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
 
     async def launch(self, browser, secret="test-visitor-key"):
         return await self.call("/api/run", method="POST", payload={
-            "provider": "openai", "model": "test-model", "api_key": secret, "prompt": "Private task"}, **browser)
+            "provider": "openai", "model": "gpt-6.1-sol", "api_key": secret, "prompt": "Private task"}, **browser)
 
     async def test_claude_api_joins_queue_and_retains_only_its_own_key(self):
         browser = await self.session()
@@ -306,7 +362,7 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_named_run_is_visible_to_other_visitors(self):
         a, b = await self.session(), await self.session()
-        payload = dict(provider='openai', model='test-model', api_key='test-visitor-key',
+        payload = dict(provider='openai', model='gpt-6.1-sol', api_key='test-visitor-key',
                        prompt='Place green block', runner_name='Andrew')
         self.assertEqual((await self.call('/api/run', method='POST', payload={**payload, 'runner_name':'x'*33}, **a))[0], 400)
         self.assertEqual((await self.call('/api/run', method='POST', payload=payload, **a))[0], 200)
@@ -328,7 +384,7 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_conversation_sharing_opt_out_and_local_snapshot_precedence(self):
         browser = await self.session()
-        payload = dict(provider='openai', model='test-model', api_key='test-visitor-key',
+        payload = dict(provider='openai', model='gpt-6.1-sol', api_key='test-visitor-key',
                        prompt='Place green block', runner_name='Andrew', share_conversation=False)
         self.assertEqual((await self.call('/api/run', method='POST', payload={**payload, 'share_conversation':'false'}, **browser))[0], 400)
         self.assertEqual((await self.call('/api/run', method='POST', payload=payload, **browser))[0], 200)

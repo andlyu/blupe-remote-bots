@@ -364,7 +364,7 @@ class CodexAdapter(RoboCurveResponsesAdapter):
             else:
                 events = executor(schema=json.loads(schema.read_text()), prompt=prompt,
                                   images=tuple(path.read_bytes() for path in images),
-                                  thread_id=self._thread_id, model=self.model,
+                                  thread_id=self._thread_id, model=self.model, reasoning_effort=self.reasoning_effort,
                                   cancelled=self.cancelled,
                                   progress=FirstCallProgress(getattr(self, '_interaction', None) if stream_progress else None))
         finally:
