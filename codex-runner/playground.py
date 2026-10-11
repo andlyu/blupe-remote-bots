@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from http.cookies import SimpleCookie, CookieError
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -43,11 +44,12 @@ def model_display_name(provider):
     if provider.get("display_name"):
         return str(provider["display_name"])[:100]
     if name in {"claude", "anthropic"}:
-        family, major, minor = (model.split("-") + ["", "", "", ""])[1:4]
-        if family in {"opus", "sonnet", "haiku", "fable"} and major.isdigit():
-            return family.title() + " " + major + ("." + minor if minor.isdigit() else "")
-        return "Claude"
-    return {"groot": "GR00T", "local_raise_lower": "Built-in policy"}.get(name, "Astra")
+        match = re.match(r'claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d{1,2})(?!\d))?', model)
+        if match:
+            return match[1].title() + ' ' + match[2] + ('.' + match[3] if match[3] else '')
+        return model or "Claude"
+    return {"groot": "GR00T", "local_raise_lower": "Built-in policy"}.get(name,
+        'Astra' if not model or model == 'gpt-6-astra' else model)
 
 
 class RequestError(Exception):
@@ -415,7 +417,7 @@ class HostedRunner:
             await self.json(send, 200, {"selected": self.robot_id, "robots": [
                 {**{k: robot[k] for k in ("id", "name", "url")}, "hardware": robot.get("hardware", ""), "connected": self.robot_connected(robot["id"])} for robot in self.robots]})
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/model-picker.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -520,12 +522,32 @@ class HostedRunner:
                 result = {"ok": True}
             elif path == "/api/run":
                 result = await asyncio.to_thread(self.launch, visitor, payload)
+            elif path == '/api/models':
+                name = payload.get('provider')
+                allowed = {'openai', 'anthropic'} | ({'codex'} if self.local_codex else set()) | ({'claude'} if self.local_claude else set())
+                if not isinstance(name, str) or name not in allowed:
+                    raise RequestError(400, 'Choose a configured model provider')
+                key = payload.get('api_key', '') or visitor.saved_keys.get(name, '')
+                if not isinstance(key, str) or len(key) > 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key):
+                    raise RequestError(400, 'Invalid provider API key')
+                from remote_yam.model_catalog import discover_models
+                result = await asyncio.to_thread(discover_models, name, key if name in ('openai', 'anthropic') else '')
             elif path == '/api/codex/check' and self.local_codex:
                 from remote_yam.subscription_setup import verify_subscription
-                result = await asyncio.to_thread(verify_subscription, 'codex')
+                from remote_yam.model_catalog import selected_model
+                try:
+                    model = selected_model('codex', payload.get('model', ''))
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
+                result = await asyncio.to_thread(verify_subscription, 'codex', model)
             elif path == '/api/claude/check' and self.local_claude:
                 from remote_yam.subscription_setup import verify_subscription
-                result = await asyncio.to_thread(verify_subscription, 'claude')
+                from remote_yam.model_catalog import selected_model
+                try:
+                    model = selected_model('claude', payload.get('model', ''))
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
+                result = await asyncio.to_thread(verify_subscription, 'claude', model)
             elif path in {"/api/stop", "/api/credentials/clear", "/api/disconnect", "/api/operator"}:
                 result = await asyncio.to_thread(self.control, visitor, path)
                 if path == "/api/disconnect":
@@ -726,8 +748,10 @@ class HostedRunner:
             if response_speed == 'fast' and not fast_provider:
                 raise RequestError(400, 'Fast mode is unavailable for this provider')
             effort = payload.get('reasoning_effort', 'low')
-            if name in {'codex', 'claude'} and effort not in ('low', 'medium', 'high'):
-                raise RequestError(400, 'Choose low, medium, or high model effort')
+            if name == 'codex' and effort not in ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
+                raise RequestError(400, 'Choose a supported model effort')
+            if name == 'claude' and effort not in ('low', 'medium', 'high', 'xhigh', 'max'):
+                raise RequestError(400, 'Choose a supported Claude model effort')
             if not paid and key == "" and isinstance(name, str):
                 key = visitor.saved_keys.get(name, "")
             share_conversation = payload.get("share_conversation", True)
@@ -755,6 +779,12 @@ class HostedRunner:
                 raise RequestError(400, "Enter a task of up to 4,000 characters")
             if not isinstance(model, str) or len(model) > 128 or any(ord(c) < 32 for c in model):
                 raise RequestError(400, "Invalid model name")
+            if name in ('openai', 'codex', 'anthropic', 'claude'):
+                from remote_yam.model_catalog import selected_model
+                try:
+                    model = selected_model(name, model)
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
             if name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)) and (not isinstance(key, str) or not 8 <= len(key) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key)):
                 raise RequestError(400, "Enter your provider API key")
             if payload.get("endpoint"):

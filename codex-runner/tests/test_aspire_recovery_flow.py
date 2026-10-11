@@ -25,7 +25,7 @@ def station(tmp_path):
     root=tmp_path/'runs'/('aspire-'+'a'*32);root.mkdir(parents=True)
     source=selected['response']['source'];digest=hashlib.sha256(source.encode()).hexdigest()
     (root/'task-completion.json').write_text(json.dumps(dict(task=TASK,status='UNVERIFIED',success=False,reason='centered_over_chip unknown')))
-    (root/'coding-loop.json').write_text(json.dumps(dict(task=TASK,model='fixture',attempts=[],recovery_attempts=[
+    (root/'coding-loop.json').write_text(json.dumps(dict(task=TASK,model='gpt-6-astra',attempts=[],recovery_attempts=[
         dict(id='astra-repair-1',parent_attempt_id='aspire-1',mode='offline_code_repair',status='PLAN_VALIDATED',source_sha256=digest)])))
     config=dict(automatic_recovery=True,execution_environment='local',code_revision_limit=4,
         skill_directory=str(tmp_path/'skills'),run_directory=str(tmp_path/'runs'),robot_id='fixture')

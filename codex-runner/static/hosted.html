@@ -7,6 +7,7 @@
   <script src="/synchronized/reader.js" defer></script>
   <!-- application-head -->
   <script src="/static/stream-health.js" defer></script>
+  <script src="/static/model-picker.js" defer></script>
   <script src="/static/hosted.js" defer></script>
 </head>
 <body class="playgroundConsole"><main><div class="runnerContent">
@@ -94,8 +95,15 @@
           <div class="runLaunchActions"><button id="openLocalRun" class="primary" type="button" hidden disabled>Select model and run</button><button id="openSubscriptionInstructions" type="button" aria-haspopup="dialog" aria-controls="codexInstructions">Run via own LLM subscription</button></div><div id="runButtons"><button class="primary" id="run" type="submit" disabled>Run online</button><button type="button" id="openCodexInstructions">Run Locally through Subscription</button><button type="button" id="runAstra" hidden disabled>Run with Astra</button><button type="button" id="runClaude" hidden disabled>Run with Opus</button><button type="button" id="runGroot" hidden disabled>Run GR00T</button></div></div>
         <div id="taskRunFailure" class="taskFailureNotice" role="alert" aria-atomic="true" hidden></div>
         <details id="runSettings"><summary>Settings</summary>
-        <label for="provider">Model</label>
-        <select id="provider"><option value="openai" selected>Astra 6</option><option value="anthropic">Opus 5.5</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option></select>
+        <label for="provider">Provider or policy</label>
+        <select id="provider"><option value="openai" selected>ChatGPT</option><option value="anthropic">Claude</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option></select>
+        <div id="modelSettings">
+          <label for="model">Model</label>
+          <input id="model" value="gpt-6-astra" list="availableModels" maxlength="128" spellcheck="false" autocapitalize="none" aria-describedby="modelCatalogStatus">
+          <datalist id="availableModels"></datalist>
+          <button id="refreshModels" type="button">Refresh models</button>
+          <p id="modelCatalogStatus" class="help" role="status">Choose Astra or GPT 6.1+, or Claude Opus 5.5+. You can enter a new model ID directly.</p>
+        </div>
         <div id="aspireRetrySettings" hidden>
           <label for="automaticRetryLimit">Automatic recovery retry limit</label>
           <input id="automaticRetryLimit" type="number" min="0" max="3" step="1" value="1" aria-describedby="automaticRetryHelp">
@@ -103,7 +111,12 @@
         </div>
         <div id="effortField" hidden>
           <label for="reasoningEffort">Thinking effort</label>
-          <select id="reasoningEffort" aria-describedby="effortHelp"><option value="low">Low — fastest</option><option value="medium">Medium — balanced</option><option value="high">High — more reasoning</option></select>
+          <select id="reasoningEffort" aria-describedby="effortHelp"><option value="low">Low — fastest</option><option value="medium">Medium — balanced</option><option value="high">High — more reasoning</option><option value="xhigh" data-codex-only hidden disabled>Extra high</option><option value="max" data-codex-only hidden disabled>Max</option><option value="ultra" data-codex-only hidden disabled>Ultra</option></select>
+          <div id="reasoningBar" class="reasoningBar" hidden>
+            <div class="reasoningHeading"><div><strong id="reasoningLabel">Low</strong><span id="reasoningModel"></span></div><button id="resetReasoning" type="button" aria-label="Reset reasoning to model default" title="Reset to model default">↺</button></div>
+            <input id="reasoningLevel" type="range" min="0" max="5" step="1" value="0" list="reasoningTicks" aria-label="Thinking effort" aria-describedby="effortHelp">
+            <datalist id="reasoningTicks"></datalist>
+          </div>
           <p id="effortHelp" class="help">Applies to your next run. Higher effort may improve decisions but takes longer.</p>
         </div>
         <div id="speedField" hidden>
@@ -117,7 +130,6 @@
         </div>
         <!-- application-payment-options -->
         <div id="providerFields">
-          <label for="model" hidden>Model</label><input id="model" hidden value="gpt-6-astra" maxlength="128" spellcheck="false">
           <label id="apiKeyLabel" for="apiKey">OpenAI API key</label>
           <input id="apiKey" type="password" required autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="4096" placeholder="Paste a dedicated API key here" aria-describedby="apiKeyLinks">
           <p class="help" id="apiKeyLinks">Generate new key <a id="apiKeyCreate" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">here</a><br>Make sure you have <span id="apiKeyCreditProvider">OpenAI</span> credits <a id="apiKeyBilling" href="https://platform.openai.com/account/billing/overview" target="_blank" rel="noopener noreferrer">here</a></p>

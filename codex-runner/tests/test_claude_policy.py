@@ -111,6 +111,34 @@ class ClaudeStatusTests(unittest.TestCase):
 
 
 class ClaudePolicyTests(unittest.TestCase):
+    def test_private_executor_retains_decision_validation_and_has_no_http_fallback(self):
+        from remote_yam.anthropic_policy import AnthropicAdapter
+        from remote_yam.claude_policy import use_claude_executor
+        provider = AnthropicAdapter('temporary-transport-placeholder', 'claude-opus-5-5')
+        self.addCleanup(lambda:provider.close_transport())
+        calls=[]
+        def execute(**kwargs):
+            calls.append(kwargs)
+            return [{'type':'thread.started','thread_id':SESSION},
+                    {'type':'item.completed','item':{'type':'agent_message','text':json.dumps(decision())}},
+                    {'type':'turn.completed'}]
+        closed=[]
+        use_claude_executor(provider, execute, close=lambda:closed.append(True))
+        self.assertEqual(provider._api_key,'')
+        self.assertEqual(provider.public_config()['funding'],'sponsored_claude_subscription')
+        provider.reasoning_effort = 'xhigh'
+        with patch.object(provider, '_send_json', side_effect=AssertionError('must not bill API')):
+            result=provider._post_json(payload())
+        self.assertEqual(result['output'][0]['name'],'done')
+        self.assertEqual(calls[0]['model'],'claude-opus-5-5')
+        self.assertEqual(calls[0]['reasoning_effort'],'xhigh')
+        self.assertEqual(len(calls[0]['images']),3)
+        self.assertFalse(list(Path(provider._workspace.name).glob('camera-*')))
+        provider._decision_executor=lambda **kwargs:(_ for _ in ()).throw(RuntimeError('subscription unavailable'))
+        with patch.object(provider, '_send_json', side_effect=AssertionError('must not bill API')):
+            with self.assertRaisesRegex(RuntimeError,'subscription unavailable'):
+                provider._post_json(payload(prior=2))
+
     def provider(self, **kwargs):
         with patch('remote_yam.claude_policy.claude_status', return_value={'ready': True}), \
              patch('remote_yam.claude_policy.claude_binary', return_value='/bin/claude'):

@@ -5,7 +5,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf
 const helperStart = source.indexOf('function aspireConfiguredRun(');
 const helperEnd = source.indexOf('// ASPIRE task progress is shared;', helperStart);
 const helperSource = source.slice(helperStart, helperEnd);
-const providerBody = source.split('  function providerChanged() {')[1].split("  $('provider').addEventListener('change', () => { providerChanged()")[0];
+const providerBody = source.split('  function providerChanged(preview = true) {')[1].split("  if (window.createBlupeModelPicker) {")[0];
 const submitBody = source.split("  $('runForm').addEventListener('submit', async event => {")[1].split("  for (const [id, path, text] of [")[0];
 function fixture(provider = 'aspire', available = true) {
   const nodes = {}, handlers = {}, events = [], requests = [];
@@ -34,7 +34,7 @@ function fixture(provider = 'aspire', available = true) {
   vm.runInContext('let submitting=false,active=false,ended=false,contactRequested=false;' +
     "$('runForm').addEventListener('submit', async event => {" + submitBody, context);
   return {$, context, events, requests, storage,changeLimit:()=>handlers.automaticRetryLimit(),resolve, reject, ready:()=>new Promise(resolve=>setImmediate(resolve)),submit:() => handlers.runForm({preventDefault(){}}),
-    change:vm.runInContext('(function(){'+providerBody+')',context)};
+    change:vm.runInContext('(function(preview = true){'+providerBody+')',context)};
 }
 
 test('ASPIRE is available only through a configured local Codex depth station', () => {

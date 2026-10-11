@@ -371,6 +371,7 @@ class LocalPlaygroundTests(unittest.IsolatedAsyncioTestCase):
         code,body=await self.call('/')
         self.assertEqual(code,200)
         self.assertIn(b'aria-label="Task prompt"',body)
+        self.assertIn(b'/static/model-picker.js',body)
         self.assertIn(b'liveConversationPanel',body)
         self.assertNotIn(b'YOUR LOCAL',body)
         code,_=await self.call('/static/hls.light.min.js')
