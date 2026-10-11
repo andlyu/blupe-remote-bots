@@ -327,6 +327,7 @@ function renderStepMetricsChart(container, timings) {
   const originalProviderMarkup = $('provider').innerHTML;
   let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'yam-1', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
   let ownRunLive = false, conversationSharingAllowed = true;
+  let grootModel = 'groot-reviewed-step10000';
   let csrf = '', ended = false, submitting = false, active = false, lastHistory = 0, contactRequested = false;
   function message(text, error = false) {
     for (const id of ['message', 'localRunMessage']) { $(id).textContent = text; $(id).classList.toggle('error', error); }
@@ -538,7 +539,8 @@ function renderStepMetricsChart(container, timings) {
     setupProvider = null;
     if ($('provider').value === 'groot') {
       $('providerFields').hidden = true; $('apiKey').required = false;
-      $('apiKey').value = ''; $('model').value = 'groot-reviewed-step10000';
+      $('apiKey').value = ''; $('model').value = grootModel;
+      $('prompt').readOnly = false;
       $('policyHelp').textContent = 'GR00T warms up as soon as you join the queue. It runs when your turn and the GPU are ready.';
       updateRunLabel(); return;
     }
@@ -1497,7 +1499,11 @@ function renderStepMetricsChart(container, timings) {
         providerChanged();
       }
       $('runGroot').hidden = !session.groot_enabled;
-      if (session.groot_enabled) $('provider').append(Object.assign(document.createElement('option'), {value:'groot',textContent:'GR00T'}));
+      grootModel = session.groot_model || 'groot-reviewed-step10000';
+      if (session.groot_enabled) {
+        $('runGroot').textContent = 'Run ' + (session.groot_label || 'GR00T');
+        $('provider').append(Object.assign(document.createElement('option'), {value:'groot',textContent:session.groot_label || 'GR00T'}));
+      }
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
       camerasDisconnected = robotCatalog?.robots.find(robot => robot.id === selectedRobot)?.connected === false;
