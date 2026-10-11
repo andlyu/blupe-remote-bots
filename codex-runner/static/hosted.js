@@ -1971,7 +1971,7 @@ function createRunLaunchGuard() {
       await window.yamApplication?.sessionReady?.(session, applicationContext());
       if (session.joint_policy) {
         const selected = $('provider').value;
-        const allowed = new Set(['openai', ...(session.codex ? ['codex'] : []),
+        const allowed = new Set(['openai', ...(session.guest_runs?.providers || []), ...(session.codex ? ['codex'] : []),
           ...(session.claude_supported ? ['anthropic', ...(session.claude ? ['claude'] : [])] : [])]);
         $('provider').replaceChildren(...Array.from($('provider').options).filter(option => allowed.has(option.value)));
         if (allowed.has(selected)) $('provider').value = selected;
