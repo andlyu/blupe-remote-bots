@@ -834,7 +834,8 @@ function createRunLaunchGuard() {
     window.yamAnalytics?.requested($('provider').value, $('model').value.trim());
     payload = {runner_name: $('runnerName').value.trim(), provider: $('provider').value === 'aspire' ? 'codex' : $('provider').value, model: $('model').value.trim(),
       email: $('email').value.trim(), share_conversation: $('shareConversation').checked,
-      prompt: $('prompt').value, run_duration_s:Number($('runDuration').value)*60, api_key: $('apiKey').value.trim()};
+      prompt: $('prompt').value, run_duration_s:Number($('runDuration').value)*60, api_key: $('apiKey').value.trim(),
+      ...window.yamSystemPrompt?.payload()};
     if ($('provider').value === 'aspire') {payload.use_api_depth = true;payload.automatic_retry_limit=aspireRetryLimit($('automaticRetryLimit').value);}
     else if(aspireRunAvailable && payload.provider === 'codex') payload.use_api_depth = false;
     else if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
@@ -1126,6 +1127,7 @@ function createRunLaunchGuard() {
     }
     const duration = live.run_duration_s || live.requested_duration_s;
     if (Number.isFinite(duration) && duration > 0) lines.push('Time limit: ' + (duration / 60) + ' min');
+    if (own.system_prompt_label) lines.push('System prompt: ' + own.system_prompt_label);
     const key = lines.join('\n');
     if (card.dataset.content === key) return;
     card.dataset.content = key;
@@ -2046,6 +2048,7 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      window.yamSystemPrompt?.configure(session.system_prompts, session.robot_id);
       $('openCodexInstructions').hidden = !!session.local_runner;
       $('conversationSharingSettings').hidden = !session.local_runner;
       $('shareConversation').checked = session.share_conversation !== false;
@@ -2282,10 +2285,10 @@ window.yamRecordingView = function(video, roles) {
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
   for (const child of [...options.children]) {
-    if (child !== duration && child !== $('effortField')) advanced.append(child);
+    if (child !== duration && child !== $('effortField') && child !== $('systemPromptSettings')) advanced.append(child);
   }
   options.prepend(pickerHeader, $('effortField'));
-  options.append(advanced);
+  options.append($('systemPromptSettings'), advanced);
   function modelChoice(option, selectedId) {
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
@@ -2302,6 +2305,7 @@ window.yamRecordingView = function(video, roles) {
     return {id,label};
   }
   function updateComposer() {
+    window.yamSystemPrompt?.sync();
     // Hosted funding hooks rebuild these options; preserve their provider values.
     for (const option of provider.options) {
       const choice = modelChoice(option);
