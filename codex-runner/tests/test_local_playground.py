@@ -37,11 +37,16 @@ class LauncherTests(unittest.TestCase):
         from local_playground import serve
         args = SimpleNamespace(port=8787, session_api=None, camera_origin=None,
                                allow_hardware_control=False, provider='codex', no_browser=True)
-        with patch.dict('os.environ', {'YAM_GROOT_KEY_FILE':'/private/service/runpod-key'}), \
+        groot={'model':'groot-northstar-purple-crate-step10000','label':'groot - blocks',
+               'robot_ids':['yam-1'],'endpoint':'https://testendpoint.api.runpod.ai',
+               'norm_tag':'yam_northstar_purple_crate'}
+        with patch.dict('os.environ', {'YAM_GROOT_KEY_FILE':'/private/service/runpod-key',
+                                     'YAM_GROOT_CONFIG':json.dumps(groot)}), \
                 patch('multi_robot.fleet') as fleet, patch('uvicorn.Config') as config, \
                 patch('uvicorn.Server'):
             serve(args)
         self.assertEqual(fleet.call_args.args[1]['groot_key_file'], '/private/service/runpod-key')
+        self.assertEqual(fleet.call_args.args[1]['groot_config'], groot)
 
     def test_command_submission_defaults_on_with_explicit_monitor_opt_out(self):
         from run import main

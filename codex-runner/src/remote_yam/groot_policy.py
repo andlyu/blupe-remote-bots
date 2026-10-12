@@ -6,21 +6,35 @@ import math
 import threading
 import time
 from urllib import request
+from urllib.parse import urlsplit
+import re
 from .cameras import NoRedirect
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
 
 MODEL = 'groot-reviewed-step10000'
 ENDPOINT = 'https://3xjhrdbhwcnux3.api.runpod.ai'
-MAX_JOINT_STEP_RAD = .01
 
 
 class GrootAdapter:
     provider_name = 'groot'
     model = MODEL
 
-    def __init__(self, api_key, *, camera_source):
+    def __init__(self, api_key, *, camera_source, model=MODEL, endpoint=ENDPOINT,
+                 norm_tag='yam_reviewed_groot', artifact_sha256=''):
         if not api_key.strip():
             raise ValueError('GR00T service credential is missing')
+        location = urlsplit(endpoint)
+        if (location.scheme != 'https' or not re.fullmatch(r'[a-z0-9]+\.api\.runpod\.ai', location.netloc)
+                or location.path not in ('', '/') or location.query or location.fragment):
+            raise ValueError('GR00T requires a configured RunPod endpoint')
+        match = re.fullmatch(r'groot-[a-z0-9-]+-step(\d+)', model)
+        if not match or artifact_sha256 and not re.fullmatch(r'[0-9a-f]{64}', artifact_sha256):
+            raise ValueError('Invalid GR00T checkpoint identity')
+        self.model = model
+        self._step = int(match[1])
+        self._endpoint = endpoint.rstrip('/')
+        self._norm_tag = norm_tag
+        self._artifact_sha256 = artifact_sha256
         self._api_key = api_key.strip()
         self._camera_source = camera_source
         self.cancelled = lambda: False
@@ -36,7 +50,7 @@ class GrootAdapter:
                 'warmup': self._warm_state, 'api_key_configured': bool(self._api_key)}
 
     def _json(self, path, payload=None):
-        req = request.Request(ENDPOINT + path, data=None if payload is None else json.dumps(payload).encode(),
+        req = request.Request(self._endpoint + path, data=None if payload is None else json.dumps(payload).encode(),
                               headers={'Authorization': 'Bearer '+self._api_key, 'Content-Type':'application/json'})
         try:
             with self._opener.open(req, timeout=12) as response:
@@ -58,8 +72,10 @@ class GrootAdapter:
             try:
                 h = self._json('/health')
                 if not (h.get('ok') and h.get('cuda_available') and h.get('device') == 'cuda:0'
-                        and h.get('checkpoint_step') == 10000 and h.get('action_dim') == 14
-                        and h.get('num_actions') == 30 and h.get('norm_tag') == 'yam_reviewed_groot'):
+                        and h.get('checkpoint_step') == self._step and h.get('action_dim') == 14
+                        and h.get('num_actions') == 30 and h.get('norm_tag') == self._norm_tag
+                        and self.model in h.get('available_models', [])
+                        and (not self._artifact_sha256 or h.get('artifact_sha256') == self._artifact_sha256)):
                     raise RuntimeError('GR00T checkpoint contract mismatch')
                 self._warm_state = 'ready'; self._ready.set(); deadline = time.monotonic()+600
                 delay = 30
@@ -101,52 +117,34 @@ class GrootAdapter:
                 image.convert('RGB').resize((640,360)).save(output,format='JPEG')
             images[frame.name+'_cam'] = {'encoding':'jpeg_base64','data':base64.b64encode(output.getvalue()).decode()}
         if self.cancelled(): raise RuntimeError('GR00T cancelled')
-        result = self._json('/act', {'model':MODEL,'instruction':prompt,'state':state,'images':images,'action_units':'radians'})
+        result = self._json('/act', {'model':self.model,'instruction':prompt,'state':state,'images':images,'action_units':'radians'})
         rows = result.get('actions')
-        if (result.get('model') != MODEL or result.get('checkpoint_step') != 10000
+        if (result.get('model') != self.model or result.get('checkpoint_step') != self._step
                 or result.get('action_units') != 'radians' or not isinstance(rows,list) or len(rows)!=30
                 or any(not isinstance(r,list) or len(r)!=14 or not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in r) for r in rows)
                 or any(not 0<=r[i]<=1 for r in rows for i in (6,13))):
             raise ValueError('Invalid GR00T action chunk')
         if self.cancelled(): raise RuntimeError('GR00T cancelled')
-        return self._bounded_trajectory(state, rows, first_step_id)
+        return self._gateway_trajectory(rows, first_step_id)
 
-    def _bounded_trajectory(self, state, rows, first_step_id):
-        # Retain the existing 30 Hz -> 10 Hz sampling. If the learned targets
-        # exceed the runner's conservative step bound, dilate the WHOLE chunk
-        # by one factor. Independent per-target ramps change the relative timing
-        # of the learned movement. Both arms and grippers use the same clock.
+    def _gateway_trajectory(self, rows, first_step_id):
+        # Keep the nominal one-second duration when sampling 30 Hz actions for
+        # the 10 Hz gateway. The gateway validates motion limits; this adapter
+        # preserves the selected targets without retiming, clamping or truncation.
         targets = rows[2::3]
-        joints = (0,1,2,3,4,5,7,8,9,10,11,12)
-        previous = state
-        max_delta = 0.
-        for target in targets:
-            max_delta = max(max_delta, max(abs(target[j]-previous[j]) for j in joints))
-            previous = target
         capacity = min(MAX_WAYPOINTS_PER_PACKET, MAX_COMMANDS-first_step_id)
-        max_scale = capacity // len(targets)
-        # Check before ceil/allocation, including finite inputs whose subtraction
-        # overflows. Never truncate an oversized chunk to fit the packet budget.
-        if max_scale < 1 or max_delta > MAX_JOINT_STEP_RAD*max_scale+1e-12:
-            raise ValueError('GR00T trajectory exceeds gateway budget at the joint-step limit '
-                             f'(largest sampled change {max_delta:.4g} rad; {capacity} waypoints available)')
-        scale = max(1, math.ceil((max_delta-1e-12)/MAX_JOINT_STEP_RAD))
+        if len(targets) > capacity:
+            raise ValueError('GR00T trajectory exceeds gateway budget; chunk rejected without truncation')
         points = []
-        previous = state
         for target in targets:
-            for tick in range(1, scale+1):
-                if self.cancelled(): raise RuntimeError('GR00T cancelled')
-                values = target if tick == scale else [a+(b-a)*tick/scale for a,b in zip(previous,target)]
-                points.append({'step_id':first_step_id+len(points),
-                    'left_joints_deg':[math.degrees(v) for v in values[:6]],
-                    'right_joints_deg':[math.degrees(v) for v in values[7:13]],
-                    'left_gripper':values[6], 'right_gripper':values[13]})
-            previous = target
-        if scale > 1:
-            self.interaction_sink('trajectory_timing', 'GR00T motion slowed to stay within joint limits',
-                source_duration_s=1., playback_duration_s=len(points)/10,
-                time_scale=scale, max_sampled_joint_delta_rad=max_delta,
-                max_joint_step_rad=MAX_JOINT_STEP_RAD, waypoint_count=len(points))
+            if self.cancelled(): raise RuntimeError('GR00T cancelled')
+            left = [math.degrees(v) for v in target[:6]]
+            right = [math.degrees(v) for v in target[7:13]]
+            if not all(math.isfinite(v) for v in left+right):
+                raise ValueError('GR00T targets must convert to finite gateway angles')
+            points.append({'step_id':first_step_id+len(points),
+                'left_joints_deg':left, 'right_joints_deg':right,
+                'left_gripper':target[6], 'right_gripper':target[13]})
         return points
 
     def trajectory_completed(self, observation, waypoint_count):

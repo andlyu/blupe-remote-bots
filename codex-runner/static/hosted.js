@@ -438,6 +438,7 @@ function createRunLaunchGuard() {
   const originalProviderMarkup = $('provider').innerHTML;
   let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'yam-1', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
   let ownRunLive = false, conversationSharingAllowed = true;
+  let grootModel = 'groot-reviewed-step10000';
   let csrf = '', ended = false, submitting = false, active = false, lastHistory = 0, contactRequested = false;
   const runLaunchGuard = createRunLaunchGuard();
   window.addEventListener('blupe-robot-selected', () => runLaunchGuard.reset());
@@ -726,7 +727,8 @@ function createRunLaunchGuard() {
     }
     if ($('provider').value === 'groot') {
       $('providerFields').hidden = true; $('apiKey').required = false;
-      $('apiKey').value = ''; $('model').value = 'groot-reviewed-step10000';
+      $('apiKey').value = ''; $('model').value = grootModel;
+      $('prompt').readOnly = false;
       $('policyHelp').textContent = 'GR00T warms up as soon as you join the queue. It runs when your turn and the GPU are ready.';
       window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel(); return;
@@ -2101,7 +2103,14 @@ function createRunLaunchGuard() {
         providerChanged();
       }
       $('runGroot').hidden = !session.groot_enabled;
-      if (session.groot_enabled) $('provider').append(Object.assign(document.createElement('option'), {value:'groot',textContent:'GR00T'}));
+      grootModel = session.groot_model || 'groot-reviewed-step10000';
+      if (session.groot_enabled) {
+        $('runGroot').textContent = 'Run ' + (session.groot_label || 'GR00T');
+        const grootOption = Object.assign(document.createElement('option'), {value:'groot',textContent:session.groot_label || 'GR00T'});
+        grootOption.dataset.model = grootModel;
+        grootOption.dataset.label = grootOption.textContent;
+        $('provider').append(grootOption);
+      }
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
       if (!session.local_runner && !session.joint_policy) providerChanged(false);
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
