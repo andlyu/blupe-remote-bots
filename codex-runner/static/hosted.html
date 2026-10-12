@@ -8,6 +8,7 @@
   <!-- application-head -->
   <script src="/static/stream-health.js" defer></script>
   <script src="/static/model-picker.js" defer></script>
+  <script src="/static/system-prompt.js" defer></script>
   <script src="/static/hosted.js" defer></script>
 </head>
 <body class="playgroundConsole"><main><div class="runnerContent">
@@ -132,6 +133,17 @@
           <select id="responseSpeed" aria-describedby="speedHelp"><option value="fast" selected>Fast</option><option value="standard">Standard</option></select>
           <p id="speedHelp" class="help">Fast uses the provider's faster inference tier where available. It can use more credits; thinking effort and arm speed are separate.</p>
         </div>
+        <details id="systemPromptSettings" hidden>
+          <summary>System prompt <span id="systemPromptName"></span></summary>
+          <label for="systemPromptPreset">Starting prompt</label>
+          <select id="systemPromptPreset"></select>
+          <label for="systemPromptText">System prompt for this model</label>
+          <textarea id="systemPromptText" rows="10" maxlength="16000" spellcheck="false" aria-describedby="systemPromptHelp"></textarea>
+          <button id="resetSystemPrompt" type="button">Reset to model default</button>
+          <p id="systemPromptHelp" class="help">Saved for this model in this browser. Applies to your next run. Robot limits still apply.</p>
+          <p id="systemPromptNote" class="help"></p>
+          <a id="systemPromptSource" target="_blank" rel="noopener noreferrer" hidden>View reference run</a>
+        </details>
         <div id="apiDepthSettings" hidden>
           <label class="conversationSharing"><input id="useApiDepth" type="checkbox" aria-describedby="apiDepthHelp"> Use depth from the API</label>
           <p id="apiDepthHelp" class="help">Send paired color and depth with camera calibration. Astra can query measured depth at camera pixels.</p>
