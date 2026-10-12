@@ -189,7 +189,7 @@ async function disclosureFixture({fetchCatalog,hostname='127.0.0.1'} = {}) {
   const nodes={};
   for(const id of ['liveConversationPanel','sidePrompt','prompt','robotSelector','provider','sideConversationTitle',
     'sideConversationState','sideConversationMessages','conversationModeTitle','currentRunner','currentPrompt',
-    'conversationState','sideRunner','reasoningButton','taskRunFailure','policyRouteNotice']) {
+    'conversationState','sideRunner','reasoningButton','taskRunFailure','policyRouteNotice','astraStream']) {
     const element=new Element(id==='sidePrompt' ? 'p' : 'div');element.id=id;nodes[id]=element;root.append(element);
   }
   nodes.liveConversationPanel.dataset.mode='reasoning';nodes.robotSelector.value='fixture';nodes.provider.value='aspire';
@@ -200,7 +200,7 @@ async function disclosureFixture({fetchCatalog,hostname='127.0.0.1'} = {}) {
   const fixtureCatalog={robot_id:'fixture',episodes:[episode],recipes:[]};
   const document={createElement:tag=>new Element(tag),
     getElementById:id=>root.descendants().find(node=>node.id===id),
-    querySelector:selector=>selector==='[data-conversation-mode="reasoning"]' ? nodes.reasoningButton : null};
+    querySelector:selector=>selector==='[data-conversation-mode="reasoning"]' ? nodes.reasoningButton : selector==='.astraStream' ? nodes.astraStream : null};
   const intervals=[];const window={addEventListener(){},setInterval(callback){intervals.push(callback);}};
   const c=vm.createContext({document,window,location:{hostname,search:''},URLSearchParams,
     fetch:async()=>({ok:true,json:async()=>fetchCatalog ? fetchCatalog(fixtureCatalog) : fixtureCatalog})});
@@ -459,20 +459,18 @@ test('owner diagnostic replaces a generic public error in the chat failure', asy
   assert.equal(f.lastRun().error,reason,'conversation and camera notes use the resolved diagnostic too');
 });
 
-test('hosted failures without native progress appear as chat messages', async () => {
+test('hosted failures preserve normal conversation messages', async () => {
   for(const status of ['failed','stopped','timed_out','disconnected']) {
     const f=await disclosureFixture({hostname:'playground.blupe.io'});
     f.nodes.provider.value='guest_astra';
     const reason='RuntimeError: right_tip_outside_workspace';
-    f.poll({attempt_id:'ordinary-astra',task:'Place the block.',status,error:reason});
+    const note={kind:'model_response',message:'move_to: {"note":"Picking up the block."}'};
+    f.poll({attempt_id:'ordinary-astra',task:'Place the block.',status,error:reason,events:[note]});
     const panel=f.document.getElementById('aspireTaskPanel');
-    assert.equal(panel.hidden,false,status);
-    assert.equal(panel.dataset.enabled,'true');
-    const failure=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
-    assert.ok(failure,'failure is a chat message for '+status);
-    assert.match(f.allText(failure),/Place the block[\s\S]*right_tip_outside_workspace/);
-    assert.equal(f.nodes.taskRunFailure.hidden,true);
-    assert.equal(f.nodes.sideConversationMessages.hidden,true);
+    assert.equal(panel.hidden,true,status);
+    assert.equal(f.nodes.sideConversationMessages.hidden,false);
+    assert.equal(f.events()[0],note);
+    assert.equal(f.events().at(-1).message,reason);
   }
 });
 
@@ -481,50 +479,49 @@ test('owner errors without native progress replace the generic error for the sam
   f.nodes.provider.value='guest_astra';
   const run={attempt_id:'ordinary-astra',task:'Place the block.',status:'stopped',error:'The run encountered a model or runner error.'};
   f.poll(run,{attempt_id:'ordinary-astra',status:'stopped',error:'RuntimeError: exact preparation failure'});
-  const failure=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
-  assert.match(f.allText(failure),/exact preparation failure/);
-  assert.doesNotMatch(f.allText(failure),/model or runner error/);
+  assert.equal(f.events().at(-1).message,'RuntimeError: exact preparation failure');
   f.poll(run,{attempt_id:'another-attempt',status:'stopped',error:'Unrelated error'});
-  assert.doesNotMatch(f.allText(f.work),/Unrelated error/);
+  assert.equal(f.events().at(-1).message,run.error);
 });
 
 test('Astra fallback failures include the owner diagnostic in chat', async () => {
   const f=await disclosureFixture();
   const route={actual_policy:'astra',prompt:'Uncap a pen'};
-  f.poll({attempt_id:'fallback',task:route.prompt,status:'running'},
+  const events=[{kind:'model_response',message:'move_to: {"note":"Inspecting the pen."}'}];
+  f.poll({attempt_id:'fallback',task:route.prompt,status:'running',events},
     {attempt_id:'fallback',status:'running',provider:{launch_route:route}});
   assert.equal(f.document.getElementById('aspireTaskPanel').hidden,true,'active fallback keeps its response notes');
   const reason='RuntimeError: trajectory rejected before motion';
-  f.poll({attempt_id:'fallback',task:route.prompt,status:'stopped',error:'The run encountered a model or runner error.'},
+  f.poll({attempt_id:'fallback',task:route.prompt,status:'stopped',events,error:'The run encountered a model or runner error.'},
     {attempt_id:'fallback',status:'stopped',error:reason,provider:{launch_route:route}});
-  const failure=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
-  assert.ok(failure,'fallback failure uses the chat');
-  assert.match(f.allText(failure),/Uncap a pen[\s\S]*trajectory rejected before motion/);
-  assert.doesNotMatch(f.allText(failure),/model or runner error/);
-  assert.equal(f.nodes.taskRunFailure.hidden,true);
+  assert.equal(f.document.getElementById('aspireTaskPanel').hidden,true,'failed fallback keeps its response notes');
+  assert.equal(f.nodes.sideConversationMessages.hidden,false);
+  assert.equal(f.events()[0],events[0]);
+  assert.equal(f.events().at(-1).message,reason,'owner diagnostic is appended to the same conversation');
+  assert.equal(f.nodes.sidePrompt.textContent,route.prompt);
 });
 
-test('rejected hosted preparation without progress appears in chat', async () => {
+test('rejected hosted preparation keeps the normal conversation visible', async () => {
   const f=await disclosureFixture({hostname:'playground.blupe.io'});
   f.nodes.provider.value='guest_astra';
   f.api.requested('Place the block.',1,false);
   const reason='ValueError: request preparation failed';
   f.api.rejected(reason,1);
-  const panel=f.document.getElementById('aspireTaskPanel');
-  assert.equal(panel.hidden,false);
-  const failure=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
-  assert.ok(failure);
-  assert.match(f.allText(failure),/request preparation failed/);
+  assert.equal(f.document.getElementById('aspireTaskPanel').hidden,true);
+  f.poll({task:'Place the block.',status:'failed',error:reason});
+  assert.equal(f.nodes.sideConversationMessages.hidden,false);
+  assert.equal(f.events().at(-1).message,reason);
 });
 
-test('local submissions without native progress keep failure inside chat', async () => {
+test('local submissions without native progress keep failure in the normal conversation', async () => {
   const f=await disclosureFixture();
+  f.nodes.provider.value='codex';
   f.api.requested('Place the block.',1,false);
   f.api.accepted('ordinary-astra',1);
   f.poll({attempt_id:'ordinary-astra',task:'Place the block.',status:'failed',error:'RuntimeError: task failed'});
-  assert.equal(f.document.getElementById('aspireTaskPanel').hidden,false);
-  assert.match(f.allText(f.work),/Task failed[\s\S]*RuntimeError: task failed/);
-  assert.equal(f.nodes.taskRunFailure.hidden,true);
+  assert.equal(f.document.getElementById('aspireTaskPanel').hidden,true);
+  assert.equal(f.nodes.sideConversationMessages.hidden,false);
+  assert.equal(f.events().at(-1).message,'RuntimeError: task failed');
 });
 
 test('stopped, queued and running tasks without lineage do not claim to be preparing', async () => {
@@ -1010,4 +1007,43 @@ test('local README guidance is scoped to ASPIRE failures and final unverified ou
  assert(context.aspireActivityEntries(run).find(row=>row.id==='parked-outcome').localSetup);
  for(const status of ['preparing','queued','running']) assert.equal(context.aspireActivityEntries({...run,status}).find(row=>row.id==='parked-outcome').localSetup,'');
  assert.equal(context.aspireActivityEntries({...run,task_progress:{outcome:{status:'SUCCESS',success:true}}}).find(row=>row.id==='parked-outcome').localSetup,'');
+});
+
+
+test('normal and fallback runs keep their conversation visible when they time out or fail', async () => {
+  for(const provider of ['codex','claude','openai','aspire']) {
+    for(const status of ['timed_out','failed','stopped','disconnected']) {
+      const f=await disclosureFixture();
+      f.nodes.provider.value=provider;
+      const task='Stack all 3 blocks';
+      const route=provider==='aspire' ? {actual_policy:'astra',prompt:task} : null;
+      const notes=[
+        {id:1,kind:'model_response',message:'move_to: {"note":"Picking up the first block."}',timestamp:1},
+        {id:2,kind:'model_response',message:'move_to: {"note":"Placing the second block."}',timestamp:2}
+      ];
+      f.api.requested(task,1,provider==='aspire');
+      f.api.accepted('current',1,route);
+      const run={attempt_id:'current',task,status:'running',model_name:provider==='claude' ? 'Claude' : 'Astra',
+        launch_route:route,events:notes};
+      f.poll(run);
+      const panel=f.document.getElementById('aspireTaskPanel');
+      assert.equal(panel.hidden,true,'model conversation is visible while running');
+      const error=status==='timed_out' ? 'Policy runtime limit exceeded; station parking at zero' : 'Runner connection failed';
+      for(let poll=0;poll<3;poll++) {
+        f.poll({...run,status,error,ended_at:3});
+        assert.equal(panel.hidden,true,provider+' '+status+' must not replace the conversation with ASPIRE');
+        assert.equal(f.nodes.sideConversationMessages.hidden,false);
+        assert.equal(f.nodes.astraStream.hidden,false);
+        assert.deepEqual(Array.from(f.events().slice(0,2)),notes);
+        assert.equal(f.events().at(-1).message,error);
+        assert.equal(f.events().at(-1).speaker,'Run error');
+        assert.equal(f.nodes.sidePrompt.textContent,task);
+      }
+      assert.equal(run.events.length,2,'rendering the failure preserves recorded messages');
+      f.api.requested('Next task',2,provider==='aspire');
+      f.api.accepted('next',2,route && {...route,prompt:'Next task'});
+      f.poll({attempt_id:'next',task:'Next task',status:'preparing',events:[],launch_route:route && {...route,prompt:'Next task'}});
+      assert.equal(f.events().length,0,'a new attempt clears the prior conversation and failure');
+    }
+  }
 });

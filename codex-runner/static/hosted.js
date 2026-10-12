@@ -3074,7 +3074,9 @@ function aspireTaskWorking(run) {
         (liveState?.attempt_id && liveState.attempt_id === liveRun.attempt_id)));
     const fallback = !draftPreview && (liveRun?.launch_route || liveState?.provider?.launch_route)?.actual_policy === 'astra';
     const stationMatches = catalog ? robot === catalog.robot_id : !!liveRun?.task_progress;
-    const enabled = currentFailure || !!(!fallback && stationMatches && ($('provider')?.value === 'aspire' || liveRun?.task_progress || selected !== 'preview'));
+    // Errors belong to the run's existing conversation. Enabling ASPIRE solely
+    // for a failure hides normal model messages, including Astra fallback runs.
+    const enabled = !!(!fallback && stationMatches && ($('provider')?.value === 'aspire' || liveRun?.task_progress || selected !== 'preview'));
     const reasoning = $('liveConversationPanel')?.dataset.mode === 'reasoning';
     if(panel.dataset.enabled !== String(enabled)) panel.dataset.enabled = String(enabled);
     setHidden(panel,!enabled || !reasoning);setHidden(selectorBox,!enabled || !reasoning);
