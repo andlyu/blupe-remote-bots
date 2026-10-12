@@ -1112,6 +1112,10 @@ function createRunLaunchGuard() {
       const providerNames = {codex:'Codex / ChatGPT subscription',claude:'Claude Code / Claude subscription',openai:'OpenAI API',anthropic:'Anthropic API',groot:'GR00T policy',local_raise_lower:'Built-in arm motion'};
       if (route.requested_policy && route.actual_policy)
         lines.push('Route: ' + route.requested_policy + ' → ' + route.actual_policy);
+      else if (own.funding === 'sponsored_claude_subscription')
+        lines.push('Runner: Claude Code · BluPe’s Claude subscription');
+      else if (own.funding === 'sponsored_codex_subscription')
+        lines.push('Runner: Codex · BluPe’s ChatGPT subscription');
       else if (providerNames[own.provider]) lines.push('Runner: ' + providerNames[own.provider]);
       else lines.push('Runner route: not recorded in this public run.');
       if (route.message) lines.push(route.message);
