@@ -680,6 +680,12 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole #liveViewer[data-detail-layout="side"] figure[data-camera-role="top"]{grid-column:2;grid-row:2}
 .playgroundConsole #liveViewer[data-detail-layout="side"] figure[data-camera-role="right"]{grid-column:2;grid-row:3}
 .playgroundConsole #liveViewer[data-layout="single"]{grid-template:1fr/1fr}
+/* RoboHouse uses one full-height feed; the live notice must not reserve a camera row. */
+.playgroundConsole #liveViewer[data-layout="top-with-grippers"]{--top-caption-height:0px;grid-template-rows:minmax(0,1fr)}
+.playgroundConsole #liveViewer[data-layout="top-with-grippers"]:has(>.viewerCue:not([hidden])){grid-template-areas:"top"}
+.playgroundConsole #liveViewer[data-layout="top-with-grippers"]>.viewerCue{position:absolute;grid-area:auto;inset:var(--camera-inset) 48px auto var(--camera-inset);z-index:2}
+.playgroundConsole #liveViewer[data-layout="top-with-grippers"]>figure[data-camera-role="top"]:not(:fullscreen){height:100%}
+.playgroundConsole #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]):not(:fullscreen){aspect-ratio:16/9}
 .playgroundConsole #liveViewer figure:not(.syncSource){min-width:0;min-height:0;border:0;border-radius:6px;background:#17221b}
 .playgroundConsole #liveViewer figure>figcaption,.playgroundConsole #liveViewer>.liveStopwatch,.playgroundConsole #liveViewer #liveRunControls{display:none}
 .playgroundConsole #liveViewer .syncTilePicture,.playgroundConsole #liveViewer .modelCameraPicture{height:100%;overflow:hidden}
