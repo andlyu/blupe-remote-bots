@@ -53,7 +53,7 @@ class ConversationPublisher:
         return public_text(text)
 
     def add(self, kind, message, **details):
-        if kind not in {'model_request', 'model_response', 'model_progress', 'model_error'}:
+        if kind not in {'model_request', 'model_response', 'model_progress', 'model_error', 'steering_queued'}:
             return
         if kind == 'model_progress' and details.get('progress_type') not in {'summary', 'status'}:
             return

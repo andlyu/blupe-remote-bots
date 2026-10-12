@@ -522,6 +522,8 @@ class HostedRunner:
                 result = {"ok": True}
             elif path == "/api/run":
                 result = await asyncio.to_thread(self.launch, visitor, payload)
+            elif path == '/api/steer':
+                result = await asyncio.to_thread(self.steer, visitor, payload)
             elif path == '/api/models':
                 name = payload.get('provider')
                 allowed = {'openai', 'anthropic'} | ({'codex'} if self.local_codex else set()) | ({'claude'} if self.local_claude else set())
@@ -965,6 +967,20 @@ class HostedRunner:
             return {"ok": True, "saved_key_providers": sorted(visitor.saved_keys),
                     **({'launch_route':launch_route} if launch_route else {}),
                     "attempt_id": current.get('attempt_id'), "status": current['status']}
+
+    def steer(self, visitor, payload):
+        from remote_yam.steering import SteeringError
+        with visitor.lock:
+            if visitor.retired:
+                raise RequestError(401, 'Browser session ended')
+            try:
+                # Authority comes exclusively from the authenticated visitor;
+                # public run/session IDs never select a target controller.
+                row = visitor.controller.steer(payload.get('attempt_id'),
+                    payload.get('text'), payload.get('request_id'))
+            except SteeringError as exc:
+                raise RequestError(exc.status, str(exc)) from None
+            return {'ok': True, 'message': row}
 
     def control(self, visitor, path):
         self.remember_runner(visitor)

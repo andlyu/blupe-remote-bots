@@ -49,6 +49,7 @@ class CallRecorder:
 
 
 class RoboCurveResponsesAdapter(ResponsesAdapter):
+    supports_runtime_steering = True
     response_speed = 'standard'
     actual_response_speed = None
     def __init__(self, api_key, model, endpoint, *, camera_source=None, recording_root=None):
@@ -79,7 +80,10 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
         self._outcome = None
         self._recorder = CallRecorder(recording_root) if recording_root is not None else None
         self.cancelled = lambda: False
+        self.refresh_observation = None
         self.interaction_sink = None
+        from .steering import SteeringInbox
+        self.steering = SteeringInbox(self._interaction)
 
     def _interaction(self, kind, message, **details):
         if self.interaction_sink:
@@ -267,9 +271,13 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
         while self._calls < 100:
             if self.cancelled():
                 return []
-            self._history.append(self._observation_message(prompt, observation, first_step_id))
+            observation_message = self._observation_message(prompt, observation, first_step_id)
+            self._history.append(observation_message)
             if self.cancelled():
                 return []
+            # Put new owner instructions after the fresh observation, so its
+            # repeated original task cannot override a later correction.
+            self.steering.include(self._history)
             payload = {'model': self.model, 'input': copy.deepcopy(self._history),
                        'tools': copy.deepcopy(self._tools), 'store': False,
                        'include': ['reasoning.encrypted_content']}
@@ -280,10 +288,10 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
             self._vision_state = 'requesting'
             self._interaction('model_request', f'Model call {self._calls}: waiting for {self.model}',
                               model=self.model, history_items=len(self._history),
-                              observation=self._history[-1]['content'][0]['text'],
+                              observation=observation_message['content'][0]['text'],
                               cameras=list(self._vision_frames), prompt=prompt,
                               request_text=request_text(payload), request_display=request_display(payload, self._recorder),
-                              images=__import__('remote_yam.public_conversation', fromlist=['request_images']).request_images(self._history[-1]['content'], self._recorder))
+                              images=__import__('remote_yam.public_conversation', fromlist=['request_images']).request_images(observation_message['content'], self._recorder))
             request_started = time.monotonic()
             try:
                 raw = self._post_json(payload)
@@ -319,6 +327,16 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
                 raise RuntimeError('Model tool call is missing its call_id')
             if len({c['call_id'] for c in calls}) != len(calls):
                 raise RuntimeError('Model returned duplicate tool call IDs')
+            if self.steering.pending():
+                # An update arrived during inference. Resolve every old tool
+                # call without executing it, then replan with the new user turn.
+                for call in calls:
+                    self._tool_result(call['call_id'], {
+                        'ok': False, 'status': 'superseded',
+                        'error': 'Run-owner steering arrived during inference. This tool was not executed. Replan using the new update.'})
+                if callable(getattr(self, 'refresh_observation', None)):
+                    observation = self.refresh_observation()
+                continue
             try:
                 if len(calls) != 1:
                     raise InvalidMove('Respond with exactly one tool call per turn')

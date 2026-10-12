@@ -208,8 +208,9 @@ async function disclosureFixture({fetchCatalog,hostname='127.0.0.1'} = {}) {
   await new Promise(resolve=>setImmediate(resolve));
   const conversationEvents=new Map();let now=10000;
   Object.assign(c, {Date:class extends Date {static now(){return now;}},$:id=>document.getElementById(id),selectedModelName:()=> 'ASPIRE',
-    renderModelRunResult:()=>null,renderConversation(events,id){conversationEvents.set(id,events);},renderAstraStream(){}});
-  const names=source.slice(source.indexOf('  function applyModelName('),source.indexOf('  function modelRequestProgress('));
+    renderRunDetails(){},renderModelRunResult:()=>null,renderConversation(events,id){conversationEvents.set(id,events);},renderAstraStream(){}});
+  const names=source.slice(source.indexOf('  function recordedModel('),source.indexOf('  function renderRunDetails(')) +
+    source.slice(source.indexOf('  function applyModelName('),source.indexOf('  function modelRequestProgress('));
   const render=source.slice(source.indexOf('  function renderCurrentConversation('),source.indexOf('  function renderPublicRunNotice('));
   vm.runInContext('let liveModelName="ASPIRE",lastLive=null;'+names+render,c);
   const work=document.getElementById('aspireTaskWork');
