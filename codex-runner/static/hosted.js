@@ -1607,7 +1607,7 @@ function createRunLaunchGuard() {
         await document.exitFullscreen?.().catch(() => {});
         return;
       }
-      video.play().catch(() => {});
+      video?.play().catch(() => {});
       // Phone layouts use a full-window dialog with an explicit close control.
       // Native fullscreen may be absent or reject arbitrary elements on mobile.
       if (!window.matchMedia?.('(max-width: 740px)')?.matches && panel.requestFullscreen) {
@@ -1908,6 +1908,18 @@ function createRunLaunchGuard() {
     picture.append(badge);
   }
 
+  function snapshotCameraExpansion(image) {
+    const panel = image.closest('figure');
+    panel.classList.add('syncTile'); image.parentElement.classList.add('syncTilePicture');
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'expandCamera';
+    button.dataset.expandCamera = panel.dataset.cameraRole;
+    button.setAttribute('aria-label', 'Expand ' + panel.dataset.cameraRole + ' camera');
+    button.textContent = '⛶'; image.parentElement.append(button);
+    image.dataset.camera = panel.dataset.cameraRole;
+    image.yamStop = cameraExpansion(null, [image]);
+  }
+
   function selectedCameras(names) {
     cameraNames = names;
     const epoch = ++cameraEpoch;
@@ -1962,6 +1974,7 @@ function createRunLaunchGuard() {
       picture.className = 'modelCameraPicture'; picture.append(image);
       addModelBadge(picture, name);
       figure.append(picture, caption); $('liveViewer').prepend(figure);
+      snapshotCameraExpansion(image);
       const update = async () => {
         if (generation !== robotGeneration || epoch !== cameraEpoch || ended) return;
         const pending = new Image();
@@ -2288,10 +2301,12 @@ window.yamRecordingView = function(video, roles) {
   const pickerHeader = document.createElement('div'); pickerHeader.className = 'modelPickerHeader';
   const title = document.createElement('div'); title.className = 'modelPickerTitle';
   const modelLabel = document.createElement('label'); modelLabel.htmlFor = model.id; modelLabel.textContent = 'Model';
-  const effortLabel = document.createElement('strong'); effortLabel.id = 'pickerEffort';
-  title.append(modelLabel, model, effortLabel);
-  pickerHeader.append(title, $('resetReasoning'));
-  // Prompt editing is a separate composer action, alongside model selection.
+  title.append(modelLabel, model);
+  const closeOptions = document.createElement('button'); closeOptions.type = 'button'; closeOptions.className = 'closeModelOptions';
+  closeOptions.setAttribute('aria-label', 'Close model and run options'); closeOptions.textContent = '×';
+  closeOptions.addEventListener('click', () => showComposerOptions(false));
+  pickerHeader.append(title, closeOptions);
+  // Prompt editing remains a separate composer action.
   settingsButton.after($('systemPromptSettings'));
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
@@ -2350,9 +2365,6 @@ window.yamRecordingView = function(video, roles) {
     const label = choice?.label || provider.selectedOptions[0]?.textContent || 'Select model';
     const buttonLabel = label;
     if (settingsButton.textContent !== buttonLabel) settingsButton.textContent = buttonLabel;
-    const effortText = effort ? 'Thinking · ' + effort : '';
-    if (effortLabel.textContent !== effortText) effortLabel.textContent = effortText;
-    if (effortLabel.hidden !== !effort) effortLabel.hidden = !effort;
     const resetHidden = !effort;
     if ($('resetReasoning').hidden !== resetHidden) $('resetReasoning').hidden = resetHidden;
     if (model.disabled !== provider.disabled) model.disabled = provider.disabled;
@@ -2385,19 +2397,44 @@ window.yamRecordingView = function(video, roles) {
   model.addEventListener('change', selectModelChoice);
   function positionModelOptions() {
     const anchor = settingsButton.getBoundingClientRect();
-    options.style.maxHeight = Math.max(160, anchor.top - 20) + 'px';
+    const viewport = window.visualViewport;
+    const edge = 12, gap = 8;
+    const left = (viewport?.offsetLeft || 0) + edge;
+    const top = (viewport?.offsetTop || 0) + edge;
+    const width = Math.max(0, (viewport?.width || window.innerWidth) - edge * 2);
+    const bottom = top + Math.max(0, (viewport?.height || window.innerHeight) - edge * 2);
+    const above = Math.max(0, Math.min(anchor.top, bottom) - top - gap);
+    const below = Math.max(0, bottom - Math.max(anchor.bottom, top) - gap);
+    const placeAbove = above >= Math.min(options.scrollHeight, 280) || above >= below;
+    options.style.maxWidth = width + 'px';
+    options.style.maxHeight = (placeAbove ? above : below) + 'px';
     const box = options.getBoundingClientRect();
-    options.style.left = Math.max(12, Math.min(window.innerWidth - box.width - 12, anchor.left + anchor.width / 2 - box.width / 2)) + 'px';
-    options.style.top = Math.max(12, anchor.top - box.height - 8) + 'px';
+    options.style.left = Math.max(left, Math.min(left + width - box.width, anchor.left + anchor.width / 2 - box.width / 2)) + 'px';
+    options.style.top = Math.max(top, Math.min(bottom - box.height, placeAbove ? anchor.top - box.height - gap : anchor.bottom + gap)) + 'px';
+  }
+  let optionsPositionFrame = 0;
+  function scheduleModelOptionsPosition() {
+    if (!options.matches(':popover-open') || optionsPositionFrame) return;
+    optionsPositionFrame = requestAnimationFrame(() => {
+      optionsPositionFrame = 0;
+      if (options.matches(':popover-open')) positionModelOptions();
+    });
   }
   function showComposerOptions(open) {
     if (open) {
+      const opening = !options.matches(':popover-open');
       options.hidden = false;
-      if (!options.matches(':popover-open')) options.showPopover();
+      if (opening) options.showPopover({source: settingsButton});
       positionModelOptions();
+      if (opening) {
+        options.scrollTop = 0;
+        model.focus({preventScroll:true});
+      }
     } else {
+      const restoreFocus = options.contains(document.activeElement);
       if (options.matches(':popover-open')) options.hidePopover();
       options.hidden = true;
+      if (restoreFocus) settingsButton.focus({preventScroll:true});
     }
     settingsButton.setAttribute('aria-expanded', String(open));
   }
@@ -2408,8 +2445,16 @@ window.yamRecordingView = function(video, roles) {
     settingsButton.setAttribute('aria-expanded', String(open));
   });
   settingsButton.addEventListener('click', () => showComposerOptions(!options.matches(':popover-open')));
-  window.addEventListener('resize', () => { if (options.matches(':popover-open')) positionModelOptions(); });
-  window.addEventListener('scroll', () => { if (options.matches(':popover-open')) positionModelOptions(); }, true);
+  // Disclosure changes and textarea resizing must retain the viewport bounds.
+  options.addEventListener('toggle', scheduleModelOptionsPosition, true);
+  const optionsSizing = new ResizeObserver(scheduleModelOptionsPosition);
+  optionsSizing.observe(options); optionsSizing.observe(settingsButton);
+  window.addEventListener('resize', scheduleModelOptionsPosition);
+  window.addEventListener('scroll', event => {
+    if (!options.contains(event.target)) scheduleModelOptionsPosition();
+  }, true);
+  window.visualViewport?.addEventListener('resize', scheduleModelOptionsPosition);
+  window.visualViewport?.addEventListener('scroll', scheduleModelOptionsPosition);
   function openRunIdentity() {
     const launch = $('openLocalRun'), dialog = $('localRunDialog');
     if (launch.disabled || !$('prompt').reportValidity()) return;
@@ -2417,6 +2462,9 @@ window.yamRecordingView = function(video, roles) {
       .find(field => field.willValidate && !field.validity.valid);
     if (invalid) {
       if (advanced.contains(invalid)) advanced.open = true;
+      for (let parent = invalid.parentElement; parent && parent !== options; parent = parent.parentElement) {
+        if (parent.tagName === 'DETAILS') parent.open = true;
+      }
       showComposerOptions(true); invalid.reportValidity(); return;
     }
     showComposerOptions(false);

@@ -232,7 +232,7 @@ class LocalPlayground(HostedRunner):
                 message['headers'] = [(k, v) for k, v in message['headers'] if k != b'content-security-policy']
                 message['headers'].append((b'content-security-policy',
                     b"default-src 'none'; script-src 'self' https://www.googletagmanager.com; "
-                    b"style-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; "
+                    b"style-src 'self'; font-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; "
                     b"img-src 'self' data: https://*.google-analytics.com https://www.googletagmanager.com; "
                     b"media-src 'self' blob: https://huggingface.co https://*.huggingface.co https://*.hf.co; "
                     b"frame-src https://lerobot-visualize-dataset.hf.space https://huggingface.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"))
