@@ -1392,7 +1392,7 @@ function renderStepMetricsChart(container, timings) {
       const catalog = await api('/api/robots');
       robotCatalog = catalog;
       const selector = $('robotSelector');
-      catalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
+      if (!catalog.default_order) catalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
       for (const robot of catalog.robots) {
         const option = [...selector.options].find(option => option.value === robot.id);
         if (option) selector.append(option);
@@ -1412,10 +1412,11 @@ function renderStepMetricsChart(container, timings) {
         if (window.yamApplication?.defaultRobot) throw new Error('Selected robot unavailable');
         selectedRobot = robotCatalog.selected || robotCatalog.robots[0]?.id || '';
       }
-      robotCatalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
+      if (!robotCatalog.default_order) robotCatalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
       if (!window.yamApplication?.defaultRobot && !new URLSearchParams(location.search).get('robot_id')) {
-        selectedRobot = robotCatalog.robots.find(robot => robot.id === 'robot-ba8413962083809c')?.id
-          || robotCatalog.robots.find(robot => robot.connected === true)?.id || selectedRobot;
+        selectedRobot = (!robotCatalog.default_order && robotCatalog.robots.find(robot => robot.id === 'robot-ba8413962083809c')?.id)
+          || robotCatalog.robots.find(robot => robot.connected === true)?.id
+          || (robotCatalog.default_order ? robotCatalog.robots[0]?.id : '') || selectedRobot;
       }
       selector.replaceChildren(...robotCatalog.robots.map(robot =>
         Object.assign(document.createElement('option'), {value: robot.id, textContent: robot.id === 'robot-abecb4cd868ab24b' ? 'SO101' : robot.name})));
