@@ -783,3 +783,25 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole #composerOptions .runDurationControl{margin:0 0 12px;font-size:12px}
 #localRunDialog #runButtons>:not(#run){display:none!important}
 #localRunDialog #runButtons,#localRunDialog #run{width:100%}
+
+/* Compact model/effort popover, anchored above its chat pill. */
+.playgroundConsole #composerSettings{flex:1;width:auto;min-width:0;height:30px;padding:5px 12px;border-radius:999px;background:#eeefed;color:#666;font:500 11px system-ui;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.playgroundConsole #composerSettings:hover{background:#e6e8e3}
+.playgroundConsole #composerOptions{position:fixed;inset:auto;margin:0;width:min(280px,calc(100vw - 24px));max-height:70dvh;padding:14px 12px 10px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;color:var(--ink);box-shadow:0 5px 18px #00000014;overflow-y:auto;font-size:12px}
+#composerOptions::backdrop{background:transparent}
+.modelPickerHeader{display:flex;align-items:flex-start;gap:10px;margin-bottom:4px}
+.modelPickerIcon{color:#92979b;font-size:22px;line-height:26px;width:22px;text-align:center}
+.modelPickerTitle{min-width:0;flex:1}
+#pickerEffort{display:block;color:#3478f6;font-size:14px;font-weight:500;line-height:20px}
+.playgroundConsole #composerOptions #composerModel{display:block;width:100%;min-width:0;padding:0 16px 0 0;margin:0;border:0;background:transparent;color:#777;font-size:12px;line-height:20px;cursor:pointer}
+#composerOptions #resetReasoning{flex:none;border:0;padding:0;width:24px;height:26px;background:transparent;color:#888;font:20px system-ui}
+#composerOptions #effortField>label,#composerOptions #effortField>.help,#composerOptions .reasoningHeading{display:none}
+#composerOptions .reasoningBar{padding:0;border:0;border-radius:0}
+#composerOptions #reasoningLevel{margin:8px 0 4px;height:24px}
+.playgroundConsole #composerOptions .runDurationControl{display:flex;align-items:center;gap:8px;margin:10px 0 4px;padding:8px 0 2px;border-top:1px solid #eee}
+#composerOptions .runDurationControl label{margin:0 auto 0 0;font-size:12px;font-weight:500;color:#777}
+#composerOptions .runDurationControl input{width:55px;padding:4px 6px;font-size:12px}
+#advancedModelOptions{border:0;margin:8px 0 0;padding:0;font-size:11px;color:#777}
+#advancedModelOptions>summary{cursor:pointer;list-style:none;text-align:center;font-size:11px}
+.runExecutionInfo{flex:none;margin:8px 0;padding:10px 12px;border-radius:9px;background:#f1f4ef;color:#465044;font-size:11px}
+.runExecutionInfo>strong{font-size:11px;font-weight:650}.runExecutionInfo>p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.6;margin:5px 0 0}

@@ -612,9 +612,9 @@ function createRunLaunchGuard() {
     if (event.target.id === 'prompt') return;
     const options = $('composerOptions');
     if (options?.contains(event.target)) {
-      options.hidden = false;
-      $('composerSettings').setAttribute('aria-expanded', 'true');
       $('localRunDialog').close();
+      window.yamShowModelOptions?.(true);
+      if (event.target.closest('#advancedModelOptions')) $('advancedModelOptions').open = true;
       return;
     }
     $('runSettings').open = true;
@@ -764,7 +764,8 @@ function createRunLaunchGuard() {
     let launchVersion = null, payload;
     try {
     const provisional = {task:$('prompt').value,runner_name:$('runnerName').value.trim(),
-      model_name:selectedModelName(),status:'preparing',events:[],reviewing_prompt:true};
+      model_name:selectedModelName(),requested_model:$('model').value.trim(),requested_provider:$('provider').value,
+      requested_duration_s:Number($('runDuration').value)*60,status:'preparing',events:[],reviewing_prompt:true};
     launchVersion = runLaunchGuard.start(provisional);
     submitting = true;buttons();
     // Every actual submit switches the complete view before hooks or I/O.
@@ -1031,10 +1032,62 @@ function createRunLaunchGuard() {
     return provider === 'groot' ? 'GR00T' : provider === 'local_raise_lower' ? 'Built-in policy'
       : $('model').value.trim() === 'gpt-6-astra' ? 'Astra' : $('model').value.trim();
   }
+  function recordedModel(live) {
+    const requests = (live?.events || []).filter(event => event.kind === 'model_request');
+    const request = [...requests].reverse().find(event => (event.request || event.details?.request_display)?.model);
+    return (request?.request || request?.details?.request_display)?.model || live?.model || '';
+  }
+  function modelLabel(id) {
+    const astra = /^gpt-(\d+(?:\.\d+)?)-astra$/.exec(id || '');
+    const claude = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?/.exec(id || '');
+    return astra ? 'Astra ' + astra[1] : claude ? claude[1][0].toUpperCase() + claude[1].slice(1) + ' ' + claude[2] + (claude[3] ? '.' + claude[3] : '') : id;
+  }
+  function renderRunDetails(live, state) {
+    let card = $('runExecutionInfo');
+    if (!card) {
+      card = document.createElement('article'); card.id = 'runExecutionInfo';
+      card.className = 'runExecutionInfo'; card.setAttribute('aria-label', 'Recorded run details');
+      $('liveConversationPanel').prepend(card);
+    }
+    card.hidden = !live;
+    if (!live) return;
+    // Only use this attempt's recorded configuration, never the next-run picker.
+    const own = live.attempt_id && live.attempt_id === state.attempt_id ? state.provider || {} : {};
+    const route = live.launch_route || own.launch_route || {};
+    const request = (live.events || []).find(event => event.kind === 'model_request' && (event.request || event.details?.request_display));
+    const wire = request?.request || request?.details?.request_display || {};
+    const actual = recordedModel(live) || own.model;
+    const requested = live.requested_model || route.requested_model;
+    const lines = [];
+    if (requested) lines.push('Requested: ' + requested);
+    if (live.reviewing_prompt) lines.push('Execution: waiting for the runner to accept this request.');
+    else {
+      lines.push(actual ? 'Recorded model: ' + modelLabel(actual) + ' · ' + actual
+        : live.model_name ? 'Runner-reported model: ' + live.model_name : 'Model: not recorded for this run.');
+      const providerNames = {codex:'Codex / ChatGPT subscription',claude:'Claude Code / Claude subscription',openai:'OpenAI API',anthropic:'Anthropic API',groot:'GR00T policy',local_raise_lower:'Built-in arm motion'};
+      if (route.requested_policy && route.actual_policy)
+        lines.push('Route: ' + route.requested_policy + ' → ' + route.actual_policy);
+      else if (providerNames[own.provider]) lines.push('Runner: ' + providerNames[own.provider]);
+      else lines.push('Runner route: not recorded in this public run.');
+      if (route.message) lines.push(route.message);
+      else if ((live.events || []).some(event => event.kind === 'model_request'))
+        lines.push('Execution: model requests and robot feedback are recorded in this conversation.');
+      const effort = own.reasoning_effort || wire.reasoning?.effort || wire.reasoning_effort;
+      if (effort) lines.push('Thinking effort: ' + effort);
+    }
+    const duration = live.run_duration_s || live.requested_duration_s;
+    if (Number.isFinite(duration) && duration > 0) lines.push('Time limit: ' + (duration / 60) + ' min');
+    const key = lines.join('\n');
+    if (card.dataset.content === key) return;
+    card.dataset.content = key;
+    const heading = document.createElement('strong'); heading.textContent = 'Run details';
+    const body = document.createElement('p'); body.textContent = key;
+    card.replaceChildren(heading, body);
+  }
   function applyModelName(live) {
     lastLive = live;
     // A run names its own model; with none showing, name the one this runner will use.
-    liveModelName = live?.model_name || (live ? 'Astra' : selectedModelName());
+    liveModelName = recordedModel(live) ? modelLabel(recordedModel(live)) : live?.model_name || (live ? 'Model not recorded' : selectedModelName());
     const reasoningButton = document.querySelector('[data-conversation-mode="reasoning"]');
     const label = $('aspireTaskPanel')?.dataset?.enabled === 'true' ? 'Chat' : liveModelName + ' decision notes';
     if (reasoningButton && reasoningButton.textContent !== label) reasoningButton.textContent = label;
@@ -1144,6 +1197,7 @@ function createRunLaunchGuard() {
     const failure = window.yamTaskFailure?.(live, state);
     if(live && failure) live={...live,error:failure.reason};
     renderCurrentConversation.lastRun = live;
+    renderRunDetails(live, state);
     const text = (id,value) => {if($(id).textContent !== value) $(id).textContent=value;};
     text('currentRunner','Runner: ' + (live?.runner_name || '—'));
     text('currentPrompt',live?.task || 'Waiting for someone to run a policy.');
@@ -2142,6 +2196,9 @@ window.yamRecordingView = function(video, roles) {
   // Configure the run in chat; the launch dialog only collects identity.
   const options = document.createElement('div');
   options.id = 'composerOptions'; options.hidden = true;
+  options.setAttribute('popover', 'auto');
+  options.setAttribute('role', 'dialog');
+  options.setAttribute('aria-label', 'Model and run options');
   document.querySelector('.promptRow').before(options);
   const duration = $('runDuration').closest('.runDurationControl');
   if (duration) options.append(duration);
@@ -2157,8 +2214,21 @@ window.yamRecordingView = function(video, roles) {
   settingsButton.setAttribute('aria-controls', options.id);
   settingsButton.setAttribute('aria-expanded', 'false');
   settingsButton.setAttribute('aria-label', 'Model and run options');
-  settingsButton.removeAttribute('aria-haspopup');
+  settingsButton.setAttribute('aria-haspopup', 'dialog');
   settingsButton.title = 'Model and run options';
+  const pickerHeader = document.createElement('div'); pickerHeader.className = 'modelPickerHeader';
+  const icon = document.createElement('span'); icon.className = 'modelPickerIcon'; icon.textContent = 'ϟ'; icon.setAttribute('aria-hidden', 'true');
+  const title = document.createElement('div'); title.className = 'modelPickerTitle';
+  const effortLabel = document.createElement('strong'); effortLabel.id = 'pickerEffort';
+  title.append(effortLabel, model);
+  pickerHeader.append(icon, title, $('resetReasoning'));
+  const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
+  const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
+  for (const child of [...options.children]) {
+    if (child !== duration && child !== $('effortField')) advanced.append(child);
+  }
+  options.prepend(pickerHeader, $('effortField'));
+  options.append(advanced);
   function modelChoice(option, selectedId) {
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
@@ -2187,8 +2257,8 @@ window.yamRecordingView = function(video, roles) {
       const current = modelChoice(option);
       const catalog = window.yamModelPicker?.modelsFor?.(option.value) || [];
       if (!current || !catalog.length) return [{value:option.value,provider:option.value,label:option.textContent,id:current?.id || ''}];
-      return [...new Set([current.id,...catalog.map(entry => entry.id)])].map(id => ({
-        value:id === current.id ? option.value : option.value + ':' + id,
+      return [...new Set([...catalog.map(entry => entry.id),current.id])].map(id => ({
+        value:option.value + ':' + id,
         provider:option.value,label:modelChoice(option,id).label,id}));
     });
     const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
@@ -2199,9 +2269,17 @@ window.yamRecordingView = function(video, roles) {
       }));
       model.dataset.options = signature;
     }
-    model.value = provider.value;
     const choice = modelChoice(provider.selectedOptions[0]);
+    const selectedValue = choices.find(item => item.provider === provider.value && (!choice || item.id === choice.id))?.value;
+    if (selectedValue && model.value !== selectedValue) model.value = selectedValue;
     model.title = choice?.id || '';
+    const effort = !$('effortField').hidden && !$('reasoningBar').hidden ? $('reasoningLabel').textContent : '';
+    const label = choice?.label || provider.selectedOptions[0]?.textContent || 'Select model';
+    const buttonLabel = label + (effort ? ' · ' + effort : '') + ' ▾';
+    if (settingsButton.textContent !== buttonLabel) settingsButton.textContent = buttonLabel;
+    if (effortLabel.textContent !== (effort || 'Model')) effortLabel.textContent = effort || 'Model';
+    const resetHidden = !effort;
+    if ($('resetReasoning').hidden !== resetHidden) $('resetReasoning').hidden = resetHidden;
     if (model.disabled !== provider.disabled) model.disabled = provider.disabled;
     const running = $('runForm').classList.contains('runActive');
     const queued = !$('leaveQueue').hidden && !$('leaveQueue').disabled;
@@ -2218,22 +2296,52 @@ window.yamRecordingView = function(video, roles) {
   function selectModelChoice(event) {
     const picker = event.currentTarget, selected = picker.selectedOptions[0];
     const selectedId = selected?.dataset.model;
-    provider.value = selected?.dataset.provider || picker.value;
-    provider.dispatchEvent(new Event('change', {bubbles:true}));
-    if (selectedId && !$('modelSettings').hidden) window.yamModelPicker?.selectModel?.(selectedId);
+    const nextProvider = selected?.dataset.provider || picker.value;
+    if (nextProvider !== provider.value) {
+      provider.value = nextProvider;
+      provider.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+    if (selectedId && !$('modelSettings').hidden && selectedId !== $('model').value)
+      window.yamModelPicker?.selectModel?.(selectedId);
+    updateComposer();
+    if (options.matches(':popover-open')) positionModelOptions();
   }
+  model.addEventListener('input', selectModelChoice);
   model.addEventListener('change', selectModelChoice);
+  function positionModelOptions() {
+    const anchor = settingsButton.getBoundingClientRect();
+    options.style.maxHeight = Math.max(160, anchor.top - 20) + 'px';
+    const box = options.getBoundingClientRect();
+    options.style.left = Math.max(12, Math.min(window.innerWidth - box.width - 12, anchor.left + anchor.width / 2 - box.width / 2)) + 'px';
+    options.style.top = Math.max(12, anchor.top - box.height - 8) + 'px';
+  }
   function showComposerOptions(open) {
-    options.hidden = !open;
+    if (open) {
+      options.hidden = false;
+      if (!options.matches(':popover-open')) options.showPopover();
+      positionModelOptions();
+    } else {
+      if (options.matches(':popover-open')) options.hidePopover();
+      options.hidden = true;
+    }
     settingsButton.setAttribute('aria-expanded', String(open));
   }
-  settingsButton.addEventListener('click', () => showComposerOptions(options.hidden));
+  window.yamShowModelOptions = showComposerOptions;
+  options.addEventListener('toggle', event => {
+    const open = event.newState === 'open';
+    options.hidden = !open;
+    settingsButton.setAttribute('aria-expanded', String(open));
+  });
+  settingsButton.addEventListener('click', () => showComposerOptions(!options.matches(':popover-open')));
+  window.addEventListener('resize', () => { if (options.matches(':popover-open')) positionModelOptions(); });
+  window.addEventListener('scroll', () => { if (options.matches(':popover-open')) positionModelOptions(); }, true);
   function openRunIdentity() {
     const launch = $('openLocalRun'), dialog = $('localRunDialog');
     if (launch.disabled || !$('prompt').reportValidity()) return;
     const invalid = [...options.querySelectorAll('input, select, textarea')]
       .find(field => field.willValidate && !field.validity.valid);
     if (invalid) {
+      if (advanced.contains(invalid)) advanced.open = true;
       showComposerOptions(true); invalid.reportValidity(); return;
     }
     showComposerOptions(false);
