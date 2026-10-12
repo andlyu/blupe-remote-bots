@@ -2131,13 +2131,13 @@ window.yamRecordingView = function(video, roles) {
   const archive = $('past-runs'), dataset = $('dataset');
   if (archive && dataset) dataset.before(archive);
   const provider = $('provider'), model = $('composerModel'), send = $('composerSend');
-  function modelChoice(option) {
+  function modelChoice(option, selectedId) {
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
-      anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',
+      anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
       aspire:'gpt-6-astra',hosted_aspire:'gpt-6-astra',astra:'astra-default',groot:'groot-reviewed-step10000'};
     if (!option || !defaults[option.value]) return null;
-    const id = option.value === provider.value && $('model').value.trim()
-      ? $('model').value.trim() : option.dataset.model || defaults[option.value];
+    const id = selectedId || (option.value === provider.value && $('model').value.trim()
+      ? $('model').value.trim() : option.dataset.model || defaults[option.value]);
     const astra = /^gpt-(\d+(?:\.\d+)?)-astra$/.exec(id);
     const claude = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?$/.exec(id);
     let label = astra ? 'Astra ' + astra[1] : claude
@@ -2155,10 +2155,19 @@ window.yamRecordingView = function(video, roles) {
       if (!option.disabled && option.title !== choice.id) option.title = choice.id;
     }
     const options = [...provider.options].filter(option => !option.hidden && !option.disabled);
-    const signature = options.map(option => option.value + ':' + option.textContent + ':' + option.title).join('|');
+    const choices = options.flatMap(option => {
+      const current = modelChoice(option);
+      const catalog = window.yamModelPicker?.modelsFor?.(option.value) || [];
+      if (!current || !catalog.length) return [{value:option.value,provider:option.value,label:option.textContent,id:current?.id || ''}];
+      return [...new Set([current.id,...catalog.map(entry => entry.id)])].map(id => ({
+        value:id === current.id ? option.value : option.value + ':' + id,
+        provider:option.value,label:modelChoice(option,id).label,id}));
+    });
+    const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
     if (model.dataset.options !== signature) {
-      model.replaceChildren(...options.map(option => {
-        const item = new Option(option.textContent, option.value); item.title = option.title; return item;
+      model.replaceChildren(...choices.map(option => {
+        const item = new Option(option.label, option.value); item.title = option.id;
+        item.dataset.provider = option.provider; item.dataset.model = option.id; return item;
       }));
       model.dataset.options = signature;
     }
@@ -2179,8 +2188,11 @@ window.yamRecordingView = function(video, roles) {
     if ($('composerSettings').disabled !== settingsDisabled) $('composerSettings').disabled = settingsDisabled;
   }
   model.addEventListener('change', () => {
-    provider.value = model.value;
+    const selected = model.selectedOptions[0];
+    const selectedId = selected?.dataset.model;
+    provider.value = selected?.dataset.provider || model.value;
     provider.dispatchEvent(new Event('change', {bubbles:true}));
+    if (selectedId && !$('modelSettings').hidden) window.yamModelPicker?.selectModel?.(selectedId);
   });
   function openComposerSettings() {
     const launch = $('openLocalRun'), dialog = $('localRunDialog');

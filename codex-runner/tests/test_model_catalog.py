@@ -21,10 +21,12 @@ class ModelCatalogTests(unittest.TestCase):
                     catalog.selected_model(provider, model)
         for provider in ('anthropic', 'claude'):
             for model in ('claude-opus-5-5', 'claude-opus-5-5[1m]', 'claude-opus-5-12',
-                          'claude-opus-6', 'claude-opus-6-20270101'):
+                          'claude-opus-6', 'claude-opus-6-20270101', 'claude-haiku-5-5',
+                          'claude-haiku-5-5-20261007', 'claude-haiku-5-12', 'claude-haiku-6'):
                 self.assertEqual(catalog.selected_model(provider, model), model)
             for model in ('opus', 'default', 'claude-opus-5-4', 'claude-opus-5-20261011',
-                          'claude-sonnet-6', 'claude-haiku-6', 'claude-fable-6'):
+                          'claude-sonnet-6', 'claude-haiku-4-5', 'claude-haiku-5-4',
+                          'claude-haiku-5-20261007', 'haiku', 'claude-fable-6'):
                 with self.assertRaises(ValueError, msg=model):
                     catalog.selected_model(provider, model)
 
@@ -40,6 +42,17 @@ class ModelCatalogTests(unittest.TestCase):
             [{'id':'claude-opus-6','label':'Opus','reasoning_efforts':['low','max']}])
         self.assertEqual(catalog.normalize([{'id':'claude-opus-6',
             'capabilities':{'image_input':{'supported':False}}}], 'anthropic'), [])
+        self.assertEqual(catalog.normalize([{'value':'haiku','resolvedModel':'claude-haiku-5-5',
+            'displayName':'Haiku 5.5','supportedEffortLevels':['low','medium','high','xhigh','max']},
+            {'id':'claude-haiku-4-5'}, {'id':'claude-haiku-6','lifecycle':'retired'}], 'claude'),
+            [{'id':'claude-haiku-5-5','label':'Haiku 5.5','reasoning_efforts':['low','medium','high','xhigh','max']}])
+
+    def test_haiku_baseline_is_a_suggestion_without_auth_or_network(self):
+        with patch.object(catalog, 'api_models') as fetch:
+            result = catalog.discover_models('anthropic')
+        fetch.assert_not_called()
+        self.assertEqual(result['source'], 'fallback')
+        self.assertEqual([row['id'] for row in result['models']], ['claude-opus-5-5','claude-haiku-5-5'])
 
     def test_codex_catalog_pages_use_only_initialize_and_list_no_inference(self):
         sent = []
