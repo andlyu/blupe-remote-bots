@@ -818,10 +818,23 @@ body.cameraExpanded{overflow:hidden}
 .steeringComposer .actions {justify-content:flex-end;margin-top:8px;}
 .steeringComposer p:empty {display:none;}
 
-/* System-prompt drafts remain alongside the model controls in chat. */
-#systemPromptSettings {margin-top:12px; border-top:1px solid var(--line,#dce1e8); padding-top:10px}
-#systemPromptSettings summary {cursor:pointer; font-size:13px; font-weight:600}
-#systemPromptName {font-weight:400; opacity:.7}
-#systemPromptText {width:100%; min-height:180px; resize:vertical; font:12px/1.5 ui-monospace,monospace; white-space:pre-wrap; box-sizing:border-box}
-#systemPromptSettings select {width:100%}
-#systemPromptSource {font-size:12px}
+/* System prompts open from the model controls in a separate editor. */
+#systemPromptSettings {margin:4px 0 10px}
+#openSystemPrompt {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:7px 10px;border:1px solid #e2e5ea;border-radius:8px;background:#f8f9fb;color:#344054;font-size:12px;cursor:pointer}
+#openSystemPrompt:hover {background:#eef2f8}
+#systemPromptDialog {box-sizing:border-box;width:min(720px,calc(100vw - 32px));max-height:calc(100dvh - 48px);margin:auto;padding:24px;border:1px solid #dce1e8;border-radius:16px;background:#fff;color:#202631;box-shadow:0 20px 70px #18253c33;overflow:auto}
+#systemPromptDialog::backdrop {background:#18253c66}
+.systemPromptHeader {display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.systemPromptHeader h2 {margin:0;font-size:20px}
+#systemPromptModel {margin:4px 0 0;color:#697386;font-size:13px}
+#closeSystemPrompt {border:0;background:transparent;font-size:26px;line-height:1;color:#697386;cursor:pointer}
+#systemPromptDialog label {display:block;margin:14px 0 6px;font-size:13px;font-weight:600}
+#systemPromptName {font-weight:400;opacity:.7}
+#systemPromptDialog select {box-sizing:border-box;width:100%;padding:9px;border:1px solid #dce1e8;border-radius:8px;background:#fff;color:inherit}
+#systemPromptText {width:100%;min-height:220px;max-height:50dvh;padding:12px;border:1px solid #dce1e8;border-radius:8px;resize:vertical;font:13px/1.5 ui-monospace,monospace;white-space:pre-wrap;box-sizing:border-box}
+#systemPromptDialog .help,#systemPromptSource {font-size:12px;line-height:1.5}
+.systemPromptActions {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:20px}
+.systemPromptActions > div {display:flex;gap:8px;margin-left:auto}
+.systemPromptActions button {padding:9px 12px;border:1px solid #dce1e8;border-radius:8px;background:#fff;color:inherit;cursor:pointer}
+#saveSystemPrompt {background:#347df1;border-color:#347df1;color:#fff}
+@media(max-width:480px) {#systemPromptDialog {padding:16px}}
