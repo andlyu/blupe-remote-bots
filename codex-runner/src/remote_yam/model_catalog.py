@@ -21,6 +21,14 @@ MAX_BYTES = 2_000_000
 EFFORTS = ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')
 
 
+def baseline_models(provider):
+    """Suggestions when discovery is unavailable; never account entitlements."""
+    ids = [DEFAULTS[provider]]
+    if provider in ('anthropic', 'claude'):
+        ids.append('claude-haiku-5-5')
+    return [{'id': identifier, 'label': identifier} for identifier in ids]
+
+
 def model_id(value, *, allow_empty=False):
     if not isinstance(value, str):
         raise ValueError('Invalid model name')
@@ -36,7 +44,7 @@ def eligible_model(provider, identifier):
     """User-selected release floors, without enumerating each future release.
 
     Astra is the GPT-6 baseline; other GPT families begin at 6.1. Claude is
-    restricted to Opus 5.5+. Explicit IDs keep older aliases from bypassing it.
+    restricted to Opus or Haiku 5.5+. Explicit IDs preserve the release floor.
     """
     if not isinstance(identifier, str):
         return False
@@ -50,7 +58,7 @@ def eligible_model(provider, identifier):
             return False
         return version >= (6, 1) or version == (6, 0) and bool(re.fullmatch(r'-astra(?:-\d{4}-\d{2}-\d{2})?', suffix))
     if provider in ('anthropic', 'claude'):
-        match = re.fullmatch(r'claude-opus-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[1m\])?', identifier)
+        match = re.fullmatch(r'claude-(?:opus|haiku)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[1m\])?', identifier)
         return bool(match and (int(match[1]), int(match[2] or 0)) >= (5, 5))
     return False
 
@@ -59,7 +67,7 @@ def selected_model(provider, value):
     identifier = model_id(value, allow_empty=True) or DEFAULTS[provider]
     if not eligible_model(provider, identifier):
         raise ValueError('Choose Astra or GPT 6.1 or newer.' if provider in ('openai', 'codex')
-                         else 'Choose an explicit Claude Opus 5.5 or newer model ID.')
+                         else 'Choose an explicit Claude Opus or Haiku 5.5 or newer model ID.')
     return identifier
 
 
@@ -242,7 +250,7 @@ def discover_models(provider, key=''):
     """Never return raw upstream errors, credentials, or CLI/account metadata."""
     if provider not in DEFAULTS:
         raise ValueError('Model discovery is unavailable for this provider')
-    fallback = [{'id': DEFAULTS[provider], 'label': DEFAULTS[provider]}]
+    fallback = baseline_models(provider)
     if provider in ('openai', 'anthropic') and not key:
         return {'models': fallback, 'source': 'fallback', 'message':
                 'Enter your API key to load models, or enter a model ID directly.'}

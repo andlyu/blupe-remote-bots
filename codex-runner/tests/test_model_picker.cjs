@@ -91,3 +91,23 @@ test('sponsored Astra keeps its model fixed while discovering supported effort l
   f.$('reasoningLevel').value='1';f.$('reasoningLevel').listeners.input();
   assert.equal(f.$('reasoningEffort').value,'xhigh');
 });
+
+
+test('Haiku suggestions and discovered future versions retain the subscription provider and model effort',async()=>{
+  const f=fixture(async()=>({source:'claude_subscription',models:[
+    {id:'claude-opus-5-5',label:'Opus 5.5'},
+    {id:'claude-haiku-5-5',label:'Haiku 5.5',reasoning_efforts:['low','medium','high','xhigh','max'],default_reasoning_effort:'medium'},
+    {id:'claude-haiku-6',label:'Haiku 6'}]}));
+  assert.deepEqual(f.picker.modelsFor('guest_claude').map(row=>row.id),['claude-opus-5-5','claude-haiku-5-5']);
+  assert.deepEqual(f.picker.modelsFor('groot'),[]);
+  f.choose('guest_claude');await tick();
+  assert.deepEqual(f.picker.modelsFor('guest_claude').map(row=>row.id),['claude-opus-5-5','claude-haiku-5-5','claude-haiku-6']);
+  f.picker.selectModel('claude-haiku-5-5');
+  assert.equal(f.$('provider').value,'guest_claude');
+  assert.equal(f.$('model').value,'claude-haiku-5-5');
+  f.$('resetReasoning').listeners.click();assert.equal(f.$('reasoningEffort').value,'medium');
+  f.$('reasoningLevel').value='3';f.$('reasoningLevel').listeners.input();assert.equal(f.$('reasoningEffort').value,'xhigh');
+  f.choose('codex');f.choose('guest_claude');
+  assert.equal(f.$('model').value,'claude-haiku-5-5');
+  assert.equal(f.$('reasoningEffort').value,'xhigh');
+});

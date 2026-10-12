@@ -13,6 +13,12 @@
       const option = $('model').ownerDocument.createElement('option');
       option.value = value; option.textContent = label; return option;
     };
+    function modelsFor(name) {
+      if (!defaults[name]) return [];
+      return catalogs.get(name)?.models || [defaults[name],
+        ...(['anthropic','claude','guest_claude'].includes(name) ? ['claude-haiku-5-5'] : [])]
+        .map(id => ({id,label:id}));
+    }
     function saveSelection() {
       if (!provider || fixed) return;
       const value = $('model').value.trim();
@@ -55,9 +61,10 @@
     }
     function renderCatalog() {
       const catalog = catalogs.get(provider);
-      $('availableModels').replaceChildren(...(catalog?.models || []).map(model => nodeOption(model.id, model.label)));
-      $('modelCatalogStatus').textContent = catalog?.message || 'Choose Astra or GPT 6.1+, or Claude Opus 5.5+. Enter a model ID or refresh the list.';
+      $('availableModels').replaceChildren(...modelsFor(provider).map(model => nodeOption(model.id, model.label)));
+      $('modelCatalogStatus').textContent = catalog?.message || 'Choose Astra or GPT 6.1+, or Claude Opus or Haiku 5.5+. Enter a model ID or refresh the list.';
       applyEffort();
+      changed();
     }
     async function refresh(force = false) {
       if (fixed || !defaults[provider] || loading && !force || $('model').disabled) return;
@@ -101,7 +108,11 @@
     function reset() {
       generation++; loading = false; catalogs.clear();
     }
-    $('model').addEventListener('input', () => { saveEffort(); saveSelection(); applyEffort(); changed(); });
+    function selectModel(value) {
+      $('model').value = value;
+      saveEffort(); saveSelection(); applyEffort(); changed();
+    }
+    $('model').addEventListener('input', () => selectModel($('model').value));
     $('reasoningEffort').addEventListener('change', () => { saveEffort(); renderEffort(); });
     $('reasoningLevel')?.addEventListener('input', () => {
       const value = efforts[Number($('reasoningLevel').value)];
@@ -110,7 +121,7 @@
     $('resetReasoning')?.addEventListener('click', () => { $('reasoningEffort').value = defaultEffort; saveEffort(); renderEffort(); });
     $('refreshModels').addEventListener('click', () => { void refresh(true); });
     $('apiKey').addEventListener('change', () => { void refresh(true); });
-    return {saveSelection:() => { saveEffort(); saveSelection(); }, providerChanged, refresh, reset};
+    return {saveSelection:() => { saveEffort(); saveSelection(); }, providerChanged, refresh, reset, modelsFor, selectModel};
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = {createModelPicker};
   else root.createBlupeModelPicker = createModelPicker;
