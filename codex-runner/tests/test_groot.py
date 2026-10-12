@@ -117,50 +117,89 @@ def test_chunk_keeps_one_second_and_gripper_alignment():
 
 
 @pytest.mark.parametrize('index',[2,29])
-def test_oversized_chunk_slows_both_arms_and_grippers_on_one_clock(index):
+@pytest.mark.parametrize('joint',[0,1,2,3,4,5,7,8,9,10,11,12])
+def test_large_joint_changes_keep_targets_and_duration_for_gateway_validation(index,joint):
     p,o=policy_and_observation()
     events=[]
     p.interaction_sink=lambda kind,message,**details:events.append((kind,details))
     rows=[[0]*6+[.2]+[0]*6+[.8] for _ in range(30)]
-    rows[index][0]=.024
-    rows[index][7]=-.012
+    rows[index][joint]=.06483
     rows[index][6]=.8
     rows[index][13]=.2
     p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':rows}
     points=p.build_trajectory('bin',o,10)
-    assert len(points)==30
-    assert events==[('trajectory_timing',{'source_duration_s':1.,'playback_duration_s':3.,
-        'time_scale':3,'max_sampled_joint_delta_rad':.024,'max_joint_step_rad':.01,'waypoint_count':30})]
-    previous=[0]*6+[.2]+[0]*6+[.8]
-    for interval,target in enumerate(rows[2::3]):
-        for tick in range(1,4):
-            point=points[interval*3+tick-1]
-            expected=[a+(b-a)*tick/3 for a,b in zip(previous,target)]
-            assert point['step_id']==10+interval*3+tick-1
-            assert point['left_joints_deg']==pytest.approx([math.degrees(v) for v in expected[:6]])
-            assert point['right_joints_deg']==pytest.approx([math.degrees(v) for v in expected[7:13]])
-            assert point['left_gripper']==pytest.approx(expected[6])
-            assert point['right_gripper']==pytest.approx(expected[13])
-        previous=target
-    previous=o
-    for point in points:
-        for arm in ('left','right'):
-            assert max(abs(a-b) for a,b in zip(point[arm+'_joints_deg'],previous[arm+'_joints_deg']))<=math.degrees(.01)+1e-9
-        previous=point
+    assert len(points)==10
+    for offset,(point,row) in enumerate(zip(points,rows[2::3])):
+        assert point['step_id']==10+offset
+        assert point['left_joints_deg']==pytest.approx([math.degrees(v) for v in row[:6]])
+        assert point['right_joints_deg']==pytest.approx([math.degrees(v) for v in row[7:13]])
+        assert point['left_gripper']==row[6]
+        assert point['right_gripper']==row[13]
+    assert not events
 
 
-@pytest.mark.parametrize('jump,first_step',[(.301,0),(.024,2980),(0,2991),(1e308,0)])
-def test_slow_chunk_still_rejects_packet_or_session_budget_overflow(jump,first_step):
+@pytest.mark.parametrize('jump',[.010001,.06483,-.06483,.301])
+def test_runner_does_not_impose_a_joint_delta_cutoff(jump):
     p,o=policy_and_observation()
     row=[jump]+[0]*5+[.2]+[0]*6+[.8]
     p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
-    with pytest.raises(ValueError,match='gateway budget'):
-        p.build_trajectory('bin',o,first_step)
+    points=p.build_trajectory('bin',o,0)
+    assert len(points)==10
+    assert all(point['left_joints_deg'][0]==pytest.approx(math.degrees(jump)) for point in points)
 
 
-def test_cancellation_during_slow_chunk_build_returns_no_partial_trajectory():
+def test_degree_conversion_overflow_is_rejected_before_dispatch():
     p,o=policy_and_observation()
-    row=[.024]+[0]*5+[.2]+[0]*6+[.8]
+    row=[1e308]+[0]*5+[.2]+[0]*6+[.8]
+    p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
+    with pytest.raises(ValueError,match='finite gateway angles'):
+        p.build_trajectory('bin',o,0)
+
+
+def test_gateway_rejection_stops_groot_without_retrying_or_slowing():
+    import time
+    class RejectingGateway(MockSessionAPI):
+        def submit_trajectory(self, session_id, episode_id, lease_id, trajectory_id, cadence_hz, waypoints):
+            self.trajectory_attempts.append({'cadence_hz':cadence_hz,'waypoints':waypoints})
+            self._event(self._record(session_id), 'trajectory_result', {
+                'episode_id':episode_id,'lease_id':lease_id,'trajectory_id':trajectory_id,
+                'status':'rejected','reported_at':time.time(),'code':'joint_velocity_limit',
+                'message':'Configured joint velocity limit exceeded'})
+            return {'schema_version':1,'accepted':True,'duplicate':False,
+                'session_id':session_id,'episode_id':episode_id,'lease_id':lease_id,
+                'trajectory_id':trajectory_id,'first_step_id':waypoints[0]['step_id'],
+                'last_step_id':waypoints[-1]['step_id'],'waypoint_count':len(waypoints),
+                'dispatched_at':time.time()}
+    p,o=policy_and_observation()
+    row=[.06483]+[0]*5+[.2]+[0]*6+[.8]
+    p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
+    p.start_preparation=lambda cancelled:None
+    api=RejectingGateway(observations=[o]);controller=RunnerController(api)
+    controller.update_monitor_observation(api.get_robot_observation('yam-1'))
+    controller.join(p,'Place the cubes into the purple crate')
+    controller._run_loop(None)
+    assert 'joint_velocity_limit' in controller.status()['error']
+    assert len(api.trajectory_attempts)==1 and not api.action_log
+    packet=api.trajectory_attempts[0]
+    assert packet['cadence_hz']==10 and len(packet['waypoints'])==10
+    assert packet['waypoints'][0]['left_joints_deg'][0]==pytest.approx(math.degrees(.06483))
+
+
+def test_full_chunk_fits_remaining_session_budget_without_slowdown():
+    p,o=policy_and_observation()
+    row=[.06483]+[0]*5+[.2]+[-.06483]+[0]*5+[.8]
+    p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
+    points=p.build_trajectory('bin',o,2990)
+    assert len(points)==10 and points[-1]['step_id']==2999
+    assert points[0]['left_joints_deg'][0]==pytest.approx(math.degrees(.06483))
+    assert points[0]['right_joints_deg'][0]==pytest.approx(math.degrees(-.06483))
+    with pytest.raises(ValueError,match='gateway budget'):
+        p.build_trajectory('bin',o,2991)
+
+
+def test_cancellation_during_chunk_build_returns_no_partial_trajectory():
+    p,o=policy_and_observation()
+    row=[.005]+[0]*5+[.2]+[0]*6+[.8]
     p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
     calls=0
     def cancelled():
