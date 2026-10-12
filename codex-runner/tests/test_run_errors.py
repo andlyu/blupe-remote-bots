@@ -1,6 +1,40 @@
 from remote_yam.run_errors import public_run_error
 
 
+def test_groot_motion_rejection_is_visible_in_live_and_saved_results(tmp_path):
+    from remote_yam.past_runs import RunNames, merge_run_result
+    message = ('GR00T action exceeds the runner motion limit; chunk rejected without retiming '
+               '(largest sampled change 0.06483 rad; limit 0.01 rad)')
+    for error in (message, 'ValueError: ' + message):
+        assert public_run_error({'status': 'stopped', 'error': error}) == message
+    names = RunNames(tmp_path / 'groot.sqlite3')
+    names.remember_result('ep_groot_limit', {'status': 'stopped', 'error': 'ValueError: ' + message})
+    saved = names.results()['ep_groot_limit']
+    assert saved['result'] == 'Failure'
+    assert saved['errors'] == saved['result_reason'] == message
+    assert merge_run_result({}, dict(saved, result_reason='Runner or model error'))['result_reason'] == message
+
+
+def test_groot_rejection_diagnostic_never_echoes_arbitrary_payloads():
+    from remote_yam.past_runs import public_runner_diagnostic
+    message = ('GR00T action exceeds the runner motion limit; chunk rejected without retiming '
+               '(largest sampled change 0.06483 rad; limit 0.01 rad)')
+    for error in (message + ' private-key', message.replace('0.06483', 'nan'),
+                  message.replace('0.06483', 'inf'), message.replace('0.06483', '1e999'),
+                  message.replace('0.01', 'https://private.example/token')):
+        assert public_runner_diagnostic({'error': error}) is None
+    scientific = message.replace('0.06483', '6.483e-02')
+    assert public_runner_diagnostic({'error': scientific}) == scientific
+
+
+def test_groot_legacy_limit_and_current_budget_rejections_are_visible():
+    for message in (
+        'GR00T action exceeds the gateway motion limit; chunk rejected without retiming',
+        'GR00T trajectory exceeds gateway budget; chunk rejected without truncation',
+    ):
+        assert public_run_error({'error': 'ValueError: ' + message}) == message
+
+
 def test_common_errors_have_public_descriptions():
     for error, expected in [
         ('HTTPError 401: secret', 'credentials'), ('HTTPError 429: secret', 'quota'),

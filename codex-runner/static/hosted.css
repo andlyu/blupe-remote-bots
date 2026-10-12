@@ -793,14 +793,13 @@ body.cameraExpanded{overflow:hidden}
 #localRunDialog #runButtons,#localRunDialog #run{width:100%}
 
 /* Compact model/effort popover, anchored above its chat pill. */
-.playgroundConsole #composerSettings{flex:1;width:auto;min-width:0;height:44px;padding:8px 10px;border-radius:8px;background:#e9efe3;color:var(--ink);font:600 12px var(--font-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.playgroundConsole #composerSettings{position:relative;flex:1;width:auto;min-width:0;height:44px;padding:8px 24px 8px 10px;border-radius:8px;background:#e9efe3;color:var(--ink);font:600 12px var(--font-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.playgroundConsole #composerSettings::after{content:'▾';position:absolute;right:9px;top:50%;transform:translateY(-50%)}
 .playgroundConsole #composerSettings:hover{background:#e6e8e3}
 .playgroundConsole #composerOptions{position:fixed;inset:auto;margin:0;width:min(280px,calc(100vw - 24px));max-height:70dvh;padding:14px 12px 10px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;color:var(--ink);box-shadow:0 5px 18px #00000014;overflow-y:auto;font-size:12px}
 #composerOptions::backdrop{background:transparent}
 .modelPickerHeader{display:flex;align-items:flex-start;gap:10px;margin-bottom:4px}
-.modelPickerIcon{color:#92979b;font-size:22px;line-height:26px;width:22px;text-align:center}
 .modelPickerTitle{min-width:0;flex:1}
-#pickerEffort{display:block;color:var(--accent,#2d6048);font-size:14px;font-weight:500;line-height:20px}
 .playgroundConsole #composerOptions #composerModel{display:block;width:100%;min-width:0;padding:0 16px 0 0;margin:0;border:0;background:transparent;color:#777;font-size:12px;line-height:20px;cursor:pointer}
 #composerOptions #resetReasoning{flex:none;border:0;padding:0;width:24px;height:26px;background:transparent;color:#888;font:20px system-ui}
 #composerOptions #effortField>.help,#composerOptions #reasoningModel{display:none}
@@ -820,13 +819,27 @@ body.cameraExpanded{overflow:hidden}
 .steeringComposer .actions {justify-content:flex-end;margin-top:8px;}
 .steeringComposer p:empty {display:none;}
 
-/* System-prompt drafts remain alongside the model controls in chat. */
-#systemPromptSettings {margin-top:12px; border-top:1px solid var(--line,#dce1e8); padding-top:10px}
-#systemPromptSettings summary {cursor:pointer; font-size:13px; font-weight:600}
-#systemPromptName {font-weight:400; opacity:.7}
-#systemPromptText {width:100%; min-height:180px; resize:vertical; font:12px/1.5 ui-monospace,monospace; white-space:pre-wrap; box-sizing:border-box}
-#systemPromptSettings select {width:100%}
-#systemPromptSource {font-size:12px}
+/* A compact prompt action sits beside the model picker, with its own editor. */
+#systemPromptSettings {flex:none;margin:0}
+.playgroundConsole #openSystemPrompt {display:flex;align-items:center;gap:4px;width:auto;height:28px;padding:4px 7px;border:1px solid #e0e4dc;border-radius:999px;background:transparent;color:#667060;font:500 11px system-ui;white-space:nowrap;cursor:pointer}
+.playgroundConsole #openSystemPrompt:hover {background:#eeefed;color:#344032}
+.playgroundConsole #composerSettings:focus-visible,.playgroundConsole #openSystemPrompt:focus-visible {outline:2px solid #3478f6;outline-offset:2px}
+#systemPromptDialog {box-sizing:border-box;width:min(720px,calc(100vw - 32px));max-height:calc(100dvh - 48px);margin:auto;padding:24px;border:1px solid #dce1e8;border-radius:16px;background:#fff;color:#202631;box-shadow:0 20px 70px #18253c33;overflow:auto}
+#systemPromptDialog::backdrop {background:#18253c66}
+.systemPromptHeader {display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.systemPromptHeader h2 {margin:0;font-size:20px}
+#systemPromptModel {margin:4px 0 0;color:#697386;font-size:13px}
+#closeSystemPrompt {border:0;background:transparent;font-size:26px;line-height:1;color:#697386;cursor:pointer}
+#systemPromptDialog label {display:block;margin:14px 0 6px;font-size:13px;font-weight:600}
+#systemPromptName {font-weight:400;opacity:.7}
+#systemPromptDialog select {box-sizing:border-box;width:100%;padding:9px;border:1px solid #dce1e8;border-radius:8px;background:#fff;color:inherit}
+#systemPromptText {width:100%;min-height:220px;max-height:50dvh;padding:12px;border:1px solid #dce1e8;border-radius:8px;resize:vertical;font:13px/1.5 ui-monospace,monospace;white-space:pre-wrap;box-sizing:border-box}
+#systemPromptDialog .help,#systemPromptSource {font-size:12px;line-height:1.5}
+.systemPromptActions {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:20px}
+.systemPromptActions > div {display:flex;gap:8px;margin-left:auto}
+.systemPromptActions button {padding:9px 12px;border:1px solid #dce1e8;border-radius:8px;background:#fff;color:inherit;cursor:pointer}
+#saveSystemPrompt {background:#347df1;border-color:#347df1;color:#fff}
+@media(max-width:480px) {#systemPromptDialog {padding:16px}}
 
 /* Console identity and readable interaction states. */
 /* The main model picker owns selection. Keep catalog state for its scripts,
@@ -927,3 +940,10 @@ body.cameraExpanded{overflow:hidden}
   .playgroundConsole #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]) .expandCamera{font-size:12px}
   .playgroundConsole #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]) .expandCamera::before{inset:13px}
 }
+
+/* Match the separately published prompt editor to the console palette. */
+.playgroundConsole #openSystemPrompt{height:44px;padding:6px 8px;border-radius:8px;color:var(--muted);font:500 11px var(--font-ui)}
+.playgroundConsole #composerSettings:focus-visible,.playgroundConsole #openSystemPrompt:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.playgroundConsole #systemPromptDialog{background:var(--surface);color:var(--ink);border-color:var(--line)}
+.playgroundConsole #systemPromptModel,.playgroundConsole #closeSystemPrompt{color:var(--muted)}
+.playgroundConsole #saveSystemPrompt{background:var(--accent);border-color:var(--accent);color:white}

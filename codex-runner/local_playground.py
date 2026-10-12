@@ -256,6 +256,7 @@ def serve(args):
         camera_origin=args.camera_origin or args.session_api or 'http://127.0.0.1:8089',
         astra_endpoint=os.environ.get('ASTRA_ENDPOINT', ''),
         groot_key_file=groot_key_file,
+        groot_config=json.loads(os.environ.get('YAM_GROOT_CONFIG', '{}')),
         hardware_control=args.allow_hardware_control, development=True,
         local_codex=True, local_claude=True,
         share_conversation=not getattr(args, "no_share_conversation", False),

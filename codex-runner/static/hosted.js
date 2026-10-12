@@ -438,6 +438,7 @@ function createRunLaunchGuard() {
   const originalProviderMarkup = $('provider').innerHTML;
   let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'yam-1', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
   let ownRunLive = false, conversationSharingAllowed = true;
+  let grootModel = 'groot-reviewed-step10000';
   let csrf = '', ended = false, submitting = false, active = false, lastHistory = 0, contactRequested = false;
   const runLaunchGuard = createRunLaunchGuard();
   window.addEventListener('blupe-robot-selected', () => runLaunchGuard.reset());
@@ -726,7 +727,8 @@ function createRunLaunchGuard() {
     }
     if ($('provider').value === 'groot') {
       $('providerFields').hidden = true; $('apiKey').required = false;
-      $('apiKey').value = ''; $('model').value = 'groot-reviewed-step10000';
+      $('apiKey').value = ''; $('model').value = grootModel;
+      $('prompt').readOnly = false;
       $('policyHelp').textContent = 'GR00T warms up as soon as you join the queue. It runs when your turn and the GPU are ready.';
       window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel(); return;
@@ -2114,7 +2116,14 @@ function createRunLaunchGuard() {
         providerChanged();
       }
       $('runGroot').hidden = !session.groot_enabled;
-      if (session.groot_enabled) $('provider').append(Object.assign(document.createElement('option'), {value:'groot',textContent:'GR00T'}));
+      grootModel = session.groot_model || 'groot-reviewed-step10000';
+      if (session.groot_enabled) {
+        $('runGroot').textContent = 'Run ' + (session.groot_label || 'GR00T');
+        const grootOption = Object.assign(document.createElement('option'), {value:'groot',textContent:session.groot_label || 'GR00T'});
+        grootOption.dataset.model = grootModel;
+        grootOption.dataset.label = grootOption.textContent;
+        $('provider').append(grootOption);
+      }
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
       if (!session.local_runner && !session.joint_policy) providerChanged(false);
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
@@ -2297,14 +2306,17 @@ window.yamRecordingView = function(video, roles) {
   closeOptions.setAttribute('aria-label', 'Close model and run options'); closeOptions.textContent = '×';
   closeOptions.addEventListener('click', () => showComposerOptions(false));
   pickerHeader.append(title, closeOptions);
+  // Prompt editing remains a separate composer action.
+  settingsButton.after($('systemPromptSettings'));
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
   for (const child of [...options.children]) {
-    if (child !== duration && child !== $('effortField') && child !== $('systemPromptSettings')) advanced.append(child);
+    if (child !== duration && child !== $('effortField')) advanced.append(child);
   }
   options.prepend(pickerHeader, $('effortField'));
-  options.append($('systemPromptSettings'), advanced);
+  options.append(advanced);
   function modelChoice(option, selectedId) {
+    if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
       aspire:'gpt-6-astra',hosted_aspire:'gpt-6-astra',astra:'astra-default',groot:'groot-reviewed-step10000'};
@@ -2351,7 +2363,7 @@ window.yamRecordingView = function(video, roles) {
     model.title = choice?.id || '';
     const effort = !$('effortField').hidden && !$('reasoningBar').hidden ? $('reasoningLabel').textContent : '';
     const label = choice?.label || provider.selectedOptions[0]?.textContent || 'Select model';
-    const buttonLabel = label + (effort ? ' · ' + effort : '') + ' ▾';
+    const buttonLabel = label;
     if (settingsButton.textContent !== buttonLabel) settingsButton.textContent = buttonLabel;
     const resetHidden = !effort;
     if ($('resetReasoning').hidden !== resetHidden) $('resetReasoning').hidden = resetHidden;

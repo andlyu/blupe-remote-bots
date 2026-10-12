@@ -63,6 +63,21 @@ def public_runner_diagnostic(state):
     error = state.get('error')
     if not isinstance(error, str):
         return None
+    # GR00T rejects the whole chunk before dispatch. Preserve this reason in
+    # both the live banner and saved result without exposing arbitrary text.
+    scalar = r'[0-9]{1,20}(?:\.[0-9]{1,20})?(?:[eE][+-]?[0-9]{1,3})?'
+    groot = re.fullmatch(
+        rf'(?:ValueError: )?(GR00T action exceeds the runner motion limit; '
+        rf'chunk rejected without retiming \(largest sampled change ({scalar}) rad; '
+        rf'limit ({scalar}) rad\))', error)
+    if groot and all(math.isfinite(float(v)) for v in groot.groups()[1:]):
+        return groot.group(1)
+    for message in (
+        'GR00T action exceeds the gateway motion limit; chunk rejected without retiming',
+        'GR00T trajectory exceeds gateway budget; chunk rejected without truncation',
+    ):
+        if error in {message, 'ValueError: ' + message}:
+            return message
     # CameraFrameSource emits a fixed diagnostic without response bodies/URLs.
     # Retain it in the live banner and saved result instead of hiding the cause.
     camera = r'left|right|top|observer|overhead|side|front|wrist'
