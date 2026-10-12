@@ -86,6 +86,7 @@
     <details class="runPrompt" open><summary>Prompt</summary><p id="sidePrompt">Waiting for someone to run a policy.</p></details>
     <div class="statusHeader"><h2 id="sideConversationTitle">Response notes</h2><span id="sideConversationState" class="tag">Waiting for a run</span></div>
     <ol id="sideConversationMessages" tabindex="0" aria-label="Live conversation messages" aria-live="polite" aria-relevant="additions"><li>Astra’s replies and robot feedback from the current run appear here for everyone.</li></ol>
+    <div id="taskRunFailure" class="taskFailureNotice" role="alert" aria-atomic="true" hidden></div>
   </section>
   <div class="runSetup">
     <section class="panel">
@@ -93,7 +94,6 @@
         <div class="promptRow"><textarea id="prompt" aria-label="Task prompt" placeholder="Give the arms a prompt" rows="1" maxlength="4000" required></textarea>
           <div class="composerToolbar"><button id="composerSettings" type="button" aria-label="Run settings" title="Run settings" aria-haspopup="dialog" aria-controls="localRunDialog">+</button><select id="composerModel" aria-label="Choose model" disabled><option>Connecting…</option></select><button id="composerSend" type="button" class="primary" aria-label="Send task" title="Send task" disabled><span aria-hidden="true">↑</span></button></div>
           <div class="runLaunchActions"><button id="openLocalRun" class="primary" type="button" hidden disabled>Select model and run</button><button id="openSubscriptionInstructions" type="button" aria-haspopup="dialog" aria-controls="codexInstructions">Run via own LLM subscription</button></div><div id="runButtons"><button class="primary" id="run" type="submit" disabled>Run online</button><button type="button" id="openCodexInstructions">Run Locally through Subscription</button><button type="button" id="runAstra" hidden disabled>Run with Astra</button><button type="button" id="runClaude" hidden disabled>Run with Opus</button><button type="button" id="runGroot" hidden disabled>Run GR00T</button></div></div>
-        <div id="taskRunFailure" class="taskFailureNotice" role="alert" aria-atomic="true" hidden></div>
         <details id="runSettings"><summary>Settings</summary>
         <label for="provider">Provider or policy</label>
         <select id="provider"><option value="openai" selected>ChatGPT</option><option value="anthropic">Claude</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option></select>
