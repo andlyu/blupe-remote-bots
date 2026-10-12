@@ -82,7 +82,7 @@
     $(id).addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
     sync(true); // Discard unsaved edits, including when Escape closes the popup.
-    ($('composerSettings') || $('openSystemPrompt')).focus();
+    (box.hidden ? $('composerSettings') : $('openSystemPrompt')).focus();
   });
   document.addEventListener('blupe-model-changed', () => sync());
   $('provider').addEventListener('change', () => sync());

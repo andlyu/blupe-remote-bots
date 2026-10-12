@@ -2286,19 +2286,22 @@ window.yamRecordingView = function(video, roles) {
   settingsButton.setAttribute('aria-haspopup', 'dialog');
   settingsButton.title = 'Model and run options';
   const pickerHeader = document.createElement('div'); pickerHeader.className = 'modelPickerHeader';
-  const icon = document.createElement('span'); icon.className = 'modelPickerIcon'; icon.textContent = 'ϟ'; icon.setAttribute('aria-hidden', 'true');
   const title = document.createElement('div'); title.className = 'modelPickerTitle';
+  const modelLabel = document.createElement('label'); modelLabel.htmlFor = model.id; modelLabel.textContent = 'Model';
   const effortLabel = document.createElement('strong'); effortLabel.id = 'pickerEffort';
-  title.append(effortLabel, model);
-  pickerHeader.append(icon, title, $('resetReasoning'));
+  title.append(modelLabel, model, effortLabel);
+  pickerHeader.append(title, $('resetReasoning'));
+  // Prompt editing is a separate composer action, alongside model selection.
+  settingsButton.after($('systemPromptSettings'));
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
   for (const child of [...options.children]) {
-    if (child !== duration && child !== $('effortField') && child !== $('systemPromptSettings')) advanced.append(child);
+    if (child !== duration && child !== $('effortField')) advanced.append(child);
   }
-  options.prepend(pickerHeader, $('systemPromptSettings'), $('effortField'));
+  options.prepend(pickerHeader, $('effortField'));
   options.append(advanced);
   function modelChoice(option, selectedId) {
+    if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
       aspire:'gpt-6-astra',hosted_aspire:'gpt-6-astra',astra:'astra-default',groot:'groot-reviewed-step10000'};
@@ -2345,9 +2348,11 @@ window.yamRecordingView = function(video, roles) {
     model.title = choice?.id || '';
     const effort = !$('effortField').hidden && !$('reasoningBar').hidden ? $('reasoningLabel').textContent : '';
     const label = choice?.label || provider.selectedOptions[0]?.textContent || 'Select model';
-    const buttonLabel = label + (effort ? ' · ' + effort : '') + ' ▾';
+    const buttonLabel = label;
     if (settingsButton.textContent !== buttonLabel) settingsButton.textContent = buttonLabel;
-    if (effortLabel.textContent !== (effort || 'Model')) effortLabel.textContent = effort || 'Model';
+    const effortText = effort ? 'Thinking · ' + effort : '';
+    if (effortLabel.textContent !== effortText) effortLabel.textContent = effortText;
+    if (effortLabel.hidden !== !effort) effortLabel.hidden = !effort;
     const resetHidden = !effort;
     if ($('resetReasoning').hidden !== resetHidden) $('resetReasoning').hidden = resetHidden;
     if (model.disabled !== provider.disabled) model.disabled = provider.disabled;
