@@ -1,0 +1,122 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RoboHouse camera layout regression</title>
+<style>
+  body { font: 14px system-ui; margin: 20px; background: #f7f8f5; }
+  .preview { position: relative; margin: 12px 0; }
+  iframe { position: absolute; inset: 0; display: block; border: 0; transform-origin: top left; }
+  pre { white-space: pre-wrap; }
+</style>
+<h1>RoboHouse camera layout regression</h1>
+<p>Real camera markup, stylesheet, selection and sizing functions. Simulated frames; no robot or model connection.</p>
+<pre id="result">Running…</pre>
+<div id="previews"></div>
+<script type="module">
+// Serve codex-runner as the web root. Optional ?css=/before.css compares a saved stylesheet.
+const [html, js] = await Promise.all([
+  fetch('/static/hosted.html').then(r => r.text()),
+  fetch('/static/hosted.js').then(r => r.text()),
+]);
+const css = new URLSearchParams(location.search).get('css') || '/static/hosted.css';
+const markup = html.match(/<section id="liveViewer"[\s\S]*?<\/section>/)[0];
+const select = js.slice(js.indexOf('  function selectedCameras(names)'), js.indexOf('  async function refreshRobotAvailability'));
+const fit = js.slice(js.indexOf('  function fitCameras()'), js.indexOf('  const sizing = new ResizeObserver(fitCameras)'));
+const expand = js.slice(js.indexOf('  function cameraExpansion('), js.indexOf('  function synchronizedPanels('));
+const checks = [];
+const paint = win => new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+const check = (pass, label, detail) => checks.push({pass: !!pass, label, detail});
+for (const [width, height] of [[1440,900], [1280,650], [844,390], [390,844]]) {
+  const frame = document.createElement('iframe');
+  frame.width = width; frame.height = height;
+  frame.allowFullscreen = true;
+  frame.title = `Camera layout at ${width} × ${height}`;
+  const preview = document.createElement('div');
+  preview.className = 'preview';
+  preview.style.maxWidth = width + 'px';
+  preview.style.aspectRatio = `${width}/${height}`;
+  const loaded = new Promise(resolve => frame.onload = resolve);
+  frame.srcdoc = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${css}">
+    <body class="playgroundConsole"><main><div class="watchLayout"><div class="watchVisuals">
+    <div class="videoPanel">${markup}</div><div class="cameraStatusLine">Simulated camera frames</div><aside id="yourQueue">Queue · idle</aside>
+    </div><div class="watchInteraction">Task chat</div></div><p id="videoDelayNotice"></p></main>`;
+  preview.append(frame);
+  document.querySelector('#previews').append(preview);
+  new ResizeObserver(() => { frame.style.transform = `scale(${preview.clientWidth / width})`; }).observe(preview);
+  await loaded;
+  const win = frame.contentWindow, doc = frame.contentDocument;
+  win.eval(`
+    var $ = id => document.getElementById(id);
+    var cameraNames = [], cameraEpoch = 0, camerasDisconnected = false;
+    var selectedRobot = 'robot-ba8413962083809c';
+    var videoStream = {path: 'fixture', cameras: ['top','left','right']};
+    var originalCameraMarkup = $('liveViewer').innerHTML;
+    var workspace = document.querySelector('.watchLayout'), visuals = document.querySelector('.watchVisuals');
+    function addModelBadge() {} function camera() {}
+    ${select}
+    ${fit}
+    ${expand}
+  `);
+  const viewer = doc.querySelector('#liveViewer');
+  for (const layout of ['top-with-grippers', 'observer-focus', 'single', 'multi']) {
+    win.selectedRobot = layout === 'top-with-grippers' ? 'robot-ba8413962083809c' : 'yam-1';
+    const roles = layout === 'observer-focus' ? ['top','observer','left','right'] : layout === 'single' ? ['top'] : ['top','left','right'];
+    win.videoStream.cameras = roles;
+    win.selectedCameras(roles);
+    win.fitCameras();
+    for (const state of ['idle', 'running', 'running-hidden-notice']) {
+      const active = state !== 'idle';
+      doc.querySelector('#viewerCue').hidden = !active;
+      doc.querySelector('#viewerCue').style.display = state === 'running-hidden-notice' ? 'none' : '';
+      viewer.classList.toggle('yourRunLive', active);
+      await paint(win);
+      const bounds = viewer.getBoundingClientRect();
+      const tiles = [...viewer.querySelectorAll('figure:not(.syncSource)')];
+      const context = `${width}×${height} ${layout} ${state}`;
+      if (layout === 'top-with-grippers') {
+        check(tiles.every(tile => {
+          const picture = tile.querySelector('.syncTilePicture').getBoundingClientRect();
+          const canvas = tile.querySelector('canvas').getBoundingClientRect();
+          return canvas.top <= picture.top + 1 && canvas.bottom >= picture.bottom - 1;
+        }), context + ': camera pixels cover each picture without an empty bottom strip');
+        const top = viewer.querySelector('[data-camera-role="top"]').getBoundingClientRect();
+        check(Math.abs(top.top - bounds.top) < 1 && Math.abs(top.height - bounds.height) < 1 && Math.abs(top.width - bounds.width) < 1,
+          context + ': overhead feed fills the viewer', {viewer: bounds.toJSON(), top: top.toJSON()});
+        for (const role of ['left', 'right']) {
+          const wrist = viewer.querySelector(`figure[data-camera-role="${role}"]`).getBoundingClientRect();
+          const inset = width <= 740 ? 6 : 12;
+          check(wrist.width > 40 && wrist.height > 20 && wrist.width / wrist.height > 1.6 && wrist.width / wrist.height < 1.9
+            && Math.abs(bounds.bottom - wrist.bottom - inset) < 1
+            && Math.abs(role === 'left' ? wrist.left - bounds.left - inset : bounds.right - wrist.right - inset) < 1,
+            context + `: ${role} wrist stays in its bottom corner`, wrist.toJSON());
+        }
+      } else {
+        check(tiles.every(tile => {
+          const box = tile.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && box.left >= bounds.left - 1 && box.right <= bounds.right + 1
+            && box.top >= bounds.top - 1 && box.bottom <= bounds.bottom + 1;
+        }), context + ': other camera layouts stay inside the viewer');
+      }
+    }
+  }
+  // Leave the target layout visible for visual review.
+  win.selectedRobot = 'robot-ba8413962083809c';
+  win.videoStream.cameras = ['top','left','right'];
+  win.selectedCameras(win.videoStream.cameras); win.fitCameras();
+  doc.querySelector('#viewerCue').hidden = false;
+  viewer.classList.add('yourRunLive');
+  win.cameraExpansion({play: () => Promise.resolve()}, [...viewer.querySelectorAll('canvas')]);
+  for (const canvas of viewer.querySelectorAll('canvas')) {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = canvas.dataset.cameraRole === 'top' ? '#9ca99b' : '#6c8277';
+    ctx.fillRect(0,0,640,360);
+    ctx.strokeStyle = '#e5eee7'; ctx.lineWidth = 2;
+    for (let x=0;x<=640;x+=40) {ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,360);ctx.stroke();}
+    for (let y=0;y<=360;y+=40) {ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(640,y);ctx.stroke();}
+    ctx.fillStyle = '#203b2b'; ctx.font = '32px system-ui';
+    ctx.fillText(canvas.dataset.cameraRole.toUpperCase() + ' · SIMULATED',50,180);
+  }
+}
+const failed = checks.filter(c => !c.pass);
+document.querySelector('#result').textContent = JSON.stringify({passed: !failed.length, count: checks.length, failed}, null, 2);
+document.querySelector('#result').dataset.result = failed.length ? 'fail' : 'pass';
+</script>
