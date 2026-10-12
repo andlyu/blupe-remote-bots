@@ -985,7 +985,7 @@ test('public stage timer advances across successive shared snapshots',async()=>{
 test('ASPIRE failures offer the local README while preserving the concrete error',async()=>{
  const f=await disclosureFixture({hostname:'playground.blupe.io'});
  const error='Native planning failed: right_tip_outside_workspace';
- const run={attempt_id:'readme-failure',task:'Place the block',status:'failed',model_name:'ASPIRE · Codex/Astra',error};
+ const run={attempt_id:'readme-failure',task:'Place the block',status:'failed',model_name:'ASPIRE · Codex/Astra',error,task_progress:{updates:[]}};
  f.api.live(run,{});
  const links=f.work.descendants().filter(node=>node.tagName==='A' && !node.parentElement.hidden && node.textContent==='You can run ASPIRE locally (README)');
  assert.equal(links.length,1);assert.equal(links[0].parentElement.hidden,false);

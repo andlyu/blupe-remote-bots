@@ -689,7 +689,7 @@ function createRunLaunchGuard() {
       $('forget').hidden = true;
       $('model').value = claude ? claudeModel : 'gpt-6-astra';
       $('policyHelp').textContent = claude
-        ? 'The selected Opus model runs through Claude Code using your Claude subscription.'
+        ? 'The selected Claude model runs through Claude Code using your Claude subscription.'
         : 'The selected OpenAI model runs through Codex using your ChatGPT subscription.';
       window.yamModelPicker?.providerChanged();
       updateRunLabel();
@@ -703,7 +703,7 @@ function createRunLaunchGuard() {
     $('apiKeyCreate').href = anthropic ? 'https://platform.claude.com/settings/keys' : 'https://platform.openai.com/api-keys';
     $('apiKeyBilling').href = anthropic ? 'https://platform.claude.com/settings/billing' : 'https://platform.openai.com/account/billing/overview';
     if (window.yamApplication?.providerChanged?.(applicationContext())) {
-      window.yamModelPicker?.providerChanged({fixed:!['guest_astra','guest_claude'].includes($('provider').value)}); return;
+      window.yamModelPicker?.providerChanged({fixed:!['openai','anthropic','guest_astra','guest_claude'].includes($('provider').value)}); return;
     }
     const builtIn = $('provider').value === 'local_raise_lower';
     $('providerFields').hidden = builtIn;
