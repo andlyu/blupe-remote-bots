@@ -776,3 +776,10 @@ body.cameraExpanded{overflow:hidden}
 #reasoningLevel::-webkit-slider-thumb{appearance:none;width:24px;height:24px;border:1px solid #ddd;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002}
 #reasoningLevel::-moz-range-thumb{width:22px;height:22px;border:1px solid #ddd;border-radius:50%;background:#fff}
 #reasoningLevel:focus-visible{outline:2px solid #3478f6;outline-offset:3px}
+
+/* Model and run options stay with the chat composer. */
+.playgroundConsole #composerOptions{max-height:min(280px,35dvh);overflow-y:auto;overscroll-behavior:contain;padding:0 4px 12px;font-size:12px}
+.playgroundConsole #composerOptions .help{font-size:11px}
+.playgroundConsole #composerOptions .runDurationControl{margin:0 0 12px;font-size:12px}
+#localRunDialog #runButtons>:not(#run){display:none!important}
+#localRunDialog #runButtons,#localRunDialog #run{width:100%}
