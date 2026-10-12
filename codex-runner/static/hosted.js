@@ -581,7 +581,7 @@ function createRunLaunchGuard() {
     updateRunLabel();
     $('localRunMessage').textContent = '';
     $('localRunDialog').showModal();
-    ($('settingsModel') || $('provider')).focus();
+    $('runnerName').focus();
     void window.yamModelPicker?.refresh();
   };
   $('closeLocalRun').onclick = () => $('localRunDialog').close();
@@ -608,7 +608,15 @@ function createRunLaunchGuard() {
       (!$('runnerName').value.trim() ? $('runnerName') : $('apiKey')).focus();
     }
   });
-  $('runForm').addEventListener('invalid', () => {
+  $('runForm').addEventListener('invalid', event => {
+    if (event.target.id === 'prompt') return;
+    const options = $('composerOptions');
+    if (options?.contains(event.target)) {
+      options.hidden = false;
+      $('composerSettings').setAttribute('aria-expanded', 'true');
+      $('localRunDialog').close();
+      return;
+    }
     $('runSettings').open = true;
     updateRunLabel();
     if (!$('localRunDialog').open) $('localRunDialog').showModal();
@@ -2131,14 +2139,26 @@ window.yamRecordingView = function(video, roles) {
   const archive = $('past-runs'), dataset = $('dataset');
   if (archive && dataset) dataset.before(archive);
   const provider = $('provider'), model = $('composerModel'), send = $('composerSend');
-  // Share model choices with the Run dialog while preserving provider routing.
-  const settingsModel = document.createElement('select');
-  settingsModel.id = 'settingsModel';
-  provider.after(settingsModel);
+  // Configure the run in chat; the launch dialog only collects identity.
+  const options = document.createElement('div');
+  options.id = 'composerOptions'; options.hidden = true;
+  document.querySelector('.promptRow').before(options);
+  const duration = $('runDuration').closest('.runDurationControl');
+  if (duration) options.append(duration);
+  for (const child of [...$('runSettings').children]) {
+    if (!child.matches('summary, #runnerIdentity, label[for="email"], #email, #emailHelp, #setupRunActions, #chatgptSignInDialog')) options.append(child);
+  }
+  if ($('aspireSetupGuidance')) options.append($('aspireSetupGuidance'));
   provider.hidden = true;
-  const providerLabel = document.querySelector('label[for="provider"]');
-  providerLabel.htmlFor = settingsModel.id;
-  providerLabel.textContent = 'Model or policy';
+  document.querySelector('label[for="provider"]').hidden = true;
+  $('localRunTitle').textContent = 'Run';
+  $('openLocalRun').textContent = 'Run';
+  const settingsButton = $('composerSettings');
+  settingsButton.setAttribute('aria-controls', options.id);
+  settingsButton.setAttribute('aria-expanded', 'false');
+  settingsButton.setAttribute('aria-label', 'Model and run options');
+  settingsButton.removeAttribute('aria-haspopup');
+  settingsButton.title = 'Model and run options';
   function modelChoice(option, selectedId) {
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
@@ -2172,19 +2192,17 @@ window.yamRecordingView = function(video, roles) {
         provider:option.value,label:modelChoice(option,id).label,id}));
     });
     const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
-    const choice = modelChoice(provider.selectedOptions[0]);
-    for (const picker of [model, settingsModel]) {
-      if (picker.dataset.options !== signature) {
-        picker.replaceChildren(...choices.map(option => {
-          const item = new Option(option.label, option.value); item.title = option.id;
-          item.dataset.provider = option.provider; item.dataset.model = option.id; return item;
-        }));
-        picker.dataset.options = signature;
-      }
-      picker.value = provider.value;
-      picker.title = choice?.id || '';
-      if (picker.disabled !== provider.disabled) picker.disabled = provider.disabled;
+    if (model.dataset.options !== signature) {
+      model.replaceChildren(...choices.map(option => {
+        const item = new Option(option.label, option.value); item.title = option.id;
+        item.dataset.provider = option.provider; item.dataset.model = option.id; return item;
+      }));
+      model.dataset.options = signature;
     }
+    model.value = provider.value;
+    const choice = modelChoice(provider.selectedOptions[0]);
+    model.title = choice?.id || '';
+    if (model.disabled !== provider.disabled) model.disabled = provider.disabled;
     const running = $('runForm').classList.contains('runActive');
     const queued = !$('leaveQueue').hidden && !$('leaveQueue').disabled;
     send.dataset.running = String(running);
@@ -2205,26 +2223,31 @@ window.yamRecordingView = function(video, roles) {
     if (selectedId && !$('modelSettings').hidden) window.yamModelPicker?.selectModel?.(selectedId);
   }
   model.addEventListener('change', selectModelChoice);
-  settingsModel.addEventListener('change', selectModelChoice);
-  function openComposerSettings() {
-    const launch = $('openLocalRun'), dialog = $('localRunDialog');
-    if (launch.disabled) return;
-    launch.click();
-    // Hosted model hooks can replace the launch button's original handler.
-    // Keep the shared settings accessible without submitting the form.
-    if (!dialog.open) {
-      const settings = $('runSettings');
-      if (settings.parentElement !== $('localRunDialogBody')) $('localRunDialogBody').append(settings);
-      settings.open = true;
-      dialog.showModal(); settingsModel.focus();
-    }
+  function showComposerOptions(open) {
+    options.hidden = !open;
+    settingsButton.setAttribute('aria-expanded', String(open));
   }
-  $('composerSettings').addEventListener('click', openComposerSettings);
+  settingsButton.addEventListener('click', () => showComposerOptions(options.hidden));
+  function openRunIdentity() {
+    const launch = $('openLocalRun'), dialog = $('localRunDialog');
+    if (launch.disabled || !$('prompt').reportValidity()) return;
+    const invalid = [...options.querySelectorAll('input, select, textarea')]
+      .find(field => field.willValidate && !field.validity.valid);
+    if (invalid) {
+      showComposerOptions(true); invalid.reportValidity(); return;
+    }
+    showComposerOptions(false);
+    launch.click();
+    if (!dialog.open) {
+      $('runSettings').open = true;
+      dialog.showModal();
+    }
+    $('runnerName').focus();
+  }
   send.addEventListener('click', () => {
     if ($('runForm').classList.contains('runActive')) {
       (!$('leaveQueue').hidden && !$('leaveQueue').disabled ? $('leaveQueue') : $('stop')).click();
-    } else if (!$('runForm').checkValidity()) openComposerSettings();
-    else $('run').click();
+    } else openRunIdentity();
   });
   const prompt = $('prompt');
   function sizePrompt() { prompt.style.height = 'auto'; prompt.style.height = Math.min(120, Math.max(24, prompt.scrollHeight)) + 'px'; }
