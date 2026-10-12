@@ -817,3 +817,11 @@ body.cameraExpanded{overflow:hidden}
 .steeringComposer textarea {box-sizing:border-box;width:100%;resize:vertical;min-height:64px;}
 .steeringComposer .actions {justify-content:flex-end;margin-top:8px;}
 .steeringComposer p:empty {display:none;}
+
+/* System-prompt drafts remain alongside the model controls in chat. */
+#systemPromptSettings {margin-top:12px; border-top:1px solid var(--line,#dce1e8); padding-top:10px}
+#systemPromptSettings summary {cursor:pointer; font-size:13px; font-weight:600}
+#systemPromptName {font-weight:400; opacity:.7}
+#systemPromptText {width:100%; min-height:180px; resize:vertical; font:12px/1.5 ui-monospace,monospace; white-space:pre-wrap; box-sizing:border-box}
+#systemPromptSettings select {width:100%}
+#systemPromptSource {font-size:12px}

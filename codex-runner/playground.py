@@ -420,7 +420,7 @@ class HostedRunner:
             await self.json(send, 200, {"selected": self.robot_id, "robots": [
                 {**{k: robot[k] for k in ("id", "name", "url")}, "hardware": robot.get("hardware", ""), "connected": self.robot_connected(robot["id"])} for robot in self.robots]})
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/model-picker.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -485,7 +485,9 @@ class HostedRunner:
                 from remote_yam.subscription_setup import subscription_status
                 local_setup = {**local_setup, 'local_runner': True, 'default_provider': self.default_provider,
                                'claude': await asyncio.to_thread(subscription_status, 'claude'), 'claude_model': CLAUDE_MODEL}
-            await self.json(send, 200, {**local_setup, **application_setup, "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
+            from remote_yam.system_prompts import catalog as system_prompt_catalog
+            await self.json(send, 200, {**local_setup, **application_setup,
+                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},
@@ -736,6 +738,13 @@ class HostedRunner:
     def launch(self, visitor, payload, *, paid=False, provider_transform=None):
         self.remember_runner(visitor)
         self.validate_launch(visitor, payload, paid)
+        from remote_yam.system_prompts import selection, apply as apply_system_prompt
+        try:
+            selected_prompt = selection(payload)
+        except ValueError as exc:
+            raise RequestError(400, str(exc)) from None
+        if selected_prompt is not None and (self.joint_counts != (6,6) or payload.get('use_api_depth', self.use_api_depth if payload.get('provider') == 'codex' else False)):
+            raise RequestError(400, 'System prompt editing is available for Cartesian YAM model runs')
         with visitor.lock:
             if visitor.retired:
                 raise RequestError(401, "Browser session ended")
@@ -929,6 +938,13 @@ class HostedRunner:
                 provider.reasoning_effort = effort
             if fast_provider:
                 provider.response_speed = response_speed
+            try:
+                apply_system_prompt(provider, selected_prompt)
+            except ValueError as exc:
+                close = getattr(provider, 'close_transport', None)
+                if callable(close):
+                    close()
+                raise RequestError(400, str(exc)) from None
             if provider_transform is not None:
                 provider = provider_transform(provider)
             if launch_route:
