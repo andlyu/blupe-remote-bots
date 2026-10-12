@@ -3,7 +3,10 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const field = $('systemPromptText'), menu = $('systemPromptPreset'), box = $('systemPromptSettings');
-  if (!field || !menu || !box) return;
+  const dialog = $('systemPromptDialog');
+  if (!field || !menu || !box || !dialog) return;
+  // Keep the modal outside the run form and the model popover.
+  document.body.append(dialog);
   let data = {}, robot = '', identity = '', draft = null;
   const presets = () => data.presets || [];
   const defaultId = () => /^claude-opus-/.test($('model').value.trim()) ? 'roboharm-cartesian' : 'with-haste';
@@ -46,20 +49,40 @@
     const preset = presets().find(p => p.id === menu.value);
     if (preset) draft = {preset:preset.id, text:preset.text, custom:false};
     else if (draft) draft.custom = true;
-    save(); render();
+    render();
   });
   field.addEventListener('input', () => {
     if (!draft) return;
-    draft.text = field.value; draft.custom = true; save();
+    draft.text = field.value; draft.custom = true;
     menu.value = 'custom'; $('systemPromptName').textContent = '· Custom';
-    field.setCustomValidity(new TextEncoder().encode(field.value).length > (data.max_bytes || 16000)
-      ? 'Use at most 16,000 UTF-8 bytes.' : !field.value.trim() ? 'Enter a system prompt.' : '');
+    validate();
   });
   $('resetSystemPrompt').addEventListener('click', () => {
     const preset = presets().find(p => p.id === defaultId());
     if (!preset) return;
     draft = {preset:preset.id, text:preset.text, custom:false};
-    field.setCustomValidity(''); save(); render();
+    field.setCustomValidity(''); render();
+  });
+  function validate() {
+    field.setCustomValidity(new TextEncoder().encode(field.value).length > (data.max_bytes || 16000)
+      ? 'Use at most 16,000 UTF-8 bytes.' : !field.value.trim() ? 'Enter a system prompt.' : '');
+    return field.validity.valid;
+  }
+  $('openSystemPrompt').addEventListener('click', () => {
+    sync(true); if (!supported() || !draft) return;
+    $('systemPromptModel').textContent = $('model').value.trim();
+    window.yamShowModelOptions?.(false);
+    dialog.showModal(); field.focus();
+  });
+  $('saveSystemPrompt').addEventListener('click', () => {
+    if (!validate()) { field.reportValidity(); return; }
+    save(); dialog.close();
+  });
+  for (const id of ['closeSystemPrompt', 'cancelSystemPrompt'])
+    $(id).addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => {
+    sync(true); // Discard unsaved edits, including when Escape closes the popup.
+    ($('composerSettings') || $('openSystemPrompt')).focus();
   });
   document.addEventListener('blupe-model-changed', () => sync());
   $('provider').addEventListener('change', () => sync());

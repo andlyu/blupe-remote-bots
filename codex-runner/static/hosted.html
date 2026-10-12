@@ -133,17 +133,20 @@
           <select id="responseSpeed" aria-describedby="speedHelp"><option value="fast" selected>Fast</option><option value="standard">Standard</option></select>
           <p id="speedHelp" class="help">Fast uses the provider's faster inference tier where available. It can use more credits; thinking effort and arm speed are separate.</p>
         </div>
-        <details id="systemPromptSettings" hidden>
-          <summary>System prompt <span id="systemPromptName"></span></summary>
-          <label for="systemPromptPreset">Starting prompt</label>
-          <select id="systemPromptPreset"></select>
-          <label for="systemPromptText">System prompt for this model</label>
-          <textarea id="systemPromptText" rows="10" maxlength="16000" spellcheck="false" aria-describedby="systemPromptHelp"></textarea>
-          <button id="resetSystemPrompt" type="button">Reset to model default</button>
-          <p id="systemPromptHelp" class="help">Saved for this model in this browser. Applies to your next run. Robot limits still apply.</p>
-          <p id="systemPromptNote" class="help"></p>
-          <a id="systemPromptSource" target="_blank" rel="noopener noreferrer" hidden>View reference run</a>
-        </details>
+        <div id="systemPromptSettings" hidden>
+          <button id="openSystemPrompt" type="button" aria-haspopup="dialog" aria-controls="systemPromptDialog">System prompt <span aria-hidden="true">↗</span></button>
+          <dialog id="systemPromptDialog" aria-labelledby="systemPromptTitle" aria-describedby="systemPromptModel">
+            <div class="systemPromptHeader"><div><h2 id="systemPromptTitle">System prompt</h2><p id="systemPromptModel"></p></div><button id="closeSystemPrompt" type="button" aria-label="Close system prompt">×</button></div>
+            <label for="systemPromptPreset">Starting prompt <span id="systemPromptName"></span></label>
+            <select id="systemPromptPreset"></select>
+            <label for="systemPromptText">Instructions for this model</label>
+            <textarea id="systemPromptText" rows="12" maxlength="16000" required spellcheck="false" aria-describedby="systemPromptHelp"></textarea>
+            <p id="systemPromptHelp" class="help">Saved for this model in this browser. Applies to your next run. Robot limits still apply.</p>
+            <p id="systemPromptNote" class="help"></p>
+            <a id="systemPromptSource" target="_blank" rel="noopener noreferrer" hidden>View reference run</a>
+            <div class="systemPromptActions"><button id="resetSystemPrompt" type="button">Reset to default</button><div><button id="cancelSystemPrompt" type="button">Cancel</button><button id="saveSystemPrompt" type="button">Save changes</button></div></div>
+          </dialog>
+        </div>
         <div id="apiDepthSettings" hidden>
           <label class="conversationSharing"><input id="useApiDepth" type="checkbox" aria-describedby="apiDepthHelp"> Use depth from the API</label>
           <p id="apiDepthHelp" class="help">Send paired color and depth with camera calibration. Astra can query measured depth at camera pixels.</p>

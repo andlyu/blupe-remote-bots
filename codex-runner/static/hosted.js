@@ -2287,8 +2287,8 @@ window.yamRecordingView = function(video, roles) {
   for (const child of [...options.children]) {
     if (child !== duration && child !== $('effortField') && child !== $('systemPromptSettings')) advanced.append(child);
   }
-  options.prepend(pickerHeader, $('effortField'));
-  options.append($('systemPromptSettings'), advanced);
+  options.prepend(pickerHeader, $('systemPromptSettings'), $('effortField'));
+  options.append(advanced);
   function modelChoice(option, selectedId) {
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
