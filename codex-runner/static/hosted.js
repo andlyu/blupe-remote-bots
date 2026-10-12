@@ -2301,6 +2301,7 @@ window.yamRecordingView = function(video, roles) {
   options.prepend(pickerHeader, $('effortField'));
   options.append(advanced);
   function modelChoice(option, selectedId) {
+    if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
       aspire:'gpt-6-astra',hosted_aspire:'gpt-6-astra',astra:'astra-default',groot:'groot-reviewed-step10000'};
