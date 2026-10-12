@@ -581,7 +581,7 @@ function createRunLaunchGuard() {
     updateRunLabel();
     $('localRunMessage').textContent = '';
     $('localRunDialog').showModal();
-    $('provider').focus();
+    ($('settingsModel') || $('provider')).focus();
     void window.yamModelPicker?.refresh();
   };
   $('closeLocalRun').onclick = () => $('localRunDialog').close();
@@ -2131,6 +2131,14 @@ window.yamRecordingView = function(video, roles) {
   const archive = $('past-runs'), dataset = $('dataset');
   if (archive && dataset) dataset.before(archive);
   const provider = $('provider'), model = $('composerModel'), send = $('composerSend');
+  // Share model choices with the Run dialog while preserving provider routing.
+  const settingsModel = document.createElement('select');
+  settingsModel.id = 'settingsModel';
+  provider.after(settingsModel);
+  provider.hidden = true;
+  const providerLabel = document.querySelector('label[for="provider"]');
+  providerLabel.htmlFor = settingsModel.id;
+  providerLabel.textContent = 'Model or policy';
   function modelChoice(option, selectedId) {
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
@@ -2164,17 +2172,19 @@ window.yamRecordingView = function(video, roles) {
         provider:option.value,label:modelChoice(option,id).label,id}));
     });
     const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
-    if (model.dataset.options !== signature) {
-      model.replaceChildren(...choices.map(option => {
-        const item = new Option(option.label, option.value); item.title = option.id;
-        item.dataset.provider = option.provider; item.dataset.model = option.id; return item;
-      }));
-      model.dataset.options = signature;
-    }
-    model.value = provider.value;
     const choice = modelChoice(provider.selectedOptions[0]);
-    model.title = choice?.id || '';
-    if (model.disabled !== provider.disabled) model.disabled = provider.disabled;
+    for (const picker of [model, settingsModel]) {
+      if (picker.dataset.options !== signature) {
+        picker.replaceChildren(...choices.map(option => {
+          const item = new Option(option.label, option.value); item.title = option.id;
+          item.dataset.provider = option.provider; item.dataset.model = option.id; return item;
+        }));
+        picker.dataset.options = signature;
+      }
+      picker.value = provider.value;
+      picker.title = choice?.id || '';
+      if (picker.disabled !== provider.disabled) picker.disabled = provider.disabled;
+    }
     const running = $('runForm').classList.contains('runActive');
     const queued = !$('leaveQueue').hidden && !$('leaveQueue').disabled;
     send.dataset.running = String(running);
@@ -2187,13 +2197,15 @@ window.yamRecordingView = function(video, roles) {
     const settingsDisabled = running || $('openLocalRun').disabled;
     if ($('composerSettings').disabled !== settingsDisabled) $('composerSettings').disabled = settingsDisabled;
   }
-  model.addEventListener('change', () => {
-    const selected = model.selectedOptions[0];
+  function selectModelChoice(event) {
+    const picker = event.currentTarget, selected = picker.selectedOptions[0];
     const selectedId = selected?.dataset.model;
-    provider.value = selected?.dataset.provider || model.value;
+    provider.value = selected?.dataset.provider || picker.value;
     provider.dispatchEvent(new Event('change', {bubbles:true}));
     if (selectedId && !$('modelSettings').hidden) window.yamModelPicker?.selectModel?.(selectedId);
-  });
+  }
+  model.addEventListener('change', selectModelChoice);
+  settingsModel.addEventListener('change', selectModelChoice);
   function openComposerSettings() {
     const launch = $('openLocalRun'), dialog = $('localRunDialog');
     if (launch.disabled) return;
@@ -2204,7 +2216,7 @@ window.yamRecordingView = function(video, roles) {
       const settings = $('runSettings');
       if (settings.parentElement !== $('localRunDialogBody')) $('localRunDialogBody').append(settings);
       settings.open = true;
-      dialog.showModal(); provider.focus();
+      dialog.showModal(); settingsModel.focus();
     }
   }
   $('composerSettings').addEventListener('click', openComposerSettings);
