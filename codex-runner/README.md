@@ -15,6 +15,10 @@ The UI starts an authenticated read-only monitor for `yam-1` at launch and rende
 
 The UI also polls the public FIFO snapshot, shows station availability and existing anonymous session rows, and marks the local runner's row as **YOU** after Join. Queue responses are sanitized locally and never expose prompts, provider configuration, or session capabilities.
 
+During a conversational rollout, its owner can use **Steer your run** in Task chat
+to add instructions for the next model decision. See [runtime steering](docs/runtime-steering.md)
+for prompt integration, supported policies, delivery states and related research.
+
 Camera URLs must be reachable from the runner host. The current simulation publisher emits LAN URLs under `http://andrew-desktop.local:8089`, which work on that LAN but require Session API proxy/upload or externally reachable signed URLs for remote runners.
 
 ## Launch

@@ -49,6 +49,7 @@ class RunnerController:
         self._worker: threading.Thread | None = None
         self._events: SessionEventStream | None = None
         self._provider: ProviderAdapter | None = None
+        self._steering_inbox = None
         self._prompt = ""
         self._attempt_id: str | None = None
         self._session_id: str | None = None
@@ -131,6 +132,7 @@ class RunnerController:
                                    "provider": provider.public_config().get("provider"),
                                    "model": provider.public_config().get("model")}
             self._provider = provider
+            self._steering_inbox = None
             if hasattr(provider, 'cancelled'):
                 provider.cancelled = lambda: self._provider_cancelled(provider)
             self._run_configuration = run_configuration(provider, prompt, run_duration_s)
@@ -213,6 +215,12 @@ class RunnerController:
                     if publisher:
                         publisher.add(kind, message, **details)
                 provider.interaction_sink = record_interaction
+                if getattr(provider, 'supports_runtime_steering', False):
+                    from .steering import SteeringInbox
+                    # Retain receipts after provider teardown without retaining
+                    # the provider or its credentials through a bound callback.
+                    self._steering_inbox = SteeringInbox(record_interaction)
+                    provider.steering = self._steering_inbox
             self._interactions.add('run_configuration', 'Configuration used for this run', configuration=self._run_configuration)
             self._interactions.add('joined', 'Joined the policy queue',
                                    session_id=session_id, task=prompt,
@@ -238,6 +246,7 @@ class RunnerController:
                 self._close_events()
                 self._stop_event.clear()
                 self._provider=provider;self._prompt=prompt
+                self._steering_inbox=None
                 self._attempt_id=uuid.uuid4().hex
                 self._session_id=None;self._episode_id=None;self._lease_id=None
                 self._run_started_at=None;self._run_ended_at=None
@@ -376,6 +385,23 @@ class RunnerController:
     def _record_server_contact(self, kind, detail):
         self._interactions.add(kind, detail['message'], **{k:v for k,v in detail.items() if k != 'message'})
 
+    def steer(self, attempt_id, text, request_id):
+        from .steering import SteeringError
+        with self._lock:
+            if not isinstance(attempt_id, str) or not attempt_id or attempt_id != self._attempt_id:
+                raise SteeringError(409, 'This is not your current run. Refresh before steering.')
+            if self._status != 'running' or self._stop_event.is_set() or (self._run_started_at is not None and time.time() - self._run_started_at >= self._run_duration_s):
+                raise SteeringError(409, 'Steering requires your running rollout')
+            if not getattr(self._provider, 'supports_runtime_steering', False):
+                raise SteeringError(409, 'This policy does not support live steering')
+            return self._provider.steering.submit(text, request_id)
+
+    def _steering_status(self):
+        supported = self._steering_inbox is not None
+        active = self._status == 'running' and not self._stop_event.is_set() and not (self._run_started_at is not None and time.time() - self._run_started_at >= self._run_duration_s)
+        return dict(supported=supported, available=supported and active,
+                    messages=self._steering_inbox.snapshot(active=active) if supported else [])
+
     def status(self) -> dict[str, Any]:
         with self._lock:
             if getattr(self, "_run_started_at", None) and self._is_terminal(self._status) and getattr(self, "_run_ended_at", None) is None:
@@ -392,6 +418,7 @@ class RunnerController:
                 "run_ended_at": getattr(self, "_run_ended_at", None),
                 "status": self._status,
                 "attempt_id": self._attempt_id,
+                "steering": self._steering_status(),
                 "hardware_control_enabled": self._hardware_control_enabled,
                 "execution_blocked_reason": self._execution_blocked_reason,
                 "session_id": self._session_id,

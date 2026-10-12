@@ -133,6 +133,51 @@ function renderStepMetricsChart(container, timings) {
   container.innerHTML = '<p class="help"><span style="color:#818cf8">■ Model thinking</span> · <span style="color:#34d399">■ Arm motion</span> · <span style="color:#fbbf24">● Left distance</span> · <span style="color:#38bdf8">● Right distance</span><br>Horizontal axis: step number. Hover for values. Missing data is left blank.</p>' + svg;
 }
 
+function createSteeringComposer({form, input, button, feedback, delivery, send, context, requestId}) {
+  let identity = '', attempt = null, available = false, pending = null, retry = null;
+  const sync = () => {input.disabled = !available;button.disabled = !available || !!pending || !input.value.trim();};
+  input.addEventListener('input', sync);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (!available || pending || !text || text.length > 2000) return;
+    const scope = context(), target = identity;
+    const payload = retry?.text === text && retry?.attempt_id === attempt ? retry
+      : {attempt_id:attempt, text, request_id:requestId()};
+    retry = payload;
+    const request = {};pending = request;feedback.textContent = 'Sending steering…';sync();
+    try {
+      const result = await send('/api/steer', payload);
+      if (identity !== target || context() !== scope || pending !== request) return;
+      feedback.textContent = result.message?.state === 'included' ? 'Already included in model context.' : 'Steering queued for the next model decision.';
+      if (input.value.trim() === text) input.value = '';
+      retry = null;
+    } catch (error) {
+      if (identity !== target || context() !== scope || pending !== request || error.stale) return;
+      feedback.textContent = error.message + ' Your message is still here; you can retry.';
+    } finally {
+      if (pending === request) {pending = null;sync();}
+    }
+  });
+  return {update(state = {}) {
+    const next = context() + ':' + (state.attempt_id || '');
+    if (next !== identity) {
+      identity = next;attempt = state.attempt_id;pending = null;retry = null;
+      input.value = '';feedback.textContent = '';
+    }
+    const steering = state.steering || {}, rows = steering.messages || [];
+    const running = state.status === 'running' && !!attempt;
+    available = running && steering.available === true;
+    form.hidden = !running && !rows.length;
+    const latest = rows.at(-1), waiting = rows.filter(row => row.state === 'queued').length;
+    delivery.textContent = running && !steering.supported ? 'Live steering is unavailable for this policy.'
+      : waiting ? `${waiting} steering message${waiting === 1 ? '' : 's'} waiting for the model.`
+      : latest?.state === 'not_delivered' ? 'Run ended before the queued steering reached the model.'
+      : latest?.state === 'included' ? 'Latest steering included in model context.' : '';
+    sync();
+  }};
+}
+
 function createRunLaunchGuard() {
   let version = 0, phase = 'idle', attemptId = null, conversation = null;
   return {
@@ -1251,6 +1296,7 @@ function createRunLaunchGuard() {
       : `Robot error: ${notice}`) : '';
   }
   function render(state) {
+    window.yamRuntimeSteering?.update(state);
     if (state.subscription_setup?.setup_prompt) {
       const failure = `${state.session_id}:${state.error}`;
       if (failure !== shownSubscriptionFailure) {
@@ -1355,7 +1401,7 @@ function createRunLaunchGuard() {
   function renderConversation(events, target = 'conversationMessages') {
     if (target === 'sideConversationMessages') sideConversationEvents = events;
     const reasoning = target === 'sideConversationMessages' && $('liveConversationPanel').dataset.mode === 'reasoning';
-    const messages = events.filter(event => ['model_request', 'model_response', 'model_error'].includes(event.kind) ||
+    const messages = events.filter(event => ['model_request', 'model_response', 'model_error', 'steering_queued', 'steering_included'].includes(event.kind) ||
       event.kind === 'model_progress' && ['summary','status'].includes(event.progress_type || event.details?.progress_type));
     const snapshot = JSON.stringify([reasoning, liveModelName, messages]);
     if (snapshot === conversationSnapshots[target]) return;
@@ -1392,19 +1438,20 @@ function createRunLaunchGuard() {
         previousInput = input;
       }
 
-      if (reasoning && event.kind !== 'model_error' && !astraStreamNote(event, true)) return null;
+      const steering = event.kind.startsWith('steering_');
+      if (reasoning && !steering && event.kind !== 'model_error' && !astraStreamNote(event, true)) return null;
       const li = document.createElement('li'), heading = document.createElement('strong'), body = document.createElement('p');
       li.classList.add('conversationTurn');
-      li.classList.add(event.kind === 'model_request' ? 'conversationOutgoing' : 'conversationIncoming');
+      li.classList.add(event.kind === 'model_request' || steering ? 'conversationOutgoing' : 'conversationIncoming');
       heading.className = 'conversationHeading';
-      const speaker = event.speaker || (event.kind === 'model_progress' ? liveModelName + ((event.progress_type || event.details?.progress_type) === 'summary' ? ' · public summary' : ' · status') : event.kind === 'model_request' ? 'To ' + liveModelName : event.kind === 'model_response' ? liveModelName : 'Run error');
+      const speaker = event.speaker || (steering ? (event.kind === 'steering_queued' ? 'Run owner · steering' : 'Steering status') : event.kind === 'model_progress' ? liveModelName + ((event.progress_type || event.details?.progress_type) === 'summary' ? ' · public summary' : ' · status') : event.kind === 'model_request' ? 'To ' + liveModelName : event.kind === 'model_response' ? liveModelName : 'Run error');
       const speakerLabel = document.createElement('span'), timestamp = document.createElement('time');
       speakerLabel.textContent = speaker;
       timestamp.textContent = new Date(event.timestamp * 1000).toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit'});
       heading.append(speakerLabel, timestamp);
       body.textContent = event.kind === 'model_request' ? event.details?.request_text || event.details?.observation || event.message : event.details?.response || event.message;
       if (freshText !== null) body.textContent = freshText;
-      if (reasoning && event.kind !== 'model_error') body.textContent = astraStreamNote(event, true);
+      if (reasoning && !steering && event.kind !== 'model_error') body.textContent = astraStreamNote(event, true);
       li.append(heading);
       for (const ref of refs) {
         const marker = document.createElement('button'); marker.type = 'button';
@@ -1828,6 +1875,12 @@ function createRunLaunchGuard() {
     setTimeout(poll, 1000);
   }
   window.addEventListener('pagehide', () => { $('apiKey').value = ''; });
+  const steeringComposer = window.yamRuntimeSteering = createSteeringComposer({
+    form:$('steeringForm'), input:$('steeringPrompt'), button:$('steeringSend'),
+    feedback:$('steeringFeedback'), delivery:$('steeringDelivery'), send:api,
+    context:() => robotGeneration + ':' + csrf, requestId:() => crypto.randomUUID(),
+  });
+  window.addEventListener('blupe-robot-selected', () => steeringComposer.update());
   const originalCameraMarkup = $('liveViewer').innerHTML;
   let modelCameraNames = new Set();
   let cameraNames = ['left', 'top', 'right'], camerasDisconnected = false, cameraEpoch = 0;

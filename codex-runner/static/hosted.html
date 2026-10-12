@@ -87,6 +87,14 @@
     <div class="statusHeader"><h2 id="sideConversationTitle">Response notes</h2><span id="sideConversationState" class="tag">Waiting for a run</span></div>
     <ol id="sideConversationMessages" tabindex="0" aria-label="Live conversation messages" aria-live="polite" aria-relevant="additions"><li>Astra’s replies and robot feedback from the current run appear here for everyone.</li></ol>
     <div id="taskRunFailure" class="taskFailureNotice" role="alert" aria-atomic="true" hidden></div>
+    <form id="steeringForm" class="steeringComposer" hidden autocomplete="off">
+      <label for="steeringPrompt">Steer your run</label>
+      <p id="steeringHelp" class="help">Guide the next model decision. Motion already sent may finish first. Use Stop to halt the run.</p>
+      <textarea id="steeringPrompt" rows="2" maxlength="2000" placeholder="Try approaching the block from the left…" aria-describedby="steeringHelp" required disabled></textarea>
+      <div class="actions"><button id="steeringSend" type="submit" disabled>Send steering</button></div>
+      <p id="steeringFeedback" class="help" role="status" aria-live="polite"></p>
+      <p id="steeringDelivery" class="help" role="status" aria-live="polite"></p>
+    </form>
   </section>
   <div class="runSetup">
     <section class="panel">

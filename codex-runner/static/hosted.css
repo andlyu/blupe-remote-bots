@@ -805,3 +805,9 @@ body.cameraExpanded{overflow:hidden}
 #advancedModelOptions>summary{cursor:pointer;list-style:none;text-align:center;font-size:11px}
 .runExecutionInfo{flex:none;margin:8px 0;padding:10px 12px;border-radius:9px;background:#f1f4ef;color:#465044;font-size:11px}
 .runExecutionInfo>strong{font-size:11px;font-weight:650}.runExecutionInfo>p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.6;margin:5px 0 0}
+
+.steeringComposer {border-top:1px solid var(--line, #d6d8d5);margin-top:16px;padding-top:16px;}
+.steeringComposer label {display:block;font-weight:600;margin-bottom:6px;}
+.steeringComposer textarea {box-sizing:border-box;width:100%;resize:vertical;min-height:64px;}
+.steeringComposer .actions {justify-content:flex-end;margin-top:8px;}
+.steeringComposer p:empty {display:none;}

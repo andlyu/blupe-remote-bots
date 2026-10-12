@@ -43,7 +43,7 @@ def response_text(raw):
 def project_events(events, run_id):
     output = []
     for event in events:
-        if event.get('kind') not in {'model_request', 'model_response', 'model_progress'}:
+        if event.get('kind') not in {'model_request', 'model_response', 'model_progress', 'steering_queued', 'steering_included'}:
             continue
         details = event.get('details') or {}
         message = (details.get('request_text') or details.get('observation') or details.get('prompt')) if event['kind'] == 'model_request' else details.get('response')

@@ -12,7 +12,7 @@ test('local and online setup use the same dialog without submitting and retain r
  assert.equal($('openLocalRun').hidden,false);
  $('openLocalRun').onclick();
  assert.equal($('localRunDialog').open,true);
- assert.equal($('provider').focused,true);
+ assert.equal($('runnerName').focused,true);
  $('closeLocalRun').onclick();assert.equal($('localRunDialog').open,false);
  context.active=true;$('openLocalRun').onclick();assert.equal($('localRunDialog').open,false);
  vm.runInContext('configureLocalRunDialog(false)',context);
