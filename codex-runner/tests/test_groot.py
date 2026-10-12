@@ -85,12 +85,58 @@ def test_chunk_keeps_one_second_and_gripper_alignment():
 
 
 @pytest.mark.parametrize('index',[2,29])
-def test_oversized_action_rejects_whole_chunk_instead_of_stretching(index):
+def test_oversized_chunk_slows_both_arms_and_grippers_on_one_clock(index):
     p,o=policy_and_observation()
-    rows=[[0]*14 for _ in range(30)]
-    rows[index][0]=.02
+    events=[]
+    p.interaction_sink=lambda kind,message,**details:events.append((kind,details))
+    rows=[[0]*6+[.2]+[0]*6+[.8] for _ in range(30)]
+    rows[index][0]=.024
+    rows[index][7]=-.012
+    rows[index][6]=.8
+    rows[index][13]=.2
     p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':rows}
-    with pytest.raises(ValueError,match='without retiming'):
+    points=p.build_trajectory('bin',o,10)
+    assert len(points)==30
+    assert events==[('trajectory_timing',{'source_duration_s':1.,'playback_duration_s':3.,
+        'time_scale':3,'max_sampled_joint_delta_rad':.024,'max_joint_step_rad':.01,'waypoint_count':30})]
+    previous=[0]*6+[.2]+[0]*6+[.8]
+    for interval,target in enumerate(rows[2::3]):
+        for tick in range(1,4):
+            point=points[interval*3+tick-1]
+            expected=[a+(b-a)*tick/3 for a,b in zip(previous,target)]
+            assert point['step_id']==10+interval*3+tick-1
+            assert point['left_joints_deg']==pytest.approx([math.degrees(v) for v in expected[:6]])
+            assert point['right_joints_deg']==pytest.approx([math.degrees(v) for v in expected[7:13]])
+            assert point['left_gripper']==pytest.approx(expected[6])
+            assert point['right_gripper']==pytest.approx(expected[13])
+        previous=target
+    previous=o
+    for point in points:
+        for arm in ('left','right'):
+            assert max(abs(a-b) for a,b in zip(point[arm+'_joints_deg'],previous[arm+'_joints_deg']))<=math.degrees(.01)+1e-9
+        previous=point
+
+
+@pytest.mark.parametrize('jump,first_step',[(.301,0),(.024,2980),(0,2991),(1e308,0)])
+def test_slow_chunk_still_rejects_packet_or_session_budget_overflow(jump,first_step):
+    p,o=policy_and_observation()
+    row=[jump]+[0]*5+[.2]+[0]*6+[.8]
+    p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
+    with pytest.raises(ValueError,match='gateway budget'):
+        p.build_trajectory('bin',o,first_step)
+
+
+def test_cancellation_during_slow_chunk_build_returns_no_partial_trajectory():
+    p,o=policy_and_observation()
+    row=[.024]+[0]*5+[.2]+[0]*6+[.8]
+    p._json=lambda *a:{'model':MODEL,'checkpoint_step':10000,'action_units':'radians','actions':[row]*30}
+    calls=0
+    def cancelled():
+        nonlocal calls
+        calls+=1
+        return calls>=5
+    p.cancelled=cancelled
+    with pytest.raises(RuntimeError,match='cancelled'):
         p.build_trajectory('bin',o,0)
 
 
