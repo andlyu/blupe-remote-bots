@@ -47,6 +47,13 @@ test('smaller startup stills keep the same observer and side-camera geometry',as
   assert.deepEqual(Array.from(h.draws.find(d=>d.role==='top').args.slice(1)),[768,144,256,144,0,0,256,144]);
 });
 
+test('native HD preview shows the observer at full resolution before live startup',async()=>{
+  const h=harness();h.images[0].naturalWidth=2560;h.images[0].naturalHeight=1080;
+  await h.images[0].onload();
+  assert.deepEqual(Array.from(h.draws.find(d=>d.role==='observer').args.slice(1)),[0,0,1920,1080,0,0,1920,1080]);
+  assert.equal(h.tiles[1].width,1920);assert.equal(h.tiles[1].height,1080);
+});
+
 test('unrecognized robot and invalid image sizes leave normal startup available',async()=>{
   const h=harness('?robot_id=unadvertised');assert.equal(h.images.length,0);
   const invalid=harness();invalid.images[0].naturalWidth=640;await invalid.images[0].onload();
