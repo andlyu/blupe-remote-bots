@@ -5,7 +5,7 @@ function harness(role='observer', monitored=false, streamPath){
  let health;
  let now=0, video, readerOptions, destroyed=0, closed=0;const intervals=[],timers=new Map(),visibility={};let id=0;
  const label={textContent:''};
- const context={$:()=>null,csrf:null,synchronizedPanels:()=>{},ended:false,performance:{now:()=>now},location:{href:'https://test.invalid/'},URL,
+ const context={selectedRobot:'yam-1',$:()=>null,csrf:null,synchronizedPanels:()=>{},ended:false,performance:{now:()=>now},location:{href:'https://test.invalid/'},URL,
  setTimeout:f=>{timers.set(++id,f);return id},clearTimeout:i=>timers.delete(i),setInterval:f=>intervals.push(f),clearInterval:()=>{},
  fetch:async()=>{throw Error('WebRTC must not request HLS health')},AbortSignal,
  document:{hidden:false,addEventListener:(n,f)=>visibility[n]=f,createElement:()=>video={currentTime:0,readyState:0,paused:true,events:{},dataset:{},setAttribute(){},removeAttribute(){},load(){},pause(){this.paused=true},play(){this.paused=false;return Promise.resolve()},addEventListener(n,f){this.events[n]=f},getAttribute(){return null}}},

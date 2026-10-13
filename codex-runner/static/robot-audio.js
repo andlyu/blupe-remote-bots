@@ -1,11 +1,11 @@
-/* Remote USB microphone playback. Uses the pinned MediaMTX1.21 WHEP reader.
- * Browser policy reference: docs/refs/browser-audio/INDEX.md.
- * No microphone permission is requested from the viewer's browser.
+/* Audio is played by the SAME media element as the camera composite.
+ * This preserves A/V timing through WebRTC and HLS, including stalls/seeks.
+ * Browser policy: docs/refs/browser-audio/INDEX.md. No browser microphone input.
  */
-function createRobotAudio({audio, button, status, createReader, streamFor,
-  enabled = true, visible = true, remember = () => {}}) {
-  let robot = '', reader = null, generation = 0, playAttempt = 0;
-  let wanted = enabled, needsAction = null;
+function createRobotAudio({button, status, streamFor, enabled = true,
+  visible = true, remember = () => {}}) {
+  let robot = '', media = null, hasAudio = false, wanted = enabled;
+  let generation = 0, needsAction = null;
   const supported = () => Boolean(streamFor(robot));
   function render(message, live = false) {
     button.textContent = needsAction === 'blocked' ? 'Enable audio' : needsAction === 'error' ? 'Retry audio' : wanted ? 'Mute' : 'Unmute';
@@ -14,94 +14,53 @@ function createRobotAudio({audio, button, status, createReader, streamFor,
     button.disabled = !supported();
     status.textContent = message;
   }
-  function clearMedia() {
-    playAttempt++;
-    audio.muted = true;
-    audio.pause();
-    audio.srcObject?.getTracks().forEach(track => track.stop());
-    audio.srcObject = null;
-  }
-  function disconnect() {
+  function detach(video = media) {
+    if (video !== media) return;
     generation++;
-    reader?.close(); reader = null;
-    clearMedia();
-    needsAction = null;
+    if (media) media.muted = true;
+    media = null; hasAudio = false; needsAction = null;
+    render(wanted ? 'Waiting for robot audio' : 'Robot audio muted');
   }
-  async function play(token) {
-    const stream = audio.srcObject, attempt = ++playAttempt;
-    const current = () => token === generation && attempt === playAttempt &&
-      wanted && visible && audio.srcObject === stream;
-    audio.muted = false;
+  function apply() {
+    const token = ++generation, target = media, stream = media?.srcObject;
     needsAction = null;
-    render('Starting audio…');
-    try {
-      // Called synchronously from the fallback click when the stream is ready.
-      await audio.play();
-      if (current()) render('Robot audio live', true);
-    } catch (error) {
-      if (current()) {
-        audio.muted = true;
-        audio.pause();
-        needsAction = error.name === 'NotAllowedError' ? 'blocked' : 'error';
-        render(needsAction === 'blocked' ? 'Audio needs a click' : 'Audio unavailable');
-      }
-    }
-  }
-  function start() {
+    if (target) target.muted = true;
     if (!supported()) return render('Robot audio unavailable');
     if (!wanted) return render('Robot audio muted');
     if (!visible) return render('Robot audio paused');
-    if (reader) return;
-    const token = ++generation;
-    render('Connecting audio…');
-    try {
-      reader = createReader(streamFor(robot), {
-        onTrack(event) {
-          if (token !== generation || !wanted || !visible) { event.track.stop(); return; }
-          if (event.track.kind !== 'audio') return;
-          clearMedia();
-          const stream = event.streams[0];
-          audio.srcObject = stream;
-          event.track.onended = () => {
-            if (token === generation && audio.srcObject === stream) {
-              clearMedia(); needsAction = null; render('Audio interrupted; reconnecting…');
-            }
-          };
-          play(token);
-        },
-        onError() {
-          if (token === generation && wanted && visible) {
-            clearMedia(); needsAction = null; render('Audio unavailable; retrying…');
-          }
-        }
-      });
-    } catch (_) {
-      disconnect(); needsAction = 'error'; render('Audio unavailable');
-    }
+    if (!target || !hasAudio) return render('Waiting for robot audio');
+    const current = () => token === generation && target === media &&
+      target.srcObject === stream && visible && wanted;
+    target.muted = false;
+    render('Starting audio…');
+    // Invoke play in the click handler itself when autoplay previously failed.
+    Promise.resolve(target.play()).then(() => {
+      if (current()) render('Robot audio live', true);
+    }).catch(error => {
+      if (!current()) return;
+      target.muted = true;
+      needsAction = error.name === 'NotAllowedError' ? 'blocked' : 'error';
+      render(needsAction === 'blocked' ? 'Audio needs a click' : 'Audio unavailable');
+      // Rejected audible autoplay must never interrupt the muted camera view.
+      target.play().catch(() => {});
+    });
   }
-  function setEnabled(value) {
-    wanted = value;
-    if (!wanted) { disconnect(); start(); }
-    else if (needsAction && audio.srcObject && visible) play(generation);
-    else start();
-  }
+  function setEnabled(value) { wanted = value; apply(); }
   button.addEventListener('click', () => {
     const value = needsAction ? true : !wanted;
-    remember(value);
-    setEnabled(value);
+    remember(value); setEnabled(value);
   });
   return {
-    select(value) {
-      if (value !== robot) { disconnect(); robot = value; start(); }
+    select(value) { if (value !== robot) { detach(); robot = value; apply(); } },
+    attach(video, selectedRobot, path, available) {
+      if (selectedRobot !== robot || path !== streamFor(robot)) { video.muted = true; return; }
+      if (media === video && hasAudio === available) return;
+      detach(); media = video; hasAudio = available; apply();
     },
-    refresh() { disconnect(); start(); },
+    detach,
+    refresh: apply,
     setEnabled,
-    setVisible(value) {
-      if (visible === value) return;
-      visible = value;
-      if (!visible) disconnect();
-      start();
-    }
+    setVisible(value) { if (visible !== value) { visible = value; apply(); } }
   };
 }
 
@@ -110,22 +69,17 @@ if (typeof window !== 'undefined') {
   const host = document.getElementById('videoDelayNotice');
   if (host) {
     const button = document.createElement('button'), status = document.createElement('span');
-    const audio = document.createElement('audio');
     button.type = 'button'; button.id = 'robotAudioToggle'; button.className = 'robotAudioToggle';
-    button.setAttribute('aria-label', 'Listen to selected robot microphone');
     status.id = 'robotAudioStatus'; status.setAttribute('role', 'status');
-    audio.id = 'robotAudio'; audio.muted = true; audio.hidden = true;
-    host.append(' ', button, ' ', status, audio);
+    host.append(' ', button, ' ', status);
     let streams = {}, enabled = true;
     const preferenceKey = 'blupe-robot-audio';
     try { enabled = localStorage.getItem(preferenceKey) !== 'muted'; } catch (_) {}
-    const control = createRobotAudio({audio, button, status, enabled, visible:!document.hidden,
-      remember: value => { try { localStorage.setItem(preferenceKey, value ? 'enabled' : 'muted'); } catch (_) {} },
-      streamFor: robot => window.MediaMTXWebRTCReader && window.RTCPeerConnection && streams[robot],
-      createReader: (path, callbacks) => new MediaMTXWebRTCReader({
-        url: new URL('/' + path + '/whep', location.href).href, ...callbacks
-      })
+    const control = createRobotAudio({button, status, enabled, visible:!document.hidden,
+      streamFor: robot => streams[robot],
+      remember: value => { try { localStorage.setItem(preferenceKey, value ? 'enabled' : 'muted'); } catch (_) {} }
     });
+    window.yamRobotAudio = control;
     control.select(window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'yam-1');
     window.addEventListener('blupe-robot-selected', event => control.select(event.detail));
     document.addEventListener('visibilitychange', () => control.setVisible(!document.hidden));
@@ -136,11 +90,12 @@ if (typeof window !== 'undefined') {
     });
     fetch('/synchronized/audio-config.json', {cache:'no-store', credentials:'same-origin', signal:AbortSignal.timeout(5000)})
       .then(response => response.ok ? response.json() : null).then(config => {
-        if (config?.version !== 1 || !config.streams || typeof config.streams !== 'object') return;
+        if (config?.version !== 2 || !config.streams || typeof config.streams !== 'object') return;
         streams = Object.fromEntries(Object.entries(config.streams).filter(([robot, path]) =>
-          /^[a-z0-9][a-z0-9_-]{0,63}$/.test(robot) && typeof path === 'string' &&
-          /^synchronized\/audio\/[a-z0-9][a-z0-9_-]{0,63}$/.test(path)));
+          /^[a-z0-9][a-z0-9_-]{0,63}$/.test(robot) && typeof path === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(path)));
         control.refresh();
+        // Metadata may arrive after the camera's first track/manifest event.
+        window.dispatchEvent(new Event('blupe-audio-configured'));
       }).catch(() => control.refresh());
   }
 }

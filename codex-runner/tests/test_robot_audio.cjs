@@ -1,70 +1,53 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {createRobotAudio} = require('../static/robot-audio.js');
-function fixture({play = () => Promise.resolve(), enabled = true, visible = true} = {}) {
-  const audio = {muted:true, srcObject:null, play, pause() {}}, status = {};
-  const button = {setAttribute(key,value) {this[key]=value;}, addEventListener(_,fn) {this.click=fn;}};
-  const readers = [], stopped = [], choices = [];
-  const control = createRobotAudio({audio,button,status,enabled,visible,remember:value=>choices.push(value),
-    streamFor: robot => ({a:'audio-a',b:'audio-b'})[robot],
-    createReader(path, callbacks) {const r={path,...callbacks,close(){this.closed=true;}};readers.push(r);return r;}});
-  const track = () => ({kind:'audio',stop(){stopped.push(this);}});
-  const deliver = (reader=readers.at(-1)) => {const t=track();reader.onTrack({track:t,streams:[{getTracks:()=>[t]}]});return t;};
-  return {audio,button,status,readers,control,deliver,stopped,choices};
+const tick=async()=>{await Promise.resolve();await Promise.resolve();};
+function fixture({enabled=true,visible=true,play=()=>Promise.resolve()}={}) {
+ const button={setAttribute(k,v){this[k]=v;},addEventListener(_,fn){this.click=fn;}},status={},choices=[];
+ const control=createRobotAudio({button,status,enabled,visible,remember:x=>choices.push(x),streamFor:r=>({a:'video-a',b:'video-b'})[r]});
+ const video={muted:true,srcObject:{},playCalls:0,play(){this.playCalls++;return play(this);}};
+ return {button,status,control,video,choices};
 }
-const tick = () => Promise.resolve();
-test('defaults on but reports live only after play resolves; switch closes old audio before new track', async () => {
-  let resolve; const f=fixture({play:()=>new Promise(r=>{resolve=r;})});f.control.select('a');
-  assert.equal(f.readers.length,1);assert.match(f.status.textContent,/Connecting/);
-  f.deliver();assert.equal(f.button['aria-pressed'],'false');
-  resolve();await tick();assert.equal(f.status.textContent,'Robot audio live');
-  f.control.select('b');assert.equal(f.readers[0].closed,true);assert.equal(f.audio.muted,true);
-  assert.equal(f.audio.srcObject,null);assert.equal(f.stopped.length,1);
-  assert.equal(f.readers[1].path,'audio-b');
-  f.deliver(f.readers[0]);assert.equal(f.stopped.length,2);assert.equal(f.audio.srcObject,null);
-  f.control.select('b');assert.equal(f.readers.length,2);
+test('default-on uses the camera element and reports live only after play resolves',async()=>{
+ let resolve;const f=fixture({play:()=>new Promise(r=>{resolve=r;})});f.control.select('a');
+ f.control.attach(f.video,'a','video-a',true);assert.equal(f.video.muted,false);assert.equal(f.button['aria-pressed'],'false');
+ resolve();await tick();assert.equal(f.status.textContent,'Robot audio live');
+ f.control.attach(f.video,'a','video-a',true);assert.equal(f.video.playCalls,1);
 });
-test('blocked autoplay retains one stream for direct click retry, never falsely reporting live', async () => {
-  let calls=0;
-  const f=fixture({play:()=>++calls===1 ? Promise.reject(Object.assign(new Error(),{name:'NotAllowedError'})) : Promise.resolve()});
-  f.control.select('a');f.deliver();await tick();
-  assert.equal(f.button.textContent,'Enable audio');assert.equal(f.audio.muted,true);
-  assert.equal(f.button['aria-pressed'],'false');assert.equal(f.status.textContent,'Audio needs a click');
-  assert.ok(f.audio.srcObject);assert.notEqual(f.readers[0].closed,true);
-  f.button.click();assert.equal(calls,2);await tick();
-  assert.equal(f.readers.length,1);assert.equal(f.audio.muted,false);assert.equal(f.status.textContent,'Robot audio live');
+test('blocked audible autoplay restores muted video and retries directly on click',async()=>{
+ const f=fixture({play:v=>v.playCalls===1?Promise.reject(Object.assign(new Error(),{name:'NotAllowedError'})):Promise.resolve()});
+ f.control.select('a');f.control.attach(f.video,'a','video-a',true);await tick();
+ assert.equal(f.button.textContent,'Enable audio');assert.equal(f.video.muted,true);assert.equal(f.video.playCalls,2);
+ assert.equal(f.status.textContent,'Audio needs a click');f.button.click();assert.equal(f.video.playCalls,3);await tick();
+ assert.equal(f.status.textContent,'Robot audio live');assert.equal(f.video.muted,false);
 });
-test('explicit mute persists as intent across selection, metadata refresh and hide/show', async () => {
-  const f=fixture();f.control.select('a');f.deliver();await tick();f.button.click();
-  assert.deepEqual(f.choices,[false]);assert.equal(f.audio.muted,true);assert.equal(f.audio.srcObject,null);
-  f.control.select('b');f.control.refresh();f.control.setVisible(false);f.control.setVisible(true);
-  assert.equal(f.readers.length,1);assert.equal(f.button.textContent,'Unmute');
-  f.button.click();assert.deepEqual(f.choices,[false,true]);assert.equal(f.readers[1].path,'audio-b');
+test('robot switching immediately mutes previous video and rejects stale/incorrect source bindings',async()=>{
+ const f=fixture();f.control.select('a');f.control.attach(f.video,'a','video-a',true);await tick();
+ f.control.select('b');assert.equal(f.video.muted,true);f.control.attach(f.video,'a','video-a',true);
+ assert.equal(f.video.muted,true);assert.equal(f.status.textContent,'Waiting for robot audio');
+ const next={...f.video,srcObject:{}};f.control.attach(next,'b','video-a',true);assert.equal(next.muted,true);
+ f.control.attach(next,'b','video-b',true);await tick();assert.equal(next.muted,false);assert.equal(f.video.muted,true);
 });
-test('saved mute skips startup; enabled visibility resume creates only one new reader', () => {
-  const muted=fixture({enabled:false});muted.control.select('a');assert.equal(muted.readers.length,0);
-  const f=fixture();f.control.select('a');f.control.setVisible(false);
-  assert.equal(f.readers[0].closed,true);assert.equal(f.audio.muted,true);
-  f.control.select('b');assert.equal(f.readers.length,1);
-  f.control.setVisible(true);f.control.setVisible(true);assert.equal(f.readers.length,2);
-  assert.equal(f.readers[1].path,'audio-b');
+test('explicit and saved mute survive selection, reconnect and visibility changes',async()=>{
+ const f=fixture();f.control.select('a');f.control.attach(f.video,'a','video-a',true);await tick();f.button.click();
+ assert.deepEqual(f.choices,[false]);f.control.select('b');f.control.attach(f.video,'b','video-b',true);
+ f.control.setVisible(false);f.control.setVisible(true);f.control.refresh();assert.equal(f.video.muted,true);
+ const m=fixture({enabled:false});m.control.select('a');m.control.attach(m.video,'a','video-a',true);assert.equal(m.video.playCalls,0);
+ f.button.click();await tick();assert.equal(f.video.muted,false);assert.deepEqual(f.choices,[false,true]);
 });
-test('late play rejection or resolution cannot change a newer robot or explicit mute', async () => {
-  let resolve,reject;const f=fixture({play:()=>new Promise((r,j)=>{resolve=r;reject=j;})});
-  f.control.select('a');f.deliver();f.control.select('b');reject(Object.assign(new Error(),{name:'NotAllowedError'}));await tick();
-  assert.equal(f.status.textContent,'Connecting audio…');assert.equal(f.button.textContent,'Mute');
-  f.deliver();f.button.click();resolve();await tick();assert.equal(f.status.textContent,'Robot audio muted');
+test('visibility pauses sound; return and replaced media honor enabled intent',async()=>{
+ const f=fixture();f.control.select('a');f.control.attach(f.video,'a','video-a',true);await tick();
+ f.control.setVisible(false);assert.equal(f.video.muted,true);f.control.detach(f.video);f.control.setVisible(true);
+ const next={...f.video,srcObject:{}};f.control.attach(next,'a','video-a',true);await tick();assert.equal(next.muted,false);
+ f.control.detach(f.video);assert.equal(next.muted,false);
 });
-test('reader retry clears failed tracks and respects subsequent mute; unsupported robots stay disconnected', async () => {
-  const f=fixture();f.control.select('unknown');assert.equal(f.button.disabled,true);assert.equal(f.readers.length,0);
-  f.control.select('a');f.deliver();await tick();f.readers[0].onError();
-  assert.equal(f.audio.srcObject,null);assert.equal(f.audio.muted,true);assert.match(f.status.textContent,/unavailable/);
-  f.deliver();await tick();assert.equal(f.status.textContent,'Robot audio live');assert.equal(f.readers.length,1);
-  f.button.click();f.readers[0].onError();f.deliver();await tick();
-  assert.equal(f.audio.srcObject,null);assert.equal(f.status.textContent,'Robot audio muted');
+test('late play rejection/resolution cannot alter a new robot or muted intent',async()=>{
+ let reject;const f=fixture({play:()=>new Promise((_,r)=>{reject=r;})});f.control.select('a');f.control.attach(f.video,'a','video-a',true);
+ f.control.select('b');reject(Object.assign(new Error(),{name:'NotAllowedError'}));await tick();assert.equal(f.button.textContent,'Mute');assert.equal(f.video.muted,true);
 });
-test('storage-driven mute updates the current page without overwriting preferences', () => {
-  const f=fixture();f.control.select('a');f.control.setEnabled(false);
-  assert.equal(f.readers[0].closed,true);assert.deepEqual(f.choices,[]);
-  f.control.setEnabled(true);assert.equal(f.readers.length,2);
+test('missing audio keeps video muted; later audio and storage intent changes apply without a second player',async()=>{
+ const f=fixture();f.control.select('a');f.control.attach(f.video,'a','video-a',false);assert.equal(f.video.playCalls,0);
+ f.control.attach(f.video,'a','video-a',true);await tick();assert.equal(f.video.muted,false);
+ f.control.setEnabled(false);assert.equal(f.video.muted,true);assert.deepEqual(f.choices,[]);
+ f.control.select('unknown');assert.equal(f.button.disabled,true);
 });
