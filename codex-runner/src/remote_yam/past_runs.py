@@ -432,4 +432,5 @@ class PastRuns:
                      'original_video_url': BASE + f'videos/{eid}.mp4',
                      'original_available': row.get('original_available', True),
                      'compressed': compressed,
+                     'video_layout': video_meta.get('layout'),
                      'camera_order': preview.get('camera_order', ['left', 'top', 'right']) if compressed else ['left', 'top', 'right']}
