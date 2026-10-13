@@ -1829,7 +1829,9 @@ function createRunLaunchGuard() {
             onError: useFallback,
             onTrack: event => {
               if (attempt !== generation) return;
-              video.srcObject = event.streams[0];
+              // Audio and video fire separate track events for the same stream.
+              // Reassigning srcObject aborts the pending audible play() attempt.
+              if (video.srcObject !== event.streams[0]) video.srcObject = event.streams[0];
               video.play().catch(() => { if (attempt === generation) label.textContent = 'Press play'; });
               updateAudio();
             }

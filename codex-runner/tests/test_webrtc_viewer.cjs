@@ -27,6 +27,10 @@ function harness(role='observer', monitored=false, streamPath){
  const e=harness();e.reader.onError('ICE failed');assert.equal(e.video.dataset.transport,'hls');
  const t=harness();[...t.timers.values()][0]();assert.equal(t.video.dataset.transport,'hls');
  const sync=harness('synchronized');assert.equal(sync.video.dataset.transport,'webrtc');assert.equal(sync.reader.url,'https://test.invalid/synchronized/whep');
+ let assigned=0, currentStream;const commonStream={getAudioTracks:()=>[{}]};
+ Object.defineProperty(sync.video,'srcObject',{get:()=>currentStream,set:value=>{assigned++;currentStream=value;}});
+ sync.reader.onTrack({streams:[commonStream]});sync.reader.onTrack({streams:[commonStream]});
+ assert.equal(assigned,1,'Audio/video track events must not reset the common player and abort audible play');
  sync.reader.onError('ICE failed');assert.equal(sync.video.dataset.transport,'hls');assert.equal(sync.video.hls.url,'/synchronized/index.m3u8');
  await sync.intervals[0]();assert.equal(sync.video.dataset.transport,'hls'); // no independent-camera health request
  const robo=harness('synchronized',false,'robo-house');

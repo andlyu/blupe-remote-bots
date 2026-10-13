@@ -16,6 +16,9 @@ Primary references reviewed2026-10-13UTC:
 
 Implementation: static/robot-audio.js. Default intent is enabled; explicit choices
 persist locally. A rejected autoplay attempt retains the one current stream for
-an immediate gesture retry. Switching/hiding tears down the prior reader and tracks;
-showing reconnects according to intent. Never request browser microphone access,
+an immediate gesture retry. Audio uses the camera's existing video element and
+common media timeline. Switching immediately mutes the old element; the camera
+controller owns reader cleanup and reconnection. Visibility pauses sound without
+changing intent. Repeated track events must not reassign the same srcObject,
+because that aborts a pending audible play request. Never request browser microphone access,
 change browser policies, or claim a blocked play() produced audible playback.
