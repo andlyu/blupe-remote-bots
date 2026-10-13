@@ -55,6 +55,10 @@
       <span id="runTimerDetail" hidden>Waiting for a run</span>
     </div>
   </section>
+  <div id="quickTaskEntry" class="quickTaskEntry" role="group" aria-label="Quick task">
+    <input id="quickPrompt" type="text" aria-label="Quick task prompt" placeholder="What should the robot do?" maxlength="4000" autocomplete="off">
+    <button id="quickRun" type="button" class="primary" disabled>Run</button>
+  </div>
   <div class="videoOverlays">
   <section class="panel astraStream" aria-labelledby="astraStreamTitle">
   <section id="runOutcome" class="runOutcome" role="status" aria-live="polite" aria-atomic="true" aria-labelledby="runOutcomeTitle" hidden>

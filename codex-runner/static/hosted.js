@@ -2283,6 +2283,28 @@ window.yamRecordingView = function(video, roles) {
   };
 };
 
+// Keep the full composer authoritative, including assignments made by provider
+// defaults and hosted application hooks (value assignments do not emit input).
+function bindQuickTaskDraft(prompt, quick) {
+  const promptValue = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(prompt), 'value');
+  const quickValue = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(quick), 'value');
+  const sync = () => quickValue.set.call(quick, prompt.value.replace(/[\r\n]+/g, ' '));
+  Object.defineProperty(prompt, 'value', {
+    configurable:true, get() { return promptValue.get.call(this); },
+    set(value) { promptValue.set.call(this, value); sync(); }
+  });
+  Object.defineProperty(quick, 'value', {
+    configurable:true, get() { return quickValue.get.call(this); },
+    set(value) { quickValue.set.call(this, value); prompt.value = quickValue.get.call(this); }
+  });
+  prompt.addEventListener('input', sync);
+  quick.addEventListener('input', () => {
+    prompt.value = quick.value;
+    prompt.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+  sync();
+}
+
 // Compact controls delegate to the existing run lifecycle and settings dialog.
 (() => {
   const $ = id => document.getElementById(id);
@@ -2295,6 +2317,21 @@ window.yamRecordingView = function(video, roles) {
   const archive = $('past-runs'), dataset = $('dataset');
   if (archive && dataset) dataset.before(archive);
   const provider = $('provider'), model = $('composerModel'), send = $('composerSend');
+  const quickEntry = $('quickTaskEntry'), quickPrompt = $('quickPrompt'), quickRun = $('quickRun');
+  bindQuickTaskDraft($('prompt'), quickPrompt);
+  // Camera selection replaces the viewer contents. Retain the actual controls
+  // and their listeners when restoring the floating entry over the main video.
+  const placeQuickEntry = () => {
+    if (quickEntry.parentElement !== $('liveViewer')) $('liveViewer').append(quickEntry);
+  };
+  placeQuickEntry();
+  new MutationObserver(placeQuickEntry).observe($('liveViewer'), {childList:true});
+  quickRun.addEventListener('click', () => { if (!send.disabled) send.click(); });
+  quickPrompt.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.isComposing) {
+      event.preventDefault(); if (!quickRun.disabled) quickRun.click();
+    }
+  });
   // Configure the run in chat; the launch dialog only collects identity.
   const options = document.createElement('div');
   options.id = 'composerOptions'; options.hidden = true;
@@ -2393,6 +2430,11 @@ window.yamRecordingView = function(video, roles) {
     send.dataset.running = String(running);
     const disabled = running ? (queued ? $('leaveQueue').disabled : $('stop').disabled) : $('run').disabled;
     if (send.disabled !== disabled) send.disabled = disabled;
+    if (quickRun.disabled !== disabled) quickRun.disabled = disabled;
+    const quickLabel = running ? (queued ? 'Leave queue' : 'Stop run') : 'Run';
+    if (quickRun.textContent !== quickLabel) quickRun.textContent = quickLabel;
+    if (quickPrompt.disabled !== $('prompt').disabled) quickPrompt.disabled = $('prompt').disabled;
+    if (quickPrompt.readOnly !== $('prompt').readOnly) quickPrompt.readOnly = $('prompt').readOnly;
     send.setAttribute('aria-label', running ? (queued ? 'Leave queue' : 'Stop run') : 'Send task');
     send.title = send.getAttribute('aria-label');
     const icon = running ? '■' : '↑';
@@ -2509,7 +2551,7 @@ window.yamRecordingView = function(video, roles) {
     }
   });
   new MutationObserver(updateComposer).observe(provider, {subtree:true, childList:true, attributes:true, attributeFilter:['disabled','hidden']});
-  new MutationObserver(updateComposer).observe($('runForm'), {subtree:true, childList:true, attributes:true, attributeFilter:['disabled','hidden','class']});
+  new MutationObserver(updateComposer).observe($('runForm'), {subtree:true, childList:true, attributes:true, attributeFilter:['disabled','hidden','class','readonly']});
   new MutationObserver(updateComposer).observe($('liveRunControls'), {subtree:true, attributes:true, attributeFilter:['disabled','hidden']});
   new MutationObserver(updateComposer).observe($('leaveQueue'), {attributes:true, attributeFilter:['disabled','hidden']});
   const workspace = document.querySelector('.watchLayout'), visuals = document.querySelector('.watchVisuals');
