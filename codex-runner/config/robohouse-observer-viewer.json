@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "streams": {
+    "robot-ba8413962083809c": {
+      "path": "robo-house",
+      "cameras": ["top", "left", "right", "observer"]
+    }
+  }
+}
