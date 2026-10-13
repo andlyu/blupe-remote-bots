@@ -6,10 +6,10 @@ const path = require('node:path');
 const source = fs.readFileSync(process.env.YAM_TEST_HOSTED_JS || path.join(__dirname, '../static/hosted.js'), 'utf8');
 const panels = source.slice(source.indexOf('  function synchronizedPanels('), source.indexOf('  function camera(image)'));
 
-function harness({ready = false, hd = false, marker = null} = {}) {
+function harness({ready = false, hd = false, marker = null, roles = ['top','observer','left','right'], snapshots = roles} = {}) {
   const draws = [], images = [], timers = new Map(), labels = [];
   let callback, id = 0;
-  const tiles = ['top', 'observer', 'left', 'right'].map(role => ({
+  const tiles = roles.map(role => ({
     dataset: {cameraRole: role}, addEventListener() {},
     getContext: () => ({drawImage: (...args) => draws.push({role, args})}),
   }));
@@ -29,7 +29,7 @@ function harness({ready = false, hd = false, marker = null} = {}) {
   })};
   const context = {
     cameraExpansion: () => () => {},
-    selectedRobot: 'yam-1', Date: marker ? {now:()=>1791614135000} : Date, encodeURIComponent, video,
+    cameraNames:snapshots, selectedRobot: 'yam-1', Date: marker ? {now:()=>1791614135000} : Date, encodeURIComponent, video,
     label: {textContent: 'Loading video'},
     setTimeout(fn) {timers.set(++id, fn); return id;}, clearTimeout(id) {timers.delete(id);},
     requestAnimationFrame(fn) {callback = fn; return 1;}, cancelAnimationFrame() {callback = null;},
@@ -38,7 +38,7 @@ function harness({ready = false, hd = false, marker = null} = {}) {
       async decode() {}
       removeAttribute() {this.removed = true;}
     },
-    window: {addEventListener() {}},
+    window: {addEventListener() {}, removeEventListener() {}},
     document: {
       hidden: false, createElement: () => atlas,
       querySelector: selector => selector === '#streamLatency' ? latency : null,
@@ -147,4 +147,18 @@ test('switching robots or stopping discards in-flight snapshots', async () => {
     h.video.yamStopPainting();
     assert.equal(h.timers.size, 0);
   }
+});
+
+test('Robo-house observer uses the fourth quadrant without relabeling its original cameras', () => {
+  const h=harness({ready:true,roles:['top','left','right','observer']});
+  const observer=h.draws.find(draw=>draw.role==='observer');
+  assert.deepEqual(Array.from(observer.args.slice(1)),[640,360,640,360,0,0,640,360]);
+  assert.deepEqual(Array.from(h.draws.find(draw=>draw.role==='top').args.slice(1)),[0,0,640,360,0,0,640,360]);
+  assert(h.tiles.every(tile=>tile.dataset.presentedFrame==='1'));
+});
+
+test('video-only observer never requests an unadvertised JPEG from another robot', () => {
+  const h=harness({roles:['top','left','right','observer'],snapshots:['top','left','right']});
+  assert.equal(h.images.length,3);
+  assert(h.images.every(image=>!image.src.includes('/observer')));
 });

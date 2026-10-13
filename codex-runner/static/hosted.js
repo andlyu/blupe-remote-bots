@@ -1,3 +1,20 @@
+// Static viewer metadata can evolve without restarting active runner sessions.
+// The legacy synchronized prefix is already proxied by local subscription runners.
+function createViewerStreamResolver(load = fetch) {
+  const pending = load('/synchronized/viewer-config.json', {
+    cache:'no-store', credentials:'same-origin', signal:AbortSignal.timeout(1500)
+  }).then(response => response.ok ? response.json() : null).catch(() => null);
+  return async (robot, current) => {
+    if (!current) return current;
+    const config = await pending, stream = config?.version === 1 ? config.streams?.[robot] : null;
+    const roles = stream?.cameras;
+    // This only describes the configured stream; it cannot redirect a viewer.
+    if (stream?.path !== current.path || !Array.isArray(roles) || roles.length < 1 || roles.length > 4
+        || new Set(roles).size !== roles.length || roles.some(role => !['top','observer','left','right'].includes(role))) return current;
+    return {...current, cameras:[...roles]};
+  };
+}
+
 function runComparisonBaseMetrics(run) {
   if (run.run_metrics) {
     const m = run.run_metrics;
@@ -436,6 +453,7 @@ function createRunLaunchGuard() {
   let claudeModel = 'claude-opus-5-5';
   let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
+  const resolveViewerStream = createViewerStreamResolver();
   let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'yam-1', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
   let ownRunLive = false, conversationSharingAllowed = true;
   let grootModel = 'groot-reviewed-step10000';
@@ -1684,7 +1702,7 @@ function createRunLaunchGuard() {
     function loadSnapshots() {
       tiles.forEach((tile, i) => {
         const role = tile.dataset.cameraRole;
-        if (!role) return;
+        if (!role || !cameraNames.includes(role)) return;
         const snapshot = new Image();
         let pending = true;
         const stop = () => {
@@ -2129,9 +2147,10 @@ function createRunLaunchGuard() {
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
       camerasDisconnected = robotCatalog?.robots.find(robot => robot.id === selectedRobot)?.connected === false;
       modelCameraNames = new Set(session.model_cameras || []);
-      videoStream = session.video_stream === undefined
+      const configuredStream = await resolveViewerStream(selectedRobot, session.video_stream);
+      videoStream = configuredStream === undefined
         ? (selectedRobot === 'yam-1' ? {path:'synchronized', cameras:['top','observer','left','right']} : null)
-        : session.video_stream;
+        : configuredStream;
       selectedCameras(session.cameras || ['left','top','right']);
       render(await api('/api/status'));
       try { await refreshChat(); } catch (error) { $('chatStatus').textContent = 'Chat unavailable'; }
