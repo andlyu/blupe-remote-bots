@@ -1146,20 +1146,6 @@ class RunnerController(HomeSceneStartup):
         # Its late response must never dispatch into the old or a new lease.
         if not still_running():
             return
-        if not isinstance(waypoints, list) or not 1 <= len(waypoints) <= MAX_WAYPOINTS_PER_PACKET:
-            raise RuntimeError(f"Trajectory provider must return 1..{MAX_WAYPOINTS_PER_PACKET} waypoints")
-        expected_steps = list(range(first_step_id, first_step_id + len(waypoints)))
-        if expected_steps[-1] >= MAX_COMMANDS:
-            raise RuntimeError("Trajectory exceeds the session command limit")
-        allowed = {"step_id", "left_joints_deg", "right_joints_deg", "left_gripper", "right_gripper"}
-        required = {"step_id", "left_joints_deg", "right_joints_deg"}
-        for expected_step, waypoint in zip(expected_steps, waypoints):
-            if not isinstance(waypoint, Mapping):
-                raise RuntimeError("Trajectory waypoint must be an object")
-            if set(waypoint) - allowed or not required.issubset(waypoint):
-                raise RuntimeError("Trajectory waypoint does not match the v1 schema")
-            if waypoint.get("step_id") != expected_step:
-                raise RuntimeError("Trajectory waypoint steps must be contiguous")
         if first_step_id == 0 and self._home_registered and observation.get("source") == "hardware":
             self._record_first_plan(provider, time.monotonic()-model_started)
             fresh = self._fresh_home(session_id, episode_id, lease_id)
@@ -1176,11 +1162,37 @@ class RunnerController(HomeSceneStartup):
                 self._dispatch_trajectory(provider.build_trajectory, provider, prompt,
                     refreshed, session_id, episode_id, lease_id, first_step_id)
                 return
-            # Recheck the starting pose even after a fresh-model fallback.
-            for arm in ('left', 'right'):
-                before, after = observation[arm+'_joints_deg'], fresh[arm+'_joints_deg']
-                if len(before) != len(after) or any(abs(a-b) > .25 for a,b in zip(before, after)):
-                    raise RuntimeError('Home pose changed while planning')
+            rebuild = getattr(provider, 'rebuild_pending_trajectory', None)
+            if callable(rebuild):
+                # Inference chooses the target; fresh encoders choose the path's
+                # start. Keep the original orientation frame and all IK limits.
+                observation = {**observation, **fresh, 'episode_id':episode_id,
+                               'lease_id':lease_id, 'step_id':first_step_id}
+                waypoints = rebuild(observation, first_step_id)
+                self._home_event('trajectory_rebuilt', waypoint_count=len(waypoints))
+            else:
+                # Providers without target-preserving rebuild support must not
+                # submit a path built against a different starting pose.
+                for arm in ('left', 'right'):
+                    before, after = observation[arm+'_joints_deg'], fresh[arm+'_joints_deg']
+                    if len(before) != len(after) or any(abs(a-b) > .25 for a,b in zip(before, after)):
+                        raise RuntimeError('Home pose changed while planning')
+        if not still_running():
+            return
+        if not isinstance(waypoints, list) or not 1 <= len(waypoints) <= MAX_WAYPOINTS_PER_PACKET:
+            raise RuntimeError(f"Trajectory provider must return 1..{MAX_WAYPOINTS_PER_PACKET} waypoints")
+        expected_steps = list(range(first_step_id, first_step_id + len(waypoints)))
+        if expected_steps[-1] >= MAX_COMMANDS:
+            raise RuntimeError("Trajectory exceeds the session command limit")
+        allowed = {"step_id", "left_joints_deg", "right_joints_deg", "left_gripper", "right_gripper"}
+        required = {"step_id", "left_joints_deg", "right_joints_deg"}
+        for expected_step, waypoint in zip(expected_steps, waypoints):
+            if not isinstance(waypoint, Mapping):
+                raise RuntimeError("Trajectory waypoint must be an object")
+            if set(waypoint) - allowed or not required.issubset(waypoint):
+                raise RuntimeError("Trajectory waypoint does not match the v1 schema")
+            if waypoint.get("step_id") != expected_step:
+                raise RuntimeError("Trajectory waypoint steps must be contiguous")
         path_segments = []
         measure = getattr(provider, 'measured_step_displacement', None)
         previous = observation
