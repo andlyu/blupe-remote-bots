@@ -1699,6 +1699,7 @@ function createRunLaunchGuard() {
     // A bounded still-image request gives each panel a real picture while the
     // WebRTC/HLS handshake runs. It is a preview, never synchronized live video.
     const snapshotRobot = selectedRobot;
+    window.yamCameraPreview?.paint(snapshotRobot, tiles);
     function loadSnapshots() {
       tiles.forEach((tile, i) => {
         const role = tile.dataset.cameraRole;
@@ -1756,7 +1757,7 @@ function createRunLaunchGuard() {
       }
       labels.forEach((label, i) => {
         const status = stale ? 'Stream stalled' : sourceLabel.textContent;
-        label.textContent = tiles[i]?.dataset.frameSource === 'snapshot' ? 'Still image · ' + status : status;
+        label.textContent = ['snapshot','preview'].includes(tiles[i]?.dataset.frameSource) ? 'Still image · ' + status : status;
       });
       if (latency && stale) latency.hidden = true;
       callback = requestAnimationFrame(paint);
