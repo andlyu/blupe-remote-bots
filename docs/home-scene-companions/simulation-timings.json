@@ -1,0 +1,160 @@
+[
+  {
+    "calls": 2,
+    "measured_first_plan_s": 0.0013957080082036555,
+    "sample_count": 1,
+    "scenario": "cold",
+    "startup": {
+      "actual_home_s": 3.8762082920293324,
+      "calibration_s": 0.5176502920221537,
+      "commanded_home_s": 3.5,
+      "home_ready_monotonic": 339950.928317041,
+      "mean_first_plan_s": null,
+      "sample_count": 0,
+      "settling_allowance_s": 1.0,
+      "settling_basis": "provisional default",
+      "started_monotonic": 339946.503152791,
+      "target_home_s": null
+    },
+    "states": [
+      "latency_sample"
+    ],
+    "transport": "astra"
+  },
+  {
+    "calls": 2,
+    "measured_first_plan_s": 0.0018782910192385316,
+    "sample_count": 2,
+    "scenario": "hit",
+    "startup": {
+      "actual_home_s": 3.8743262499920093,
+      "calibration_s": 0.5309477910050191,
+      "commanded_home_s": 3.5,
+      "home_ready_monotonic": 339961.071632083,
+      "mean_first_plan_s": 0.0013957080082036555,
+      "sample_count": 1,
+      "settling_allowance_s": 0.35757720850524494,
+      "settling_basis": "measured",
+      "started_monotonic": 339956.63245775,
+      "target_home_s": 0.0
+    },
+    "states": [
+      "planning",
+      "plan_finished",
+      "latency_sample",
+      "hit"
+    ],
+    "transport": "astra"
+  },
+  {
+    "calls": 3,
+    "measured_first_plan_s": 0.0010992090101353824,
+    "sample_count": 3,
+    "scenario": "changed",
+    "startup": {
+      "actual_home_s": 3.8713868339546025,
+      "calibration_s": 0.5202879999997094,
+      "commanded_home_s": 3.5,
+      "home_ready_monotonic": 339971.255365916,
+      "mean_first_plan_s": 0.0016369995137210935,
+      "sample_count": 2,
+      "settling_allowance_s": 0.3656497812655289,
+      "settling_basis": "measured",
+      "started_monotonic": 339966.85484075,
+      "target_home_s": 0.0
+    },
+    "states": [
+      "planning",
+      "plan_finished",
+      "latency_sample",
+      "fallback"
+    ],
+    "transport": "astra"
+  },
+  {
+    "capture_unchanged": true,
+    "commands": 0,
+    "extra_home": false,
+    "scenario": "cancel_during_startup",
+    "transport": "astra"
+  },
+  {
+    "calls": 2,
+    "measured_first_plan_s": 0.00410345901036635,
+    "sample_count": 1,
+    "scenario": "cold",
+    "startup": {
+      "actual_home_s": 3.8718656249693595,
+      "calibration_s": 0.5263008329784498,
+      "commanded_home_s": 3.5,
+      "home_ready_monotonic": 339983.856615625,
+      "mean_first_plan_s": null,
+      "sample_count": 0,
+      "settling_allowance_s": 1.0,
+      "settling_basis": "provisional default",
+      "started_monotonic": 339979.409556958,
+      "target_home_s": null
+    },
+    "states": [
+      "latency_sample"
+    ],
+    "transport": "codex"
+  },
+  {
+    "calls": 2,
+    "measured_first_plan_s": 0.0022585419937968254,
+    "sample_count": 2,
+    "scenario": "hit",
+    "startup": {
+      "actual_home_s": 3.8743823749828152,
+      "calibration_s": 0.5238099580164999,
+      "commanded_home_s": 3.5,
+      "home_ready_monotonic": 339993.974722541,
+      "mean_first_plan_s": 0.00410345901036635,
+      "sample_count": 1,
+      "settling_allowance_s": 0.35972568752476947,
+      "settling_basis": "measured",
+      "started_monotonic": 339989.568820333,
+      "target_home_s": 0.0
+    },
+    "states": [
+      "planning",
+      "plan_finished",
+      "latency_sample",
+      "hit"
+    ],
+    "transport": "codex"
+  },
+  {
+    "calls": 3,
+    "measured_first_plan_s": 0.002014417026657611,
+    "sample_count": 3,
+    "scenario": "changed",
+    "startup": {
+      "actual_home_s": 3.868195792019833,
+      "calibration_s": 0.5270652080071159,
+      "commanded_home_s": 3.5,
+      "home_ready_monotonic": 340004.216688791,
+      "mean_first_plan_s": 0.003181000502081588,
+      "sample_count": 2,
+      "settling_allowance_s": 0.36366800000832883,
+      "settling_basis": "measured",
+      "started_monotonic": 339999.767169833,
+      "target_home_s": 0.0
+    },
+    "states": [
+      "planning",
+      "plan_finished",
+      "latency_sample",
+      "fallback"
+    ],
+    "transport": "codex"
+  },
+  {
+    "capture_unchanged": true,
+    "commands": 0,
+    "extra_home": false,
+    "scenario": "cancel_during_startup",
+    "transport": "codex"
+  }
+]

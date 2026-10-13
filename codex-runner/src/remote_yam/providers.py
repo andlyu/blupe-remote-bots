@@ -50,6 +50,7 @@ class ResponsesAdapter:
         self._vision_frames: list[dict[str, Any]] = []
         self._contact_issue = None
         self.cancelled = lambda: False
+        self._active_response = None
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(model={self.model!r}, api_key_configured=True)"
@@ -75,7 +76,7 @@ class ResponsesAdapter:
             self._vision_state = "camera_error"
             raise
         self._vision_frames = [frame.summary() for frame in frames]
-        state = {key: value for key, value in observation.items() if key != "images"}
+        state = {key: value for key, value in observation.items() if key not in {"images", "_home_scene_frames"}}
         content = [{"type": "input_text", "text": json.dumps({"observation": state}, separators=(",", ":"))}]
         # OpenAI Responses vision format; see docs/refs/openai/vision-inputs.md.
         for frame in frames:
@@ -110,6 +111,9 @@ class ResponsesAdapter:
         return _parse_action(_response_text(raw))
 
     def _capture_frames(self, observation):
+        saved = observation.get("_home_scene_frames")
+        if saved is not None:
+            return list(saved)
         self._camera_retry = None
         capture = getattr(self._camera_source, "capture_for_policy", None)
         if callable(capture):
@@ -182,10 +186,37 @@ class ResponsesAdapter:
                 raise RuntimeError("Model request cancelled")
             time.sleep(min(.1, max(0., deadline - time.monotonic())))
 
+    def cancel_pending_request(self):
+        """Interrupt a response body read; connection setup remains timeout bounded."""
+        response = self._active_response
+        try:
+            import socket
+            response.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+        except (AttributeError, OSError):
+            pass
+
     def _send_json(self, req):
         try:
             with getattr(self, "_urlopen", request.urlopen)(req, timeout=45.0) as response:
-                decoded = json.loads(response.read().decode("utf-8"))
+                self._active_response = response
+                try:
+                    if getattr(self, '_home_plan_request', False):
+                        chunks = bytearray()
+                        deadline = time.monotonic()+45.
+                        while True:
+                            if self.cancelled() or time.monotonic() > deadline:
+                                raise RuntimeError("Model request cancelled or timed out")
+                            chunk = response.read1(65536)
+                            if not chunk:
+                                break
+                            chunks.extend(chunk)
+                            if len(chunks) > 8*1024*1024:
+                                raise RuntimeError("Model response exceeds the size limit")
+                        decoded = json.loads(chunks.decode("utf-8"))
+                    else:
+                        decoded = json.loads(response.read().decode("utf-8"))
+                finally:
+                    self._active_response = None
         except error.HTTPError as exc:
             if exc.code in {408, 500, 502, 503, 504}:
                 exc.close()

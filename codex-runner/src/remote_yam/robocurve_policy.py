@@ -189,7 +189,11 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
 
     def _observation_message(self, prompt, observation, first_step_id):
         _, eef, joints = self._geometry.observe(observation)
-        text = ('Current observation.\nInstruction: ' + prompt
+        scene = observation.get('planning_scene')
+        label = ('Saved home scene for planning only. This is the future starting state, '
+                 'not live feedback; execution waits for fresh home and scene validation.'
+                 if scene else 'Current observation.')
+        text = (label + '\nInstruction: ' + prompt
                 + '\nstate[joint_pos]: ' + str([round(float(v), 4) for v in joints])
                 + '\nstate[eef_state]: ' + ' '.join(f'{k}={v:.4f}' for k, v in zip(self._names, eef))
                 + f'\nGateway waypoints remaining in this session: {MAX_COMMANDS-first_step_id}.')

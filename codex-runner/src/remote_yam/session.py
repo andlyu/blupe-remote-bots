@@ -173,6 +173,11 @@ class HttpSessionAPI:
             "GET", f"/v1/robots/{parse.quote(jetson_id, safe='')}/observation"
         )
 
+    def home_scene(self, session_id, report=None):
+        return self._request("GET" if report is None else "POST",
+            f"/v1/sessions/{parse.quote(session_id, safe='')}/home-scene", report,
+            bearer=self._capability(session_id))
+
     def get_session(self, session_id: str) -> dict[str, Any]:
         return self._request(
             "GET", f"/v1/sessions/{parse.quote(session_id, safe='')}",

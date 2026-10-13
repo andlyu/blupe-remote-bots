@@ -1,0 +1,23 @@
+{
+  "runner-final-tests.log": [
+    "875 passed, 25 skipped, 243 subtests passed in 90.29s (0:01:30)"
+  ],
+  "node-tests.log": [
+    "\u2139 tests 222",
+    "\u2139 pass 222",
+    "\u2139 fail 0",
+    "\u2139 duration_ms 464.497917"
+  ],
+  "station-final-tests.log": [
+    "131 passed, 23 subtests passed in 11.87s"
+  ],
+  "api-final-tests.log": [
+    "44 passed, 13 subtests passed in 0.39s"
+  ],
+  "home-final-tests.log": [
+    "23 passed in 0.64s"
+  ],
+  "integration-cancel-final.log": [
+    "2 passed, 12 warnings in 66.22s (0:01:06)"
+  ]
+}
