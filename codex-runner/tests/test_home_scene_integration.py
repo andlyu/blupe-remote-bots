@@ -83,6 +83,15 @@ def test_real_station_api_runner_contract(tmp_path,monkeypatch,transport):
         op.action('auto_queue_on')
         for scenario in ('cold','hit','changed'):
             calls=[]
+            waiting_for_stop=threading.Event()
+            def finish_or_wait_for_stop():
+                if scenario=='cold':
+                    waiting_for_stop.set()
+                    end=time.monotonic()+10
+                    while not provider.cancelled() and time.monotonic()<end:
+                        time.sleep(.005)
+                    assert provider.cancelled(), 'Normal Stop did not cancel inference'
+                    raise RuntimeError('test inference cancelled by normal Stop')
             camera=Cameras()
             if scenario=='changed':camera.data=b'\xff\xd8objects-rearranged\xff\xd9'
             if transport=='codex':
@@ -94,6 +103,7 @@ def test_real_station_api_runner_contract(tmp_path,monkeypatch,transport):
                     if not provider._pending and len(provider._history)<5:
                         move=decision('move_to',note='Close left slightly');move['targets']['left_gripper']=.9
                         return events(move)
+                    finish_or_wait_for_stop()
                     return events(decision())
                 provider._execute=execute
             else:
@@ -103,6 +113,7 @@ def test_real_station_api_runner_contract(tmp_path,monkeypatch,transport):
                     calls.append((time.monotonic(),'Saved home scene' in str(payload)))
                     if len(provider._history)<5:
                         return response('move_to',{'targets':{'left_gripper':.9},'note':'Close left slightly'})
+                    finish_or_wait_for_stop()
                     return response('done',{'summary':'simulated task finished','hindsight':'none'},'done')
                 provider._send_json=send
             api=HttpSessionAPI(url,supports_trajectories=True)
@@ -113,6 +124,9 @@ def test_real_station_api_runner_contract(tmp_path,monkeypatch,transport):
             run_started=time.monotonic()
             # Real queue tick owns launch, home, and handoff. No fake lifecycle.
             op.auto_queue.tick()
+            if scenario=='cold':
+                wait_for(waiting_for_stop.is_set)
+                runner.stop('user_requested')
             wait_for(lambda:runner._worker is not None and not runner._worker.is_alive())
             state=runner.status()
             assert state['error'] is None,state
