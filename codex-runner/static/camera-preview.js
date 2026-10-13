@@ -41,7 +41,7 @@
       try {
         await snapshot.decode();
         if (current !== generation || document.hidden) return;
-        if (![[1280,540],[1280,720],[1024,432],[1024,576]].some(([w,h]) => snapshot.naturalWidth === w && snapshot.naturalHeight === h)) return;
+        if (![[2560,1080],[1280,540],[1280,720],[1024,432],[1024,576]].some(([w,h]) => snapshot.naturalWidth === w && snapshot.naturalHeight === h)) return;
         image = snapshot;
         const tiles = [...document.querySelectorAll('[data-sync-tile]')];
         const roles = robot === 'yam-1' ? ['top','observer','left','right'] : ['top','left','right','observer'];
