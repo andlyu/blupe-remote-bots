@@ -311,7 +311,7 @@ class CodexAdapter(RoboCurveResponsesAdapter):
             'The runner translates your action into move_to/done/give_up and performs validation.',
             'Use null for every unchanged target dimension; use empty strings for unused text fields.',
             'For done/give_up all targets must be null. Never claim motion executed until measured',
-            'feedback says completed. Attached images are the current observation, ordered top, left, right.',
+            'feedback says completed. Attached images follow the observation label (saved home planning or live), ordered top, left, right.',
         ]
         if hasattr(self, '_decision_instructions'):
             lines = [self._decision_instructions, payload.get('instructions', '')]

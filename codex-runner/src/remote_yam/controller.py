@@ -10,6 +10,7 @@ from pathlib import Path
 import uuid
 from typing import Any, Mapping
 
+from .home_scene_startup import HomeSceneStartup
 from .run_changes import snapshot as run_configuration
 from .ik import IKSolver, parse_observation
 from .feedback import feedback_decision, feedback_fields
@@ -22,7 +23,7 @@ FEEDBACK_WAIT_S = 5.0
 FEEDBACK_POLL_S = 0.5
 
 
-class RunnerController:
+class RunnerController(HomeSceneStartup):
     def __init__(
         self,
         session_api: SessionAPI,
@@ -34,6 +35,11 @@ class RunnerController:
         joint_counts=(6,6),
         share_conversation: bool = True,
     ) -> None:
+        self._home_plan = None
+        self._home_registered = False
+        self._home_sample_recorded = False
+        self._home_accepted_scene = None
+        self._home_accepted_job = None
         self._share_conversation = share_conversation
         self._conversation_publisher = None
         self._session_api = session_api
@@ -98,6 +104,14 @@ class RunnerController:
             return self._join_new(provider, prompt, run_duration_s)
 
     def _join_new(self, provider: ProviderAdapter, prompt: str, run_duration_s: int = 300, *, prepared=False) -> dict[str, Any]:
+        self._cancel_home_plan()
+        self._home_plan = None
+        self._home_registered = False
+        self._home_disabled = False
+        self._home_sample_recorded = False
+        self._home_accepted_scene = None
+        self._home_accepted_job = None
+        self._home_next_poll = 0
         with self._lock:
             if prepared and (self._stop_event.is_set() or self._provider is not provider):
                 raise RuntimeError("Run preparation cancelled before joining the queue")
@@ -203,7 +217,7 @@ class RunnerController:
                         lambda: dict(session_id=session_id, episode_id=self._episode_id, lease_id=self._lease_id),
                         lambda: self._stop_event.is_set() or self._provider is not provider)
                 def record_interaction(kind, message, **details):
-                    if first_wait is not None:
+                    if first_wait is not None and not self._home_registered:
                         first_wait.interaction(kind, details)
                     if kind == 'model_timing':
                         elapsed = details.get('elapsed_s')
@@ -317,21 +331,28 @@ class RunnerController:
 
     def stop(self, reason: str = "user_requested") -> dict[str, Any]:
         with self._lock:
-            self._last_stop_reason=reason
+            self._last_stop_reason = reason
             self._stop_event.set()
             session_id = self._session_id
-            if session_id is None or self._is_terminal(self._status):
+            terminal = session_id is None or self._is_terminal(self._status)
+            if terminal:
                 if session_id is None and self._status == 'preparing':
                     self._status = 'stopped'
                 self._close_events()
-                return self.status()
-            self._return_to_rest_requested = True
-            self._interactions.add('stop_requested', 'Stop requested', reason=reason)
-        result = self._session_api.stop_session(session_id, reason=reason)
-        with self._lock:
-            self._status = str(result.get("status", "stopped"))
-            self._interactions.add('stopped', 'Session stopped', status=self._status)
-        self._close_events()
+            else:
+                self._return_to_rest_requested = True
+                self._interactions.add('stop_requested', 'Stop requested', reason=reason)
+        try:
+            if not terminal:
+                result = self._session_api.stop_session(session_id, reason=reason)
+                with self._lock:
+                    self._status = str(result.get("status", "stopped"))
+                    self._interactions.add('stopped', 'Session stopped', status=self._status)
+                self._close_events()
+        finally:
+            # Revoke station motion before waiting for the provider transport.
+            # Join outside the state lock: provider telemetry also takes it.
+            self._cancel_home_plan()
         return self.status()
 
     def disconnect(self, reason: str = "runner_disconnected") -> dict[str, Any]:
@@ -346,6 +367,7 @@ class RunnerController:
             except Exception:
                 pass
         self._close_events()
+        self._cancel_home_plan()
         with self._lock:
             self._status = "disconnected"
             self._provider = None
@@ -737,6 +759,9 @@ class RunnerController:
                     }
                     self._error = f"{reason}: {reason}"
 
+        if self._is_terminal(state):
+            self._cancel_home_plan()
+
     def _handle_error(self, payload: Mapping[str, Any]) -> None:
         legacy = not payload.get("code") and payload.get("reason") is not None
         category = str(payload.get("category") or ("hardware_safety" if legacy else "session"))
@@ -764,6 +789,7 @@ class RunnerController:
                 self._prompt = ""
         if terminal:
             self._close_events()
+            self._cancel_home_plan()
 
     def _observation(self, event: Mapping[str, Any], payload: Mapping[str, Any]) -> None:
         with self._lock:
@@ -899,6 +925,18 @@ class RunnerController:
                     return build_model_trajectory(
                         provider.infer(prompt, observation), observation, first_step_id, self._ik_solver,
                     )
+            if step_id == 0 and self._home_plan is not None:
+                cached_points = self._take_home_plan(provider, provider_observation)
+                if self._provider_cancelled(provider):
+                    return
+                if cached_points is not None:
+                    trajectory_builder = lambda *_: cached_points
+                else:
+                    # A slow or failed speculative request can age the original
+                    # completion. Reobserve before the fresh inference fallback.
+                    fresh = self._fresh_home(session_id, episode_id, lease_id)
+                    provider_observation = {**provider_observation, **fresh,
+                        'episode_id':episode_id, 'lease_id':lease_id, 'step_id':0}
             self._dispatch_trajectory(
                 trajectory_builder,
                 provider,
@@ -1122,6 +1160,27 @@ class RunnerController:
                 raise RuntimeError("Trajectory waypoint does not match the v1 schema")
             if waypoint.get("step_id") != expected_step:
                 raise RuntimeError("Trajectory waypoint steps must be contiguous")
+        if first_step_id == 0 and self._home_registered and observation.get("source") == "hardware":
+            self._record_first_plan(provider, time.monotonic()-model_started)
+            fresh = self._fresh_home(session_id, episode_id, lease_id)
+            if self._home_accepted_job is not None and (
+                    time.time()-self._home_validation_at > 2. or provider.steering.pending()):
+                # Slow telemetry/lease reads or newly arrived steering can age a
+                # validated scene before dispatch. Replan once from fresh state.
+                self._home_accepted_job.discard()
+                self._home_accepted_job = None
+                self._home_accepted_scene = None
+                self._home_event('fallback', reason='validation_expired_before_dispatch')
+                refreshed = {**observation, **fresh, 'episode_id':episode_id,
+                             'lease_id':lease_id, 'step_id':first_step_id}
+                self._dispatch_trajectory(provider.build_trajectory, provider, prompt,
+                    refreshed, session_id, episode_id, lease_id, first_step_id)
+                return
+            # Recheck the starting pose even after a fresh-model fallback.
+            for arm in ('left', 'right'):
+                before, after = observation[arm+'_joints_deg'], fresh[arm+'_joints_deg']
+                if len(before) != len(after) or any(abs(a-b) > .25 for a,b in zip(before, after)):
+                    raise RuntimeError('Home pose changed while planning')
         path_segments = []
         measure = getattr(provider, 'measured_step_displacement', None)
         previous = observation
@@ -1636,6 +1695,7 @@ class RunnerController:
             self._last_stop_reason=None
         try:
             while not self._stop_event.is_set():
+                self._poll_home_scene()
                 try:
                     self.process_next_event(0.5)
                 except TimeoutError:
@@ -1678,6 +1738,7 @@ class RunnerController:
                     pass
             self._close_events()
         finally:
+            self._cancel_home_plan(provider)
             review = getattr(provider, 'review_after_session_stop', None)
             if callable(review):
                 try:

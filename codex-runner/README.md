@@ -225,6 +225,13 @@ Select **Built-in policy: Raise both arms 20 cm and return** to generate a provi
 
 The browser loads only same-origin `/api/monitor/cameras/left|top|right` routes. The local backend resolves each semantic name from the latest station observation and streams MJPEG only when its origin exactly matches `--camera-origin` (default `http://10.1.10.185:8089`); it accepts no caller-supplied upstream URL and returns `NO SIGNAL` on validation, timeout, or disconnect failure.
 
+## Cached home-scene startup
+
+An optional station/API extension overlaps Astra or Codex RGB planning with
+gripper calibration and homing. It preserves live feedback and lease gates and
+falls back to fresh inference when scene reuse cannot be verified. See
+[the lifecycle, compatibility requirements, and conservative image-validation limits](docs/HOME-SCENE-STARTUP.md).
+
 ## Astra with RoboCurve's no-demo policy
 
 The UI's OpenAI/Astra providers use `move_to`, `done` and `give_up` tools with

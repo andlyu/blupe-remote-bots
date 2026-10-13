@@ -1,0 +1,29 @@
+{
+  "original_checkout": "/Users/andrew/Projects/blupe-evals",
+  "original_git_head": "8134c08ea63b6483bbd01d148f0e756b88f8ea7b",
+  "baseline_kind": "snapshot of existing working files, including pre-existing uncommitted changes",
+  "isolated_snapshot_commit": "ed4185230f431e4657cab1068496518371f1574a",
+  "patch_sha256": "042a3c1f05f4ee7b64ff44360b06ef09a3b177b6f1d9fe7699566673f9109714",
+  "files": [
+    {
+      "path": "src/blupe_evals/session_api/asgi.py",
+      "before_sha256": "e034b26f3c5acf592c53bebe00f124359c827d13d2722346880e69b1cb981d95",
+      "after_sha256": "b739ffdc509ec9d5bb771907c6efce178a29e9f6633caf37309df4a250952b65"
+    },
+    {
+      "path": "src/blupe_evals/session_api/home_scene.py",
+      "before_sha256": null,
+      "after_sha256": "f5be154fb7987e0e013b1d9322e729cc292a8d108a1258561f30ee554f0200a0"
+    },
+    {
+      "path": "src/blupe_evals/session_api/service.py",
+      "before_sha256": "04a0c1af1364e29d3139c95bb474ae2cd0323f88f6a797700987975369ec73cc",
+      "after_sha256": "36c3bc13b0d516a4d22cbda0cd3d80423d7beac595e91ca974554e52672f85ef"
+    },
+    {
+      "path": "tests/test_home_scene.py",
+      "before_sha256": null,
+      "after_sha256": "c1c67cf65936254ab6c25b7c94d0c0efd17a108f52a50399e073f2800da3b085"
+    }
+  ]
+}

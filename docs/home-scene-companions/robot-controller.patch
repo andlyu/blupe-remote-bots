@@ -1,0 +1,786 @@
+diff --git a/src/blupe_controller/backends/yam.py b/src/blupe_controller/backends/yam.py
+index 03b627d..1e64653 100644
+--- a/src/blupe_controller/backends/yam.py
++++ b/src/blupe_controller/backends/yam.py
+@@ -114,6 +114,8 @@ def run(config):
+     install_local_pose(hardware)
+     state = DEFAULT_CONFIG.parent / 'state'
+     state.mkdir(parents=True, exist_ok=True, mode=0o700)
++    from YAM_control.home_scene import install as install_home_scene
++    install_home_scene(hardware, config, state / "home-scene.json")
+     os.environ['YAM_AUTO_QUEUE_STATE'] = str(state / 'auto-queue.json')
+     # Start paused even if a previous run left a park receipt. Setup/installation
+     # must never replay an automatic-start authorization.
+diff --git a/src/blupe_controller/runtime/YAM_control/auto_queue.py b/src/blupe_controller/runtime/YAM_control/auto_queue.py
+index bd1c745..421da72 100644
+--- a/src/blupe_controller/runtime/YAM_control/auto_queue.py
++++ b/src/blupe_controller/runtime/YAM_control/auto_queue.py
+@@ -25,6 +25,7 @@ class AutoQueue:
+         self.parked = False
+         self.running = False
+         self.completion_pending = False
++        self.capture_home_pending = False
+         self.ready_deadline = None
+         self.cancel = threading.Event()
+         self.thread = None
+@@ -135,10 +136,11 @@ class AutoQueue:
+                 and not op.cleanup_state['running'] and not op.stop_event.is_set()
+             )
+ 
+-    def policy_completed(self):
++    def policy_completed(self, *, capture_home=False):
+         with self.lock:
+             # Completion cleanup must run even when automatic starts are paused.
+             self.completion_pending = True
++            self.capture_home_pending = capture_home
+             self.ready_deadline = None
+             self._message('Run ended; checking the next queued run')
+ 
+@@ -235,8 +237,27 @@ class AutoQueue:
+                 self.cancel = threading.Event()
+                 cancel = self.cancel
+             try:
++                capture_home = self.capture_home_pending
+                 self.completion_pending = False
++                self.capture_home_pending = False
+                 self.invalidate_park()
++                scene = getattr(op, 'home_scene', None)
++                if continuation and capture_home and scene is not None:
++                    self._check(cancel)
++                    self._message('Run complete; returning Home for the next planning scene')
++                    result = op._move_home(cancel_event=cancel)
++                    self._check(cancel)
++                    status = op.status()
++                    if status['mode'] != 'READY' or not status['homed'] or not status['settled']:
++                        raise RuntimeError(result)
++                    try:
++                        scene.capture(cancel)
++                    except Exception as exc:
++                        scene.invalidate()
++                        LOGGER.info('[home-scene] capture unavailable: %s', type(exc).__name__)
++                    self._return_to_rest(cancel, 'Run complete; home scene capture finished')
++                    return
++
+                 if continuation:
+                     try:
+                         waiting = self.enabled and op.api_connected and self._queue_waiting()
+@@ -248,6 +269,12 @@ class AutoQueue:
+                     self._message('Run ended; preparing the next queued run')
+                 else:
+                     self._message('Queue detected; launching both arms')
++                    if scene is not None:
++                        try:
++                            scene.start()
++                        except Exception as exc:
++                            scene.invalidate()
++                            LOGGER.info("[home-scene] offer unavailable: %s", type(exc).__name__)
+                     op._launch_physical(cancel_event=cancel)
+                 self._check(cancel)
+                 # Torque-off arms may settle away from zero. Launch holds fresh
+@@ -258,7 +285,21 @@ class AutoQueue:
+                     self._return_to_rest(cancel, 'Queue cleared before Home')
+                     return
+                 self._message('Moving both arms to Home')
+-                result = op._move_home(cancel_event=cancel)
++                duration = None
++                if scene is not None and not continuation:
++                    try:
++                        duration = scene.duration()
++                    except Exception as exc:
++                        LOGGER.info("[home-scene] timing unavailable: %s", type(exc).__name__)
++                home_started = time.monotonic()
++                if duration is None:
++                    result = op._move_home(cancel_event=cancel)
++                else:
++                    result = op._move_home(cancel_event=cancel, target_duration_s=duration)
++                if scene is not None:
++                    scene.timing.update(scene.last_home)
++                    scene.timing['actual_home_s'] = time.monotonic()-home_started
++                    LOGGER.info('[home-scene] startup timing %s', scene.timing)
+                 self._check(cancel)
+                 status = op.status()
+                 if status['mode'] != 'READY' or not status['homed']:
+diff --git a/src/blupe_controller/runtime/YAM_control/camera_relay.py b/src/blupe_controller/runtime/YAM_control/camera_relay.py
+index 48efaea..9fcf3b8 100644
+--- a/src/blupe_controller/runtime/YAM_control/camera_relay.py
++++ b/src/blupe_controller/runtime/YAM_control/camera_relay.py
+@@ -88,17 +88,22 @@ class Cam:
+             self._open_capture()
+         print(f"[relay] /dev/video{self.dev}: {'reopened' if self.ok else 'reopen FAILED'}", flush=True)
+ 
+-    def fresh_jpeg(self):
++    def fresh_frame(self):
++        """Read pixels and their source timestamps under the same capture lock."""
+         with self.lock:
+-            jpeg = self.jpeg
+-            last_frame_mono = self.last_frame_mono
+-            error = self.error
+-        if jpeg is None or last_frame_mono <= 0:
+-            return None, "no frame yet" if not error else error
+-        age_s = time.monotonic() - last_frame_mono
+-        if age_s > self.stale_timeout_s:
+-            return None, f"stale frame age={age_s:.2f}s"
+-        return jpeg, ""
++            jpeg, mono, wall, sequence, error = (
++                self.jpeg, self.last_frame_mono, self.last_frame_wall,
++                self.frame_count, self.error)
++        reason = ""
++        if jpeg is None or mono <= 0:
++            reason = error or "no frame yet"
++        elif time.monotonic()-mono > self.stale_timeout_s:
++            reason = f"stale frame age={time.monotonic()-mono:.2f}s"
++        return (None if reason else jpeg), wall, mono, sequence, reason
++
++    def fresh_jpeg(self):
++        jpeg, _, _, _, reason = self.fresh_frame()
++        return jpeg, reason
+ 
+     def status(self):
+         with self.lock:
+@@ -181,7 +186,7 @@ class Handler(BaseHTTPRequestHandler):
+                 self.send_error(404)
+                 return
+             with cam.lock:
+-                jpeg, captured, sequence = cam.jpeg, cam.last_frame_mono, cam.frame_count
++                jpeg, captured, captured_wall, sequence = cam.jpeg, cam.last_frame_mono, cam.last_frame_wall, cam.frame_count
+             if jpeg is None or time.monotonic() - captured > cam.stale_timeout_s:
+                 self.send_error(503, 'No fresh camera frame')
+                 return
+@@ -190,6 +195,7 @@ class Handler(BaseHTTPRequestHandler):
+             self.send_header('Cache-Control', 'no-store')
+             self.send_header('Content-Length', str(len(jpeg)))
+             self.send_header('X-Capture-Monotonic', str(captured))
++            self.send_header('X-Captured-At', str(captured_wall))
+             self.send_header('X-Frame-Sequence', str(sequence))
+             self.end_headers()
+             self.wfile.write(jpeg)
+@@ -228,7 +234,7 @@ class Handler(BaseHTTPRequestHandler):
+         last = None
+         try:
+             while True:
+-                jpeg, stale_reason = cam.fresh_jpeg()
++                jpeg, captured_wall, captured, sequence, stale_reason = cam.fresh_frame()
+                 if jpeg is None:
+                     time.sleep(0.05)
+                     continue
+@@ -242,7 +248,8 @@ class Handler(BaseHTTPRequestHandler):
+                 last = jpeg
+                 self.wfile.write(BOUNDARY + b"\r\n")
+                 self.wfile.write(b"Content-Type: image/jpeg\r\n")
+-                self.wfile.write(f"Content-Length: {len(jpeg)}\r\n\r\n".encode())
++                self.wfile.write(f"Content-Length: {len(jpeg)}\r\n".encode())
++                self.wfile.write(f"X-Captured-At: {captured_wall}\r\nX-Capture-Monotonic: {captured}\r\nX-Frame-Sequence: {sequence}\r\n\r\n".encode())
+                 self.wfile.write(jpeg + b"\r\n")
+         except (BrokenPipeError, ConnectionResetError):
+             print(f"[relay] client {self.client_address} left /{key}", flush=True)
+diff --git a/src/blupe_controller/runtime/YAM_control/home_scene.py b/src/blupe_controller/runtime/YAM_control/home_scene.py
+new file mode 100644
+index 0000000..fabb15e
+--- /dev/null
++++ b/src/blupe_controller/runtime/YAM_control/home_scene.py
+@@ -0,0 +1,235 @@
++"""Home-scene evidence and startup pacing. Motor ownership stays in AutoQueue."""
++from concurrent.futures import ThreadPoolExecutor
++import base64
++import hashlib
++import inspect
++import json
++import math
++import logging
++from pathlib import Path
++import time
++import uuid
++
++from YAM_control.training_recorder import RelayFrames, atomic_json
++
++
++def home_duration(mean_s, calibration_s, settling_s=1.0):
++    """Only slow the normal safe path; unknown means keep normal cold startup."""
++    if type(mean_s) not in (int,float) or not math.isfinite(mean_s) or mean_s <= 0:
++        return None
++    return min(30., max(0., mean_s-calibration_s-settling_s))
++
++
++class HomeScene:
++    def __init__(self, operator, config, path=None):
++        self.op = operator
++        self.config = config
++        self.path = Path(path) if path else None
++        # Saved disk artifacts are evidence, not a reusable authority after restart.
++        self.boot_id = uuid.uuid4().hex
++        self.scene = None
++        self.offer = None
++        self.timing = {}
++        self.settling_samples = []
++        self.settling_config = None
++        self.last_home = {}
++
++    def fingerprint(self):
++        config = self.config
++        calibration = config.get('yam_calibration_file')
++        fields = dict(robot_id=config['robot_id'], cameras=config['cameras'],
++                      home=list(self.op.home), safety=repr(self.op._safety_config),
++                      calibration=hashlib.sha256(Path(calibration).read_bytes()).hexdigest() if calibration else None)
++        # Cover runtime geometry and motion code, not just a friendly profile name.
++        root = Path(__file__).resolve().parents[1]
++        files = {Path(__file__), root/'scripts/yam_operator_hardware_web.py',
++                 root/'YAM_control/hardware_safety.py'}
++        # Custom launchers retain their installed planner and camera owner.
++        # Fingerprint their real source as well as the packaged runtime.
++        for cls in type(self.op).__mro__:
++            try:
++                source = inspect.getsourcefile(cls)
++            except TypeError:
++                source = None
++            if source:
++                files.add(Path(source))
++        for name in ('YAM_control/ruckig_waypath.py', 'YAM_control/camera_relay.py',
++                     'scripts/publish_yam_cameras.py'):
++            if (root/name).is_file():
++                files.add(root/name)
++        files.update(Path(p) for p in config.get('home_scene_runtime_paths', []))
++        fields['runtime'] = {str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
++        return hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
++
++    def invalidate(self):
++        self.scene = None
++        self.offer = None
++
++    def _measured(self):
++        status = self.op.status(include_diagnostics=False)
++        if (not status.get('homed') or not status.get('settled')
++                or not status.get('feedback_available', False)
++                or not status.get('safety', {}).get('controller_ok')
++                or self.op.api_lease_id is not None or self.op._hardware_pending is not None):
++            raise ValueError('Home is not confirmed idle')
++        snap = self.op._physical.snapshot()
++        joints = list(snap.left.joints_rad+snap.right.joints_rad)
++        grips = [snap.left.gripper,snap.right.gripper]
++        if (len(joints) != 12 or any(type(v) not in (int,float) or not math.isfinite(v) for v in joints+grips)
++                or any(abs(g-1.) > .02 for g in grips)):
++            raise ValueError('Home grippers or joints are not verified')
++        return joints,grips
++
++    def capture(self, cancel):
++        self.invalidate()
++        start = time.monotonic()
++        before_q,before_g = self._measured()
++        if cancel.is_set():
++            return
++        source = type('Source', (), {'origin':'http://127.0.0.1:8089'})()
++        with ThreadPoolExecutor(max_workers=3) as pool:
++            for _ in range(4):
++                if cancel.wait(.05):
++                    return
++                jobs = [pool.submit(RelayFrames.one, source, name, str(device))
++                        for name,device in self.config['cameras'].items()]
++                frames = dict(job.result() for job in jobs)
++                if all(f['monotonic'] >= start for f in frames.values()):
++                    break
++        q,g = self._measured()
++        end, wall = time.monotonic(),time.time()
++        if cancel.is_set():
++            return
++        stamps = [f['monotonic'] for f in frames.values()]
++        if (set(frames) != {'left','top','right'} or max(stamps)-min(stamps) > .15
++                or end-start > 1.0 or any(not start <= t <= end or end-t > .25 for t in stamps)
++                or any(abs(a-b) > math.radians(.25) for a,b in zip(q,before_q))
++                or any(abs(a-b) > .01 for a,b in zip(g,before_g))):
++            raise ValueError('Home capture is not coherent')
++        scene = dict(version=1, scene_id=uuid.uuid4().hex, robot_id=self.config['robot_id'],
++            config_sha256=self.fingerprint(), boot_id=self.boot_id, captured_at=wall,
++            camera_map=dict(self.config['cameras']), encoder_bracket_s=end-start,
++            observation=dict(jetson_id=self.config['robot_id'], source='hardware', homed=True, settled=True,
++                observed_at=wall, left_joints_deg=[math.degrees(v) for v in q[:6]],
++                right_joints_deg=[math.degrees(v) for v in q[6:]], left_gripper=g[0],right_gripper=g[1]),
++            frames={name:dict(jpeg_base64=base64.b64encode(f['jpeg']).decode(),
++                sha256=hashlib.sha256(f['jpeg']).hexdigest(), captured_at=wall-(end-f['monotonic']),
++                sequence=f['sequence']) for name,f in frames.items()})
++        if self.path:
++            self.path.parent.mkdir(parents=True,exist_ok=True)
++            atomic_json(self.path,scene)
++            self.path.chmod(0o600)
++        if not cancel.is_set():
++            self.scene = scene
++
++    def start(self):
++        self.offer = None
++        self.timing = {'started_monotonic':time.monotonic()}
++        if not getattr(self.op, 'api_home_scene_supported', False):
++            return
++        queue = self.op.queue_snapshot().get('entries', [])
++        if not queue or not (queue[0].get('home_planning') or {}).get('profile'):
++            return
++        scene = self.scene
++        if not scene or not 0 <= time.time()-scene['captured_at'] <= 120 or scene['config_sha256'] != self.fingerprint():
++            self.scene = None
++            return
++        self.offer = {'session_id':queue[0]['session_id'], 'scene':scene}
++        self.op.api_client.send(dict(schema_version=1,type='home_scene',phase='offer',**self.offer))
++        # A scene can be offered once. An aborted startup cannot silently reuse it.
++        self.scene = None
++
++    def duration(self):
++        self._settling_configuration()
++        calibration_s = time.monotonic()-self.timing['started_monotonic']
++        queue = self.op.queue_snapshot().get('entries', [])
++        hint = (queue[0].get('home_planning') or {}) if queue else {}
++        mean = None
++        if (self.offer and queue and queue[0]['session_id'] == self.offer['session_id']
++                and hint.get('config_sha256') == self.fingerprint() and hint.get('sample_count',0) > 0):
++            mean = hint.get('mean_first_plan_s')
++        settling = sum(self.settling_samples)/len(self.settling_samples) if self.settling_samples else 1.0
++        duration = home_duration(mean,calibration_s,settling)
++        self.timing.update(calibration_s=calibration_s, mean_first_plan_s=mean,
++                           sample_count=hint.get('sample_count',0), target_home_s=duration,
++                           settling_allowance_s=settling, settling_basis='measured' if self.settling_samples else 'provisional default')
++        return duration
++
++    def _settling_configuration(self):
++        config = self.fingerprint()
++        if config != self.settling_config:
++            self.settling_samples.clear()
++            self.settling_config = config
++
++    def home_finished(self, elapsed_s, commanded_s):
++        self._settling_configuration()
++        self.last_home = dict(actual_home_s=elapsed_s, commanded_home_s=commanded_s)
++        # Includes feedback settling and controller overhead, measured on this rig.
++        self.settling_samples.append(max(0.,elapsed_s-commanded_s))
++        del self.settling_samples[:-20]
++
++    def ready(self, payload):
++        self.timing["home_ready_monotonic"] = time.monotonic()
++        if not getattr(self.op, 'api_home_scene_supported', False):
++            return
++        scene = (self.offer or {}).get('scene')
++        matched = (scene and self.offer['session_id'] == payload['session_id']
++                   and scene['config_sha256'] == self.fingerprint())
++        self.op.api_client.send(dict(schema_version=1,type='home_scene',phase='ready',
++            **{k:payload[k] for k in ('session_id','episode_id','lease_id')},
++            scene_id=scene['scene_id'] if matched else None,
++            config_sha256=self.fingerprint(),boot_id=self.boot_id))
++        self.offer = None
++
++
++def install(hardware, config, path=None):
++    parent = hardware.PhysicalOperator
++    if getattr(parent, '_home_scene_installed', False):
++        return
++    class HomeSceneOperator(parent):
++        _home_scene_installed = True
++        def __init__(self,*args,**kwargs):
++            super().__init__(*args,**kwargs)
++            self.home_scene = HomeScene(self,config,path)
++        def status(self, *args, **kwargs):
++            result = super().status(*args, **kwargs)
++            scene = getattr(self, 'home_scene', None)
++            result['home_scene'] = dict(version=1,
++                api_supported=bool(getattr(self, 'api_home_scene_supported', False)),
++                cached=bool(scene and scene.scene), offered=bool(scene and scene.offer))
++            return result
++        def _move_home(self, *, cancel_event=None, target_duration_s=None):
++            # Older custom subclasses forward only cancel_event. The base
++            # planner reads this scoped hint without bypassing that subclass.
++            self._home_scene_target_duration = target_duration_s
++            try:
++                return super()._move_home(cancel_event=cancel_event)
++            finally:
++                self._home_scene_target_duration = None
++        def api_prepare_session(self,payload):
++            result = super().api_prepare_session(payload)
++            if result is not None:
++                try:
++                    self.home_scene.ready(payload)
++                except Exception as exc:
++                    logging.getLogger(__name__).info("[home-scene] ready unavailable: %s", type(exc).__name__)
++            return result
++        def action(self,action,*args,**kwargs):
++            if hasattr(self,'home_scene'):
++                self.home_scene.invalidate()
++            return super().action(action,*args,**kwargs)
++        def _hold_physical(self,reason):
++            if hasattr(self,'home_scene'):
++                self.home_scene.invalidate()
++            return super()._hold_physical(reason)
++        def _stop_physical(self,reason):
++            if reason != 'operator_park_zero' and hasattr(self,'home_scene'):
++                self.home_scene.invalidate()
++            return super()._stop_physical(reason)
++        def api_connection_changed(self,connected,error=None):
++            if not connected and hasattr(self,'home_scene'):
++                self.home_scene.invalidate()
++            return super().api_connection_changed(connected,error)
++    hardware.PhysicalOperator = HomeSceneOperator
++    if hardware.base.OperatorSimulator is parent:
++        hardware.base.OperatorSimulator = HomeSceneOperator
+diff --git a/src/blupe_controller/runtime/YAM_control/ruckig_waypath.py b/src/blupe_controller/runtime/YAM_control/ruckig_waypath.py
+index b1f3f3e..48c4595 100644
+--- a/src/blupe_controller/runtime/YAM_control/ruckig_waypath.py
++++ b/src/blupe_controller/runtime/YAM_control/ruckig_waypath.py
+@@ -99,6 +99,7 @@ def plan_joint_trajectory(
+     max_velocity_rad_s: float = DEFAULT_MAX_VELOCITY_RAD_S,
+     max_acceleration_rad_s2: float = DEFAULT_MAX_ACCELERATION_RAD_S2,
+     max_jerk_rad_s3: float = DEFAULT_MAX_JERK_RAD_S3,
++    minimum_duration_s: float | None = None,
+ ) -> JointTrajectoryPlan:
+     """Generate local state-to-state segments, stopping smoothly at each keyframe."""
+     from ruckig import DurationDiscretization, InputParameter, Result, Ruckig, Trajectory
+@@ -106,6 +107,10 @@ def plan_joint_trajectory(
+     points = np.asarray(keyframes, dtype=np.float64)
+     if points.ndim != 2 or len(points) < 2 or not np.all(np.isfinite(points)):
+         raise WaypathPlanningError("keyframes must contain at least two finite joint vectors")
++    if minimum_duration_s is not None:
++        if (type(minimum_duration_s) not in (int,float) or not math.isfinite(minimum_duration_s)
++                or not 0 <= minimum_duration_s <= 30 or len(points) != 2):
++            raise ValueError("Home minimum duration must be 0..30 seconds for one segment")
+     dofs = int(points.shape[1])
+     cadence = _positive(cadence_hz, "cadence_hz")
+     velocity_limit = _positive(max_velocity_rad_s, "max_velocity_rad_s")
+@@ -132,6 +137,8 @@ def plan_joint_trajectory(
+         inp.max_velocity = [velocity_limit] * dofs
+         inp.max_acceleration = [acceleration_limit] * dofs
+         inp.max_jerk = [jerk_limit] * dofs
++        if minimum_duration_s is not None:
++            inp.minimum_duration = minimum_duration_s
+         inp.duration_discretization = DurationDiscretization.Discrete
+         otg = Ruckig(dofs, period)
+         otg.validate_input(inp, True, True)
+diff --git a/src/blupe_controller/runtime/YAM_control/session_api_sim_client.py b/src/blupe_controller/runtime/YAM_control/session_api_sim_client.py
+index 13d4df9..8e69d47 100644
+--- a/src/blupe_controller/runtime/YAM_control/session_api_sim_client.py
++++ b/src/blupe_controller/runtime/YAM_control/session_api_sim_client.py
+@@ -98,12 +98,14 @@ class SessionApiSimClient:
+                 "schema_version": 1,
+                 "type": "register",
+                 "jetson_id": self.jetson_id,
++                "home_scene_version": 1,
+                 "reconnect": hasattr(self.bridge, "api_transport_paused"),
+                 "resume": resume,
+             }))
+             registered = json.loads(await asyncio.wait_for(socket.recv(), timeout=5.0))
+             if registered.get("type") != "registered" or registered.get("jetson_id") != self.jetson_id:
+                 raise RuntimeError(f"Session API registration failed: {registered}")
++            self.bridge.api_home_scene_supported = registered.get('home_scene_version') == 1
+             self.reconnect_grace_s = min(30.0, float(registered.get('reconnect_grace_s', 0)))
+             if resume and not registered.get('resumed'):
+                 await asyncio.to_thread(self.bridge.api_connection_changed, False, 'session_not_resumable')
+diff --git a/src/blupe_controller/runtime/scripts/with_home_scene.py b/src/blupe_controller/runtime/scripts/with_home_scene.py
+new file mode 100644
+index 0000000..d2d0531
+--- /dev/null
++++ b/src/blupe_controller/runtime/scripts/with_home_scene.py
+@@ -0,0 +1,33 @@
++#!/usr/bin/env python3
++"""Install Home evidence after an existing station's controller customizations."""
++import json
++import os
++from pathlib import Path
++import runpy
++import sys
++
++
++def main():
++    root = Path(os.environ['BLUPE_CONTROLLER_ROOT']).resolve(strict=True)
++    entry = Path(os.environ['BLUPE_HOME_SCENE_ENTRYPOINT']).resolve(strict=True)
++    config_path = Path(os.environ['BLUPE_HOME_SCENE_CONFIG']).resolve(strict=True)
++    config = json.loads(config_path.read_text())
++    sys.path.insert(0, str(root))
++    import YAM_control
++    public_runtime = Path(__file__).resolve().parents[1]
++    YAM_control.__path__.append(str(public_runtime / 'YAM_control'))
++    from scripts import yam_operator_hardware_web as hardware
++    original_main = hardware.base.main
++
++    def start():
++        from YAM_control.home_scene import install
++        install(hardware, config, config_path.with_name('home-scene.json'))
++        return original_main()
++
++    hardware.base.main = start
++    sys.argv[0] = str(entry)
++    runpy.run_path(str(entry), run_name='__main__')
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py b/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
+index 49a0a5e..54fe35d 100644
+--- a/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
++++ b/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
+@@ -858,7 +858,7 @@ class PhysicalOperator(base.OperatorSimulator):
+             if self.auto_queue.enabled or payload.get("reason") == "policy_complete":
+                 with self.lock:
+                     self._policy_deadline = None
+-                self.auto_queue.policy_completed()
++                self.auto_queue.policy_completed(capture_home=payload.get("reason") == "policy_complete")
+ 
+     def _park_after_policy_timeout(self):
+         with self._physical_lock:
+@@ -1337,7 +1337,9 @@ class PhysicalOperator(base.OperatorSimulator):
+             self._physical_event = self.event
+         return self.event
+ 
+-    def _move_home(self, *, cancel_event=None):
++    def _move_home(self, *, cancel_event=None, target_duration_s=None):
++        if target_duration_s is None:
++            target_duration_s = getattr(self, '_home_scene_target_duration', None)
+         if self._physical.state != AdapterState.STOPPED:
+             return "Move Home blocked: launch both physical arms first"
+         initial = self._physical.snapshot()
+@@ -1351,7 +1353,7 @@ class PhysicalOperator(base.OperatorSimulator):
+             self._safety_config.joint_lower_rad,
+             self._safety_config.joint_upper_rad,
+         )
+-        waypoints = self._bounded_ramp(legal_start, self.home)
++        waypoints = self._bounded_ramp(legal_start, self.home, minimum_duration_s=target_duration_s)
+         if not np.array_equal(start, legal_start):
+             waypoints = (
+                 tuple(float(value) for value in legal_start),
+@@ -1384,6 +1386,7 @@ class PhysicalOperator(base.OperatorSimulator):
+                 self._physical_event = message
+             return message
+ 
++        motion_started = time.monotonic()
+         try:
+             with self.lock:
+                 self.mode = "MOVING_HOME"
+@@ -1447,6 +1450,9 @@ class PhysicalOperator(base.OperatorSimulator):
+             self.policy_phase = "home_settled"
+             self.event = "Both physical arms settled at Home; Safety Guardrails active"
+             self._physical_event = self.event
++        scene = getattr(self, "home_scene", None)
++        if scene is not None:
++            scene.home_finished(time.monotonic()-motion_started, len(approved.waypoints)/approved.cadence_hz)
+         return self.event
+ 
+     def _hold_physical(self, reason):
+@@ -1550,7 +1556,7 @@ class PhysicalOperator(base.OperatorSimulator):
+             images=self._camera_references_locked(),
+         )
+ 
+-    def _bounded_ramp(self, start, target):
++    def _bounded_ramp(self, start, target, *, minimum_duration_s=None):
+         # Home/Park still need a measured hold (and gripper handling) at target.
+         if np.array_equal(start, target):
+             return (tuple(float(value) for value in target),)
+@@ -1560,6 +1566,7 @@ class PhysicalOperator(base.OperatorSimulator):
+             max_velocity_rad_s=self._safety_config.max_joint_velocity_rad_s,
+             max_acceleration_rad_s2=DEFAULT_MAX_ACCELERATION_RAD_S2,
+             max_jerk_rad_s3=DEFAULT_MAX_JERK_RAD_S3,
++            minimum_duration_s=minimum_duration_s,
+         ).positions
+ 
+     def _set_safety_pose(self, joints):
+diff --git a/tests/test_home_scene.py b/tests/test_home_scene.py
+new file mode 100644
+index 0000000..83b510a
+--- /dev/null
++++ b/tests/test_home_scene.py
+@@ -0,0 +1,206 @@
++import base64
++import json
++import math
++from pathlib import Path
++import sys
++import threading
++import time
++from types import SimpleNamespace as NS
++from unittest.mock import patch
++
++import numpy as np
++import pytest
++
++sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src/blupe_controller/runtime'))
++from YAM_control.home_scene import HomeScene, home_duration
++from YAM_control.auto_queue import AutoQueue
++from YAM_control.i2rt_bimanual_adapter import AdapterState
++from YAM_control.ruckig_waypath import plan_joint_trajectory
++
++
++class Operator:
++    def __init__(self):
++        self.home=(0.,)*12;self._safety_config='limits-v1'
++        self.api_lease_id=None;self._hardware_pending=None
++        self.grip=1.;self.joints=(0.,)*12;self.messages=[]
++        self.api_home_scene_supported=True
++        self.api_client=NS(send=self.messages.append)
++        self._physical=NS(state=AdapterState.STOPPED,fault=None,snapshot=lambda:NS(
++            left=NS(joints_rad=self.joints[:6],gripper=self.grip),
++            right=NS(joints_rad=self.joints[6:],gripper=self.grip)))
++        self.queue=[dict(session_id='s',home_planning={'profile':'a'*64})]
++    def status(self,**kwargs):
++        return dict(mode=self.mode if hasattr(self,'mode') else 'READY',homed=True,settled=True,
++                    feedback_available=True,safety={'controller_ok':True})
++    def queue_snapshot(self):return {'entries':self.queue}
++
++
++def source(name,device):
++    return name,dict(jpeg=b'\xff\xd8view\xff\xd9',monotonic=time.monotonic(),sequence=1)
++
++
++def scene(op,tmp_path):
++    return HomeScene(op,dict(robot_id='yam-1',cameras={'left':10,'top':16,'right':4}),tmp_path/'home.json')
++
++
++def test_coherent_capture_saved_then_offered_only_once(tmp_path):
++    op=Operator();cache=scene(op,tmp_path)
++    with patch('YAM_control.home_scene.RelayFrames.one',side_effect=lambda _,name,device:source(name,device)):
++        cache.capture(threading.Event())
++    saved=json.loads(cache.path.read_text())
++    assert saved['observation']['left_gripper']==1 and set(saved['frames'])=={'left','top','right'}
++    assert all(base64.b64decode(f['jpeg_base64']).startswith(b'\xff\xd8') for f in saved['frames'].values())
++    cache.start();assert op.messages[0]['phase']=='offer' and cache.scene is None
++    cache.start();assert len(op.messages)==1
++    assert scene(op,tmp_path).scene is None # Never reuse across process restarts.
++
++
++@pytest.mark.parametrize('bad',['gripper','stale','skew','drift','cancel'])
++def test_unverifiable_capture_never_publishes(tmp_path,bad):
++    op=Operator();cache=scene(op,tmp_path);cancel=threading.Event()
++    if bad=='gripper':op.grip=.5
++    if bad=='cancel':cancel.set()
++    def capture(_,name,device):
++        key,f=source(name,device)
++        if bad=='stale':f['monotonic']-=1
++        if bad=='skew' and name=='top':f['monotonic']-=.2
++        if bad=='drift':op.joints=(.1,)*12
++        return key,f
++    with patch('YAM_control.home_scene.RelayFrames.one',side_effect=capture):
++        if bad=='cancel':cache.capture(cancel)
++        else:
++            with pytest.raises(ValueError):cache.capture(cancel)
++    assert cache.scene is None and not cache.path.exists()
++
++
++def test_pacing_uses_measured_mean_and_calibration_with_cold_default():
++    assert home_duration(None,8) is None
++    assert home_duration(float('nan'),8) is None
++    assert home_duration(15,8,1)==6
++    assert home_duration(2,8,1)==0
++    assert home_duration(100,8,1)==30
++    normal=plan_joint_trajectory(((0.,)*12,(.1,)*12))
++    paced=plan_joint_trajectory(((0.,)*12,(.1,)*12),minimum_duration_s=8)
++    assert paced.duration_s>=8 and paced.duration_s>=normal.duration_s
++    assert paced.max_velocity_rad_s<=normal.max_velocity_rad_s+1e-8
++    np.testing.assert_allclose(paced.positions[-1],normal.positions[-1])
++    for value in (-1,31,float('nan')):
++        with pytest.raises(ValueError):plan_joint_trajectory(((0.,)*12,(.1,)*12),minimum_duration_s=value)
++
++
++def test_custom_home_wrapper_keeps_owner_and_scopes_timing_hint(tmp_path):
++    from YAM_control.home_scene import install
++    calls = []
++    class Custom(Operator):
++        def _move_home(self, *, cancel_event=None):
++            calls.append((cancel_event, self._home_scene_target_duration))
++            return 'custom home'
++    hardware = NS(PhysicalOperator=Custom, base=NS(OperatorSimulator=Custom))
++    config = dict(robot_id='yam-1', cameras={'left':10,'top':16,'right':4})
++    install(hardware, config, tmp_path/'scene.json')
++    cls = hardware.PhysicalOperator
++    install(hardware, config)
++    assert hardware.PhysicalOperator is cls
++    op = cls(); cancel = threading.Event()
++    assert op._move_home(cancel_event=cancel, target_duration_s=9) == 'custom home'
++    assert calls == [(cancel, 9)] and op._home_scene_target_duration is None
++    assert op.status()['home_scene']['version'] == 1
++    extra = tmp_path/'camera_owner.py'; extra.write_text('first')
++    config['home_scene_runtime_paths'] = [str(extra)]
++    first = op.home_scene.fingerprint()
++    extra.write_text('second')
++    assert op.home_scene.fingerprint() != first
++
++
++def test_launcher_installs_after_existing_customizations(tmp_path, monkeypatch):
++    import runpy
++    from types import ModuleType
++    runtime = Path(__file__).resolve().parents[1]/'src/blupe_controller/runtime'
++    launcher = runpy.run_path(str(runtime/'scripts/with_home_scene.py'))
++    entry = tmp_path/'existing.py'; entry.write_text('# existing launcher')
++    config = tmp_path/'config.json'; config.write_text('{"robot_id":"yam-1"}')
++    monkeypatch.setenv('BLUPE_CONTROLLER_ROOT',str(tmp_path))
++    monkeypatch.setenv('BLUPE_HOME_SCENE_ENTRYPOINT',str(entry))
++    monkeypatch.setenv('BLUPE_HOME_SCENE_CONFIG',str(config))
++    calls=[]
++    hardware=NS(PhysicalOperator='original',base=NS(main=lambda:calls.append('started')))
++    package=ModuleType('scripts');package.yam_operator_hardware_web=hardware
++    scene_module=ModuleType('YAM_control.home_scene')
++    scene_module.install=lambda hw,cfg,path:calls.append((hw.PhysicalOperator,cfg['robot_id'],path.name))
++    monkeypatch.setitem(sys.modules,'scripts',package)
++    monkeypatch.setitem(sys.modules,'YAM_control.home_scene',scene_module)
++    def launch(path,run_name):
++        assert path == str(entry) and run_name == '__main__'
++        hardware.PhysicalOperator='custom'
++        hardware.base.main()
++    monkeypatch.setattr(runpy,'run_path',launch)
++    monkeypatch.setattr(sys,'argv',['launcher','--unchanged'])
++    launcher['main']()
++    assert calls == [('custom','yam-1','home-scene.json'),'started']
++    assert sys.argv == [str(entry),'--unchanged']
++
++
++def lifecycle(tmp_path):
++    op=Operator();op.mode='STOPPED';op.lock=threading.RLock();op._physical_lock=threading.RLock()
++    op.stop_event=threading.Event();op.api_authorized=False;op.controller_ok=True
++    op.api_connected=True;op._policy_deadline=None;op.cleanup_state={'running':False}
++    op.calls=[];op.auto_queue=AutoQueue(op);op.home_scene=scene(op,tmp_path)
++    def home(**kwargs):op.calls.append('home');op.mode='READY';return 'home'
++    def park(**kwargs):op.calls.append('park');op.mode='DISABLED';op._physical.state=AdapterState.DISABLED;op.auto_queue.mark_parked();return 'park'
++    op._move_home=home;op._park_zero_and_stop=park
++    op._hold_physical=lambda reason:op.calls.append('hold')
++    op.home_scene.capture=lambda cancel:op.calls.append('capture')
++    return op
++
++
++def test_normal_completion_captures_then_parks_even_with_queue_waiting(tmp_path):
++    op=lifecycle(tmp_path);op.auto_queue.enabled=True
++    op.auto_queue.policy_completed(capture_home=True);op.auto_queue.tick()
++    assert op.calls==['home','capture','park'] and op.auto_queue.parked
++
++
++def test_abort_adds_no_capture_or_extra_home(tmp_path):
++    op=lifecycle(tmp_path);op.queue=[]
++    op.auto_queue.policy_completed(capture_home=False);op.auto_queue.tick()
++    assert op.calls==['park']
++
++
++def test_capture_failure_still_parks_and_cancellation_prevents_capture(tmp_path):
++    op=lifecycle(tmp_path)
++    def fail(cancel):raise OSError('camera unavailable')
++    op.home_scene.capture=fail
++    op.auto_queue.policy_completed(capture_home=True);op.auto_queue.tick()
++    assert op.calls==['home','park']
++    op=lifecycle(tmp_path)
++    def stop(**kw):op.calls.append('home');kw['cancel_event'].set()
++    op._move_home=stop
++    op.auto_queue.policy_completed(capture_home=True);op.auto_queue.tick()
++    assert op.calls==['home','hold']
++
++
++def test_relay_preserves_source_epoch_and_pixels_together(monkeypatch):
++    import io
++    from unittest.mock import Mock
++    from YAM_control import camera_relay
++    cam=camera_relay.Cam.__new__(camera_relay.Cam)
++    cam.lock=threading.Lock();cam.jpeg=b'\xff\xd8frame\xff\xd9';cam.last_frame_mono=time.monotonic()
++    cam.last_frame_wall=time.time()-.1;cam.frame_count=7;cam.error='';cam.stale_timeout_s=2
++    monkeypatch.setitem(camera_relay.CAMS,'test',cam)
++    handler=camera_relay.Handler.__new__(camera_relay.Handler)
++    headers={};handler.path='/test/snapshot.jpg';handler.send_response=Mock();handler.send_error=Mock()
++    handler.send_header=lambda k,v:headers.update({k:v});handler.end_headers=Mock();handler.wfile=io.BytesIO()
++    handler.do_GET()
++    assert headers['X-Captured-At']==str(cam.last_frame_wall)
++    assert headers['X-Capture-Monotonic']==str(cam.last_frame_mono)
++    assert handler.wfile.getvalue()==cam.jpeg
++    handler.path='/test';handler.connection=Mock();handler.client_address=('127.0.0.1',1)
++    class FirstFrame(io.BytesIO):
++        def write(self,b):
++            result=super().write(b)
++            if b==cam.jpeg+b'\r\n':raise BrokenPipeError()
++            return result
++    handler.wfile=FirstFrame()
++    monkeypatch.setattr(camera_relay.select,'select',lambda *args:([],[handler.connection],[]))
++    handler.do_GET()
++    assert f'X-Captured-At: {cam.last_frame_wall}\r\n'.encode() in handler.wfile.getvalue()
++    assert cam.jpeg in handler.wfile.getvalue()

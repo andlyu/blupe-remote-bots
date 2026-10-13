@@ -1,0 +1,291 @@
+diff --git a/src/blupe_evals/session_api/asgi.py b/src/blupe_evals/session_api/asgi.py
+index ed9d8d3..3b102be 100644
+--- a/src/blupe_evals/session_api/asgi.py
++++ b/src/blupe_evals/session_api/asgi.py
+@@ -190,6 +190,10 @@ class SessionApiAsgi:
+                 suffix = parts[3:]
+                 if method == "GET" and not suffix:
+                     result = self.service.get_session(session_id)
++                elif method == "GET" and suffix == ["home-scene"]:
++                    result = self.service.get_home_scene(session_id)
++                elif method == "POST" and suffix == ["home-scene"]:
++                    result = self.service.home_scene_report(session_id, body)
+                 elif method == "POST" and suffix == ["public-conversation"]:
+                     result = self.service.set_public_conversation(session_id, body)
+                 elif method == "POST" and suffix == ["actions"]:
+@@ -314,7 +318,8 @@ class SessionApiAsgi:
+                 raise NotAuthorizedError("registered Jetson does not match authenticated identity")
+             channel = self.service.register_jetson(
+                 jetson_id, resume=registration.get("resume"),
+-                reconnect=registration.get("reconnect") is True)
++                reconnect=registration.get("reconnect") is True,
++                home_scene=registration.get("home_scene_version") == 1)
+             incoming = asyncio.create_task(receive())
+             while True:
+                 await self._drain(channel, send)
+@@ -396,6 +401,8 @@ class SessionApiAsgi:
+             payload = self.cameras.rewrite(jetson_id, payload)
+         if message_type == "ready":
+             self.service.jetson_ready(jetson_id)
++        elif message_type == "home_scene":
++            self.service.jetson_home_scene(jetson_id, payload)
+         elif message_type == "heartbeat":
+             self.service.jetson_heartbeat(jetson_id, str(payload.get("session_id")), str(payload.get("lease_id")))
+         elif message_type == "observation":
+diff --git a/src/blupe_evals/session_api/home_scene.py b/src/blupe_evals/session_api/home_scene.py
+new file mode 100644
+index 0000000..75be08e
+--- /dev/null
++++ b/src/blupe_evals/session_api/home_scene.py
+@@ -0,0 +1,119 @@
++"""Authenticated queue-head planning offers; grants no motion authority."""
++import copy
++import math
++import re
++
++
++def digest(value):
++    return isinstance(value, str) and re.fullmatch('[a-f0-9]{64}', value) is not None
++
++
++class HomeSceneRequests:
++    def _home_init(self):
++        if not hasattr(self, '_home_offers'):
++            self._home_offers = {}
++            self._home_profiles = {}
++            self._home_samples = {}
++            self._home_sampled = set()
++
++    def home_scene_report(self, session_id, payload):
++        with self._lock:
++            self._home_init()
++            session = self._session(session_id)
++            if session.state not in {'queued','preparing','running'}:
++                raise ValueError('home scene run is no longer active')
++            if set(payload) - {'profile','first_executable_plan_s','config_sha256'} or not digest(payload.get('profile')):
++                raise ValueError('invalid home planning profile')
++            prior = self._home_profiles.get(session_id)
++            if prior is not None and prior != payload['profile']:
++                raise ValueError('home planning profile cannot change during a run')
++            self._home_profiles[session_id] = payload['profile']
++            if 'first_executable_plan_s' in payload:
++                elapsed = payload['first_executable_plan_s']
++                offer = self._home_offers.get(session_id, {})
++                if (type(elapsed) not in (int,float) or not math.isfinite(elapsed) or not 0 < elapsed <= 600
++                        or not digest(payload.get('config_sha256'))
++                        or payload['config_sha256'] != offer.get('config_sha256')):
++                    raise ValueError('invalid first executable plan sample')
++                if session_id not in self._home_sampled:
++                    key = (session.robot_id, payload['config_sha256'], payload['profile'])
++                    samples = self._home_samples.setdefault(key, [])
++                    samples.append(float(elapsed))
++                    del samples[:-20]
++                    self._home_sampled.add(session_id)
++            return {'version':1, 'accepted':True}
++
++    def home_scene_hint(self, session_id, config_sha256=None):
++        self._home_init()
++        session = self._session(session_id)
++        profile = self._home_profiles.get(session_id)
++        samples = self._home_samples.get((session.robot_id, config_sha256, profile), [])
++        return {'profile':profile, 'config_sha256':config_sha256, 'sample_count':len(samples),
++                'mean_first_plan_s':sum(samples)/len(samples) if samples else None}
++
++    def get_home_scene(self, session_id):
++        with self._lock:
++            self._home_init()
++            session = self._session(session_id)
++            if session.state not in {'queued','preparing','running'}:
++                return {'version':1, 'scene':None, 'ready':False}
++            offer = copy.deepcopy(self._home_offers.get(session_id, {}))
++            scene = offer.get('scene')
++            if scene and not 0 <= self._clock()-scene['captured_at'] <= 120:
++                offer.pop('scene', None)
++                offer['ready'] = False
++            if session.lease:
++                offer.update(lease_id=session.lease.lease_id,
++                             episode_id=session.episode.episode_id)
++            return {'version':1, **offer}
++
++    def jetson_home_scene(self, jetson_id, payload):
++        with self._lock:
++            self._home_init()
++            jetson = self._jetson(jetson_id)
++            session_id = payload.get('session_id')
++            session = self._session(session_id)
++            if session.robot_id != jetson_id:
++                raise ValueError('home scene robot mismatch')
++            phase = payload.get('phase')
++            if phase == 'offer':
++                queue = self._robot_queue(jetson_id)
++                if (jetson.active_session_id is not None or not queue or queue[0] != session_id
++                        or session.state != 'queued' or session_id not in self._home_profiles):
++                    raise ValueError('home scene offer requires the idle robot queue head')
++                scene = payload.get('scene')
++                if (not isinstance(scene, dict) or scene.get('version') != 1
++                        or scene.get('robot_id') != jetson_id or not digest(scene.get('config_sha256'))
++                        or not isinstance(scene.get('boot_id'), str) or not scene['boot_id']
++                        or not isinstance(scene.get('scene_id'), str) or not scene['scene_id']
++                        or type(scene.get('captured_at')) not in (int,float)
++                        or not 0 <= self._clock()-scene['captured_at'] <= 120):
++                    raise ValueError('invalid home scene provenance')
++                frames = scene.get('frames')
++                if not isinstance(frames, dict) or set(frames) != {'left','top','right'}:
++                    raise ValueError('home scene requires three views')
++                if any(not isinstance(f,dict) or not isinstance(f.get('jpeg_base64'), str)
++                       or len(f['jpeg_base64']) > 4*1024*1024 for f in frames.values()):
++                    raise ValueError('home scene frames too large')
++                self._home_offers[session_id] = dict(scene=copy.deepcopy(scene), ready=False,
++                    scene_id=scene['scene_id'], config_sha256=scene['config_sha256'], boot_id=scene['boot_id'])
++            elif phase == 'ready':
++                self._active(session_id, payload.get('episode_id'), payload.get('lease_id'), jetson_id=jetson_id)
++                if not digest(payload.get('config_sha256')) or not isinstance(payload.get('boot_id'), str):
++                    raise ValueError('invalid ready provenance')
++                prior = self._home_offers.get(session_id, {})
++                matched = all(prior.get(k) == payload.get(k) for k in ('scene_id','config_sha256','boot_id'))
++                self._home_offers[session_id] = {**prior, 'ready':bool(prior.get('scene') and matched),
++                    'config_sha256':payload['config_sha256'], 'boot_id':payload['boot_id'],
++                    'scene_id':payload.get('scene_id')}
++            elif phase == 'invalidate':
++                self._home_offers.pop(session_id, None)
++            else:
++                raise ValueError('unsupported home scene phase')
++            return {'accepted':True}
++
++    def _home_release(self, session_id):
++        self._home_init()
++        self._home_offers.pop(session_id, None)
++        self._home_profiles.pop(session_id, None)
++        self._home_sampled.discard(session_id)
+diff --git a/src/blupe_evals/session_api/service.py b/src/blupe_evals/session_api/service.py
+index 6eb21b4..26cda90 100644
+--- a/src/blupe_evals/session_api/service.py
++++ b/src/blupe_evals/session_api/service.py
+@@ -74,10 +74,11 @@ AuditHook = Callable[[dict[str, Any]], None]
+ RateLimitHook = Callable[[str, str, float], bool]
+ 
+ 
++from .home_scene import HomeSceneRequests
+ from .execution import ExecutionRequests
+ 
+ 
+-class SessionApiService(ExecutionRequests):
++class SessionApiService(HomeSceneRequests, ExecutionRequests):
+     """Owns queue, leases and message routing; never performs inference or robot control."""
+ 
+     ACTIVE_STATES = frozenset({"preparing", "running"})
+@@ -289,6 +290,9 @@ class SessionApiService(ExecutionRequests):
+                         "session_id": session.session_id,
+                         "status": "queued",
+                         "created_at": session.created_at,
++                        "home_planning": self.home_scene_hint(session.session_id,
++                            (self._home_offers.get(session.session_id) or {}).get("config_sha256"))
++                            if hasattr(self, "_home_offers") else None,
+                     }
+                     for position, session in enumerate(queued, start=1)
+                 ],
+@@ -313,7 +317,7 @@ class SessionApiService(ExecutionRequests):
+             self._subscribers[session_id] = [candidate for candidate in channels if candidate is not channel]
+ 
+     def register_jetson(self, jetson_id: str, *, resume: dict[str, Any] | None = None,
+-                        reconnect: bool = False) -> Queue[dict[str, Any]]:
++                        reconnect: bool = False, home_scene: bool = False) -> Queue[dict[str, Any]]:
+         now = self._clock()
+         with self._lock:
+             previous = self._jetsons.get(jetson_id)
+@@ -336,6 +340,7 @@ class SessionApiService(ExecutionRequests):
+             else:
+                 self._reconnect_enabled.discard(jetson_id)
+             jetson.outbound.put({"schema_version": 1, "type": "registered", "jetson_id": jetson_id,
++                                **({"home_scene_version":1} if home_scene else {}),
+                                 **({"reconnect_grace_s": self._reconnect_grace_s, "resumed": resumed} if reconnect else {})})
+             if resumed:
+                 jetson.active_session_id = session.session_id
+@@ -872,6 +877,7 @@ class SessionApiService(ExecutionRequests):
+         self._release(session)
+ 
+     def _release(self, session: SessionRecord) -> None:
++        self._home_release(session.session_id)
+         self._active_trajectories.pop(session.session_id, None)
+         self._execution_requests.pop(session.session_id, None)
+         self._execution_sessions.discard(session.session_id)
+diff --git a/tests/test_home_scene.py b/tests/test_home_scene.py
+new file mode 100644
+index 0000000..990cc7e
+--- /dev/null
++++ b/tests/test_home_scene.py
+@@ -0,0 +1,74 @@
++from copy import deepcopy
++import pytest
++from blupe_evals.session_api import SessionApiService,MockJetson,MockRunner
++
++
++def setup():
++    service=SessionApiService(clock=lambda:1000.,lease_ttl_s=30)
++    jetson=MockJetson(service);one=MockRunner(service);two=MockRunner(service)
++    one.join();two.join()
++    service.home_scene_report(one.session_id,{'profile':'a'*64})
++    service.home_scene_report(two.session_id,{'profile':'a'*64})
++    scene=dict(version=1,scene_id='scene',robot_id='yam-1',config_sha256='b'*64,
++        boot_id='boot',captured_at=999.,frames={k:{'jpeg_base64':'AA=='} for k in ('left','top','right')})
++    return service,jetson,one,two,scene
++
++
++def offer(service,runner,scene):
++    service.jetson_home_scene('yam-1',dict(phase='offer',session_id=runner.session_id,scene=scene))
++
++
++def test_only_idle_queue_head_may_receive_offer_and_no_lease_is_granted():
++    s,j,a,b,scene=setup()
++    with pytest.raises(ValueError):offer(s,b,scene)
++    offer(s,a,scene)
++    assert s.get_home_scene(a.session_id)['scene']['scene_id']=='scene'
++    assert 'scene' not in s.get_home_scene(b.session_id)
++    assert s.get_session(a.session_id)['status']=='queued'
++    j.ready()
++    with pytest.raises(ValueError):offer(s,b,scene)
++
++
++def test_ready_requires_actual_lease_and_same_provenance():
++    s,j,a,b,scene=setup();offer(s,a,scene);assignment=j.ready()
++    ready=dict(phase='ready',session_id=a.session_id,episode_id=assignment['episode_id'],
++        lease_id=assignment['lease_id'],scene_id='scene',config_sha256='b'*64,boot_id='boot')
++    with pytest.raises(ValueError):s.jetson_home_scene('yam-1',{**ready,'lease_id':'wrong'})
++    s.jetson_home_scene('yam-1',{**ready,'config_sha256':'c'*64})
++    assert not s.get_home_scene(a.session_id)['ready']
++
++
++def test_measured_samples_scoped_deduplicated_and_queue_reassignment_cannot_reuse():
++    s,j,a,b,scene=setup();offer(s,a,scene)
++    report={'profile':'a'*64,'config_sha256':'b'*64,'first_executable_plan_s':12.}
++    s.home_scene_report(a.session_id,report)
++    s.home_scene_report(a.session_id,{**report,'first_executable_plan_s':500.})
++    assert s.home_scene_hint(a.session_id,'b'*64)['mean_first_plan_s']==12
++    assert s.home_scene_hint(a.session_id,'b'*64)['sample_count']==1
++    assert s.home_scene_hint(a.session_id,'c'*64)['mean_first_plan_s'] is None
++    s.stop_session(a.session_id)
++    assert s.get_home_scene(a.session_id)['scene'] is None
++    offer(s,b,scene)
++    assert s.get_home_scene(b.session_id)['ready'] is False
++    assert s.home_scene_hint(b.session_id,'b'*64)['sample_count']==1
++
++
++@pytest.mark.parametrize('changes',[{'captured_at':0},{'robot_id':'other'},{'config_sha256':'bad'},{'frames':{}}])
++def test_invalid_scene_rejected(changes):
++    s,j,a,b,scene=setup()
++    with pytest.raises(ValueError):offer(s,a,{**scene,**changes})
++
++
++def test_unknown_or_nonfinite_measurements_do_not_become_averages():
++    s,j,a,b,scene=setup();offer(s,a,scene)
++    assert s.home_scene_hint(a.session_id,'b'*64)['mean_first_plan_s'] is None
++    for value in [float('nan'),float('inf'),True,0,-1,601]:
++        with pytest.raises(ValueError):s.home_scene_report(a.session_id,dict(profile='a'*64,config_sha256='b'*64,first_executable_plan_s=value))
++
++
++def test_registration_extension_is_opt_in():
++    s=SessionApiService()
++    old=s.register_jetson('old').get_nowait()
++    new=s.register_jetson('new',home_scene=True).get_nowait()
++    assert 'home_scene_version' not in old
++    assert new['home_scene_version']==1
