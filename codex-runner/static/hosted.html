@@ -49,9 +49,8 @@
     <figure class="syncTile"><div class="syncTilePicture"><canvas data-sync-tile="2" width="640" height="360" aria-label="Left robot camera"></canvas><button class="expandCamera" data-expand-camera="2" aria-label="Expand left camera">⛶</button></div><figcaption>Left <span data-sync-status>Connecting</span></figcaption></figure>
     <figure class="syncTile"><div class="syncTilePicture"><canvas data-sync-tile="3" width="640" height="360" aria-label="Right robot camera"></canvas><button class="expandCamera" data-expand-camera="3" aria-label="Expand right camera">⛶</button></div><figcaption>Right <span data-sync-status>Connecting</span></figcaption></figure>
     <figure class="syncSource" aria-hidden="true"><img data-camera="synchronized" alt="Synchronized camera source"><figcaption><span>Connecting</span></figcaption></figure>
-    <div class="liveStopwatch" title="Current run time remaining">
-      <span class="stopwatchIcon" aria-hidden="true">⏱</span>
-      <span id="runTimer" role="timer" aria-label="Current run time remaining" aria-live="off">—:—</span>
+    <div class="liveStopwatch">
+      <span id="runTimer" role="timer" aria-label="Current run time remaining" aria-describedby="runTimerDetail" aria-live="off">—:—</span>
       <span id="runTimerDetail" hidden>Waiting for a run</span>
     </div>
   </section>

@@ -95,10 +95,9 @@ main.chatClosed{grid-template-columns:minmax(0,1fr)}.visitorChatHeading{display:
 .runOutcomeHeading{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px}.runOutcomeHeading strong{font-size:20px;color:#28643b}.runOutcome[data-tone="warning"] strong{color:#8a5300}
 .runOutcomeHeading span{font-size:12px;color:var(--muted)}.runOutcome p{margin:8px 0 0;line-height:1.5;white-space:pre-wrap}.runOutcome .help{font-size:12px}
 .streamHealth{display:inline-block;margin-left:8px;font-weight:650;color:#626c64}.streamHealth::before{content:'●';margin-right:5px}.streamHealth[data-state="live"]{color:#28643b}.streamHealth[data-state="stalled"]{color:#a72c24}.streamHealth[data-state="behind"],.streamHealth[data-state="delayed"]{color:#8a5300}#streamHealthDetail{margin-left:8px;font-variant-numeric:tabular-nums}
-/* Compact public stopwatch over the lower-right camera. */
+/* Small countdown at the top center of the cameras, visible to every viewer. */
 #liveViewer{position:relative}
-.liveStopwatch{position:absolute;right:12px;bottom:48px;z-index:2;display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:6px;background:#18251edb;color:#fff;pointer-events:none}
-.stopwatchIcon{font-size:17px;line-height:1}
+.liveStopwatch{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:4;display:flex;align-items:center;padding:5px 8px;border:1px solid #ffffff38;border-radius:6px;background:#18251edb;color:#fff;pointer-events:none}
 #runTimer{font-size:15px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.02em}
 
 /* Watch the robot and read its conversation in one viewport. */
@@ -227,7 +226,6 @@ main > .coffeeSupport{grid-column:1 / -1;margin-top:4px;width:100%}
 #liveViewer[data-layout="top-with-grippers"]>figure[data-camera-role="right"]:not(:fullscreen){justify-self:end}
 #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]):not(:fullscreen)>figcaption{padding:5px 8px;font-size:11px}
 #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]):not(:fullscreen)>figcaption span{display:none}
-#liveViewer[data-layout="top-with-grippers"]>.liveStopwatch{right:50%;transform:translateX(50%);bottom:calc(var(--top-caption-height) + var(--camera-inset))}
 @media(max-width:740px){
   #liveViewer[data-layout="top-with-grippers"]{--camera-inset:6px}
   #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]):not(:fullscreen){width:18%}
@@ -369,7 +367,6 @@ main{padding-top:14px}
 .watchLayout .videoOverlays .astraStream .statusHeader h2{font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:#dae6dc}
 .watchLayout .videoOverlays #astraStreamOutput{font-size:13px;line-height:1.45;color:#fff;max-height:4.35em;overflow:auto}
 .watchLayout .videoOverlays #astraStreamTime{color:#d2ddd5;margin-top:4px;font-size:10px}
-.videoPanel #liveViewer>.liveStopwatch{top:12px;bottom:auto;right:50%;transform:translateX(50%)}
 .watchVisuals>.runSetup>.panel{padding:14px 16px}
 .watchVisuals .runSetup #message:empty{display:none!important}
 .watchVisuals .runHeading{margin-bottom:10px}
@@ -689,7 +686,8 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole #liveViewer[data-layout="top-with-grippers"]>figure[data-camera-role="top"]:not(:fullscreen){height:100%}
 .playgroundConsole #liveViewer[data-layout="top-with-grippers"]>figure:is([data-camera-role="left"],[data-camera-role="right"]):not(:fullscreen){aspect-ratio:16/9}
 .playgroundConsole #liveViewer figure:not(.syncSource){min-width:0;min-height:0;border:0;border-radius:6px;background:#17221b}
-.playgroundConsole #liveViewer>.liveStopwatch,.playgroundConsole #liveViewer #liveRunControls{display:none}
+.playgroundConsole #liveViewer #liveRunControls{display:none}
+.playgroundConsole #liveViewer>.viewerCue{display:none}
 .playgroundConsole #liveViewer .syncTilePicture,.playgroundConsole #liveViewer .modelCameraPicture{height:100%;overflow:hidden}
 .playgroundConsole #liveViewer canvas,.playgroundConsole #liveViewer .modelCameraPicture img{width:100%;height:111.111%;max-height:none;aspect-ratio:auto;object-fit:fill;transform:translateY(-10%)}
 .playgroundConsole #liveViewer .modelCameraBadge{display:none}
