@@ -423,7 +423,7 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/robot-audio.js", "/static/robot-audio.css"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")

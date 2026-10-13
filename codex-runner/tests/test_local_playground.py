@@ -384,7 +384,8 @@ class LocalPlaygroundTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(audio_body)
         self.assertIn(b'liveConversationPanel',body)
         self.assertNotIn(b'YOUR LOCAL',body)
-        code,_=await self.call('/static/hls.light.min.js')
+        self.assertIn(b'/static/hls.min.js', body)
+        code,_=await self.call('/static/hls.min.js')
         self.assertEqual(code,200)
 
     async def test_unavailable_subscription_never_joins_and_can_be_rechecked(self):
