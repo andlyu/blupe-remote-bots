@@ -290,7 +290,7 @@ function createRunLaunchGuard() {
     const source = playbackSource(run, live);
     player.pause();
     player.yamRecordingView?.();
-    if (!live) player.yamRecordingView = window.yamRecordingView?.(player, run.camera_order);
+    if (!live) player.yamRecordingView = window.yamRecordingView?.(player, run.camera_order, run.video_layout);
     player.src = source.url;
     player.defaultPlaybackRate = player.playbackRate = source.rate;
     if (!dialog.open) dialog.showModal();
@@ -364,7 +364,7 @@ function createRunLaunchGuard() {
         reasonDetails.append(reasonSummary, ending);
         if (run.errors) reasonDetails.append(errors);
         button.append(title, prompt, video, watch); button.addEventListener('click', () => openRun(run)); li.append(button); window.yamAspireLineage?.history(li, run);
-        const disposeView = window.yamRecordingView?.(video, run.camera_order);
+        const disposeView = window.yamRecordingView?.(video, run.camera_order, run.video_layout);
         if (disposeView) previewViews.push(disposeView);
         const liveButton = document.createElement('button');
         liveButton.type = 'button';
@@ -2238,7 +2238,10 @@ window.yamAspireLineageSnapshot = null;
 /* ASPIRE LOCAL SNAPSHOT END */
 
 // Display archived four-view recordings in the same camera hierarchy as live.
-window.yamRecordingView = function(video, roles) {
+window.yamRecordingView = function(video, roles, layout) {
+  // New exports already contain the observer-first composition. Only old 2×2
+  // recordings need the client-side rearrangement.
+  if (layout === 'observer-focus') return;
   if (!Array.isArray(roles) || roles.length !== 4 || !['observer','left','top','right'].every(role => roles.includes(role))) return;
   const canvas = document.createElement('canvas');
   canvas.className = 'pastRunComposite'; canvas.width = 960; canvas.height = 654;
@@ -2248,6 +2251,9 @@ window.yamRecordingView = function(video, roles) {
   let callback, stopped = false;
   function paint() {
     if (stopped || video.readyState < 2 || !video.videoWidth) return;
+    // Cached catalog responses may predate layout metadata. The renderer's
+    // fixed observer geometry is also sufficient to recognize a composed MP4.
+    if (!layout && video.videoWidth === 1296 && video.videoHeight === 1020) return;
     const w = video.videoWidth/2, h = video.videoHeight/2;
     const draw = (role, x, y, width, height) => {
       const index = roles.indexOf(role);
