@@ -256,6 +256,24 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
         self._pending = None
         self._failures = 0
 
+    def rebuild_pending_trajectory(self, observation, first_step_id):
+        """Resolve the same unexecuted tool target from fresh measured Home."""
+        pending = self._pending
+        identity = tuple(observation.get(k) for k in ('episode_id', 'lease_id'))
+        if (pending is None or identity != self._episode
+                or first_step_id != pending['first_step_id']):
+            raise RuntimeError('Home rebuild does not match the pending model tool')
+        points = self._geometry.build(pending['targets'], observation, first_step_id)
+        # Preserve call identity and orientation reference. IK/pacing may change
+        # the point count, so completion must use the regenerated packet cursor.
+        self._pending = {**pending, 'waypoint_count':len(points),
+                         'last_step_id':points[-1]['step_id']}
+        self._record('joint_packet', call=self._calls, cadence_hz=10,
+                     rebuilt_from_current_home=True, waypoints=points)
+        self._interaction('packet_ready', f'Rebuilt {len(points)} waypoints from current Home',
+                          waypoint_count=len(points), first=points[0], last=points[-1])
+        return points
+
     def infer(self, prompt, observation):
         raise RuntimeError('RoboCurve policy requires the joint-waypoint packet transport')
 
@@ -367,7 +385,8 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
                 self._note = args['note']
                 points = self._geometry.build(args['targets'], observation, first_step_id)
                 self._pending = {'call_id': call['call_id'], 'waypoint_count': len(points),
-                                 'last_step_id': points[-1]['step_id']}
+                                 'last_step_id': points[-1]['step_id'],
+                                 'first_step_id':first_step_id, 'targets':copy.deepcopy(args['targets'])}
                 self._record('joint_packet', call=self._calls, cadence_hz=10, waypoints=points)
                 self._interaction('packet_ready', f'Prepared {len(points)} joint waypoints at 10 Hz',
                                   waypoint_count=len(points), first=points[0], last=points[-1])
