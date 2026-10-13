@@ -3,7 +3,7 @@
   "original_git_head": "d1f9e8d588b18810d13c0edbe34646763dc8f257",
   "baseline_kind": "snapshot of existing working files, including pre-existing uncommitted changes",
   "isolated_snapshot_commit": "a690e3e797385ed44a060e7b3569de90bc4dd3c5",
-  "patch_sha256": "6063e6a319a93aa109f9104e8aa54f7f56598f41b01e061cd9b28a75c32ee29a",
+  "patch_sha256": "65d3c721eb799938fc03fbad5b16b4ac34c5a4f470b168caf515a28cacc9064b",
   "files": [
     {
       "path": "src/blupe_controller/backends/yam.py",
@@ -36,9 +36,9 @@
       "after_sha256": "311bd53d0b0a5f0eb7f63a90c9364b7836e66b4c2616a5429d1ee94509112b68"
     },
     {
-      "path": "src/blupe_controller/runtime/scripts/with_first_call_wander.py",
-      "before_sha256": "911ac205a74858ec2b40cfab3ec738ad8422172cd296791382d76a8faf1f5455",
-      "after_sha256": "c44814aab565787bea83db701ba2c652312ad73f88da843510a1d75f6b834ded"
+      "path": "src/blupe_controller/runtime/scripts/with_home_scene.py",
+      "before_sha256": null,
+      "after_sha256": "28d92a5834a353b2ac4ed084c967a0e103bb84776f55601d54ee26d55fa3e552"
     },
     {
       "path": "src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py",
@@ -48,7 +48,7 @@
     {
       "path": "tests/test_home_scene.py",
       "before_sha256": null,
-      "after_sha256": "8f86bdd49cea8838c4c0f0eb723485fc4a59a993f00c483c5361c3d6feb6a7a7"
+      "after_sha256": "2b7bd0ea4c9d5a3a5aa87e3f4df5eaf887e561c82f03940a5ac2014fff458780"
     }
   ]
 }

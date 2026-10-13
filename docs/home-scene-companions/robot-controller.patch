@@ -465,24 +465,45 @@ index 13d4df9..8e69d47 100644
              self.reconnect_grace_s = min(30.0, float(registered.get('reconnect_grace_s', 0)))
              if resume and not registered.get('resumed'):
                  await asyncio.to_thread(self.bridge.api_connection_changed, False, 'session_not_resumable')
-diff --git a/src/blupe_controller/runtime/scripts/with_first_call_wander.py b/src/blupe_controller/runtime/scripts/with_first_call_wander.py
-index 5eb475c..dd812b4 100644
---- a/src/blupe_controller/runtime/scripts/with_first_call_wander.py
-+++ b/src/blupe_controller/runtime/scripts/with_first_call_wander.py
-@@ -25,6 +25,13 @@ def main():
-     def start():
-         # The custom entry has now finished installing its own operator subclass.
-         install(hardware)
-+        scene_config = os.environ.get('BLUPE_HOME_SCENE_CONFIG')
-+        if scene_config:
-+            import json
-+            from YAM_control.home_scene import install as install_home_scene
-+            config = json.loads(Path(scene_config).read_text())
-+            install_home_scene(hardware, config,
-+                Path(scene_config).with_name('home-scene.json'))
-         install_workspace(hardware)
-         return original_main()
-     hardware.base.main = start
+diff --git a/src/blupe_controller/runtime/scripts/with_home_scene.py b/src/blupe_controller/runtime/scripts/with_home_scene.py
+new file mode 100644
+index 0000000..d2d0531
+--- /dev/null
++++ b/src/blupe_controller/runtime/scripts/with_home_scene.py
+@@ -0,0 +1,33 @@
++#!/usr/bin/env python3
++"""Install Home evidence after an existing station's controller customizations."""
++import json
++import os
++from pathlib import Path
++import runpy
++import sys
++
++
++def main():
++    root = Path(os.environ['BLUPE_CONTROLLER_ROOT']).resolve(strict=True)
++    entry = Path(os.environ['BLUPE_HOME_SCENE_ENTRYPOINT']).resolve(strict=True)
++    config_path = Path(os.environ['BLUPE_HOME_SCENE_CONFIG']).resolve(strict=True)
++    config = json.loads(config_path.read_text())
++    sys.path.insert(0, str(root))
++    import YAM_control
++    public_runtime = Path(__file__).resolve().parents[1]
++    YAM_control.__path__.append(str(public_runtime / 'YAM_control'))
++    from scripts import yam_operator_hardware_web as hardware
++    original_main = hardware.base.main
++
++    def start():
++        from YAM_control.home_scene import install
++        install(hardware, config, config_path.with_name('home-scene.json'))
++        return original_main()
++
++    hardware.base.main = start
++    sys.argv[0] = str(entry)
++    runpy.run_path(str(entry), run_name='__main__')
++
++
++if __name__ == '__main__':
++    main()
 diff --git a/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py b/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
 index 49a0a5e..54fe35d 100644
 --- a/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
@@ -553,10 +574,10 @@ index 49a0a5e..54fe35d 100644
      def _set_safety_pose(self, joints):
 diff --git a/tests/test_home_scene.py b/tests/test_home_scene.py
 new file mode 100644
-index 0000000..7b8ff38
+index 0000000..83b510a
 --- /dev/null
 +++ b/tests/test_home_scene.py
-@@ -0,0 +1,178 @@
+@@ -0,0 +1,206 @@
 +import base64
 +import json
 +import math
@@ -669,6 +690,34 @@ index 0000000..7b8ff38
 +    first = op.home_scene.fingerprint()
 +    extra.write_text('second')
 +    assert op.home_scene.fingerprint() != first
++
++
++def test_launcher_installs_after_existing_customizations(tmp_path, monkeypatch):
++    import runpy
++    from types import ModuleType
++    runtime = Path(__file__).resolve().parents[1]/'src/blupe_controller/runtime'
++    launcher = runpy.run_path(str(runtime/'scripts/with_home_scene.py'))
++    entry = tmp_path/'existing.py'; entry.write_text('# existing launcher')
++    config = tmp_path/'config.json'; config.write_text('{"robot_id":"yam-1"}')
++    monkeypatch.setenv('BLUPE_CONTROLLER_ROOT',str(tmp_path))
++    monkeypatch.setenv('BLUPE_HOME_SCENE_ENTRYPOINT',str(entry))
++    monkeypatch.setenv('BLUPE_HOME_SCENE_CONFIG',str(config))
++    calls=[]
++    hardware=NS(PhysicalOperator='original',base=NS(main=lambda:calls.append('started')))
++    package=ModuleType('scripts');package.yam_operator_hardware_web=hardware
++    scene_module=ModuleType('YAM_control.home_scene')
++    scene_module.install=lambda hw,cfg,path:calls.append((hw.PhysicalOperator,cfg['robot_id'],path.name))
++    monkeypatch.setitem(sys.modules,'scripts',package)
++    monkeypatch.setitem(sys.modules,'YAM_control.home_scene',scene_module)
++    def launch(path,run_name):
++        assert path == str(entry) and run_name == '__main__'
++        hardware.PhysicalOperator='custom'
++        hardware.base.main()
++    monkeypatch.setattr(runpy,'run_path',launch)
++    monkeypatch.setattr(sys,'argv',['launcher','--unchanged'])
++    launcher['main']()
++    assert calls == [('custom','yam-1','home-scene.json'),'started']
++    assert sys.argv == [str(entry),'--unchanged']
 +
 +
 +def lifecycle(tmp_path):

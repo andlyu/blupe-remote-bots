@@ -74,3 +74,17 @@ station **131 passed**; API **44 passed**; integrated transport scenarios
 **2 passed**. The runner also passed 243 subtests, station 23, and API 13.
 Patch reverse checks, exact active-checkout baseline hashes, and forward
 `git apply --check` all passed without changing those active checkouts.
+
+## Deployment preparation — October 12
+
+Custom station launchers can use the optional `scripts/with_home_scene.py` wrapper
+with `BLUPE_HOME_SCENE_ENTRYPOINT` and `BLUPE_HOME_SCENE_CONFIG`. It installs after
+the existing entry point has configured its operator, retaining its motion owner.
+Legacy Home overrides forward the scoped duration hint to the existing base
+planner. The deployed YAM1 linear planner preserves its path and speed bounds;
+RoboHouse retains its Ruckig planner. Neither wrapper authorizes a robot run.
+
+Release preparation additionally passed 195 tests on the clean current controller
+branch, 13 focused station tests (including custom launcher ordering), 49 hosted
+candidate checks with 18 subtests, 44 API checks with 13 subtests, 35 checks in the
+exact Linux API image, and both complete simulated transport scenarios.
