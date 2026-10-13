@@ -1022,7 +1022,7 @@ class HostedRunner:
             elif path == "/api/disconnect":
                 controller.disconnect("browser_disconnect")
             else:
-                controller.stop("browser_stop_or_forget")
+                controller.stop("user_requested" if path == "/api/stop" else "browser_stop_or_forget")
             return {"ok": True, "key_configured": bool(visitor.saved_keys), "saved_key_providers": sorted(visitor.saved_keys)}
 
     async def start_response(self, send, status, content_type, size, extra=()):

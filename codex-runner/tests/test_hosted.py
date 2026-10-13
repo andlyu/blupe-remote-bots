@@ -512,6 +512,18 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(visitor.saved_keys, {})
 
 
+    async def test_normal_stop_is_distinct_from_forgetting_credentials(self):
+        for path, reason in [("/api/stop", "user_requested"),
+                             ("/api/credentials/clear", "browser_stop_or_forget")]:
+            with self.subTest(path=path):
+                browser = await self.session()
+                await self.launch(browser)
+                visitor = self.app.visitors[browser['cookie'].split('=', 1)[1]]
+                api = visitor.controller._session_api.api
+                with patch.object(api, 'stop_session', wraps=api.stop_session) as stop:
+                    self.assertEqual((await self.call(path, method='POST', **browser))[0], 200)
+                self.assertEqual(stop.call_args.kwargs['reason'], reason)
+
     async def test_forget_stops_run_and_clears_retained_key(self):
         browser = await self.session()
         await self.launch(browser)
