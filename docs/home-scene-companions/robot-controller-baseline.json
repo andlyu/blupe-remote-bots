@@ -3,7 +3,7 @@
   "original_git_head": "d1f9e8d588b18810d13c0edbe34646763dc8f257",
   "baseline_kind": "snapshot of existing working files, including pre-existing uncommitted changes",
   "isolated_snapshot_commit": "a690e3e797385ed44a060e7b3569de90bc4dd3c5",
-  "patch_sha256": "5fa89d358c46e5ae0a804d0d0de28d8a0cfe383e3917bfc6dff934bf3025c2f9",
+  "patch_sha256": "6063e6a319a93aa109f9104e8aa54f7f56598f41b01e061cd9b28a75c32ee29a",
   "files": [
     {
       "path": "src/blupe_controller/backends/yam.py",
@@ -23,7 +23,7 @@
     {
       "path": "src/blupe_controller/runtime/YAM_control/home_scene.py",
       "before_sha256": null,
-      "after_sha256": "8582ecf3737cc0c666d952f0a8e17532d24cb86abcca766609d913e4d10aa3e8"
+      "after_sha256": "f605e5fdf08c37f62a18d0b31451a9f03af225b8ca82b0bc2c3eb40555c60701"
     },
     {
       "path": "src/blupe_controller/runtime/YAM_control/ruckig_waypath.py",
@@ -36,14 +36,19 @@
       "after_sha256": "311bd53d0b0a5f0eb7f63a90c9364b7836e66b4c2616a5429d1ee94509112b68"
     },
     {
+      "path": "src/blupe_controller/runtime/scripts/with_first_call_wander.py",
+      "before_sha256": "911ac205a74858ec2b40cfab3ec738ad8422172cd296791382d76a8faf1f5455",
+      "after_sha256": "c44814aab565787bea83db701ba2c652312ad73f88da843510a1d75f6b834ded"
+    },
+    {
       "path": "src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py",
       "before_sha256": "2f034dec1f26683512104866098b30489a1e6bcb55a6da86d7f733b6bec3421e",
-      "after_sha256": "b5f86b3d72371e14464efb2cf8cdfa98f3070bcc806f8c2c6f8fa149a93de04a"
+      "after_sha256": "174b4b43c85d167ab9996c03a8fb379095a169e636ea75e6ae05c0aa21ba4aa5"
     },
     {
       "path": "tests/test_home_scene.py",
       "before_sha256": null,
-      "after_sha256": "df874a683a6ae659cab8b76e8182057cacf5613f15599e875950febefb95a2b3"
+      "after_sha256": "8f86bdd49cea8838c4c0f0eb723485fc4a59a993f00c483c5361c3d6feb6a7a7"
     }
   ]
 }

@@ -175,14 +175,15 @@ index 48efaea..9fcf3b8 100644
              print(f"[relay] client {self.client_address} left /{key}", flush=True)
 diff --git a/src/blupe_controller/runtime/YAM_control/home_scene.py b/src/blupe_controller/runtime/YAM_control/home_scene.py
 new file mode 100644
-index 0000000..6ddbdd0
+index 0000000..fabb15e
 --- /dev/null
 +++ b/src/blupe_controller/runtime/YAM_control/home_scene.py
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,235 @@
 +"""Home-scene evidence and startup pacing. Motor ownership stays in AutoQueue."""
 +from concurrent.futures import ThreadPoolExecutor
 +import base64
 +import hashlib
++import inspect
 +import json
 +import math
 +import logging
@@ -222,10 +223,23 @@ index 0000000..6ddbdd0
 +                      calibration=hashlib.sha256(Path(calibration).read_bytes()).hexdigest() if calibration else None)
 +        # Cover runtime geometry and motion code, not just a friendly profile name.
 +        root = Path(__file__).resolve().parents[1]
-+        fields['runtime'] = {p:hashlib.sha256((root/p).read_bytes()).hexdigest() for p in (
-+            'scripts/yam_operator_hardware_web.py','YAM_control/home_scene.py',
-+            'YAM_control/hardware_safety.py','YAM_control/ruckig_waypath.py',
-+            'YAM_control/camera_relay.py','scripts/publish_yam_cameras.py')}
++        files = {Path(__file__), root/'scripts/yam_operator_hardware_web.py',
++                 root/'YAM_control/hardware_safety.py'}
++        # Custom launchers retain their installed planner and camera owner.
++        # Fingerprint their real source as well as the packaged runtime.
++        for cls in type(self.op).__mro__:
++            try:
++                source = inspect.getsourcefile(cls)
++            except TypeError:
++                source = None
++            if source:
++                files.add(Path(source))
++        for name in ('YAM_control/ruckig_waypath.py', 'YAM_control/camera_relay.py',
++                     'scripts/publish_yam_cameras.py'):
++            if (root/name).is_file():
++                files.add(root/name)
++        files.update(Path(p) for p in config.get('home_scene_runtime_paths', []))
++        fields['runtime'] = {str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
 +        return hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
 +
 +    def invalidate(self):
@@ -351,10 +365,28 @@ index 0000000..6ddbdd0
 +
 +def install(hardware, config, path=None):
 +    parent = hardware.PhysicalOperator
++    if getattr(parent, '_home_scene_installed', False):
++        return
 +    class HomeSceneOperator(parent):
++        _home_scene_installed = True
 +        def __init__(self,*args,**kwargs):
 +            super().__init__(*args,**kwargs)
 +            self.home_scene = HomeScene(self,config,path)
++        def status(self, *args, **kwargs):
++            result = super().status(*args, **kwargs)
++            scene = getattr(self, 'home_scene', None)
++            result['home_scene'] = dict(version=1,
++                api_supported=bool(getattr(self, 'api_home_scene_supported', False)),
++                cached=bool(scene and scene.scene), offered=bool(scene and scene.offer))
++            return result
++        def _move_home(self, *, cancel_event=None, target_duration_s=None):
++            # Older custom subclasses forward only cancel_event. The base
++            # planner reads this scoped hint without bypassing that subclass.
++            self._home_scene_target_duration = target_duration_s
++            try:
++                return super()._move_home(cancel_event=cancel_event)
++            finally:
++                self._home_scene_target_duration = None
 +        def api_prepare_session(self,payload):
 +            result = super().api_prepare_session(payload)
 +            if result is not None:
@@ -433,8 +465,26 @@ index 13d4df9..8e69d47 100644
              self.reconnect_grace_s = min(30.0, float(registered.get('reconnect_grace_s', 0)))
              if resume and not registered.get('resumed'):
                  await asyncio.to_thread(self.bridge.api_connection_changed, False, 'session_not_resumable')
+diff --git a/src/blupe_controller/runtime/scripts/with_first_call_wander.py b/src/blupe_controller/runtime/scripts/with_first_call_wander.py
+index 5eb475c..dd812b4 100644
+--- a/src/blupe_controller/runtime/scripts/with_first_call_wander.py
++++ b/src/blupe_controller/runtime/scripts/with_first_call_wander.py
+@@ -25,6 +25,13 @@ def main():
+     def start():
+         # The custom entry has now finished installing its own operator subclass.
+         install(hardware)
++        scene_config = os.environ.get('BLUPE_HOME_SCENE_CONFIG')
++        if scene_config:
++            import json
++            from YAM_control.home_scene import install as install_home_scene
++            config = json.loads(Path(scene_config).read_text())
++            install_home_scene(hardware, config,
++                Path(scene_config).with_name('home-scene.json'))
+         install_workspace(hardware)
+         return original_main()
+     hardware.base.main = start
 diff --git a/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py b/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
-index 49a0a5e..fc88df7 100644
+index 49a0a5e..54fe35d 100644
 --- a/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
 +++ b/src/blupe_controller/runtime/scripts/yam_operator_hardware_web.py
 @@ -858,7 +858,7 @@ class PhysicalOperator(base.OperatorSimulator):
@@ -446,16 +496,18 @@ index 49a0a5e..fc88df7 100644
  
      def _park_after_policy_timeout(self):
          with self._physical_lock:
-@@ -1337,7 +1337,7 @@ class PhysicalOperator(base.OperatorSimulator):
+@@ -1337,7 +1337,9 @@ class PhysicalOperator(base.OperatorSimulator):
              self._physical_event = self.event
          return self.event
  
 -    def _move_home(self, *, cancel_event=None):
 +    def _move_home(self, *, cancel_event=None, target_duration_s=None):
++        if target_duration_s is None:
++            target_duration_s = getattr(self, '_home_scene_target_duration', None)
          if self._physical.state != AdapterState.STOPPED:
              return "Move Home blocked: launch both physical arms first"
          initial = self._physical.snapshot()
-@@ -1351,7 +1351,7 @@ class PhysicalOperator(base.OperatorSimulator):
+@@ -1351,7 +1353,7 @@ class PhysicalOperator(base.OperatorSimulator):
              self._safety_config.joint_lower_rad,
              self._safety_config.joint_upper_rad,
          )
@@ -464,7 +516,7 @@ index 49a0a5e..fc88df7 100644
          if not np.array_equal(start, legal_start):
              waypoints = (
                  tuple(float(value) for value in legal_start),
-@@ -1384,6 +1384,7 @@ class PhysicalOperator(base.OperatorSimulator):
+@@ -1384,6 +1386,7 @@ class PhysicalOperator(base.OperatorSimulator):
                  self._physical_event = message
              return message
  
@@ -472,7 +524,7 @@ index 49a0a5e..fc88df7 100644
          try:
              with self.lock:
                  self.mode = "MOVING_HOME"
-@@ -1447,6 +1448,9 @@ class PhysicalOperator(base.OperatorSimulator):
+@@ -1447,6 +1450,9 @@ class PhysicalOperator(base.OperatorSimulator):
              self.policy_phase = "home_settled"
              self.event = "Both physical arms settled at Home; Safety Guardrails active"
              self._physical_event = self.event
@@ -482,7 +534,7 @@ index 49a0a5e..fc88df7 100644
          return self.event
  
      def _hold_physical(self, reason):
-@@ -1550,7 +1554,7 @@ class PhysicalOperator(base.OperatorSimulator):
+@@ -1550,7 +1556,7 @@ class PhysicalOperator(base.OperatorSimulator):
              images=self._camera_references_locked(),
          )
  
@@ -491,7 +543,7 @@ index 49a0a5e..fc88df7 100644
          # Home/Park still need a measured hold (and gripper handling) at target.
          if np.array_equal(start, target):
              return (tuple(float(value) for value in target),)
-@@ -1560,6 +1564,7 @@ class PhysicalOperator(base.OperatorSimulator):
+@@ -1560,6 +1566,7 @@ class PhysicalOperator(base.OperatorSimulator):
              max_velocity_rad_s=self._safety_config.max_joint_velocity_rad_s,
              max_acceleration_rad_s2=DEFAULT_MAX_ACCELERATION_RAD_S2,
              max_jerk_rad_s3=DEFAULT_MAX_JERK_RAD_S3,
@@ -501,10 +553,10 @@ index 49a0a5e..fc88df7 100644
      def _set_safety_pose(self, joints):
 diff --git a/tests/test_home_scene.py b/tests/test_home_scene.py
 new file mode 100644
-index 0000000..e49e248
+index 0000000..7b8ff38
 --- /dev/null
 +++ b/tests/test_home_scene.py
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,178 @@
 +import base64
 +import json
 +import math
@@ -593,6 +645,30 @@ index 0000000..e49e248
 +    np.testing.assert_allclose(paced.positions[-1],normal.positions[-1])
 +    for value in (-1,31,float('nan')):
 +        with pytest.raises(ValueError):plan_joint_trajectory(((0.,)*12,(.1,)*12),minimum_duration_s=value)
++
++
++def test_custom_home_wrapper_keeps_owner_and_scopes_timing_hint(tmp_path):
++    from YAM_control.home_scene import install
++    calls = []
++    class Custom(Operator):
++        def _move_home(self, *, cancel_event=None):
++            calls.append((cancel_event, self._home_scene_target_duration))
++            return 'custom home'
++    hardware = NS(PhysicalOperator=Custom, base=NS(OperatorSimulator=Custom))
++    config = dict(robot_id='yam-1', cameras={'left':10,'top':16,'right':4})
++    install(hardware, config, tmp_path/'scene.json')
++    cls = hardware.PhysicalOperator
++    install(hardware, config)
++    assert hardware.PhysicalOperator is cls
++    op = cls(); cancel = threading.Event()
++    assert op._move_home(cancel_event=cancel, target_duration_s=9) == 'custom home'
++    assert calls == [(cancel, 9)] and op._home_scene_target_duration is None
++    assert op.status()['home_scene']['version'] == 1
++    extra = tmp_path/'camera_owner.py'; extra.write_text('first')
++    config['home_scene_runtime_paths'] = [str(extra)]
++    first = op.home_scene.fingerprint()
++    extra.write_text('second')
++    assert op.home_scene.fingerprint() != first
 +
 +
 +def lifecycle(tmp_path):
