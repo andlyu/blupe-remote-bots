@@ -2251,6 +2251,9 @@ window.yamRecordingView = function(video, roles, layout) {
   let callback, stopped = false;
   function paint() {
     if (stopped || video.readyState < 2 || !video.videoWidth) return;
+    // Cached catalog responses may predate layout metadata. The renderer's
+    // fixed observer geometry is also sufficient to recognize a composed MP4.
+    if (!layout && video.videoWidth === 1296 && video.videoHeight === 1020) return;
     const w = video.videoWidth/2, h = video.videoHeight/2;
     const draw = (role, x, y, width, height) => {
       const index = roles.indexOf(role);

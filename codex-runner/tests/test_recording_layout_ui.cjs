@@ -32,3 +32,16 @@ test('both modal and card pass the saved layout through', () => {
   assert.match(source, /yamRecordingView\?\.\(player, run.camera_order, run.video_layout\)/);
   assert.match(source, /yamRecordingView\?\.\(video, run.camera_order, run.video_layout\)/);
 });
+
+test('cached metadata does not recrop the new renderer geometry', () => {
+  const events = {};
+  const canvas = {hidden:false,setAttribute(){},getContext(){return {drawImage(){throw Error('Already composed');}}}};
+  const context = {window:{}, document:{createElement(){return canvas;},addEventListener(){}},
+    IntersectionObserver:class {observe(){}}, cancelAnimationFrame(){}};
+  vm.runInNewContext(renderer, context);
+  const video = {readyState:2, videoWidth:1296, videoHeight:1020, paused:true, after(){},
+    classList:{add(){throw Error('Source must remain visible');}},addEventListener(name,fn){events[name]=fn;}};
+  context.window.yamRecordingView(video, ['observer','left','top','right']);
+  events.loadeddata();
+  assert.equal(canvas.hidden, true);
+});
