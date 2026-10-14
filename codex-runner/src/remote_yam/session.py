@@ -37,7 +37,7 @@ class SessionEventStream(Protocol):
 class SessionAPI(Protocol):
     def get_queue_snapshot(self) -> dict[str, Any]: ...
     def get_robot_observation(self, jetson_id: str) -> dict[str, Any]: ...
-    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "") -> dict[str, Any]: ...
+    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", email_run_video: bool = False) -> dict[str, Any]: ...
     def get_session(self, session_id: str) -> dict[str, Any]: ...
     def open_events(self, session_id: str) -> SessionEventStream: ...
     def submit_action(
@@ -133,7 +133,7 @@ class HttpSessionAPI:
     def get_queue_snapshot(self) -> dict[str, Any]:
         return self._request("GET", f"/v1/robots/{parse.quote(self.robot_id, safe='')}/queue")
 
-    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "") -> dict[str, Any]:
+    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", email_run_video: bool = False) -> dict[str, Any]:
         if self._websocket_factory is None:
             try:
                 import websocket  # noqa: F401
@@ -146,6 +146,8 @@ class HttpSessionAPI:
             payload["runner_name"] = runner_name
         if email:
             payload["email"] = email
+        if email_run_video:
+            payload["email_run_video"] = True
         created = self._request("POST", "/v1/sessions", payload)
         session_id = str(created.get("session_id", ""))
         capability = created.get("session_capability")
@@ -443,7 +445,7 @@ class MockSessionAPI:
         self.trajectory_attempts: list[dict[str, Any]] = []
         self.trajectory_log: list[dict[str, Any]] = []
 
-    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "") -> dict[str, Any]:
+    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", email_run_video: bool = False) -> dict[str, Any]:
         if not prompt.strip():
             raise ValueError("prompt must be non-empty")
         with self._lock:
@@ -452,6 +454,8 @@ class MockSessionAPI:
                 payload["runner_name"] = runner_name
             if email:
                 payload["email"] = email
+            if email_run_video:
+                payload["email_run_video"] = True
             self.create_requests.append(payload)
             session_id = f"sess_{uuid.uuid4().hex[:10]}"
             record: dict[str, Any] = {

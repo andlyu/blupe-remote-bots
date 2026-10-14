@@ -56,7 +56,7 @@ test('submitted Gemini mode is scoped to Gemini and is disabled during active ru
   }
   const buttons=source.split('  function buttons() {')[1].split('  let savedKeyProviders')[0];
   const nodes={};const $=id=>nodes[id]||={};
-  const update=vm.runInNewContext('(function(){'+buttons+')', {$,csrf:'test',ended:false,active:true,submitting:false,
+  const update=vm.runInNewContext('(function(){'+buttons+')', {$,runVideoEmail:{busy(){}},csrf:'test',ended:false,active:true,submitting:false,
     ownRunLive:false,conversationSharingAllowed:true,updateRunLabel(){}});
   update(); assert.equal($('geminiCallingMode').disabled,true);
 });
