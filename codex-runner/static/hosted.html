@@ -133,6 +133,14 @@
           </div>
           <p id="effortHelp" class="help">Applies to your next run. Higher effort may improve decisions but takes longer.</p>
         </div>
+        <div id="geminiCallingModeField" hidden>
+          <label for="geminiCallingMode">Calling mode</label>
+          <select id="geminiCallingMode">
+            <option value="sparse" selected>Sparse calling</option>
+            <option value="normal">Normal calling</option>
+          </select>
+          <p class="help">Sparse calling keeps the newest 1st, 2nd, 3rd, 5th, 7th and 10th completed calls. Normal calling keeps the full run history.</p>
+        </div>
         <div id="speedField" hidden>
           <label for="responseSpeed">Inference speed</label>
           <select id="responseSpeed" aria-describedby="speedHelp"><option value="fast" selected>Fast</option><option value="standard">Standard</option></select>

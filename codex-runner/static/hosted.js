@@ -451,6 +451,7 @@ function createRunLaunchGuard() {
   'use strict';
   const $ = id => document.getElementById(id);
   let claudeModel = 'claude-opus-5-5';
+  let configuredProviders = {};
   let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
   const resolveViewerStream = createViewerStreamResolver();
@@ -520,7 +521,7 @@ function createRunLaunchGuard() {
     $('openLocalRun').disabled = !csrf || ended || active || submitting;
     $('runGroot').disabled = !csrf || ended || active || submitting;
     $('runAstra').disabled = $('runClaude').disabled = !csrf || ended || active || submitting;
-    ['runDuration', 'runnerName', 'email', 'provider', 'model', 'prompt', 'apiKey'].forEach(id => { $(id).disabled = active || submitting || ended; });
+    ['runDuration', 'runnerName', 'email', 'provider', 'model', 'prompt', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
     $('automaticRetryLimit').disabled = active || submitting || ended;
@@ -729,6 +730,7 @@ function createRunLaunchGuard() {
     }
     $('speedField').hidden = !['openai', 'codex', 'anthropic', 'claude'].includes($('provider').value);
     $('effortField').hidden = !['codex', 'claude'].includes($('provider').value);
+    $('geminiCallingModeField').hidden = $('provider').value !== 'gemini' || !configuredProviders.gemini;
     $('conversationSharingSettings').hidden = aspireChoice || $('localRunDialog').dataset?.local !== 'true';
     $('subscriptionHelp').close();
     setupProvider = null;
@@ -742,6 +744,17 @@ function createRunLaunchGuard() {
       if(aspireRunAvailable) openAspireTaskPanel(preview);
       window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel();return;
+    }
+    const configured = configuredProviders[$('provider').value];
+    if (configured) {
+      $('providerFields').hidden = true; $('apiKey').required = false;
+      $('apiKey').value = ''; $('model').value = configured.model;
+      $('prompt').readOnly = false;
+      $('codexSetup').hidden = true; $('claudeSetup').hidden = true;
+      $('forget').hidden = true; $('responseSpeed').value = 'standard';
+      $('policyHelp').textContent = configured.help || '';
+      window.yamModelPicker?.providerChanged({fixed:true});
+      updateRunLabel(); return;
     }
     if ($('provider').value === 'groot') {
       $('providerFields').hidden = true; $('apiKey').required = false;
@@ -860,6 +873,7 @@ function createRunLaunchGuard() {
     else if(aspireRunAvailable && payload.provider === 'codex') payload.use_api_depth = false;
     else if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
     if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('provider').value === 'aspire' ? 'high' : $('reasoningEffort').value;
+    if (['gemini', 'guest_gemini'].includes(payload.provider)) payload.gemini_calling_mode = $('geminiCallingMode').value;
     if (['openai', 'codex', 'anthropic', 'claude'].includes(payload.provider)) payload.response_speed = $('provider').value === 'aspire' ? 'standard' : $('responseSpeed').value;
     $('subscriptionHelp').close();
     submitting = true; buttons(); if(!aspireRequest) message(['codex', 'claude'].includes(payload.provider) ? 'Checking your subscription connection…' : 'Joining the robot queue…');
@@ -1090,6 +1104,7 @@ function createRunLaunchGuard() {
     const applicationName = window.yamApplication?.modelDisplayName?.();
     if (applicationName) return applicationName;
     const provider = $('provider').value;
+    if (configuredProviders[provider]) return configuredProviders[provider].label;
     if(provider === 'aspire') return 'ASPIRE · Codex/Astra';
     if (provider === 'claude' || provider === 'anthropic') {
       const m = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?/.exec($('model').value.trim());
@@ -2095,6 +2110,13 @@ function createRunLaunchGuard() {
       window.yamModelPicker?.reset();
       configureLocalRunDialog(!!session.local_runner);
       $('provider').innerHTML = originalProviderMarkup;
+      configuredProviders = session.configured_providers || {};
+      $('geminiCallingMode').value = 'sparse';
+      for (const [value, spec] of Object.entries(configuredProviders)) {
+        const option = Object.assign(document.createElement('option'), {value, textContent:spec.label});
+        option.dataset.model = spec.model; option.dataset.label = spec.label;
+        $('provider').append(option);
+      }
       window.yamAnalytics?.init(session.simulation, session.paid_runs);
       $('simulationNotice').hidden = !session.simulation;
       const astra = $('provider').querySelector('[value="astra"]');
@@ -2368,9 +2390,9 @@ function bindQuickTaskDraft(prompt, quick) {
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
   for (const child of [...options.children]) {
-    if (child !== duration && child !== $('effortField')) advanced.append(child);
+    if (child !== duration && child !== $('effortField') && child !== $('geminiCallingModeField')) advanced.append(child);
   }
-  options.prepend(pickerHeader, $('effortField'));
+  options.prepend(pickerHeader, $('effortField'), $('geminiCallingModeField'));
   options.append(advanced);
   function modelChoice(option, selectedId) {
     if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
