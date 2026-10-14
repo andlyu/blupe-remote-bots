@@ -8,8 +8,12 @@ function createRunVideoEmailControl($) {
   button.addEventListener('click', () => {
     button.setAttribute('aria-pressed', String(!enabled()));
     validate();
-    status.textContent = enabled() ? 'On · Include this request with my run.' : 'Off · Uses the email address above.';
-    if (enabled() && !email.value.trim()) email.focus();
+    status.textContent = enabled() ? 'On · Include this request with my run.' : 'Off · Select to request a video by email.';
+    if (enabled() && !email.value.trim()) {
+      const dialog = email.closest('dialog');
+      if (dialog && !dialog.open) dialog.showModal();
+      email.focus();
+    }
   });
   email.addEventListener('input', validate);
   return {enabled, validate, busy(busy) { button.disabled = busy; }};
