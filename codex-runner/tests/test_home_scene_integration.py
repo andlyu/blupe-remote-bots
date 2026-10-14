@@ -70,9 +70,9 @@ def test_real_station_api_runner_contract(tmp_path,monkeypatch,transport):
     op.session_api_base=url;op.camera_reference_base='http://127.0.0.1:0';op.attach_api_client(bridge);bridge.start()
     wait_for(lambda:op.api_connected,10)
     jpeg=b'\xff\xd8stable-simulated-scene\xff\xd9'
-    def frame(_source,name,device):
+    def frame(name,device):
         return name,dict(jpeg=jpeg,monotonic=time.monotonic(),sequence=1)
-    monkeypatch.setattr('YAM_control.home_scene.RelayFrames.one',frame)
+    monkeypatch.setattr('YAM_control.home_scene.capture_frame',frame)
     class Cameras:
         data=jpeg
         def capture(self,obs):
@@ -184,6 +184,9 @@ def test_real_station_api_runner_contract(tmp_path,monkeypatch,transport):
             startup.start()
             try:
                 assert model_entered.wait(5)
+                # The model thread can start before its job is assigned to the
+                # runner. Observe both before checking cancellation joins it.
+                wait_for(lambda:cancelled_runner._home_plan is not None,5)
                 job=cancelled_runner._home_plan
                 cancelled_runner.stop()
                 assert not job.thread.is_alive()

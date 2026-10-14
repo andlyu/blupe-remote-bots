@@ -6,6 +6,7 @@ import time
 from unittest.mock import patch
 
 import pytest
+import numpy as np
 
 from remote_yam.cameras import CameraFrame
 from remote_yam.controller import RunnerController
@@ -176,17 +177,17 @@ def test_expired_validation_replans_before_any_packet_is_submitted():
         c._poll_home_scene();assert c._home_plan.done.wait(2)
     obs=home(c,a);cached=c._take_home_plan(p,obs);assert cached
     c._home_validation_at=time.time()-3
-    fresh_points=[dict(step_id=0,left_joints_deg=obs['left_joints_deg'],right_joints_deg=obs['right_joints_deg'])]
     sent=[]
     class Submitted(Exception):pass
     def submit(*args):sent.append(args[-1]);raise Submitted()
     c._submit_attempts=1
-    with patch.object(p,'build_trajectory',return_value=fresh_points) as rebuild, patch.object(a,'submit_trajectory',side_effect=submit):
+    with patch.object(p,'_post_json',return_value=response('move_to',{'targets':{'left_z':.20},'note':'fresh'})), patch.object(p,'build_trajectory',wraps=p.build_trajectory) as rebuild, patch.object(a,'submit_trajectory',side_effect=submit):
         with pytest.raises(Submitted):
             c._dispatch_trajectory(lambda *_:cached,p,'move',obs,c._session_id,c._episode_id,c._lease_id,0)
     rebuild.assert_called_once()
-    assert sent==[fresh_points]
-    assert p._pending is None
+    assert len(sent)==1 and sent[0]!=cached
+    assert p._pending['waypoint_count']==len(sent[0])
+    assert p._pending['targets']=={'left_z':.20}
 
 
 def test_codex_discard_forgets_resume_and_orientation_reference():
@@ -204,3 +205,106 @@ def test_codex_discard_forgets_resume_and_orientation_reference():
         assert p._thread_id is None and p._sent_items==0 and p._geometry.start_rotations is None
         assert not p._history and p._pending is None
     finally:p._workspace.cleanup()
+
+
+@pytest.mark.parametrize('cached', [False, True])
+def test_first_home_motion_rebuilds_recorded_target_from_current_joints(cached):
+    from remote_yam.robocurve_trajectory import NAMES, MAX_JOINT_STEP_RAD
+    c,p,a=setup()
+    # ep_7471cd80b8fc4d54: Home settled while the first model call ran.
+    a.scene['observation'].update(
+        left_joints_deg=[-1.1912031676,45.582645981,35.375455536,-21.4744424245,-.6447796962,-.8633490848],
+        right_joints_deg=[-1.2130601064,45.3859335313,35.0476014531,-21.6055840576,-1.1693462287,-.7759213293])
+    target={'left_y':-.0606}
+    sent=[]
+    class Submitted(Exception):pass
+    def submit(*args):
+        sent.append(args[-1])
+        raise Submitted()
+    c._submit_attempts=1
+    with patch.object(p,'_post_json',return_value=response('move_to',{'targets':target,'note':'toward duck'})) as model:
+        if cached:
+            c._poll_home_scene();assert c._home_plan.done.wait(2)
+        obs=home(c,a)
+        c._home_registered=True
+        c._home_sample_recorded=True
+        if cached:
+            points=c._take_home_plan(p,obs);assert points
+            builder=lambda *_:points
+        else:
+            builder=p.build_trajectory
+        fresh=deepcopy(obs)
+        fresh['right_joints_deg'][2]+=.54642347136
+        a.get_robot_observation=lambda *_:{**fresh,'observed_at':time.time()}
+        with patch.object(a,'submit_trajectory',side_effect=submit):
+            with pytest.raises(Submitted):
+                c._dispatch_trajectory(builder,p,'move',obs,c._session_id,c._episode_id,c._lease_id,0)
+        assert model.call_count==1
+    assert len(sent)==1
+    points=sent[0]
+    assert c._trajectory['start_feedback']['right_joints_deg']==fresh['right_joints_deg']
+    assert c._trajectory['waypoint_count']==p._pending['waypoint_count']==len(points)
+    assert p._pending['last_step_id']==points[-1]['step_id']
+    previous=np.deg2rad(fresh['left_joints_deg']+fresh['right_joints_deg'])
+    for point in points:
+        current=np.deg2rad(point['left_joints_deg']+point['right_joints_deg'])
+        assert np.max(np.abs(current-previous))<=MAX_JOINT_STEP_RAD+1e-12
+        previous=current
+    _,end,_=p._geometry.observe({**fresh,**points[-1]})
+    assert abs(end[NAMES.index('left_y')]-target['left_y'])<3e-6
+    p.trajectory_completed({**fresh,**points[-1],'step_id':len(points)},len(points))
+    assert p._pending is None
+
+
+def test_home_rebuild_preserves_tool_frame_and_updates_changed_packet_length():
+    c,p,a=setup();obs=home(c,a)
+    with patch.object(p,'_post_json',return_value=response('move_to',{'targets':{'right_y':.2},'note':'move'})) as model:
+        old=p.build_trajectory('move',obs,0)
+        rotations=tuple(r.copy() for r in p._geometry.start_rotations)
+        history=deepcopy(p._history)
+        fresh=deepcopy(obs);fresh['right_joints_deg'][2]+=.54642347136
+        points=p.rebuild_pending_trajectory(fresh,0)
+        assert model.call_count==1 and len(points)!=len(old)
+    assert p._history==history
+    for before,after in zip(rotations,p._geometry.start_rotations):
+        np.testing.assert_array_equal(before,after)
+    assert p._pending['waypoint_count']==len(points)
+    p.trajectory_completed({**fresh,**points[-1],'step_id':len(points)},len(points))
+    assert p._pending is None
+
+
+@pytest.mark.parametrize('condition',['lease','not_homed','not_settled','fault','rebuild_error','stop'])
+def test_home_rebuild_never_submits_without_valid_current_state(condition):
+    from remote_yam.robocurve_trajectory import InvalidMove
+    c,p,a=setup();obs=home(c,a);c._home_registered=True;c._home_sample_recorded=True
+    fresh=deepcopy(obs)
+    if condition=='lease':
+        a.get_session=lambda *_:dict(status='running',episode_id='other',lease_id='other')
+    if condition=='not_homed':fresh['homed']=False
+    if condition=='not_settled':fresh['settled']=False
+    if condition=='fault':fresh['safety']={'ok':False,'estop_engaged':False}
+    a.get_robot_observation=lambda *_:fresh
+    original=p.rebuild_pending_trajectory
+    def rebuild(*args):
+        if condition=='rebuild_error':raise InvalidMove('cannot rebuild','joint_pacing_limit')
+        result=original(*args)
+        if condition=='stop':c._stop_event.set()
+        return result
+    with patch.object(p,'_post_json',return_value=response('move_to',{'targets':{'left_z':.195},'note':'up'})), patch.object(p,'rebuild_pending_trajectory',side_effect=rebuild), patch.object(a,'submit_trajectory') as submit:
+        if condition=='stop':
+            c._dispatch_trajectory(p.build_trajectory,p,'move',obs,c._session_id,c._episode_id,c._lease_id,0)
+        else:
+            with pytest.raises((RuntimeError,InvalidMove)):
+                c._dispatch_trajectory(p.build_trajectory,p,'move',obs,c._session_id,c._episode_id,c._lease_id,0)
+        submit.assert_not_called()
+
+
+@pytest.mark.parametrize('change',[{'episode_id':'other'},{'lease_id':'other'},{'step_id':1}])
+def test_home_rebuild_rejects_wrong_pending_identity(change):
+    c,p,a=setup();obs=home(c,a)
+    with patch.object(p,'_post_json',return_value=response('move_to',{'targets':{'left_z':.195},'note':'up'})):
+        p.build_trajectory('move',obs,0)
+    pending=deepcopy(p._pending)
+    with pytest.raises(RuntimeError,match='does not match'):
+        p.rebuild_pending_trajectory({**obs,**change},change.get('step_id',0))
+    assert p._pending==pending
