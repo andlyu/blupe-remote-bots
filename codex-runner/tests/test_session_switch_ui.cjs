@@ -18,7 +18,7 @@ test('a late unauthorized response cannot disable a newly connected robot sessio
   const c = launchContext({robotGeneration:1, csrf:'', selectedRobot:'so101', ended:false,
     buttons(){}, $:()=>({value:''}), fetch:async()=>response});
   const start = source.indexOf('  async function api(');
-  vm.runInContext(source.slice(start, source.indexOf('  function buttons()', start)), c);
+  vm.runInContext(source.slice(start, source.indexOf('  const runVideoEmail =', start)), c);
   const pending = c.api('/api/status'); // Began before /api/session completed.
   c.csrf='new-session';
   deliver({ok:false, status:401, json:async()=>({error:'Session expired'})});
@@ -47,7 +47,7 @@ test('chat authentication failure does not revoke valid robot controls', async (
   const c=launchContext({robotGeneration:1,csrf:'valid-session',selectedRobot:'so101',ended:false,
     buttons(){disabled++;},$:()=>({value:''}),fetch:async()=>({ok:false,status:401,json:async()=>({error:'Chat unavailable'})})});
   const start=source.indexOf('  async function api(');
-  vm.runInContext(source.slice(start,source.indexOf('  function buttons()',start)),c);
+  vm.runInContext(source.slice(start,source.indexOf('  const runVideoEmail =',start)),c);
   await assert.rejects(c.api('/api/chat'),/Chat unavailable/);
   assert.equal(c.ended,false);assert.equal(disabled,0);
   await assert.rejects(c.api('/api/status'),/Chat unavailable/);
