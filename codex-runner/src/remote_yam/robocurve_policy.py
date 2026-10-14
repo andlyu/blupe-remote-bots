@@ -120,6 +120,11 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
         # Preserve those instructions when binding the first station profile.
         if self._workspace_profile is None:
             self._behavior_prompt = self._system_prompt
+        # Rebuild RGB geometry before any observations, applying the station's
+        # references once. Depth subclasses own their explicit calibration.
+        # Rebinding an unknown station must also clear the previous correction.
+        if type(self._geometry) is RoboCurveTrajectory:
+            self._geometry = RoboCurveTrajectory(**(profile.rgb_geometry_kwargs() if profile else {}))
         self._geometry.low, self._geometry.high = LOW.copy(), HIGH.copy()
         if profile is not None:
             profile.configure_geometry(self._geometry)

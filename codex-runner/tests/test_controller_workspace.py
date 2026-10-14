@@ -124,7 +124,8 @@ def test_forward_above_old_cap_reaches_real_ik_and_keeps_pacing(robot_id):
 
 @pytest.mark.parametrize('robot_id', PROFILES)
 def test_profile_does_not_change_existing_path_or_pinned_axes(robot_id):
-    baseline, configured = RoboCurveTrajectory(), provider_for(robot_id)._geometry
+    baseline = RoboCurveTrajectory(**PROFILES[robot_id].rgb_geometry_kwargs())
+    configured = provider_for(robot_id)._geometry
     obs = observation()
     target = {'left_z': .205}
     assert baseline.build(target, obs, 0) == configured.build(target, obs, 0)
@@ -238,3 +239,72 @@ def test_other_embodiments_keep_their_geometry_and_tools():
     provider.set_prompt_version('original-robocurve')
     assert provider._geometry is other_geometry
     assert provider._tools is other_tools
+
+
+def test_robohouse_rejected_packet_and_corrected_replay():
+    """Reproduce the old floor violation against an independent FK reference."""
+    from pathlib import Path
+    from remote_yam.gemini_policy import GeminiAdapter
+    from remote_yam.mujoco_ik import BimanualRelativeIK
+    fixture = json.loads((Path(__file__).parent / 'fixtures/robohouse_workspace_rejection.json').read_text())
+    provider = GeminiAdapter('test-key')
+    provider.configure_robot_workspace('robot-ba8413962083809c')
+    geometry = provider._geometry
+    assert geometry.ik.base_spacing_m == .62
+    offsets = np.array(fixture['controller_offsets_rad'])
+    np.testing.assert_array_equal(geometry.ik.joint_offsets_rad, offsets)
+    # Independent evaluation: add controller-published offsets to encoder q in
+    # the ORIGINAL, uncorrected model. Production uses refs, never wire offsets.
+    reference = BimanualRelativeIK(base_spacing_m=.62)
+    def joints(point):
+        return np.deg2rad(point['left_joints_deg'] + point['right_joints_deg'])
+    def positions(q):
+        reference._forward(q + offsets)
+        return [pose[0] - base for pose, base in zip(reference._poses(), geometry.bases)]
+    old_tip = positions(joints(fixture['rejected_waypoints'][-1]))[0]
+    assert old_tip[2] == pytest.approx(-.014767819677626609, abs=1e-10)
+    assert old_tip[2] < geometry.low[2] - .002
+    geometry.observe(fixture['initial'])
+    _, state, observed_joints = geometry.observe(fixture['latest'])
+    for i, pos in enumerate(positions(joints(fixture['latest']))):
+        np.testing.assert_allclose(state[i*7:i*7+3], pos, atol=1e-12)
+        np.testing.assert_array_equal(observed_joints[i*7:i*7+6], joints(fixture['latest'])[i*6:i*6+6])
+    points = geometry.build(fixture['targets'], fixture['latest'], 52)
+    assert [p['step_id'] for p in points] == [52, 53, 54, 55]
+    previous = joints(fixture['latest'])
+    for point in points:
+        current = joints(point)
+        assert np.max(np.abs(current-previous)) <= .035 + 1e-12
+        assert np.all(current >= geometry.ik.low) and np.all(current <= geometry.ik.high)
+        for alpha in np.linspace(0, 1, int(np.ceil(np.max(np.abs(current-previous))/.01))+1):
+            for i, pos in enumerate(positions(previous + alpha*(current-previous))):
+                assert np.all(pos >= geometry.low[i*7:i*7+3])
+                assert np.all(pos <= geometry.high[i*7:i*7+3])
+        previous = current
+    np.testing.assert_allclose(positions(previous)[0], [.424, -.05, -.011], atol=2e-6)
+
+
+def test_robohouse_binding_is_idempotent_and_resets_for_other_station():
+    provider = provider_for('robot-ba8413962083809c')
+    original = provider._geometry.observe(observation())[1]
+    provider.configure_robot_workspace('robot-ba8413962083809c')
+    np.testing.assert_array_equal(provider._geometry.observe(observation())[1], original)
+    assert provider.public_config()['controller_workspace']['model_calibration_id'] == PROFILES['robot-ba8413962083809c'].calibration_id
+    for robot in ('yam-1', 'unknown-yam'):
+        provider.configure_robot_workspace(robot)
+        np.testing.assert_array_equal(provider._geometry.ik.joint_offsets_rad, np.zeros(12))
+        assert provider._geometry.ik.base_spacing_m == .7
+
+
+def test_robohouse_rejects_conflicting_calibration():
+    profile = PROFILES['robot-ba8413962083809c']
+    for extra in ({'native_joint_calibration': {}}, {'model_joint_calibration': {}},
+                  {'base_geometry': {'spacing_m': .7}}):
+        with pytest.raises(ValueError):
+            provider_for(profile.robot_id).configure_robot_workspace(profile.robot_id, report=dict(robot_id=profile.robot_id, **extra))
+
+
+@pytest.mark.parametrize('offsets', [[0]*11, [float('nan')]*12, [float('inf')]*12, ['0']*12, [False]*12])
+def test_invalid_geometry_correction_is_rejected(offsets):
+    with pytest.raises(ValueError, match='twelve finite'):
+        RoboCurveTrajectory(joint_offsets_rad=offsets)

@@ -44,6 +44,22 @@ def test_images_signatures_and_tool_result_round_trip():
     assert 'properties' not in TOOLS[0]['parameters']['properties']['targets']
 
 
+@pytest.mark.parametrize('robot', ['yam-1', 'robot-ba8413962083809c'])
+def test_gemini_wire_preserves_station_target_limits(robot):
+    adapter = GeminiAdapter('test-key')
+    adapter.configure_robot_workspace(robot)
+    p = payload()
+    p['tools'] = adapter._tools
+    before = copy.deepcopy(p)
+    targets = interactions_payload(p)['tools'][0]['parameters']['properties']['targets']
+    from remote_yam.robocurve_trajectory import NAMES
+    for name, low, high in zip(NAMES, adapter._geometry.low, adapter._geometry.high):
+        assert targets['properties'][name]['minimum'] == low
+        assert targets['properties'][name]['maximum'] == high
+    assert targets['additionalProperties'] is False
+    assert p == before
+
+
 @pytest.mark.parametrize('status', ['in_progress', 'failed', 'cancelled', 'incomplete', None])
 def test_incomplete_response_cannot_become_motion(status):
     with pytest.raises(RuntimeError, match='incomplete'):

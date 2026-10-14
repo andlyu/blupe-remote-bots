@@ -29,6 +29,18 @@ class ControllerWorkspace:
     guard_base_spacing_m: float
     model_include_sha256: str
     safety_hashes: frozenset
+    calibration_id: str | None = None
+    joint_offsets_rad: tuple | None = None
+
+    def rgb_geometry_kwargs(self):
+        """Saved controller geometry for RGB policies using original encoders.
+
+        Depth trajectories bind their own camera/model calibration separately.
+        Native-calibrated stations must never receive these offsets.
+        """
+        if self.joint_offsets_rad is None:
+            return {}
+        return dict(base_spacing_m=self.guard_base_spacing_m, joint_offsets_rad=self.joint_offsets_rad)
 
     def _safety(self):
         data = (PROFILE_ROOT / (self.profile + '.safety.json')).read_bytes()
@@ -64,6 +76,22 @@ class ControllerWorkspace:
         if report.get('robot_id') != self.robot_id:
             raise ValueError('Workspace calibration robot mismatch')
         native = report.get('native_joint_calibration')
+        binding = report.get('model_joint_calibration')
+        if self.calibration_id is not None:
+            from .mujoco_ik import ROBOT_SHA256
+            if native is not None:
+                raise ValueError('Workspace requires original encoder joint coordinates')
+            if binding is not None:
+                expected = dict(calibration_id=self.calibration_id,
+                                coordinate_convention='original_i2rt_model_corrected',
+                                canonical_model_sha256=ROBOT_SHA256,
+                                offsets_rad=dict(left=list(self.joint_offsets_rad[:6]),
+                                                 right=list(self.joint_offsets_rad[6:])))
+                if binding != expected:
+                    raise ValueError('Workspace model calibration does not match the saved profile')
+            spacing = report.get('base_geometry', {}).get('spacing_m')
+            if spacing is not None and spacing != self.guard_base_spacing_m:
+                raise ValueError('Workspace model base spacing does not match the saved profile')
         if self.robot_id == 'yam-1' and native is not None:
             if (native.get('calibration_id') != YAM1_CALIBRATION
                     or native.get('coordinate_convention') != 'native_i2rt_updated'):
@@ -81,6 +109,9 @@ class ControllerWorkspace:
                     guard_base_spacing_m=self.guard_base_spacing_m,
                     live_configuration_verified=False, frame='per_arm_base', units='metres',
                     bounds={arm: self.bounds(arm).tolist() for arm in ('left', 'right')},
+                    **(dict(model_calibration_id=self.calibration_id,
+                            model_coordinate_convention='original_i2rt_model_corrected')
+                       if self.calibration_id is not None else {}),
                     gateway_validation='Required for every hardware packet')
 
 
@@ -94,7 +125,11 @@ PROFILES = {
         'robot-ba8413962083809c', 'robohouse-updated-20261001',
         '172afc8a82d2b04fb03404e20ae5342a9272bdaae520b77e7caaa1e0c57bd965', .62,
         '22ed2648615c1e2fa8dfb0428e1b62d75a7a363374d6ce4b7bafe09ed5987edf',
-        frozenset({'172afc8a82d2b04fb03404e20ae5342a9272bdaae520b77e7caaa1e0c57bd965'})),
+        frozenset({'172afc8a82d2b04fb03404e20ae5342a9272bdaae520b77e7caaa1e0c57bd965'}),
+        # Controller /api/calibration, Robo-house updated profile 2026-10-01.
+        '93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275',
+        (0., .014912483108393418, .012307275465343557, -.008471929573933208, -.026210976390616005, 0.,
+         0., .01726894861620145, .01978552059540765, -.015132652029996599, .006786509759240255, 0.)),
 }
 
 
