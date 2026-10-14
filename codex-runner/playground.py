@@ -785,6 +785,8 @@ class HostedRunner:
             runner_name = payload.get('runner_name', 'Anonymous')
             try:
                 handles = social_handles(payload)
+                from remote_yam.run_video_email import recipient
+                recipient(payload)
             except ValueError as exc:
                 raise RequestError(400, str(exc)) from None
             if not isinstance(runner_name, str) or not 1 <= len(runner_name.strip()) <= 32 or any(ord(c) < 32 for c in runner_name):

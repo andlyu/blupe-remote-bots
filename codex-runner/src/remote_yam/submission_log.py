@@ -7,7 +7,7 @@ import time
 import uuid
 
 FIELDS = ('runner_name', 'email', 'instagram_handle', 'twitter_handle',
-          'provider', 'model', 'prompt', 'run_duration_s')
+          'provider', 'model', 'prompt', 'run_duration_s', 'email_run_video')
 
 
 class SubmissionLog:
@@ -46,6 +46,8 @@ class LoggedSessionAPI:
     def setup(self, payload, paid=False):
         # Forward only private contact fields, never provider credentials.
         self.queue_identity = {k: payload[k] for k in ("runner_name", "email") if k in payload}
+        if payload.get('email_run_video') is True:
+            self.queue_identity['email_run_video'] = True
         self.submission_id = uuid.uuid4().hex
         self.journal.record(self.submission_id, 'submitted',
                             {'source': 'website', 'paid': paid,

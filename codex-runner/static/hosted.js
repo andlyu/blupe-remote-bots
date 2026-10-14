@@ -1,3 +1,20 @@
+function createRunVideoEmailControl($) {
+  const button = $('emailRunVideo'), email = $('email'), status = $('emailRunVideoStatus');
+  const enabled = () => button.getAttribute('aria-pressed') === 'true';
+  function validate() {
+    email.setCustomValidity(enabled() && !email.value.trim() ? 'Enter your email to request the run video.' : '');
+    return !enabled() || email.checkValidity();
+  }
+  button.addEventListener('click', () => {
+    button.setAttribute('aria-pressed', String(!enabled()));
+    validate();
+    status.textContent = enabled() ? 'On · Include this request with my run.' : 'Off · Uses the email address above.';
+    if (enabled() && !email.value.trim()) email.focus();
+  });
+  email.addEventListener('input', validate);
+  return {enabled, validate, busy(busy) { button.disabled = busy; }};
+}
+
 // Static viewer metadata can evolve without restarting active runner sessions.
 // The legacy synchronized prefix is already proxied by local subscription runners.
 function createViewerStreamResolver(load = fetch) {
@@ -516,6 +533,8 @@ function createRunLaunchGuard() {
     }
     return path === '/api/status' ? runLaunchGuard.project(result) : result;
   }
+  const runVideoEmail = createRunVideoEmailControl($);
+  window.yamRunVideoEmail = runVideoEmail;
   function buttons() {
     $('run').disabled = !csrf || ended || active || submitting;
     $('openLocalRun').disabled = !csrf || ended || active || submitting;
@@ -524,6 +543,7 @@ function createRunLaunchGuard() {
     ['runDuration', 'runnerName', 'email', 'provider', 'model', 'prompt', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
+    runVideoEmail.busy(!csrf || active || submitting || ended);
     $('automaticRetryLimit').disabled = active || submitting || ended;
     $('stop').disabled = !csrf || ended || !active;
     $('liveRunControls').hidden = !csrf || ended || !active || !ownRunLive;
@@ -835,6 +855,7 @@ function createRunLaunchGuard() {
   $('runForm').addEventListener('submit', async event => {
     event.preventDefault();
     if (submitting || active || ended) return;
+    if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
     if($('provider').value === 'aspire' && !aspireRunAvailable) {message('ASPIRE is unavailable for this robot.',true);return;}
     contactRequested = false;
     window.yamPolicyRoute?.(null);
@@ -866,7 +887,7 @@ function createRunLaunchGuard() {
     if(launchVersion !== runLaunchGuard.version) return;
     window.yamAnalytics?.requested($('provider').value, $('model').value.trim());
     payload = {runner_name: $('runnerName').value.trim(), provider: $('provider').value === 'aspire' ? 'codex' : $('provider').value, model: $('model').value.trim(),
-      email: $('email').value.trim(), share_conversation: $('shareConversation').checked,
+      email: $('email').value.trim(), email_run_video: runVideoEmail.enabled(), share_conversation: $('shareConversation').checked,
       prompt: $('prompt').value, run_duration_s:Number($('runDuration').value)*60, api_key: $('apiKey').value.trim(),
       ...window.yamSystemPrompt?.payload()};
     if ($('provider').value === 'aspire') {payload.use_api_depth = true;payload.automatic_retry_limit=aspireRetryLimit($('automaticRetryLimit').value);}
