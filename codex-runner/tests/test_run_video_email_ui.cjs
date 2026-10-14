@@ -12,6 +12,7 @@ function setup() {
       setAttribute(name, value) { this.attributes[name] = value; },
       setCustomValidity(value) { this.error = value; },
       checkValidity() { return !this.error && this.value.includes('@'); },
+      closest() { return this.dialog || null; },
       focus() { this.focused = true; }});
     return nodes.get(id);
   };
@@ -37,4 +38,15 @@ test('submitting freezes the selection without dropping the request', () => {
   assert.equal(control.enabled(), true);
   control.busy(false);
   assert.equal($('emailRunVideo').disabled, false);
+});
+
+test('opting in reveals the hosted email dialog before focusing its required field', () => {
+  const {$, control} = setup();
+  const dialog = {open:false,showModal(){this.open=true;}};
+  $('email').dialog = dialog;
+  $('emailRunVideo').handlers.click();
+  assert.equal(dialog.open, true);
+  assert.equal($('email').focused, true);
+  $('email').value='me@example.com'; $('email').handlers.input();
+  assert.equal(control.validate(), true);
 });
