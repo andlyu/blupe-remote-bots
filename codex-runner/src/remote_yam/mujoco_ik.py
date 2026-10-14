@@ -130,7 +130,8 @@ class IKConvergenceError(RuntimeError):
 class BimanualRelativeIK:
     """Build a +20 cm world-Z path from the observed pose, then exactly reverse it."""
 
-    def __init__(self, scene_path: Path | str | None = None, *, base_spacing_m: float | None = None) -> None:
+    def __init__(self, scene_path: Path | str | None = None, *, base_spacing_m: float | None = None,
+                 joint_offsets_rad: Sequence[float] | None = None) -> None:
         self.scene_path = Path(scene_path) if scene_path else default_scene_path()
         robot_path = self.scene_path.with_name("yam_bimanual.xml")
         if _sha256(self.scene_path) != SCENE_SHA256 or _sha256(robot_path) != ROBOT_SHA256:
@@ -154,6 +155,17 @@ class BimanualRelativeIK:
         self.dof_indices = np.array([self.model.jnt_dofadr[joint_id] for joint_id in joint_ids], dtype=int)
         if not np.array_equal(self.qpos_indices, np.arange(12)):
             raise RuntimeError("Canonical YAM qpos order is not explicit left-then-right 6+6")
+        self.joint_offsets_rad = np.zeros(12)
+        if joint_offsets_rad is not None:
+            offsets = np.asarray(joint_offsets_rad)
+            if offsets.shape != (12,) or offsets.dtype.kind not in 'fi' or not np.isfinite(offsets).all():
+                raise ValueError("YAM geometry requires twelve finite joint offsets")
+            if np.any(self.model.qpos0[self.qpos_indices]):
+                raise RuntimeError("Canonical YAM model already has joint reference corrections")
+            self.joint_offsets_rad = offsets.astype(float, copy=True)
+            # q_model = q_encoder + offsets. MuJoCo subtracts ref/qpos0;
+            # observations, commands and joint limits stay in encoder radians.
+            self.model.qpos0[self.qpos_indices] = -self.joint_offsets_rad
         self.body_ids = tuple(
             mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, name)
             for name in ("left_grasp", "right_grasp")

@@ -42,8 +42,8 @@ def relative_rotation(yaw, pitch, roll):
 
 class RoboCurveTrajectory:
     speed_multiplier = TRAJECTORY_SPEED
-    def __init__(self, *, base_spacing_m=None):
-        self.ik = BimanualRelativeIK(base_spacing_m=base_spacing_m)
+    def __init__(self, *, base_spacing_m=None, joint_offsets_rad=None):
+        self.ik = BimanualRelativeIK(base_spacing_m=base_spacing_m, joint_offsets_rad=joint_offsets_rad)
         self.bases = tuple(np.array([0., sign*self.ik.base_spacing_m/2, 0.]) for sign in (1, -1))
         self.low, self.high = LOW.copy(), HIGH.copy()
         self.start_rotations = None

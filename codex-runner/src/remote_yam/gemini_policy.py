@@ -58,8 +58,9 @@ def interactions_payload(payload, thinking_level='medium'):
     from .robocurve_trajectory import NAMES
     for tool in tools:
         if tool['name'] == 'move_to':
-            tool['parameters']['properties']['targets'].update(
-                properties={name: {'type': 'number'} for name in NAMES}, additionalProperties=False)
+            targets = tool['parameters']['properties']['targets']
+            targets.setdefault('properties', {name: {'type': 'number'} for name in NAMES})
+            targets['additionalProperties'] = False
     return {'model': payload['model'], 'store': False, 'input': history,
             'system_instruction': '\n\n'.join(system), 'tools': tools,
             'generation_config': {'thinking_level': thinking_level, 'max_output_tokens': 32768,
