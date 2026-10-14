@@ -964,8 +964,6 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole #saveSystemPrompt{background:var(--accent);border-color:var(--accent);color:white}
 
 .runVideoEmailSetting { margin-top: 14px; }
-#emailRunVideo { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; line-height: 1.4; white-space: normal; }
-#emailRunVideo::before { content: ''; flex: 0 0 16px; width: 16px; height: 16px; border: 1px solid currentColor; border-radius: 4px; }
-#emailRunVideo[aria-pressed="true"]::before { content: '✓'; display: grid; place-items: center; font-size: 13px; background: var(--lime, #d1f653); }
-#emailRunVideo[aria-pressed="true"] { border-color: var(--ink, #18251e); background: #edf1e3; }
+.runVideoEmailSetting label { display: flex; align-items: flex-start; gap: 10px; margin: 0; line-height: 1.45; cursor: pointer; }
+#emailRunVideo { width: 18px; height: 18px; flex: 0 0 18px; margin: 2px 0 0; accent-color: var(--accent, #365c48); cursor: pointer; }
 .runVideoEmailSetting .help { margin: 6px 0 0; font-size: 12px; line-height: 1.5; }

@@ -1,14 +1,13 @@
 function createRunVideoEmailControl($) {
   const button = $('emailRunVideo'), email = $('email'), status = $('emailRunVideoStatus');
-  const enabled = () => button.getAttribute('aria-pressed') === 'true';
+  const enabled = () => button.checked;
   function validate() {
     email.setCustomValidity(enabled() && !email.value.trim() ? 'Enter your email to request the run video.' : '');
     return !enabled() || email.checkValidity();
   }
-  button.addEventListener('click', () => {
-    button.setAttribute('aria-pressed', String(!enabled()));
+  button.addEventListener('change', () => {
     validate();
-    status.textContent = enabled() ? 'On · Include this request with my run.' : 'Off · Select to request a video by email.';
+    status.textContent = enabled() ? 'Requested for this run · Sent after completion.' : 'Optional · Sent after completion.';
     if (enabled() && !email.value.trim()) {
       const dialog = email.closest('dialog');
       if (dialog && !dialog.open) dialog.showModal();
@@ -2395,7 +2394,7 @@ function bindQuickTaskDraft(prompt, quick) {
   const duration = $('runDuration').closest('.runDurationControl');
   if (duration) options.append(duration);
   for (const child of [...$('runSettings').children]) {
-    if (!child.matches('summary, #runnerIdentity, label[for="email"], #email, #emailHelp, #setupRunActions, #chatgptSignInDialog')) options.append(child);
+    if (!child.matches('summary, #runnerIdentity, label[for="email"], #email, #emailHelp, .runVideoEmailSetting, #setupRunActions, #chatgptSignInDialog')) options.append(child);
   }
   if ($('aspireSetupGuidance')) options.append($('aspireSetupGuidance'));
   provider.hidden = true;
