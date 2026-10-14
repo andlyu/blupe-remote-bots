@@ -377,9 +377,15 @@ class LocalPlaygroundTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(code,200)
         self.assertIn(b'aria-label="Task prompt"',body)
         self.assertIn(b'/static/model-picker.js',body)
+        self.assertIn(b'/static/robot-audio.js',body)
+        for asset in ('robot-audio.js', 'robot-audio.css'):
+            code, audio_body = await self.call('/static/' + asset)
+            self.assertEqual(code, 200)
+            self.assertTrue(audio_body)
         self.assertIn(b'liveConversationPanel',body)
         self.assertNotIn(b'YOUR LOCAL',body)
-        code,_=await self.call('/static/hls.light.min.js')
+        self.assertIn(b'/static/hls.min.js', body)
+        code,_=await self.call('/static/hls.min.js')
         self.assertEqual(code,200)
 
     async def test_unavailable_subscription_never_joins_and_can_be_rechecked(self):

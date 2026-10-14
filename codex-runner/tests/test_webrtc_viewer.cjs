@@ -5,7 +5,7 @@ function harness(role='observer', monitored=false, streamPath){
  let health;
  let now=0, video, readerOptions, destroyed=0, closed=0;const intervals=[],timers=new Map(),visibility={};let id=0;
  const label={textContent:''};
- const context={$:()=>null,csrf:null,synchronizedPanels:()=>{},ended:false,performance:{now:()=>now},location:{href:'https://test.invalid/'},URL,
+ const context={selectedRobot:'yam-1',$:()=>null,csrf:null,synchronizedPanels:()=>{},ended:false,performance:{now:()=>now},location:{href:'https://test.invalid/'},URL,
  setTimeout:f=>{timers.set(++id,f);return id},clearTimeout:i=>timers.delete(i),setInterval:f=>intervals.push(f),clearInterval:()=>{},
  fetch:async()=>{throw Error('WebRTC must not request HLS health')},AbortSignal,
  document:{hidden:false,addEventListener:(n,f)=>visibility[n]=f,createElement:()=>video={currentTime:0,readyState:0,paused:true,events:{},dataset:{},setAttribute(){},removeAttribute(){},load(){},pause(){this.paused=true},play(){this.paused=false;return Promise.resolve()},addEventListener(n,f){this.events[n]=f},getAttribute(){return null}}},
@@ -27,6 +27,10 @@ function harness(role='observer', monitored=false, streamPath){
  const e=harness();e.reader.onError('ICE failed');assert.equal(e.video.dataset.transport,'hls');
  const t=harness();[...t.timers.values()][0]();assert.equal(t.video.dataset.transport,'hls');
  const sync=harness('synchronized');assert.equal(sync.video.dataset.transport,'webrtc');assert.equal(sync.reader.url,'https://test.invalid/synchronized/whep');
+ let assigned=0, currentStream;const commonStream={getAudioTracks:()=>[{}]};
+ Object.defineProperty(sync.video,'srcObject',{get:()=>currentStream,set:value=>{assigned++;currentStream=value;}});
+ sync.reader.onTrack({streams:[commonStream]});sync.reader.onTrack({streams:[commonStream]});
+ assert.equal(assigned,1,'Audio/video track events must not reset the common player and abort audible play');
  sync.reader.onError('ICE failed');assert.equal(sync.video.dataset.transport,'hls');assert.equal(sync.video.hls.url,'/synchronized/index.m3u8');
  await sync.intervals[0]();assert.equal(sync.video.dataset.transport,'hls'); // no independent-camera health request
  const robo=harness('synchronized',false,'robo-house');

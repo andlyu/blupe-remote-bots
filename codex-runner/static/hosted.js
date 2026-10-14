@@ -1819,10 +1819,17 @@ function createRunLaunchGuard() {
     video.setAttribute('aria-label', image.alt); image.replaceWith(video);
     video.dataset.camera = cameraName;
     video.dataset.streamPath = streamPath;
+    const cameraRobot = selectedRobot;
+    let hlsAudioAvailable = false;
+    const updateAudio = () => {
+      if (cameraName === 'synchronized') window.yamRobotAudio?.attach(video, cameraRobot, streamPath,
+        video.srcObject ? video.srcObject.getAudioTracks?.().length > 0 : hlsAudioAvailable || Boolean(video.audioTracks?.length));
+    };
+    window.addEventListener('blupe-audio-configured', updateAudio);
     if (cameraName === 'synchronized') { video.controls = false; synchronizedPanels(video, label); }
     let hls = null, reader = null, retry, rtcTimeout, generation = 0, lastTime = -1, lastAdvance = 0;
     let disposed = false;
-    video.yamStop = () => { disposed = true; video.yamHealth?.close(); video.yamStopPainting?.(); cleanup(); };
+    video.yamStop = () => { disposed = true; window.removeEventListener?.('blupe-audio-configured', updateAudio); video.yamHealth?.close(); video.yamStopPainting?.(); cleanup(); };
     let transport = 'hls', attemptStarted = 0;
     if (cameraName === 'synchronized' && window.YamStreamHealth) {
       video.yamHealth = new window.YamStreamHealth(video, {
@@ -1834,6 +1841,7 @@ function createRunLaunchGuard() {
       generation++; clearTimeout(retry); clearTimeout(rtcTimeout); retry = null;
       if (reader) { reader.close(); reader = null; }
       if (hls) { hls.destroy(); hls = null; }
+      window.yamRobotAudio?.detach(video); hlsAudioAvailable = false;
       video.pause(); video.srcObject = null; video.removeAttribute('src'); video.load(); lastTime = -1;
     }
     function recoverStream() {
@@ -1861,8 +1869,11 @@ function createRunLaunchGuard() {
             onError: useFallback,
             onTrack: event => {
               if (attempt !== generation) return;
-              video.srcObject = event.streams[0];
+              // Audio and video fire separate track events for the same stream.
+              // Reassigning srcObject aborts the pending audible play() attempt.
+              if (video.srcObject !== event.streams[0]) video.srcObject = event.streams[0];
               video.play().catch(() => { if (attempt === generation) label.textContent = 'Press play'; });
+              updateAudio();
             }
           });
         } catch { useFallback(); }
@@ -1875,8 +1886,11 @@ function createRunLaunchGuard() {
           backBufferLength:10, liveSyncDurationCount:4, liveMaxLatencyDurationCount:6,
           liveSyncOnStallIncrease:0, maxLiveSyncPlaybackRate:1.1});
         hls.on(Hls.Events.ERROR, (_, data) => { if (attempt === generation && data.fatal) offline(); });
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (attempt === generation) video.play().catch(() => { label.textContent = 'Press play'; });
+        hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+          if (attempt !== generation) return;
+          video.play().catch(() => { label.textContent = 'Press play'; });
+          hlsAudioAvailable = Boolean(hls.audioTracks?.length || data?.levels?.some(level => level.audioCodec));
+          updateAudio();
         });
         hls.loadSource(url); hls.attachMedia(video);
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -1888,7 +1902,7 @@ function createRunLaunchGuard() {
             video.currentTime = Math.max(video.seekable.start(i), edge - 8);
           }
         };
-        video.onloadedmetadata = catchUp; video.onprogress = catchUp;
+        video.onloadedmetadata = () => { catchUp(); updateAudio(); }; video.onprogress = catchUp;
         video.src = url; video.play().catch(() => { label.textContent = 'Press play'; });
       } else { label.textContent = 'Video unsupported'; }
     }
