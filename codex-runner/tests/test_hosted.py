@@ -467,6 +467,40 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await self.call('/api/chat', method='POST', payload=payload, **a))[0], 200)
         self.assertEqual(len((await self.call('/api/chat', **b))[1]['messages']), 100)
 
+    async def test_reactions_reach_two_visitors_without_entering_chat_history(self):
+        a, b = await self.session(), await self.session()
+        code, sent, _ = await self.call('/api/reactions', method='POST', payload={'emoji':'😂'}, **a)
+        self.assertEqual(code, 200)
+        for browser in (a, b):
+            data = (await self.call('/api/chat', **browser))[1]
+            self.assertEqual(data['messages'], [])
+            self.assertEqual(data['reactions'][0]['id'], sent['reaction']['id'])
+            self.assertEqual(data['reactions'][0]['emoji'], '😂')
+            self.assertNotIn(a['csrf'], json.dumps(data))
+        # New pages baseline their cursor so recently sent reactions do not replay.
+        config = (await self.call('/api/session', method='POST'))[1]
+        self.assertEqual(config['reaction_cursor'], sent['reaction']['id'])
+        self.app.reactions.clock = lambda: time.monotonic() + 6
+        self.assertEqual((await self.call('/api/chat', **b))[1]['reactions'], [])
+        self.assertEqual(self.app.chat_history.messages(), [])
+
+    async def test_reactions_require_session_csrf_origin_and_allowlisted_emoji(self):
+        a = await self.session()
+        payload = {'emoji':'🙂'}
+        for kwargs, status in (({}, 401), ({'cookie':a['cookie']}, 403),
+                               ({**a, 'origin':'https://other.example'}, 403),
+                               ({**a, 'extra':{'content-type':'text/plain'}}, 415)):
+            self.assertEqual((await self.call('/api/reactions', method='POST', payload=payload, **kwargs))[0], status)
+        for emoji in ('<script>', '👍', '', None, [], {}):
+            self.assertEqual((await self.call('/api/reactions', method='POST', payload={'emoji':emoji}, **a))[0], 400)
+        self.assertEqual(self.app.reactions.snapshot(), [])
+        self.assertEqual((await self.call('/api/reactions', method='POST', payload=payload, **a))[0], 200)
+        self.assertEqual((await self.call('/api/reactions', method='POST', payload=payload, **a))[0], 429)
+        # Reaction throttling does not prevent ordinary chat messages or other visitors.
+        self.assertEqual((await self.call('/api/chat', method='POST', payload={'name':'A','text':'Hello'}, **a))[0], 200)
+        b = await self.session()
+        self.assertEqual((await self.call('/api/reactions', method='POST', payload={'emoji':'😢'}, **b))[0], 200)
+
     async def test_sessions_and_keys_never_cross_visitors(self):
         a, b = await self.session(), await self.session()
         secret = "test-secret-not-in-browser-responses"

@@ -539,6 +539,7 @@ function createRunLaunchGuard() {
   const runVideoEmail = createRunVideoEmailControl($);
   window.yamRunVideoEmail = runVideoEmail;
   function buttons() {
+    window.yamReactions?.setAvailable(!!csrf && !ended);
     $('run').disabled = !csrf || ended || active || submitting;
     $('openLocalRun').disabled = !csrf || ended || active || submitting;
     $('runGroot').disabled = !csrf || ended || active || submitting;
@@ -2121,6 +2122,7 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      window.yamReactions?.reset(session.reaction_cursor);
       window.yamSystemPrompt?.configure(session.system_prompts, session.robot_id);
       $('openCodexInstructions').hidden = !!session.local_runner;
       $('conversationSharingSettings').hidden = !session.local_runner;
@@ -2206,9 +2208,11 @@ function createRunLaunchGuard() {
     } catch (error) { message(error.message, true); }
   }
   let chatSending = false, lastChatSnapshot = '';
+  window.yamReactions?.configure(emoji => api('/api/reactions', {emoji}));
   async function refreshChat() {
     if (!csrf || ended) return;
     const data = await api('/api/chat');
+    window.yamReactions?.receive(data.reactions);
     const list = $('chatMessages');
     const snapshot = JSON.stringify([data.visitor, data.messages]);
     if (snapshot === lastChatSnapshot) {
@@ -2239,7 +2243,7 @@ function createRunLaunchGuard() {
       try { await refreshChat(); } catch (error) { $('chatStatus').textContent = error.message; }
     }
     $('chatSend').disabled = !csrf || ended || chatSending;
-    setTimeout(pollChat, 2000);
+    setTimeout(pollChat, 1000);
   }
   $('chatForm').addEventListener('submit', async event => {
     event.preventDefault();
@@ -2619,7 +2623,8 @@ function bindQuickTaskDraft(prompt, quick) {
     }
     const documentTop = workspace.getBoundingClientRect().top + window.scrollY;
     workspace.style.height = Math.max(160, window.innerHeight - documentTop - 18) + 'px';
-    const height = Math.max(100, workspace.clientHeight - document.querySelector('.cameraStatusLine').offsetHeight - $('yourQueue').offsetHeight - 12);
+    const reactionSpace = (document.getElementById('reactionDock')?.offsetHeight || 0) + 8;
+    const height = Math.max(100, workspace.clientHeight - document.querySelector('.cameraStatusLine').offsetHeight - $('yourQueue').offsetHeight - 12 - reactionSpace);
     const available = Math.max(100, workspace.clientWidth - Math.max(320, workspace.clientWidth*.25) - 16);
     const side = four && available/height > 2.35;
     const ideal = four ? side ? (height*4/3 - 4)*aspect + 6 : (height-6+4/aspect)*aspect*3/4 : height*aspect;
