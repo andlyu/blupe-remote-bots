@@ -975,6 +975,9 @@ body.cameraExpanded{overflow:hidden}
 /* Shared reactions float just below the camera, aligned to its right edge. */
 .cameraFooter{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:12px;min-width:0}
 .cameraDetails{min-width:0;overflow-wrap:anywhere}
+.cameraSocialControls{display:flex;align-items:center;gap:6px;justify-self:end}
+.playgroundConsole .cameraSocialControls .openVisitorChat{height:34px;min-height:34px;padding:6px 10px;gap:6px;border-radius:10px;font-size:12px}
+@media(max-width:620px){.cameraFooter{grid-template-columns:minmax(0,1fr);gap:8px}.cameraSocialControls{grid-row:1}.cameraDetails{grid-row:2}}
 .expandedCameraFooter{flex:none;width:100%;padding:8px 12px;background:var(--paper);color:var(--ink)}
 .playgroundConsole .syncTile:fullscreen{justify-content:flex-start}
 .playgroundConsole .syncTile:fullscreen .syncTilePicture{flex:1;min-height:0;height:auto}
@@ -991,4 +994,4 @@ body.cameraExpanded{overflow:hidden}
 .reactionStatus.reactionError{position:absolute;right:0;bottom:calc(100% + 8px);width:240px;max-width:calc(100vw - 36px);padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:#a72c24;font-size:12px}
 @keyframes reaction-float{0%{opacity:0;transform:translateY(8px) scale(.7)}15%{opacity:1;transform:translateY(0) scale(1.1)}70%{opacity:1}100%{opacity:0;transform:translateY(-100px) scale(1)}}
 @media(prefers-reduced-motion:reduce){.reactionPopup{animation:none}}
-@media(max-width:740px),(pointer:coarse){.reactionDock button{width:44px;height:44px}}
+@media(max-width:740px),(pointer:coarse){.reactionDock button{width:44px;height:44px}.playgroundConsole .cameraSocialControls .openVisitorChat{height:50px;min-height:50px}}
