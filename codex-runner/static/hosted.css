@@ -973,9 +973,9 @@ body.cameraExpanded{overflow:hidden}
 .playgroundApiLink{font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);padding:12px 0;text-underline-offset:4px}
 
 /* Shared reactions float just below the camera, aligned to its right edge. */
-.playgroundConsole .watchVisuals>.videoPanel{margin-bottom:66px}
-.reactionDock{position:absolute;right:0;top:calc(100% + 8px);z-index:8;display:flex;gap:4px;padding:6px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 4px 18px #203a3014}
-.reactionDock button{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:12px;font-size:25px;line-height:1;background:transparent}
+.playgroundConsole .watchVisuals>.videoPanel{margin-bottom:42px}
+.reactionDock{position:absolute;right:0;top:calc(100% + 8px);z-index:8;display:flex;gap:2px;padding:2px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 4px 18px #203a3014}
+.reactionDock button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:7px;font-size:12px;line-height:1;background:transparent}
 .reactionDock button:hover:not(:disabled){background:var(--accent-soft)}
 .reactionStage{position:absolute;right:0;bottom:calc(100% + 12px);width:208px;height:150px;display:flex;align-items:flex-end;justify-content:flex-end;gap:4px;pointer-events:none}
 .reactionPopup{flex:none;font-size:40px;line-height:1.2;filter:drop-shadow(0 2px 3px #203a3020);animation:reaction-float 2.4s ease-out forwards}
@@ -983,3 +983,4 @@ body.cameraExpanded{overflow:hidden}
 .reactionStatus.reactionError{position:absolute;right:0;bottom:calc(100% + 8px);width:240px;max-width:calc(100vw - 36px);padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:#a72c24;font-size:12px}
 @keyframes reaction-float{0%{opacity:0;transform:translateY(8px) scale(.7)}15%{opacity:1;transform:translateY(0) scale(1.1)}70%{opacity:1}100%{opacity:0;transform:translateY(-100px) scale(1)}}
 @media(prefers-reduced-motion:reduce){.reactionPopup{animation:none}}
+@media(max-width:740px),(pointer:coarse){.reactionDock button{width:44px;height:44px}.playgroundConsole .watchVisuals>.videoPanel{margin-bottom:58px}}
