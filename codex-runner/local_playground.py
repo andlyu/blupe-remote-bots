@@ -6,15 +6,20 @@ from urllib.parse import urlsplit, parse_qs
 from playground import HostedRunner, RequestError
 
 PLAYGROUND = 'https://playground.blupe.io'
+PUBLIC_SESSION_API = 'https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
 
 class LocalPlayground(HostedRunner):
     """Bridge the public viewer routes normally supplied by remote Caddy."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, visitor_chat_origin=None, **kwargs):
         from remote_yam.aspire_recovery_flow import RecoveryManager
         self.recovery_manager=RecoveryManager(self)
         super().__init__(**kwargs)
+        # Only the public-queue launchers join BluPe's public visitor room.
+        # Simulations and custom robot backends keep their own chat scope.
+        self.visitor_chat_origin = visitor_chat_origin or (
+            PLAYGROUND if (kwargs.get('session_api') or '').rstrip('/') == PUBLIC_SESSION_API else None)
         if (not self.api_depth_provider_factory and self.local_codex
                 and self.hardware == 'yam' and kwargs.get('session_api')):
             self.api_depth_provider_factory = self.api_depth_provider(kwargs['session_api'])
@@ -64,6 +69,44 @@ class LocalPlayground(HostedRunner):
         result=await asyncio.to_thread(self.recovery_manager.start,visitor,folder,limit=limit)
         await self.json(send,200,result)
         return True
+
+    def public_chat(self, visitor):
+        from remote_yam.visitor_chat import VisitorChat
+        if visitor.visitor_chat is None:
+            visitor.visitor_chat = VisitorChat(self.visitor_chat_origin, self.robot_id)
+        return visitor.visitor_chat
+
+    async def chat_setup(self, visitor):
+        if not self.visitor_chat_origin:
+            return await super().chat_setup(visitor)
+        from remote_yam.visitor_chat import ChatUnavailable
+        try:
+            return await asyncio.to_thread(self.public_chat(visitor).setup)
+        except ChatUnavailable:
+            # A chat outage must not prevent local model setup or robot controls.
+            return {'reaction_cursor':0, 'chat_scope':'public'}
+
+    async def relay_chat(self, visitor, action, *args):
+        from remote_yam.visitor_chat import ChatUnavailable
+        try:
+            return await asyncio.to_thread(getattr(self.public_chat(visitor), action), *args)
+        except ChatUnavailable as exc:
+            raise RequestError(exc.status, exc.message) from None
+
+    async def chat_snapshot(self, visitor):
+        if not self.visitor_chat_origin:
+            return await super().chat_snapshot(visitor)
+        return await self.relay_chat(visitor, 'snapshot')
+
+    async def append_chat(self, visitor, name, text):
+        if not self.visitor_chat_origin:
+            return await super().append_chat(visitor, name, text)
+        await self.relay_chat(visitor, 'publish', '/api/chat', {'name':name, 'text':text})
+
+    async def publish_reaction(self, visitor, emoji):
+        if not self.visitor_chat_origin:
+            return await super().publish_reaction(visitor, emoji)
+        return (await self.relay_chat(visitor, 'publish', '/api/reactions', {'emoji':emoji}))['reaction']
 
     def api_depth_provider(self, origin):
         import json

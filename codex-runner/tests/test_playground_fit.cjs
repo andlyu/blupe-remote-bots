@@ -20,7 +20,7 @@ function harness() {
   });
   const context={window,workspace,visuals:{clientWidth:354},
     $:id=>id==='liveViewer' ? viewer : {offsetHeight:21},
-    document:{querySelector:()=>({offsetHeight:24})},
+    document:{querySelector:()=>({offsetHeight:24}),getElementById:()=>({offsetHeight:56})},
   };
   vm.runInNewContext(fit+'\nthis.fit=fitCameras;',context);
   return {window,workspace,viewer,values,fit:context.fit};
@@ -29,6 +29,8 @@ function harness() {
 test('scrolling below the console cannot inflate its height on a resize callback',()=>{
   const h=harness();h.fit();const height=h.values.get('height');
   assert.equal(height,'432px');
+  const cameraHeight=parseFloat(h.values.get('--console-camera-height'));
+  assert(cameraHeight+24+8<=h.workspace.clientHeight+.01, 'camera leaves room for its attached footer');
   for (const scroll of [500,2000,50000,0]) {
     h.window.scrollY=scroll;h.fit();
     assert.equal(h.values.get('height'),height);

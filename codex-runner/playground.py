@@ -32,6 +32,7 @@ from remote_yam.artifacts import log_archive, run_artifacts
 from remote_yam.providers import RepeatingRaiseLowerAdapter
 from remote_yam.robocurve_policy import OpenAIAdapter, AstraAdapter
 from remote_yam.session import HttpSessionAPI, MockSessionAPI
+from remote_yam.reactions import Reactions, EMOJIS
 
 ACTIVE = {"queued", "preparing", "running"}
 COOKIE = "__Host-yam-visitor"
@@ -104,6 +105,7 @@ class Visitor:
     launch_requested_at: float | None = None
     chat_id: str = field(default_factory=lambda: secrets.token_hex(4))
     last_chat: float = -float("inf")
+    last_reaction: float = -float("inf")
     last_stream_report: float = -float("inf")
     runner_task: str = ""
     runner_name: str = "Anonymous"
@@ -111,6 +113,7 @@ class Visitor:
     launches: int = 0
     saved_keys: dict[str, str] = field(default_factory=dict, repr=False)
     subscription_prompts: dict[str, str] = field(default_factory=dict)
+    visitor_chat: object | None = field(default=None, repr=False)
     retired: bool = False
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -118,6 +121,7 @@ class Visitor:
         with self.lock:
             self.retired = True
             self.saved_keys.clear()
+            self.visitor_chat = None
             self.controller.forget_key()
             self.controller.disconnect("web_session_ended")
         # A cancelled provider HTTP request may take up to its transport timeout
@@ -221,6 +225,7 @@ class HostedRunner:
         self.root.chmod(0o700)
         from remote_yam.chat_history import ChatHistory
         self.chat_history = ChatHistory(chat_database or self.root / "chat.sqlite3")
+        self.reactions = Reactions()
         self.social_database = Path(os.environ.get('YAM_SOCIAL_DATABASE', ROOT / 'data/run-socials.sqlite3'))
         from remote_yam.past_runs import RunNames
         self.run_names = RunNames(os.environ.get('YAM_RUN_NAMES_DATABASE', ROOT / 'data/run-names.sqlite3'))
@@ -238,6 +243,19 @@ class HostedRunner:
     async def action_extension(self, path, visitor, payload, cookies, send):
         """Optional actions after visitor, Origin and CSRF validation."""
         return False
+
+    async def chat_setup(self, visitor):
+        return {'reaction_cursor':self.reactions.cursor, 'chat_scope':'runner'}
+
+    async def chat_snapshot(self, visitor):
+        return {'messages':await asyncio.to_thread(self.chat_history.messages),
+                'visitor':visitor.chat_id, 'reactions':self.reactions.snapshot()}
+
+    async def append_chat(self, visitor, name, text):
+        await asyncio.to_thread(self.chat_history.append, visitor.chat_id, name, text)
+
+    async def publish_reaction(self, visitor, emoji):
+        return self.reactions.publish(emoji, visitor.chat_id)
 
     def validate_launch(self, visitor, payload, paid):
         """Application admission rules, before shared robot/provider validation."""
@@ -423,7 +441,7 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -492,6 +510,7 @@ class HostedRunner:
             await self.json(send, 200, {**local_setup, **application_setup,
                                       "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
+                                      **await self.chat_setup(visitor),
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},
                                       "expires_in": int(self.lifetime_seconds - (time.monotonic() - visitor.born))},
@@ -516,6 +535,15 @@ class HostedRunner:
                     log_report(report)
                     visitor.last_stream_report = time.monotonic()
                 result = {'ok': True}
+            elif path == "/api/reactions":
+                emoji = payload.get('emoji')
+                if not isinstance(emoji, str) or emoji not in EMOJIS:
+                    raise RequestError(400, 'Choose one of the available reactions')
+                now = time.monotonic()
+                if now - visitor.last_reaction < 1:
+                    raise RequestError(429, 'Please wait a moment before reacting again')
+                visitor.last_reaction = now
+                result = {'reaction': await self.publish_reaction(visitor, emoji)}
             elif path == "/api/chat":
                 name, text = payload.get("name", ""), payload.get("text", "")
                 if not isinstance(name, str) or not isinstance(text, str):
@@ -526,7 +554,7 @@ class HostedRunner:
                 if time.monotonic() - visitor.last_chat < 2:
                     raise RequestError(429, "Please wait a moment before sending another message")
                 visitor.last_chat = time.monotonic()
-                await asyncio.to_thread(self.chat_history.append, visitor.chat_id, name, text)
+                await self.append_chat(visitor, name, text)
                 result = {"ok": True}
             elif path == "/api/run":
                 result = await asyncio.to_thread(self.launch, visitor, payload)
@@ -570,7 +598,7 @@ class HostedRunner:
         if method != "GET":
             raise RequestError(405, "Method not allowed")
         if path == "/api/chat":
-            await self.json(send, 200, {"messages": await asyncio.to_thread(self.chat_history.messages), "visitor": visitor.chat_id})
+            await self.json(send, 200, await self.chat_snapshot(visitor))
         elif path == "/api/status":
             controller = visitor.controller
             if self.observation is not None:

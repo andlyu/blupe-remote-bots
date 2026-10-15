@@ -9,7 +9,7 @@ function harness() {
     remove(){if(this.parentElement)this.parentElement.children.splice(this.parentElement.children.indexOf(this),1);this.parentElement=null;}
     before(n){n.parentElement=this.parentElement;this.parentElement.children.splice(this.parentElement.children.indexOf(this),0,n);}
     replaceWith(n){this.before(n);this.remove();}
-    closest(){return this.tag==='figure'?this:this.parentElement?.closest();}
+    closest(selector){return selector!=='.cameraFooter' && this.tag==='figure'?this:this.parentElement?.closest(selector);}
     querySelector(){return this.children.flatMap(n=>[n,...n.children]).find(n=>n.tag==='button');}
     setAttribute(k,v){this.attrs[k]=v;} getAttribute(k){return this.attrs[k];}
     addEventListener(k,f){this.listeners[k]=f;} fire(k,event={}){return this.listeners[k]?.({target:this,...event});}

@@ -539,6 +539,7 @@ function createRunLaunchGuard() {
   const runVideoEmail = createRunVideoEmailControl($);
   window.yamRunVideoEmail = runVideoEmail;
   function buttons() {
+    window.yamReactions?.setAvailable(!!csrf && !ended);
     $('run').disabled = !csrf || ended || active || submitting;
     $('openLocalRun').disabled = !csrf || ended || active || submitting;
     $('runGroot').disabled = !csrf || ended || active || submitting;
@@ -1631,7 +1632,25 @@ function createRunLaunchGuard() {
   function cameraExpansion(video, tiles) {
     let dialog = null, expanded = null, marker = null, trigger = null;
     let stopped = false, opening = false;
+    let footer = null, footerMarker = null;
+    function restoreFooter() {
+      if (footerMarker?.isConnected) footerMarker.replaceWith(footer);
+      footer?.classList.remove('expandedCameraFooter');
+      footer = footerMarker = null;
+    }
+    function attachFooter(panel) {
+      restoreFooter();
+      footer = document.querySelector?.('.cameraFooter');
+      if (!footer) return;
+      footerMarker = document.createComment('camera footer');
+      footer.before(footerMarker);
+      panel.append(footer);
+      footer.classList.add('expandedCameraFooter');
+    }
+    const fullscreenChanged = () => { if (!document.fullscreenElement) restoreFooter(); };
+    document.addEventListener?.('fullscreenchange', fullscreenChanged);
     function restore() {
+      restoreFooter();
       const focus = trigger;
       if (marker?.isConnected) marker.replaceWith(expanded);
       dialog?.remove();
@@ -1653,6 +1672,7 @@ function createRunLaunchGuard() {
       close.addEventListener('click', () => dialog.close());
       dialog.addEventListener('close', restore);
       dialog.append(close, panel);
+      attachFooter(dialog);
       document.body.append(dialog);
       document.body.classList.add('cameraExpanded');
       dialog.showModal(); close.focus();
@@ -1669,7 +1689,11 @@ function createRunLaunchGuard() {
       // Native fullscreen may be absent or reject arbitrary elements on mobile.
       if (!window.matchMedia?.('(max-width: 740px)')?.matches && panel.requestFullscreen) {
         opening = true;
-        try { await panel.requestFullscreen(); return; }
+        try {
+          await panel.requestFullscreen();
+          if (stopped) { await document.exitFullscreen?.().catch(() => {}); return; }
+          attachFooter(panel); return;
+        }
         catch { /* Keep expansion usable if the browser denies native fullscreen. */ }
         finally { opening = false; }
       }
@@ -1681,7 +1705,9 @@ function createRunLaunchGuard() {
       tile.tabIndex = 0;
       tile.setAttribute('role', 'button');
       tile.setAttribute('aria-label', button.getAttribute('aria-label'));
-      panel.addEventListener('click', event => toggle(panel, event.target === tile ? tile : button));
+      panel.addEventListener('click', event => {
+        if (!event.target.closest?.('.cameraFooter')) return toggle(panel, event.target === tile ? tile : button);
+      });
       tile.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault(); toggle(panel, tile);
@@ -1690,6 +1716,7 @@ function createRunLaunchGuard() {
     });
     return () => {
       stopped = true;
+      document.removeEventListener?.('fullscreenchange', fullscreenChanged);
       // Close synchronously before selectedCameras replaces the original grid.
       restore();
       if (tiles.some(tile => tile.closest('figure') === document.fullscreenElement)) {
@@ -2121,6 +2148,8 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      window.yamReactions?.reset(session.reaction_cursor);
+      chatScope = session.chat_scope === 'public' ? 'Shared with everyone watching this robot' : 'Shared in this playground';
       window.yamSystemPrompt?.configure(session.system_prompts, session.robot_id);
       $('openCodexInstructions').hidden = !!session.local_runner;
       $('conversationSharingSettings').hidden = !session.local_runner;
@@ -2205,14 +2234,16 @@ function createRunLaunchGuard() {
       if (!pollingStarted) { pollingStarted = true; poll(); }
     } catch (error) { message(error.message, true); }
   }
-  let chatSending = false, lastChatSnapshot = '';
+  let chatSending = false, lastChatSnapshot = '', chatScope = 'Shared in this playground';
+  window.yamReactions?.configure(emoji => api('/api/reactions', {emoji}));
   async function refreshChat() {
     if (!csrf || ended) return;
     const data = await api('/api/chat');
+    window.yamReactions?.receive(data.reactions);
     const list = $('chatMessages');
     const snapshot = JSON.stringify([data.visitor, data.messages]);
     if (snapshot === lastChatSnapshot) {
-      if (!chatSending) $('chatStatus').textContent = 'Shared with all visitors';
+      if (!chatSending) $('chatStatus').textContent = chatScope;
       return;
     }
     const bottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
@@ -2231,7 +2262,7 @@ function createRunLaunchGuard() {
     while (list.children.length > 100) list.firstElementChild.remove();
     list.scrollTop = bottom ? list.scrollHeight : scrollTop;
     lastChatSnapshot = snapshot;
-    if (!chatSending) $('chatStatus').textContent = 'Shared with all visitors';
+    if (!chatSending) $('chatStatus').textContent = chatScope;
   }
   async function pollChat() {
     if (ended) { $('chatSend').disabled = true; $('chatStatus').textContent = 'Reload to reconnect to chat.'; return; }
@@ -2239,7 +2270,7 @@ function createRunLaunchGuard() {
       try { await refreshChat(); } catch (error) { $('chatStatus').textContent = error.message; }
     }
     $('chatSend').disabled = !csrf || ended || chatSending;
-    setTimeout(pollChat, 2000);
+    setTimeout(pollChat, 1000);
   }
   $('chatForm').addEventListener('submit', async event => {
     event.preventDefault();
@@ -2619,7 +2650,7 @@ function bindQuickTaskDraft(prompt, quick) {
     }
     const documentTop = workspace.getBoundingClientRect().top + window.scrollY;
     workspace.style.height = Math.max(160, window.innerHeight - documentTop - 18) + 'px';
-    const height = Math.max(100, workspace.clientHeight - document.querySelector('.cameraStatusLine').offsetHeight - $('yourQueue').offsetHeight - 12);
+    const height = Math.max(100, workspace.clientHeight - document.querySelector('.cameraFooter').offsetHeight - 8);
     const available = Math.max(100, workspace.clientWidth - Math.max(320, workspace.clientWidth*.25) - 16);
     const side = four && available/height > 2.35;
     const ideal = four ? side ? (height*4/3 - 4)*aspect + 6 : (height-6+4/aspect)*aspect*3/4 : height*aspect;
@@ -2630,7 +2661,7 @@ function bindQuickTaskDraft(prompt, quick) {
     viewer.dataset.detailLayout = side ? 'side' : 'below';
   }
   const sizing = new ResizeObserver(fitCameras);
-  sizing.observe(workspace); sizing.observe($('yourQueue')); sizing.observe(document.querySelector('.cameraStatusLine'));
+  sizing.observe(workspace); sizing.observe(document.querySelector('.cameraFooter'));
   if ($('collectionProgress')) sizing.observe($('collectionProgress'));
   new MutationObserver(fitCameras).observe($('liveViewer'), {attributes:true,attributeFilter:['data-layout']});
   provider.addEventListener('change', updateComposer);
