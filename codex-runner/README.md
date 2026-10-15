@@ -15,6 +15,17 @@ The UI starts an authenticated read-only monitor for `yam-1` at launch and rende
 
 The UI also polls the public FIFO snapshot, shows station availability and existing anonymous session rows, and marks the local runner's row as **YOU** after Join. Queue responses are sanitized locally and never expose prompts, provider configuration, or session capabilities.
 
+Visitor chat and emoji reactions are shared per robot. The public-queue launchers
+(`run-codex.sh`, `run-claude.sh`, and `run-playground.sh`) relay visitor chat to the
+hosted playground, so local subscription users and hosted viewers share the same
+room. Each local browser gets its own remote chat session; local provider keys,
+robot capabilities and browser session tokens stay local. Simulations and custom
+session backends share only with visitors to that runner. Reactions last a few
+seconds, appear outside chat history, and are not retained across server restarts.
+The public playground must run a release supporting reactions; older releases
+report that shared reactions are unavailable. A public chat outage does not fall
+back to a separate local room or interrupt robot controls.
+
 During a conversational rollout, its owner can use **Steer your run** in Task chat
 to add instructions for the next model decision. See [runtime steering](docs/runtime-steering.md)
 for prompt integration, supported policies, delivery states and related research.

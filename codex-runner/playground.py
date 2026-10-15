@@ -113,6 +113,7 @@ class Visitor:
     launches: int = 0
     saved_keys: dict[str, str] = field(default_factory=dict, repr=False)
     subscription_prompts: dict[str, str] = field(default_factory=dict)
+    visitor_chat: object | None = field(default=None, repr=False)
     retired: bool = False
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -120,6 +121,7 @@ class Visitor:
         with self.lock:
             self.retired = True
             self.saved_keys.clear()
+            self.visitor_chat = None
             self.controller.forget_key()
             self.controller.disconnect("web_session_ended")
         # A cancelled provider HTTP request may take up to its transport timeout
@@ -241,6 +243,19 @@ class HostedRunner:
     async def action_extension(self, path, visitor, payload, cookies, send):
         """Optional actions after visitor, Origin and CSRF validation."""
         return False
+
+    async def chat_setup(self, visitor):
+        return {'reaction_cursor':self.reactions.cursor, 'chat_scope':'runner'}
+
+    async def chat_snapshot(self, visitor):
+        return {'messages':await asyncio.to_thread(self.chat_history.messages),
+                'visitor':visitor.chat_id, 'reactions':self.reactions.snapshot()}
+
+    async def append_chat(self, visitor, name, text):
+        await asyncio.to_thread(self.chat_history.append, visitor.chat_id, name, text)
+
+    async def publish_reaction(self, visitor, emoji):
+        return self.reactions.publish(emoji, visitor.chat_id)
 
     def validate_launch(self, visitor, payload, paid):
         """Application admission rules, before shared robot/provider validation."""
@@ -495,7 +510,7 @@ class HostedRunner:
             await self.json(send, 200, {**local_setup, **application_setup,
                                       "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
-                                      "reaction_cursor": self.reactions.cursor,
+                                      **await self.chat_setup(visitor),
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},
                                       "expires_in": int(self.lifetime_seconds - (time.monotonic() - visitor.born))},
@@ -528,7 +543,7 @@ class HostedRunner:
                 if now - visitor.last_reaction < 1:
                     raise RequestError(429, 'Please wait a moment before reacting again')
                 visitor.last_reaction = now
-                result = {'reaction': self.reactions.publish(emoji, visitor.chat_id)}
+                result = {'reaction': await self.publish_reaction(visitor, emoji)}
             elif path == "/api/chat":
                 name, text = payload.get("name", ""), payload.get("text", "")
                 if not isinstance(name, str) or not isinstance(text, str):
@@ -539,7 +554,7 @@ class HostedRunner:
                 if time.monotonic() - visitor.last_chat < 2:
                     raise RequestError(429, "Please wait a moment before sending another message")
                 visitor.last_chat = time.monotonic()
-                await asyncio.to_thread(self.chat_history.append, visitor.chat_id, name, text)
+                await self.append_chat(visitor, name, text)
                 result = {"ok": True}
             elif path == "/api/run":
                 result = await asyncio.to_thread(self.launch, visitor, payload)
@@ -583,8 +598,7 @@ class HostedRunner:
         if method != "GET":
             raise RequestError(405, "Method not allowed")
         if path == "/api/chat":
-            await self.json(send, 200, {"messages": await asyncio.to_thread(self.chat_history.messages),
-                                      "visitor": visitor.chat_id, "reactions": self.reactions.snapshot()})
+            await self.json(send, 200, await self.chat_snapshot(visitor))
         elif path == "/api/status":
             controller = visitor.controller
             if self.observation is not None:

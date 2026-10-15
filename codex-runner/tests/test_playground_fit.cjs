@@ -30,7 +30,7 @@ test('scrolling below the console cannot inflate its height on a resize callback
   const h=harness();h.fit();const height=h.values.get('height');
   assert.equal(height,'432px');
   const cameraHeight=parseFloat(h.values.get('--console-camera-height'));
-  assert(cameraHeight+56+8+24+21+12<=h.workspace.clientHeight+.01, 'camera leaves room for reactions, status and queue');
+  assert(cameraHeight+24+8<=h.workspace.clientHeight+.01, 'camera leaves room for its attached footer');
   for (const scroll of [500,2000,50000,0]) {
     h.window.scrollY=scroll;h.fit();
     assert.equal(h.values.get('height'),height);

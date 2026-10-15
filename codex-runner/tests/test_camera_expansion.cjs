@@ -6,13 +6,13 @@ const code = source.slice(source.indexOf('  function cameraExpansion('), source.
 function harness({phone = false, native} = {}) {
   let focused, nativeCalls = 0, plays = 0;
   class Node {
-    constructor(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.attrs = {}; this.listeners = {}; }
+    constructor(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.attrs = {}; this.listeners = {}; this.classList={add(){},remove(){}}; }
     get isConnected() { return this === body || !!this.parent?.isConnected; }
     append(...nodes) { nodes.forEach(node => { node.remove(); node.parent = this; this.children.push(node); }); }
     remove() { if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1); this.parent = null; }
-    before(node) { node.parent = this.parent; this.parent.children.splice(this.parent.children.indexOf(this), 0, node); }
+    before(node) { node.remove(); node.parent = this.parent; this.parent.children.splice(this.parent.children.indexOf(this), 0, node); }
     replaceWith(node) { this.before(node); this.remove(); }
-    closest() { return this.tag === 'figure' ? this : this.parent?.closest(); }
+    closest(selector) { return (selector === '.cameraFooter' ? this.className === 'cameraFooter' : this.tag === 'figure') ? this : this.parent?.closest(selector); }
     querySelector() { return this.children.find(node => node.tag === 'button'); }
     setAttribute(name, value) { this.attrs[name] = value; }
     getAttribute(name) { return this.attrs[name]; }
@@ -22,18 +22,20 @@ function harness({phone = false, native} = {}) {
     showModal() { this.open = true; }
     close() { this.open = false; this.fire('close'); }
   }
-  const body = new Node('body'), grid = new Node('section'), panel = new Node('figure');
+  const body = new Node('body'), grid = new Node('section'), panel = new Node('figure'), footer = new Node('div');
+  footer.className = 'cameraFooter';
   const tile = new Node('canvas'), button = new Node('button'), neighbor = new Node('figure');
   panel.dataset.cameraRole = 'left'; button.setAttribute('aria-label', 'Expand left camera');
-  panel.append(tile, button); grid.append(panel, neighbor); body.append(grid);
+  panel.append(tile, button); grid.append(panel, neighbor); body.append(grid, footer);
   const classes = new Set();
   body.classList = {add: name => classes.add(name), remove: name => classes.delete(name)};
-  const document = {body, createComment: () => new Node('comment'), createElement: tag => new Node(tag),
-    async exitFullscreen() { document.fullscreenElement = null; }};
+  const document = {body, querySelector:()=>footer, createComment: () => new Node('comment'), createElement: tag => new Node(tag),
+    addEventListener(name,fn){this[name]=fn},removeEventListener(name){delete this[name]},
+    async exitFullscreen() { document.fullscreenElement = null; document.fullscreenchange?.(); }};
   if (native) panel.requestFullscreen = async () => { nativeCalls++; await native(); document.fullscreenElement = panel; };
   const context = {document, window:{matchMedia: () => ({matches:phone})}, tiles:[tile], video:{async play() { plays++; }}};
   vm.runInNewContext(code + '\nstop = cameraExpansion(video, tiles);', context);
-  return {body, grid, panel, tile, button, neighbor, document, classes,
+  return {body, grid, panel, tile, button, neighbor, document, classes, footer,
     stop: context.stop, get dialog() { return body.children.find(node => node.tag === 'dialog'); },
     get focused() {return focused;}, get nativeCalls() {return nativeCalls;}, get plays() {return plays;}};
 }
@@ -44,6 +46,7 @@ test('phone thumbnail opens the same live canvas in a modal and Close restores o
   assert.equal(h.nativeCalls, 0);
   assert(h.dialog.open);
   assert.equal(h.panel.parent, h.dialog);
+  assert.equal(h.footer.parent, h.dialog);
   assert.equal(h.panel.children[0], h.tile);
   assert.equal(h.plays, 1);
   assert(h.classes.has('cameraExpanded'));
@@ -52,6 +55,7 @@ test('phone thumbnail opens the same live canvas in a modal and Close restores o
   assert.deepEqual(h.grid.children, [h.panel, h.neighbor]);
   assert.equal(h.focused, h.tile);
   assert(!h.classes.has('cameraExpanded'));
+  assert.equal(h.footer.parent, h.body);
 });
 
 for (const [name, native] of [['missing', undefined], ['denied', async () => {throw Error('Fullscreen unavailable');}]]) {
@@ -69,9 +73,13 @@ test('desktop retains native fullscreen and clicking again exits it', async () =
   const h = harness({native:async () => {}});
   await h.panel.fire('click');
   assert.equal(h.document.fullscreenElement, h.panel);
+  assert.equal(h.footer.parent, h.panel);
+  await h.panel.fire('click', {target:h.footer});
+  assert.equal(h.document.fullscreenElement, h.panel, 'reaction and status clicks cannot collapse the camera');
   assert.equal(h.dialog, undefined);
   await h.panel.fire('click');
   assert.equal(h.document.fullscreenElement, null);
+  assert.equal(h.footer.parent, h.body);
 });
 
 test('stopping a stream restores the tile before its grid is replaced', async () => {

@@ -74,6 +74,17 @@
     </div>
   </section>
   </div>
+  </div>
+  <div class="cameraFooter">
+  <div class="cameraDetails">
+  <div class="cameraStatusLine"><p id="station" role="status" aria-live="polite">Checking / unavailable</p><span id="status" hidden class="tag">Connecting</span><p id="publicRunError" class="publicRunError" role="status" aria-live="polite" hidden></p></div>
+    <aside id="yourQueue" class="panel robotQueue" tabindex="-1">      <span id="queueSummary" role="status">Queue · connecting…</span><ol id="queue" hidden><li>Waiting for queue information</li></ol>
+      <div class="queuePlace" hidden aria-live="polite" aria-atomic="true"><h3>Your place in the queue</h3><strong id="position">—</strong><p id="queueGuidance" hidden>Join the queue to reserve your turn.</p></div>
+
+      <button id="leaveQueue" type="button" hidden disabled>Leave queue</button>
+      <button id="disconnect" hidden disabled>End browser session</button>
+    </aside>
+  </div>
 <div id="reactionDock" class="reactionDock" role="group" aria-label="React with everyone watching">
   <div id="reactionStage" class="reactionStage" aria-hidden="true"></div>
   <span id="reactionStatus" class="reactionStatus" role="status" aria-live="polite" aria-atomic="true"></span>
@@ -83,13 +94,6 @@
   <button type="button" data-reaction="😢" data-label="Cry" aria-label="Send crying reaction" title="Cry" disabled><span aria-hidden="true">😢</span></button>
 </div>
   </div>
-  <div class="cameraStatusLine"><p id="station" role="status" aria-live="polite">Checking / unavailable</p><span id="status" hidden class="tag">Connecting</span><p id="publicRunError" class="publicRunError" role="status" aria-live="polite" hidden></p></div>
-    <aside id="yourQueue" class="panel robotQueue" tabindex="-1">      <span id="queueSummary" role="status">Queue · connecting…</span><ol id="queue" hidden><li>Waiting for queue information</li></ol>
-      <div class="queuePlace" hidden aria-live="polite" aria-atomic="true"><h3>Your place in the queue</h3><strong id="position">—</strong><p id="queueGuidance" hidden>Join the queue to reserve your turn.</p></div>
-
-      <button id="leaveQueue" type="button" hidden disabled>Leave queue</button>
-      <button id="disconnect" hidden disabled>End browser session</button>
-    </aside>
   </div>
   <div class="watchInteraction">
   <div class="taskChatHeading"><h2>Task chat<span id="taskHeaderPrompt"></span></h2></div>
