@@ -2291,10 +2291,13 @@ function createRunLaunchGuard() {
   const open = document.getElementById('openVisitorChat');
   const close = document.getElementById('closeVisitorChat');
   if (!panel || !open || !close) return;
+  // The footer (including the human chat popup) follows an expanded camera
+  // into its fullscreen/dialog container, outside main in the dialog case.
+  const main = panel.closest('main');
   function toggle(visible, userAction = true) {
     panel.hidden = !visible;
     open.hidden = false;
-    panel.closest('main').classList.toggle('chatClosed', !visible);
+    main.classList.toggle('chatClosed', !visible);
     open.setAttribute('aria-expanded', String(visible));
     close.setAttribute('aria-expanded', String(visible));
     if (userAction) {

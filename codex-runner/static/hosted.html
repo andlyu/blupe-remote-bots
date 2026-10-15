@@ -20,7 +20,7 @@
       <p id="simulationNotice" class="eyebrow" hidden>Local simulation · no physical robot connected</p>
     </section>
     <nav class="robotNavigation" aria-label="Robot selection"><label for="robotSelector">Robot</label><select id="robotSelector" disabled><option>YAM</option></select><span id="robotSelectorStatus" class="help" role="status"></span></nav>
-    <button id="openVisitorChat" class="openVisitorChat" type="button" aria-controls="visitorChatPanel" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H5l-4 3V11.5a9.5 9.5 0 0 1 19 0Z" transform="translate(1 -1)"/></svg>Visitors chat</button>
+
   </div>
   <p class="playgroundIntro">Control real robot arms with AI. Watch, prompt, and run. <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md" target="_blank" rel="noopener noreferrer">API docs</a> · <a href="https://github.com/andlyu/blupe-remote-yam#run-the-blupe-playground-locally" target="_blank" rel="noopener noreferrer">Run locally</a> · <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/codex-runner/docs/aspire/README.md" target="_blank" rel="noopener noreferrer">ASPIRE README</a></p>
   <dialog id="codexInstructions" aria-labelledby="codexInstructionsTitle">
@@ -85,6 +85,7 @@
       <button id="disconnect" hidden disabled>End browser session</button>
     </aside>
   </div>
+  <div class="cameraSocialControls">
 <div id="reactionDock" class="reactionDock" role="group" aria-label="React with everyone watching">
   <div id="reactionStage" class="reactionStage" aria-hidden="true"></div>
   <span id="reactionStatus" class="reactionStatus" role="status" aria-live="polite" aria-atomic="true"></span>
@@ -93,6 +94,20 @@
   <button type="button" data-reaction="😠" data-label="Angry" aria-label="Send angry reaction" title="Angry" disabled><span aria-hidden="true">😠</span></button>
   <button type="button" data-reaction="😢" data-label="Cry" aria-label="Send crying reaction" title="Cry" disabled><span aria-hidden="true">😢</span></button>
 </div>
+<button id="openVisitorChat" class="openVisitorChat" type="button" aria-label="Chat with other visitors" aria-controls="visitorChatPanel" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H5l-4 3V11.5a9.5 9.5 0 0 1 19 0Z" transform="translate(1 -1)"/></svg>Chat</button>
+  </div>
+<aside id="visitorChatPanel" class="panel visitorChat" aria-label="Visitors chat" hidden>
+  <div class="visitorChatHeading"><h2>Visitors chat</h2><button id="closeVisitorChat" type="button" aria-label="Close visitors chat" aria-controls="visitorChatPanel" aria-expanded="true">Close</button></div>
+  <p class="help">Chat with other people watching. Messages are public.</p>
+  <ol id="chatMessages" role="log" aria-live="polite" aria-relevant="additions"><li>No messages yet. Say hello!</li></ol>
+  <form id="chatForm" autocomplete="off">
+    <label for="chatName">Your name</label><input id="chatName" maxlength="32" required placeholder="Choose a name">
+    <label for="chatText">Message</label><textarea id="chatText" rows="3" maxlength="1000" required placeholder="Say hello…"></textarea>
+    <button id="chatSend" type="submit" disabled>Send</button>
+  </form>
+  <p id="chatStatus" class="help" role="status">Connecting…</p>
+  <p class="help">Recent messages clear when the server restarts.</p>
+</aside>
   </div>
   </div>
   <div class="watchInteraction">
@@ -275,18 +290,7 @@
   <h3>Run totals</h3><p id="pastRunMetricsSummary" class="help"></p>
   <div id="pastRunMetricsChart"></div>
 </dialog>
-<aside id="visitorChatPanel" class="panel visitorChat" aria-label="Visitors chat" hidden>
-  <div class="visitorChatHeading"><h2>Visitors chat</h2><button id="closeVisitorChat" type="button" aria-label="Close visitors chat" aria-controls="visitorChatPanel" aria-expanded="true">Close</button></div>
-  <p class="help">Chat with other people watching. Messages are public.</p>
-  <ol id="chatMessages" role="log" aria-live="polite" aria-relevant="additions"><li>No messages yet. Say hello!</li></ol>
-  <form id="chatForm" autocomplete="off">
-    <label for="chatName">Your name</label><input id="chatName" maxlength="32" required placeholder="Choose a name">
-    <label for="chatText">Message</label><textarea id="chatText" rows="3" maxlength="1000" required placeholder="Say hello…"></textarea>
-    <button id="chatSend" type="submit" disabled>Send</button>
-  </form>
-  <p id="chatStatus" class="help" role="status">Connecting…</p>
-  <p class="help">Recent messages clear when the server restarts.</p>
-</aside>
+
   <div class="coffeeSupport">
     <!-- application-funding -->
   </div>
