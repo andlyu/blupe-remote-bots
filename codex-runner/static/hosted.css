@@ -995,3 +995,32 @@ body.cameraExpanded{overflow:hidden}
 @keyframes reaction-float{0%{opacity:0;transform:translateY(8px) scale(.7)}15%{opacity:1;transform:translateY(0) scale(1.1)}70%{opacity:1}100%{opacity:0;transform:translateY(-100px) scale(1)}}
 @media(prefers-reduced-motion:reduce){.reactionPopup{animation:none}}
 @media(max-width:740px),(pointer:coarse){.reactionDock button{width:44px;height:44px}.playgroundConsole .cameraSocialControls .openVisitorChat{height:50px;min-height:50px}}
+
+/* Human and model conversations share the same readable pane. */
+.playgroundConsole .conversationModes{width:100%;flex-wrap:nowrap}
+.playgroundConsole .conversationModes button{flex:none;padding:8px 6px}
+.playgroundConsole .conversationModes [data-conversation-mode="reasoning"]{flex:1;min-width:0;max-width:none;white-space:normal;line-height:1.3;text-align:left}
+.playgroundConsole .watchInteraction>.visitorChat{position:static;z-index:auto;flex:1;min-height:0;width:100%;height:auto;max-height:none;overflow:hidden;margin:0;padding:14px 20px 18px;border:0;border-radius:0;background:var(--surface);box-shadow:none}
+.playgroundConsole .watchInteraction>.visitorChat .visitorChatHeading{display:none}
+.playgroundConsole .visitorChatSelected>#liveConversationPanel,.playgroundConsole .visitorChatSelected>.runSetup,.playgroundConsole .visitorChatSelected #taskHeaderPrompt{display:none}
+.playgroundConsole .visitorChat:focus-visible{outline-offset:-3px}
+.playgroundConsole #chatMessages{flex:1;min-height:0;margin:8px 0 14px;padding:0;scrollbar-gutter:stable;overflow-y:auto}
+.playgroundConsole #chatMessages li{padding:10px 0;color:var(--ink);line-height:1.5}
+.playgroundConsole #chatMessages strong{font-size:12px;font-weight:650;color:var(--muted)}
+.playgroundConsole #chatMessages time{font-weight:400}
+.playgroundConsole #chatMessages p{margin:4px 0 0;font-size:14px;line-height:1.6;color:var(--ink)}
+.playgroundConsole #chatForm{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;padding-top:12px;border-top:1px solid var(--line)}
+.playgroundConsole .visitorName{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-width:0}
+.playgroundConsole .visitorName label{flex:none;margin:0}
+.playgroundConsole .visitorName input{min-width:0;max-width:240px;height:38px;font-size:14px}
+.playgroundConsole .visitorMessage{min-width:0}
+.playgroundConsole .visitorMessage label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.playgroundConsole #chatText{display:block;width:100%;height:64px;max-height:96px;font-size:14px}
+.playgroundConsole #chatSend{width:auto;min-height:44px;margin:0;padding:10px 14px;background:var(--accent);color:white}
+.playgroundConsole .visitorChat.visitorChatExpanded{width:min(430px,calc(100vw - 24px));height:min(600px,calc(100dvh - 96px));max-height:calc(100dvh - 96px)}
+@media(max-width:740px){
+  .playgroundConsole .watchInteraction>.visitorChat{padding:12px 18px 14px}
+  .playgroundConsole .conversationModes button{padding:8px 6px;font-size:11px}
+  .playgroundConsole .visitorChat input,.playgroundConsole .visitorChat textarea{font-size:16px}
+  .playgroundConsole .visitorChat.visitorChatExpanded{height:min(560px,72dvh)}
+}
