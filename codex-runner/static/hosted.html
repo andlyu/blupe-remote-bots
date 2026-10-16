@@ -35,6 +35,7 @@
     <button type="button" data-conversation-mode="reasoning" aria-pressed="true" aria-controls="liveConversationPanel">Astra decision notes</button>
     <button type="button" data-conversation-mode="conversation" aria-pressed="false" aria-controls="liveConversationPanel">Convo mode</button>
     <button type="button" data-conversation-mode="hide" aria-pressed="false" aria-controls="liveConversationPanel">Hide</button>
+    <button type="button" data-conversation-mode="visitor" aria-pressed="false" aria-controls="visitorChatPanel">Visitor chat</button>
   </div>
     <p class="help" id="videoDelayNotice">Live views, synchronized. <span id="streamHealth" class="streamHealth" role="status">Checking stream</span> <span id="streamHealthDetail" aria-live="off"></span> <span id="streamLatency" hidden title="Approximate age from the relay’s post-read capture timestamp to this browser canvas; assumes synchronized clocks."></span></p>
   </div>
@@ -96,22 +97,22 @@
 </div>
 <button id="openVisitorChat" class="openVisitorChat" type="button" aria-label="Chat with other visitors" aria-controls="visitorChatPanel" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H5l-4 3V11.5a9.5 9.5 0 0 1 19 0Z" transform="translate(1 -1)"/></svg>Chat</button>
   </div>
-<aside id="visitorChatPanel" class="panel visitorChat" aria-label="Visitors chat" hidden>
-  <div class="visitorChatHeading"><h2>Visitors chat</h2><button id="closeVisitorChat" type="button" aria-label="Close visitors chat" aria-controls="visitorChatPanel" aria-expanded="true">Close</button></div>
+  </div>
+  </div>
+  <div class="watchInteraction">
+  <div class="taskChatHeading"><h2><span id="chatPaneTitle">Task chat</span><span id="taskHeaderPrompt"></span></h2></div>
+<aside id="visitorChatPanel" class="panel visitorChat" aria-label="Visitor chat" tabindex="-1" hidden>
+  <div class="visitorChatHeading"><h2>Visitor chat</h2><button id="closeVisitorChat" type="button" aria-label="Close visitors chat" aria-controls="visitorChatPanel" aria-expanded="true">Close</button></div>
   <p class="help">Chat with other people watching. Messages are public.</p>
   <ol id="chatMessages" role="log" aria-live="polite" aria-relevant="additions"><li>No messages yet. Say hello!</li></ol>
   <form id="chatForm" autocomplete="off">
-    <label for="chatName">Your name</label><input id="chatName" maxlength="32" required placeholder="Choose a name">
-    <label for="chatText">Message</label><textarea id="chatText" rows="3" maxlength="1000" required placeholder="Say hello…"></textarea>
+    <div class="visitorName"><label for="chatName">Your name</label><input id="chatName" maxlength="32" required placeholder="Choose a name"></div>
+    <div class="visitorMessage"><label for="chatText">Message</label><textarea id="chatText" rows="2" maxlength="1000" required placeholder="Say hello…"></textarea></div>
     <button id="chatSend" type="submit" disabled>Send</button>
   </form>
   <p id="chatStatus" class="help" role="status">Connecting…</p>
   <p class="help">Recent messages clear when the server restarts.</p>
 </aside>
-  </div>
-  </div>
-  <div class="watchInteraction">
-  <div class="taskChatHeading"><h2>Task chat<span id="taskHeaderPrompt"></span></h2></div>
   <section id="liveConversationPanel" data-mode="reasoning" class="panel liveConversation" aria-label="Current run conversation">
     <div class="statusHeader"><h2 id="conversationModeTitle">Astra decision notes</h2></div>
     <p id="sideRunner" class="help">Runner: —</p>

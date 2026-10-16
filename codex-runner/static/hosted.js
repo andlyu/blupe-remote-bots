@@ -1452,8 +1452,8 @@ function createRunLaunchGuard() {
     button.addEventListener('click', () => {
       const mode = button.dataset.conversationMode;
       const panel = $('liveConversationPanel');
-      panel.dataset.mode = mode;
-      panel.hidden = mode === 'hide';
+      if (mode !== 'visitor') panel.dataset.mode = mode;
+      panel.hidden = mode === 'hide' || mode === 'visitor';
       panel.closest('.watchLayout').classList.toggle('conversationClosed', mode === 'hide');
       $('conversationModeTitle').textContent = mode === 'reasoning' ? liveModelName + ' decision notes' : 'Convo mode';
       $('sideConversationTitle').textContent = mode === 'reasoning' ? 'Response notes' : 'Conversation with ' + liveModelName;
@@ -1462,6 +1462,7 @@ function createRunLaunchGuard() {
       });
       renderConversation(sideConversationEvents, 'sideConversationMessages');
       window.yamAspireLineage?.refresh();
+      document.dispatchEvent(new CustomEvent('yam:conversation-mode', {detail:{mode, source:button}}));
     });
   });
   function renderConversation(events, target = 'conversationMessages') {
@@ -2257,7 +2258,9 @@ function createRunLaunchGuard() {
       timestamp.textContent = sent.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
       timestamp.title = sent.toLocaleString();
       name.append(document.createTextNode(' · '), timestamp);
-      li.append(name, document.createTextNode(item.text)); list.append(li);
+      const body = document.createElement('p');
+      body.textContent = item.text;
+      li.append(name, body); list.append(li);
     }
     while (list.children.length > 100) list.firstElementChild.remove();
     list.scrollTop = bottom ? list.scrollHeight : scrollTop;
@@ -2291,26 +2294,61 @@ function createRunLaunchGuard() {
   const open = document.getElementById('openVisitorChat');
   const close = document.getElementById('closeVisitorChat');
   if (!panel || !open || !close) return;
-  // The footer (including the human chat popup) follows an expanded camera
-  // into its fullscreen/dialog container, outside main in the dialog case.
-  const main = panel.closest('main');
-  function toggle(visible, userAction = true) {
+  const pane = document.querySelector('.watchInteraction');
+  const footer = document.querySelector('.cameraFooter');
+  const title = document.getElementById('chatPaneTitle');
+  const messages = document.getElementById('chatMessages');
+  if (!pane || !footer) return;
+  let previousMode = 'reasoning';
+  let returnFocus = open;
+  const modeButton = mode => document.querySelector(`[data-conversation-mode="${mode}"]`);
+  function placePanel() {
+    const expanded = footer.classList.contains('expandedCameraFooter');
+    (expanded ? footer : pane).append(panel);
+    panel.classList.toggle('visitorChatExpanded', expanded);
+  }
+  function show(visible) {
     panel.hidden = !visible;
-    open.hidden = false;
-    main.classList.toggle('chatClosed', !visible);
+    pane.classList.toggle('visitorChatSelected', visible);
+    title.textContent = visible ? 'Visitor chat' : 'Task chat';
     open.setAttribute('aria-expanded', String(visible));
     close.setAttribute('aria-expanded', String(visible));
-    if (userAction) {
-      (visible ? close : open).focus();
+    if (visible) {
+      placePanel();
+      messages.scrollTop = messages.scrollHeight;
     }
   }
-  // A popup starts closed, including for visitors with an older saved drawer state.
-  toggle(false, false);
-  close.addEventListener('click', () => toggle(false));
-  open.addEventListener('click', () => toggle(panel.hidden));
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !panel.hidden) toggle(false);
+  show(false);
+  document.addEventListener('yam:conversation-mode', event => {
+    const mode = event.detail.mode;
+    if (mode !== 'visitor') previousMode = mode;
+    else returnFocus = event.detail.source || open;
+    show(mode === 'visitor');
   });
+  function dismiss() {
+    modeButton(previousMode).click();
+    returnFocus.focus({preventScroll:true});
+  }
+  close.addEventListener('click', dismiss);
+  open.addEventListener('click', () => {
+    if (!panel.hidden) return dismiss();
+    modeButton('visitor').click();
+    returnFocus = open;
+    if (panel.classList.contains('visitorChatExpanded')) close.focus({preventScroll:true});
+    else {
+      pane.scrollIntoView({block:'nearest'});
+      panel.focus({preventScroll:true});
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !panel.hidden) {
+      event.preventDefault();
+      dismiss();
+    }
+  });
+  // Keep the same live form and draft when entering or leaving camera expansion.
+  new MutationObserver(() => { if (!panel.hidden) placePanel(); })
+    .observe(footer, {attributes:true, attributeFilter:['class']});
 })();
 
 /* ASPIRE LOCAL SNAPSHOT START */
