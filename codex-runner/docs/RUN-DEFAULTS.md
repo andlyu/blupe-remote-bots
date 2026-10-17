@@ -2,6 +2,14 @@
 
 The shared playground and hosted deployment use these defaults:
 
+- **Astra on public entry.** Share `/?model=argon` to preselect Gemini 4 Argon,
+  or `/?model=astra` for Astra. The full model IDs `gemini-4-argon` and
+  `gpt-6-astra` also work. These query parameters compose with `robot_id`.
+  Selection happens after available providers load, and visitors can change it
+  normally. Unknown or unavailable choices fall back to available Astra on the
+  public playground; links do not enable providers, bypass allowances, or start
+  runs. Local launchers keep their configured default unless a supported model
+  is requested explicitly; fixed Jetson station configurations remain fixed.
 - **With Haste** system prompt, selected in code by
   `src/remote_yam/robocurve_prompts.py`. Original RoboCurve is preserved there
   as `original-robocurve`; no prompt selector is added to the UI.

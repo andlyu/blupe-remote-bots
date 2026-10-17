@@ -1,3 +1,22 @@
+// Share links select an available model after the session has built its providers.
+// They never start a run or change which providers the server permits.
+function playgroundEntryModel(search, options, session = {}) {
+  if (session.station_local) return null;
+  const requested = (new URLSearchParams(search).get('model') || '').trim().toLowerCase();
+  const aliases = {astra:'astra', 'gpt-6-astra':'astra', argon:'argon', 'gemini-4-argon':'argon'};
+  const name = Object.hasOwn(aliases, requested) ? aliases[requested] : (session.local_runner ? null : 'astra');
+  if (!name) return null;
+  const available = new Set(Array.from(options).filter(option => !option.hidden && !option.disabled).map(option => option.value));
+  const select = (model, providers) => {
+    const provider = providers.find(value => available.has(value) &&
+      (!session.configured_providers?.[value]?.model || session.configured_providers[value].model === model));
+    return provider ? {provider, model} : null;
+  };
+  const astra = () => select('gpt-6-astra', ['guest_astra', 'codex', 'openai']);
+  return (name === 'argon' ? select('gemini-4-argon', ['guest_gemini', 'gemini']) : astra())
+    || (session.local_runner ? null : astra());
+}
+
 function createRunVideoEmailControl($) {
   const button = $('emailRunVideo'), email = $('email'), status = $('emailRunVideoStatus');
   const enabled = () => button.checked;
@@ -2219,7 +2238,14 @@ function createRunLaunchGuard() {
         $('provider').append(grootOption);
       }
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
-      if (!session.local_runner && !session.joint_policy) providerChanged(false);
+      const entryModel = playgroundEntryModel(location.search, $('provider').options, session);
+      if (entryModel) $('provider').value = entryModel.provider;
+      if (entryModel || (!session.local_runner && !session.joint_policy)) providerChanged(false);
+      if (entryModel) {
+        if ($('model').value !== entryModel.model) window.yamModelPicker?.selectModel?.(entryModel.model);
+        applyModelName(lastLive);
+        document.dispatchEvent(new Event('blupe-model-changed'));
+      }
       buttons(); if (!new URLSearchParams(location.search).has('purchase') && !$('message').textContent.startsWith('Payment')) message('');
       camerasDisconnected = robotCatalog?.robots.find(robot => robot.id === selectedRobot)?.connected === false;
       modelCameraNames = new Set(session.model_cameras || []);
