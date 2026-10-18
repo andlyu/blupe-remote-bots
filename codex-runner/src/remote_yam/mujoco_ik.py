@@ -131,7 +131,8 @@ class BimanualRelativeIK:
     """Build a +20 cm world-Z path from the observed pose, then exactly reverse it."""
 
     def __init__(self, scene_path: Path | str | None = None, *, base_spacing_m: float | None = None,
-                 joint_offsets_rad: Sequence[float] | None = None) -> None:
+                 joint_offsets_rad: Sequence[float] | None = None,
+                 joint_limits: dict | None = None) -> None:
         self.scene_path = Path(scene_path) if scene_path else default_scene_path()
         robot_path = self.scene_path.with_name("yam_bimanual.xml")
         if _sha256(self.scene_path) != SCENE_SHA256 or _sha256(robot_path) != ROBOT_SHA256:
@@ -178,6 +179,26 @@ class BimanualRelativeIK:
             raise RuntimeError("Canonical YAM XML joint limits do not match the runner contract")
         self.low = model_bounds[:, 0].copy()
         self.high = model_bounds[:, 1].copy()
+        if joint_limits is not None:self.constrain_joint_limits(joint_limits)
+
+    def constrain_joint_limits(self, limits: dict) -> None:
+        """Intersect station safety ranges with existing planning constraints."""
+        if not isinstance(limits, dict):
+            raise ValueError('YAM joint limits must contain lower and upper bounds')
+        vectors = [limits.get(key) for key in ('lower_rad', 'upper_rad')]
+        for raw in vectors:
+            values = np.asarray(raw)
+            if (values.shape != (12,) or values.dtype.kind not in 'fi'
+                    or not np.isfinite(values).all()
+                    or any(isinstance(v, (bool, np.bool_)) for v in raw)):
+                raise ValueError('YAM joint limits require twelve finite lower and upper bounds')
+        # Never expand the canonical envelope or change FK/encoder coordinates.
+        lower = np.maximum(self.low, vectors[0])
+        upper = np.minimum(self.high, vectors[1])
+        if np.any(lower >= upper):
+            raise ValueError('YAM station joint limits have an empty planning range')
+        self.low, self.high = lower, upper
+
 
     @staticmethod
     def _six(values: Sequence[float], label: str) -> np.ndarray:

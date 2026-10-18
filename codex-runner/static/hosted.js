@@ -743,6 +743,14 @@ function createRunLaunchGuard() {
   }
   function providerChanged(preview = true) {
     window.yamModelPicker?.saveSelection();
+    const fixedTask = configuredProviders[$('provider').value]?.task;
+    const taskState = $('prompt').dataset;
+    if (fixedTask && taskState.configuredPreviousPrompt === undefined) {
+      taskState.configuredPreviousPrompt = $('prompt').value;
+    } else if (!fixedTask && taskState.configuredPreviousPrompt !== undefined) {
+      $('prompt').value = taskState.configuredPreviousPrompt;
+      delete taskState.configuredPreviousPrompt;
+    }
     if ($('provider').value !== 'local_raise_lower' && $('prompt').value === 'Raise and lower both arms.') {
       $('prompt').value = $('prompt').dataset?.defaultPrompt || '';
     }
@@ -792,7 +800,8 @@ function createRunLaunchGuard() {
     if (configured) {
       $('providerFields').hidden = true; $('apiKey').required = false;
       $('apiKey').value = ''; $('model').value = configured.model;
-      $('prompt').readOnly = false;
+      if (configured.task) $('prompt').value = configured.task;
+      $('prompt').readOnly = !!configured.task;
       $('codexSetup').hidden = true; $('claudeSetup').hidden = true;
       $('forget').hidden = true; $('responseSpeed').value = 'standard';
       $('policyHelp').textContent = configured.help || '';

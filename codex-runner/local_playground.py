@@ -1,5 +1,7 @@
 """The shared playground UI and queue backend, served on localhost with Codex."""
 import asyncio
+import os
+import threading
 from urllib import request, error
 from urllib.parse import urlsplit, parse_qs
 
@@ -16,6 +18,16 @@ class LocalPlayground(HostedRunner):
         from remote_yam.aspire_recovery_flow import RecoveryManager
         self.recovery_manager=RecoveryManager(self)
         super().__init__(**kwargs)
+        from remote_yam.managed_command_policy import load_policies, ManagedCommandPolicy
+        self.managed_policies = load_policies(os.environ.get('YAM_LOCAL_POLICY_CONFIG'), self.robot_id)
+        self._managed_owner = None
+        self._managed_launch_lock = threading.RLock()
+        for name, spec in self.managed_policies.items():
+            def factory(model, directory, name=name, spec=spec):
+                if model != spec['model']:
+                    raise RequestError(400, 'Unknown configured policy version')
+                return ManagedCommandPolicy(name, spec, directory)
+            self.extra_providers[name] = factory
         # Only the public-queue launchers join BluPe's public visitor room.
         # Simulations and custom robot backends keep their own chat scope.
         self.visitor_chat_origin = visitor_chat_origin or (
@@ -29,7 +41,15 @@ class LocalPlayground(HostedRunner):
         self.recovery_manager.tick()
 
     def launch(self,visitor,payload,**kwargs):
-        with self.recovery_manager.lock:
+        with self._managed_launch_lock, self.recovery_manager.lock:
+            if self._managed_owner is not None and self._managed_owner.controller.busy():
+                raise RequestError(409, 'A configured policy is active. Wait for its completion or Stop acknowledgement.')
+            managed = payload.get('provider') in self.managed_policies
+            for other in self.visitors.values():
+                active = other.controller.busy()
+                other_managed = callable(getattr(other.controller._provider, 'run_managed', None))
+                if active and (managed or other_managed):
+                    raise RequestError(409, 'A robot run is active. Wait for its completion or Stop acknowledgement.')
             from remote_yam.aspire_recovery_flow import retry_limit
             import json
             try:limit=retry_limit(payload.get('automatic_retry_limit',1))
@@ -43,7 +63,9 @@ class LocalPlayground(HostedRunner):
                     (policy.directory/'recovery-settings.json').write_text(json.dumps(dict(retry_limit=limit))+'\n')
                 return transform(policy) if transform else policy
             kwargs['provider_transform']=record_setting
-            return super().launch(visitor,payload,**kwargs)
+            result=super().launch(visitor,payload,**kwargs)
+            if managed:self._managed_owner=visitor
+            return result
 
     def control(self,visitor,path):
         with self.recovery_manager.lock:
@@ -157,6 +179,10 @@ class LocalPlayground(HostedRunner):
 
     async def session_extension(self, cookies, visitor):
         setup, headers = await super().session_extension(cookies, visitor)
+        if self.managed_policies:
+            setup = dict(setup, configured_providers={**setup.get('configured_providers', {}),
+                **{name: {key: spec[key] for key in ('label','model','help','task') if key in spec}
+                   for name, spec in self.managed_policies.items()}})
         config = getattr(self, 'aspire_station_config', None)
         if config:
             from remote_yam.runpod_sam3 import selected_backend

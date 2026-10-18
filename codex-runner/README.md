@@ -428,3 +428,12 @@ Camera roles follow the compositor tile order. Paths must be one safe path segme
 WebRTC and HLS fallback use the same selected stream; robots without a configured
 stream use JPEG snapshots. Local runners proxy configured media paths through the
 public Playground. Model camera capture remains independent of viewing transport.
+
+
+## Deterministic environment resets
+
+For the importable recorded box replay, measured cube pick/place and combined
+reset implementation, selector setup and Run/status/Stop clients, see
+[Environment resets](docs/resets.md). Station recordings, calibration, goals and
+credentials remain deployment configuration. Availability is advertised by the
+configured runner; no public `/v1/reset` endpoint is implied.
