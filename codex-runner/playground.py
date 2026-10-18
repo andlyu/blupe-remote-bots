@@ -639,7 +639,7 @@ class HostedRunner:
                     state['whats_running'].append({'runner_name': other.runner_name,
                         'task': other.runner_task, 'status': current['status']})
                 if (other.runner_session_id or (other.runner_task and
-                        (current.get('provider') or {}).get('task_progress'))) and current.get('status') != 'queued':
+                        ((current.get('provider') or {}).get('task_progress') or (current.get('provider') or {}).get('managed_execution')))) and current.get('status') != 'queued':
                     candidates.append((running, other.last_launch, other, current))
             state['public_run'] = None
             if candidates:

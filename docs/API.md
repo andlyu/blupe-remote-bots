@@ -251,3 +251,12 @@ Limits: 64 messages, 8,000 characters per message, 64,000 total characters, and
 an 80-character model label. Roles: `user`, `assistant`, `tool`, `system`, or
 `developer`. Send `{"public_conversation":null}` to withdraw the shared snapshot.
 Custom API clients opt in explicitly; omitting this field does not publish text.
+
+
+## Deterministic environment resets
+
+For the importable recorded box replay, measured cube pick/place and combined
+reset implementation, selector setup and Run/status/Stop clients, see
+[Environment resets](../codex-runner/docs/resets.md). Station recordings, calibration, goals and
+credentials remain deployment configuration. Availability is advertised by the
+configured runner; no public `/v1/reset` endpoint is implied.

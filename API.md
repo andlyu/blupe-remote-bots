@@ -311,3 +311,12 @@ PY
 This creates no session and sends no robot commands. For the full policy loop,
 see [RunnerController](src/remote_yam/controller.py); it coordinates session
 state, feedback, retries, model calls, and stop handling.
+
+
+## Deterministic environment resets
+
+For the importable recorded box replay, measured cube pick/place and combined
+reset implementation, selector setup and Run/status/Stop clients, see
+[Environment resets](codex-runner/docs/resets.md). Station recordings, calibration, goals and
+credentials remain deployment configuration. Availability is advertised by the
+configured runner; no public `/v1/reset` endpoint is implied.

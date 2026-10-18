@@ -253,6 +253,8 @@ class RunnerController(HomeSceneStartup):
     def _start_worker(self, provider, prompt, max_steps, run_duration_s=300):
         if max_steps is not None and not 1 <= max_steps <= MAX_COMMANDS:
             raise ValueError(f"max_steps must be between 1 and {MAX_COMMANDS}")
+        if callable(getattr(provider,'run_managed',None)):
+            return self._start_managed_worker(provider,prompt,max_steps,run_duration_s)
         before_session=getattr(provider,'prepare_before_session',None)
         if callable(before_session):
             if not prompt.strip():raise ValueError('Prompt is required')
@@ -320,6 +322,80 @@ class RunnerController(HomeSceneStartup):
                     self._status='stopped'
                 self._close_events()
 
+    def _start_managed_worker(self,provider,prompt,max_steps,run_duration_s):
+        if not prompt.strip():raise ValueError('Prompt is required')
+        if not self._hardware_control_enabled:raise RuntimeError('Hardware control is disabled')
+        with self._lock:
+            self._close_events()
+            reset_contact = getattr(self._session_api, 'reset_contact_issues', None)
+            if callable(reset_contact):
+                reset_contact()
+            self._stop_event.clear()
+            self._provider=provider;self._prompt=prompt
+            self._steering_inbox=None
+            self._attempt_id=uuid.uuid4().hex
+            self._session_id=None;self._episode_id=None;self._lease_id=None
+            self._run_started_at=None;self._run_ended_at=None
+            self._run_duration_s=run_duration_s
+            self._error=None;self._status='preparing'
+            self._event_contact_issue=None
+            self._safety_error=None;self._execution_blocked_reason=None
+            self._episode=None;self._last_event_type=None;self._heartbeat_seen=False
+            self._run_events=[];self._submitted_step_ids=[];self._step_timings=[]
+            self._trajectory=None;self._last_completed_trajectory_result=None
+            self._return_to_rest_requested=False;self._operator_requested=False
+            self._analytics_run=None;self._run_configuration=None
+            self._run_metrics=dict(model_s=0.0, execution_s=0.0, left_path_m=0.0, right_path_m=0.0, model_calls=0, execution_packets=0, accepted_packets=0, distance_waypoints=0, confirmed_waypoints=0, first_motion_s=None)
+            self._command_step_id=0;self._packets_submitted=0
+            self._last_model_command=None;self._last_observation=None
+            self._feedback_checks=[];self._queue_position=None
+            self._interactions=InteractionLog(provider.public_config().get('recording_path'))
+            journal=self._interactions
+            prior_sink=getattr(provider,'interaction_sink',None)
+            def preparation_event(kind,message,**details):
+                journal.add(kind,message,**details)
+                if callable(prior_sink):prior_sink(kind,message,**details)
+            provider.interaction_sink=preparation_event
+            provider.cancelled=lambda:self._provider_cancelled(provider)
+            self._worker=threading.Thread(target=self._run_managed,
+                args=(provider,prompt,max_steps,run_duration_s),
+                name='public-yam-preparation',daemon=True)
+            self._worker.start()
+        return self.status()
+
+
+    def _run_managed(self, provider, prompt, max_steps, run_duration_s):
+        """Keep local orchestrators in this controller's existing lifecycle.
+
+        They own native execution themselves; creating a gateway session here
+        would add a competing owner and its automatic Home path.
+        """
+        try:
+            with self._lock:
+                if self._stop_event.is_set():
+                    self._status='stopped'
+                    return
+                self._status='running'
+                self._run_started_at=time.time()
+                self._run_configuration=run_configuration(provider,prompt,run_duration_s)
+            result=provider.run_managed(prompt)
+            with self._lock:
+                if self._provider is provider:
+                    self._status='stopped'
+                    self._interactions.add('policy_complete' if result.get('goals_reached') else 'stopped',
+                        'Policy completed' if result.get('goals_reached') else 'Policy cancelled', result=result)
+        except Exception as exc:
+            with self._lock:
+                if self._provider is provider:
+                    self._status='failed'
+                    self._error=type(exc).__name__+': '+str(exc)
+                    self._interactions.add('error',self._error)
+        finally:
+            with self._lock:
+                self._run_ended_at=time.time()
+                self._stop_event.set()
+
+
     def process_next_event(self, timeout_s: float | None = 0.5) -> dict[str, Any]:
         with self._lock:
             events = self._events
@@ -330,6 +406,16 @@ class RunnerController(HomeSceneStartup):
         return event
 
     def stop(self, reason: str = "user_requested") -> dict[str, Any]:
+        with self._lock:
+            managed = self._provider if callable(getattr(self._provider, 'run_managed', None)) else None
+            if managed is not None:
+                self._last_stop_reason=reason
+                self._stop_event.set()
+        if managed is not None:
+            managed.request_stop()
+            # The worker stays active until cancellation/hold is acknowledged
+            # by process exit. A repeated Run cannot overlap that wait.
+            return self.status()
         with self._lock:
             self._last_stop_reason = reason
             self._stop_event.set()
@@ -356,6 +442,8 @@ class RunnerController(HomeSceneStartup):
         return self.status()
 
     def disconnect(self, reason: str = "runner_disconnected") -> dict[str, Any]:
+        if callable(getattr(self._provider, 'run_managed', None)):
+            return self.stop(reason)
         self._interactions.add('disconnect', 'Runner disconnect requested', reason=reason)
         with self._lock:
             self._stop_event.set()
@@ -376,6 +464,8 @@ class RunnerController(HomeSceneStartup):
         return self.status()
 
     def call_operator(self, reason: str = "user_requested") -> dict[str, Any]:
+        if callable(getattr(self._provider, 'run_managed', None)):
+            return self.stop(reason)
         with self._lock:
             if self._operator_requested:
                 return self.status()

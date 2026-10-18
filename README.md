@@ -191,3 +191,12 @@ the task plus the newest messages within its 64-message / 64,000-character
 limit (8,000 per message). The runner's status includes `conversation_sharing`
 with `shared`, `pending` or `retrying` state. Sharing is live text, not a transfer
 of the private local recording archive; retained API data expires as usual.
+
+
+## Deterministic environment resets
+
+For the importable recorded box replay, measured cube pick/place and combined
+reset implementation, selector setup and Run/status/Stop clients, see
+[Environment resets](codex-runner/docs/resets.md). Station recordings, calibration, goals and
+credentials remain deployment configuration. Availability is advertised by the
+configured runner; no public `/v1/reset` endpoint is implied.
