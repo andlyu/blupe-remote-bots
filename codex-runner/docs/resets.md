@@ -244,3 +244,20 @@ The size-aware and pickup-feedback CLI accepts `--feedback-extra-open-gap-mm`
 requests80mm pregrasp opening. Close/carry (`--feedback-close-gap-mm`, default20)
 and release40mm remain independent. Warm-started reference plans receive the
 selected opening too; this option does not change native gripper travel/guards.
+# Recorded box Replay in a queue session
+
+For the combined Reset bin, configure `sequence` as
+`["recorded_box_replay", "camera_clear_home", "cube_reset"]` and bind the existing
+station `recipe` (saved source/edit/calibration, generated Home disabled). The
+session adapter executes the installed primary Replay engine through the same
+native lease executor, waits for its matching complete/Hold receipt, performs
+exactly the existing single camera-clear Home, then starts fresh tabletop sensing.
+There is no manual Replay reservation, queue pause, intermediate Park, torque
+cycle, reinitialization or second Home. Legacy cube-only configurations retain
+their existing behavior.
+
+All three stages keep the same session/episode/lease. Normal Stop cancels Replay
+or cube motion and prevents the next stage. Failed, cancelled or uncertain Replay
+never advances or resends execution. Sequence receipts and stage status are saved
+under the run's `sequence/` directory. No physical trial is implied by installing
+this configuration; the operator launches it from the website.

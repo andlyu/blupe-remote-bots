@@ -174,3 +174,56 @@ def test_cube_runner_accepts_injected_session_io_in_worker_thread(tmp_path):
     thread=threading.Thread(target=lambda:results.append(run_cube_reset(config,tmp_path/'run',cube_main=cube,shared_io=io)))
     thread.start();thread.join(3)
     assert not thread.is_alive() and results[0]['goals_reached']
+
+
+@pytest.mark.parametrize('outcome', ['complete','failed','cancelled','uncertain','stop_at_handoff','home_failed'])
+def test_recorded_sequence_orders_replay_home_cube_and_stop_wins(tmp_path,outcome):
+    from remote_yam.resets.session_policy import RESET_SEQUENCE
+    config=tmp_path/'station.json'
+    recipe=dict(schema='abc-replay-edit-v1',episode='physical-123',return_home=False,
+                source_sha256='source',calibration_id='native',start_s=20,end_s=90,speed=2)
+    config.write_text(json.dumps(dict(resources={},io_routes={},transport=dict(ssh='inert'),recipe=recipe)))
+    calls=[]; stopped=threading.Event()
+    class SequenceIO(SessionResetIO):
+        def sequence_motion(self,kind,**kwargs):
+            self.check_cancelled(); calls.append(kind)
+            if kind=='recorded_replay':
+                if outcome=='uncertain':raise TimeoutError('uncertain, never retry')
+                if outcome=='cancelled':raise KeyboardInterrupt('Stop')
+                if outcome=='stop_at_handoff':stopped.set()
+                replay=dict(request_id=kwargs['request_id'],phase='failed' if outcome=='failed' else 'complete',
+                    running=False,total=10,completed=10,finish_action='held',motor_owner='primary_controller')
+                return dict(state='holding',replay_result=replay)
+            return dict(state='holding',reached_target=outcome!='home_failed')
+    class C(Camera):
+        def __init__(self,*args,**kwargs):
+            super().__init__();self.current['cube_reset_session']['recorded_replay_supported']=True
+    def cube(config,output,**kwargs):
+        kwargs['shared_io'].check_cancelled();calls.append('cube_reset');output.mkdir()
+        return dict(state='complete',goals_reached=True)
+    policy=CubeSessionPolicy('reset_bin',dict(model='sequence',label='Reset bin',task='Reset bin',
+        session_config=str(config),sequence=RESET_SEQUENCE,execution_policy='controller-faults'),
+        tmp_path,io_factory=C,cube_runner=cube)
+    api=API()
+    from unittest.mock import patch
+    with patch('remote_yam.resets.session_policy.SessionResetIO',SequenceIO):
+        if outcome in ('failed','uncertain','home_failed'):
+            with pytest.raises(Exception):policy.run_session('Reset bin',{},api,CONTEXT,stopped.is_set)
+        else:
+            policy.run_session('Reset bin',{},api,CONTEXT,stopped.is_set)
+    assert calls==(['recorded_replay','camera_clear_home','cube_reset'] if outcome=='complete' else
+                   ['recorded_replay','camera_clear_home'] if outcome=='home_failed' else ['recorded_replay'])
+    if outcome!='complete': assert any(c[0]=='STOP' for c in api.calls)
+    if outcome in ('cancelled','stop_at_handoff'):assert policy._phase=='cancelled'
+    if outcome=='complete':assert policy._result['replay_requested'] and policy._result['sequence']==RESET_SEQUENCE
+
+
+def test_sequence_execute_ack_loss_is_never_reposted():
+    io=bridge();original=io.api._request
+    def lost(method,path,body=None,**kwargs):
+        value=original(method,path,body,**kwargs)
+        if method=='POST' and body['operation']=='execute':raise TimeoutError('ack lost')
+        return value
+    io.api._request=lost
+    with pytest.raises(TimeoutError):io.sequence_motion('recorded_replay',recipe={},request_id='a'*32)
+    assert io.api.plans==1
