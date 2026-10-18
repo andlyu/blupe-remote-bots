@@ -438,6 +438,19 @@ class HostedRunner:
             await self.json(send, 200, {"selected": self.robot_id, "robots": [
                 {**{k: robot[k] for k in ("id", "name", "url")}, "hardware": robot.get("hardware", ""), "connected": self.robot_connected(robot["id"])} for robot in self.robots]})
             return
+        if method == "GET" and path.startswith("/static/super-resolution/"):
+            name = path.removeprefix("/static/super-resolution/")
+            kinds = {"viewer.js":"text/javascript", "worker.js":"text/javascript",
+                "viewer.css":"text/css", "ort.webgpu.min.js":"text/javascript",
+                "ort-wasm-simd-threaded.asyncify.mjs":"text/javascript",
+                "ort-wasm-simd-threaded.asyncify.wasm":"application/wasm",
+                "fsrcnn-x2.onnx":"application/octet-stream", "fsrcnn-x2-fp16.onnx":"application/octet-stream",
+                "FSRCNN-LICENSE":"text/plain", "ORT-LICENSE":"text/plain"}
+            if name not in kinds:
+                raise RequestError(404, "Not found")
+            asset = ROOT / "static/super-resolution" / name
+            await self.respond(send, 200, asset.read_bytes(), kinds[name])
+            return
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
@@ -1059,7 +1072,7 @@ class HostedRunner:
         headers = [(b"content-type", content_type.encode()), (b"content-length", str(size).encode()),
                    (b"cache-control", b"no-store"), (b"x-content-type-options", b"nosniff"),
                    (b"referrer-policy", b"no-referrer"),
-                   (b"content-security-policy", b"default-src 'none'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; font-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com; media-src https://huggingface.co https://*.huggingface.co https://*.hf.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")]
+                   (b"content-security-policy", b"default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://www.googletagmanager.com; worker-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com; media-src https://huggingface.co https://*.huggingface.co https://*.hf.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")]
         if self.secure:
             headers.append((b"strict-transport-security", b"max-age=31536000"))
         await send({"type": "http.response.start", "status": status, "headers": headers + list(extra)})

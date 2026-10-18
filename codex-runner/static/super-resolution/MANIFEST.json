@@ -1,0 +1,18 @@
+{
+  "model": "FSRCNN_x2",
+  "source": "https://github.com/Saafke/FSRCNN_Tensorflow/blob/master/models/FSRCNN_x2.pb",
+  "runtime": "onnxruntime-web@1.23.2",
+  "source_sha256": "366b33f0084c7b3f2bf6724f0a2c77bca94fcec9d7b6d72389d330073b380d5c",
+  "files": {
+    "ort-wasm-simd-threaded.asyncify.mjs": "249b4dc791f081d33bd11760bfd669fe85f97289e679bbeb291b874272125dff",
+    "fsrcnn-x2.onnx": "5b1502120597ad15b41a2dae16a2e099c8c9d5c29b822fcdbe844f6c32ac4a81",
+    "worker.js": "adb638aab8d54b3f51843a0a2a42dc8fffe368071ab39987f6033f89a8eb0c37",
+    "ort.webgpu.min.js": "c94f5bb9c17bd37168e9b4220facb2b6fc1dd125a5e91b7a680171840a27f254",
+    "viewer.js": "be3a885ba92f525277257282adbc04e6d25c8c5ba4fcdeace13dd1c549a9af70",
+    "FSRCNN-LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "fsrcnn-x2-fp16.onnx": "c57b38f3f9e9f754a4431e3065fe64e5cd7a8f6af23f370222fc0f099e0c07e1",
+    "viewer.css": "180f5de434f253cf12018bc755504349a36d5300e52b903eaa503630156ad59b",
+    "ORT-LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    "ort-wasm-simd-threaded.asyncify.wasm": "babec0bbddb6d3082623b99b7e1391b75e0729bcca076ff8424d7753af97fada"
+  }
+}
