@@ -20,8 +20,17 @@ def home_program(tmp_path):
     state=dict(joints=[.2]*12,home_target=[.4]*12,left_gripper=.2,right_gripper=.3)
     p.state=Mock(return_value=state);p.initialize=Mock();p.event=Mock();p.motion=Mock()
     p.run_qualified_scene=Mock(return_value={'blue':dict(state='already_correct')})
-    p.io=SimpleNamespace(call=Mock(side_effect=[dict(owner_token='owner'),{}]),
-                         emergency_hold=Mock(return_value=dict(state='held')))
+    def call(op,payload=None):
+        if op=='reserve':return dict(owner_token='owner')
+        if op=='state':return dict(mode='LOCAL_POSE_RESERVED',launched=True,feedback_available=True,
+            command_source='operator/replay',policy_phase='local_pose_reserved',event='Replay complete; arms holding',
+            replay=dict(request_id='synthetic-replay',phase='complete',running=False,error=None,controller_fault=None,
+                        finish_action='held',motor_owner='primary_controller',completed=2,total=2),
+            safety=dict(controller_ok=True,drives_enabled=True),auto_queue=dict(enabled=False,running=False),
+            api=dict(authorized=False,session_id=None))
+        if op=='pose_status':return dict(active=False,sequence_reserved=True,cancelled=False)
+        return {}
+    p.io=SimpleNamespace(call=Mock(side_effect=call),emergency_hold=Mock(return_value=dict(state='held')))
     return p,state
 
 
@@ -46,7 +55,7 @@ def test_home_completes_before_first_scene_and_reset_uses_same_io(tmp_path):
     p.run_qualified_scene.side_effect=lambda scene:order.append('reset') or {'blue':dict(state='already_correct')}
     assert p.run(io=io)==0
     assert order==['home','fresh scene','reset']
-    assert p.io is io and [c.args[0] for c in io.call.call_args_list]==['reserve','release']
+    assert p.io is io and [c.args[0] for c in io.call.call_args_list]==['reserve','state','pose_status','release']
 
 
 @pytest.mark.parametrize('error,code',[(TimeoutError('uncertain Home'),2),(KeyboardInterrupt('Stop'),130)])
@@ -107,3 +116,17 @@ def test_staging_feedback_route_does_not_load_unrelated_nominal_reference(tmp_pa
     p.run_pickup_feedback=Mock(side_effect=execute)
     assert p.run_qualified_scene(scene)['blue']['state']=='already_correct'
     p.staged_feedback_references.assert_called_once_with(scene,['blue'])
+
+
+@pytest.mark.parametrize('fault',['stop_before_reserve','stop_after_reserve','cancel_after_reserve'])
+def test_stop_at_reservation_transition_never_becomes_home(tmp_path,fault):
+    p,_=home_program(tmp_path);original=p.io.call.side_effect
+    def stopped(op,payload=None):
+        result=original(op,payload)
+        if op=='state' and fault=='stop_before_reserve':result.update(command_source='local_pose_operator_hold',event='Held by operator')
+        if op=='pose_status' and fault=='stop_after_reserve':result['sequence_reserved']=False
+        if op=='pose_status' and fault=='cancel_after_reserve':result['cancelled']=True
+        return result
+    p.io.call.side_effect=stopped;p.scene=Mock()
+    assert p.run(io=p.io)==2
+    p.motion.assert_not_called();p.scene.assert_not_called();p.run_qualified_scene.assert_not_called()

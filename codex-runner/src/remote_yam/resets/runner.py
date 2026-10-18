@@ -16,7 +16,7 @@ from .yam_cube_reset_io import RobotIO
 from .yam_tabletop_reset import TabletopResetSequence,sequence_worker
 
 
-def run_reset(config,output,*,request_id=None,cancelled=lambda:False,io_factory=RobotIO,cube_program=None):
+def run_reset(config,output,*,request_id=None,cancelled=lambda:False,io_factory=RobotIO,cube_program=None,continue_after_replay=None):
     """Run once through the existing controller; return and save its outcome.
 
     config supplies resources, transport, immutable replay recipe and cube inputs.
@@ -26,6 +26,8 @@ def run_reset(config,output,*,request_id=None,cancelled=lambda:False,io_factory=
     from .cube_cli import main as cube_main
     config=json.loads(Path(config).read_text()) if isinstance(config,(str,Path)) else config
     output=Path(output);output.mkdir(parents=True,exist_ok=False)
+    if request_id is None and continue_after_replay is not None:
+        request_id=json.loads((Path(continue_after_replay)/'replay-result.json').read_text())['request_id']
     request_id=request_id or uuid.uuid4().hex
     resources=dict(config['resources'],replay=config['replay'],io_routes=config['io_routes'],
                    cube_args=config['cube_args'],replay_recipe=config['recipe'])
@@ -33,7 +35,8 @@ def run_reset(config,output,*,request_id=None,cancelled=lambda:False,io_factory=
     transport=config['transport']
     args=SimpleNamespace(output=output,request_id=request_id,recipe=recipe_path,
         runtime_root=Path(config.get('runtime_root','.')),cube_command=Path(__file__),
-        ssh=transport['ssh'],identity=transport.get('identity'),replay_timeout=config.get('replay_timeout',240.))
+        ssh=transport['ssh'],identity=transport.get('identity'),replay_timeout=config.get('replay_timeout',240.),
+        continue_after_replay=continue_after_replay)
     io=None;sequence=None;lock=None
     def check_cancel():
         if cancelled():raise KeyboardInterrupt('Operator cancelled combined reset')
@@ -75,6 +78,7 @@ def main(argv=None):
     parser.add_argument('--config',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--request-id')
+    parser.add_argument('--continue-after-replay',type=Path,help='Reuse a confirmed completed replay receipt directory; never dispatch Replay again, require its current native completion identity')
     parser.add_argument('--cancel-file',type=Path)
     parser.add_argument('--ssh',help='Explicit transport override; no default credential/address')
     parser.add_argument('--identity',help='Explicit private identity-file override')
@@ -85,7 +89,7 @@ def main(argv=None):
     config=json.loads(args.config.read_text())
     if args.ssh is not None:config['transport']['ssh']=args.ssh
     if args.identity is not None:config['transport']['identity']=args.identity
-    result=run_reset(config,args.output,request_id=args.request_id,
+    result=run_reset(config,args.output,request_id=args.request_id,continue_after_replay=args.continue_after_replay,
                      cancelled=lambda:stopped.is_set() or bool(args.cancel_file and args.cancel_file.exists()))
     print(json.dumps(result),flush=True)
     return 0 if result.get('goals_reached') is True else 130 if result['state']=='cancelled' else 2

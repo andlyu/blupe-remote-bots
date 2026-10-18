@@ -8,18 +8,24 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
 class RunnerPolicyClient:
-    def __init__(self, origin='http://127.0.0.1:8787', robot_id='yam-1', *, timeout=30):
+    def __init__(self, origin='http://127.0.0.1:8787', robot_id='yam-1', *, timeout=30, transport_origin=None):
         parsed=urlsplit(origin)
         if (parsed.scheme not in ('http','https') or not parsed.hostname or parsed.username or parsed.password
                 or parsed.path not in ('','/') or parsed.query or parsed.fragment
                 or parsed.scheme=='http' and parsed.hostname not in ('127.0.0.1','localhost','::1')):
             raise ValueError('Use a trusted HTTPS runner origin or a loopback HTTP runner/tunnel')
         self.origin=origin.rstrip('/');self.robot_id=robot_id;self.timeout=timeout
+        self.transport_origin=(transport_origin or self.origin).rstrip('/')
+        transport=urlsplit(self.transport_origin)
+        if (transport.scheme not in ('http','https') or not transport.hostname or transport.username or transport.password
+                or transport.path not in ('','/') or transport.query or transport.fragment
+                or transport.scheme=='http' and transport.hostname not in ('127.0.0.1','localhost','::1')):
+            raise ValueError('Use a trusted HTTPS or loopback transport')
         self.jar=CookieJar();self.opener=build_opener(HTTPCookieProcessor(self.jar))
         self.csrf='';self.cookie='';self.attempt_id=None;self.metadata=None
 
     def _request(self,path,payload=None):
-        headers={'Origin':self.origin,'X-Blupe-Robot':self.robot_id}
+        headers={'Origin':self.origin,'Host':urlsplit(self.origin).netloc,'X-Blupe-Robot':self.robot_id}
         if self.cookie:headers['Cookie']=self.cookie
         data=None
         if payload is not None:
@@ -27,7 +33,7 @@ class RunnerPolicyClient:
             data=json.dumps(payload).encode()
         # Writes are deliberately attempted once. An uncertain start must be
         # reconciled with status through this same visitor, never auto-retried.
-        with self.opener.open(Request(self.origin+path,data=data,headers=headers),timeout=self.timeout) as response:
+        with self.opener.open(Request(self.transport_origin+path,data=data,headers=headers),timeout=self.timeout) as response:
             return json.load(response)
 
     def connect(self):
@@ -61,7 +67,7 @@ class RunnerPolicyClient:
 
     def save(self,path):
         """Persist the visitor capability for later status/Stop, private mode0600."""
-        data=dict(schema='blupe-runner-policy-client-v1',origin=self.origin,robot_id=self.robot_id,
+        data=dict(schema='blupe-runner-policy-client-v1',origin=self.origin,transport_origin=self.transport_origin,robot_id=self.robot_id,
                   cookie=self.cookie,csrf=self.csrf,attempt_id=self.attempt_id)
         flags=os.O_WRONLY|os.O_CREAT|os.O_TRUNC|getattr(os,'O_NOFOLLOW',0)
         fd=os.open(Path(path),flags,0o600)
@@ -74,6 +80,6 @@ class RunnerPolicyClient:
     def load(cls,path):
         data=json.loads(Path(path).read_text())
         if data.get('schema')!='blupe-runner-policy-client-v1':raise ValueError('Unknown runner session file')
-        client=cls(data['origin'],data['robot_id'])
+        client=cls(data['origin'],data['robot_id'],transport_origin=data.get('transport_origin'))
         client.cookie=data['cookie'];client.csrf=data['csrf'];client.attempt_id=data.get('attempt_id')
         return client

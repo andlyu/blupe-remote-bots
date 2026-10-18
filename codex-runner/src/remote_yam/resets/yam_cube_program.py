@@ -298,7 +298,11 @@ class CubeProgram:
         initial=read('state');pose=read('pose_status');save(self.out/'startup-before.json',dict(controller=initial,local_pose=pose))
         if getattr(self.args,'after_replay',None):
             from .yam_tabletop_reset import require_replay_handoff
-            require_replay_handoff(initial,pose,self.args.after_replay)
+            context=getattr(self.io,'reset_replay_handoff',{})
+            previous=context.get('previous_pose') if context.get('request_id')==self.args.after_replay else None
+            require_replay_handoff(initial,pose,self.args.after_replay,previous_pose=previous)
+            initial=read('state')
+            require_replay_handoff(initial,pose,self.args.after_replay,previous_pose=previous)
         if self.controller_only:
             require('controller-faults' in pose.get('supported_execution_policies',[]),
                 'Native controller needs the controller-faults policy update; no startup or cube movement submitted')
@@ -604,6 +608,14 @@ class CubeProgram:
                 else:
                     response=io.call('reserve',{'execution_policy':'controller-faults'} if self.controller_only else {});self.token=response['owner_token'];fd=os.open(tokenfile,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
                     with os.fdopen(fd,'w') as stream:json.dump({'owner_token':self.token},stream)
+                if getattr(self.args,'after_replay',None):
+                    # reserve resets its old cancellation Event, but preserves
+                    # command_source/event. A Stop just before reserve must
+                    # therefore still block Home; a later Stop revokes token.
+                    from .yam_tabletop_reset import require_replay_handoff
+                    reserved_state=io.call('state');reserved_pose=io.call('pose_status')
+                    save(self.out/'replay-reserved.json',dict(controller=reserved_state,local_pose=reserved_pose))
+                    require_replay_handoff(reserved_state,reserved_pose,self.args.after_replay,reserved=True)
                 self.prepare_planning_start()
                 scene=None if self.args.resume_plan else self.scene('initial')
                 if getattr(self.args,'planning_profile','legacy')=='qualified':

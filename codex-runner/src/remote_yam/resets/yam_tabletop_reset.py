@@ -44,15 +44,26 @@ def require_replay_complete(replay, request_id):
         raise ResetBlocked('Matching primary replay did not finish in Hold; cube reset will not start')
 
 
-def require_replay_handoff(state, pose, request_id):
+def require_replay_handoff(state, pose, request_id, *, previous_pose=None, reserved=False):
     """Read-only continuity check: a Stop must not become an automatic Launch."""
     require_replay_complete(state.get('replay', {}), request_id)
-    if (state.get('mode') not in ('STOPPED', 'READY') or state.get('launched') is not True
+    # The pose cancellation Event outlives its old plan and is not reset by
+    # Replay. Admit only the same cancellation observed BEFORE this request,
+    # while the primary controller still identifies this Replay's own finish.
+    stale_cancel = bool(not reserved and previous_pose and previous_pose.get('cancelled') is True
+        and previous_pose.get('plan_id')
+        and previous_pose.get('plan_id') == pose.get('plan_id')
+        and previous_pose.get('active') is False
+        and previous_pose.get('sequence_reserved') is False)
+    if (state.get('mode') not in (('LOCAL_POSE_RESERVED',) if reserved else ('STOPPED', 'READY')) or state.get('launched') is not True
+            or state.get('command_source') != 'operator/replay'
+            or state.get('policy_phase') != ('local_pose_reserved' if reserved else 'replay_held')
+            or state.get('event') != 'Replay complete; arms holding'
             or state.get('feedback_available') is not True or state.get('adapter_fault')
             or state.get('safety', {}).get('controller_ok') is not True
             or state.get('safety', {}).get('drives_enabled') is not True
-            or pose.get('active') is not False or pose.get('sequence_reserved') is not False
-            or pose.get('cancelled') is True
+            or pose.get('active') is not False or pose.get('sequence_reserved') is not reserved
+            or (pose.get('cancelled') is True and not stale_cancel)
             or state.get('auto_queue', {}).get('enabled') is not False
             or state.get('auto_queue', {}).get('running') is not False
             or state.get('api', {}).get('authorized') is not False
@@ -136,25 +147,42 @@ class TabletopResetSequence:
         self.status('preflight')
         recipe = validate_recipe(json.loads(self.args.recipe.read_text()))
         self.save('replay-recipe.json', recipe)
+        continuation=getattr(self.args,'continue_after_replay',None)
         self.save('sequence-request.json', dict(request_id=self.request_id, recipe=recipe,
+                  continue_after_replay=None if continuation is None else str(continuation),
                   direction='recorded box emptying -> saved tabletop goals', movement_retry=False,
                   interstage_motion='One user-selected native Home before fresh cube sensing' if '--home-after-replay' in resource('cube_args') else 'None; continue from measured joints',
                   cube_command=str(self.args.cube_command)))
         state, pose = self.snapshot()
+        previous_pose = dict(pose)
         self.save('before.json', dict(controller=state, local_pose=pose))
         require_initial_idle(state, pose)
-        self.status('replay')
-        replay_started = time.monotonic()
-        replay=self.io.call('replay_start',dict(episode=recipe['episode'],edit_recipe=recipe,request_id=self.request_id))
-        while replay.get('running') is True:
-            if replay.get('request_id')!=self.request_id:
-                raise ResetBlocked('Another Replay replaced this sequence; reset not launched')
-            if time.monotonic()-replay_started>self.args.replay_timeout:
-                raise TimeoutError('Replay completion uncertain; no movement retry or cube launch')
-            self.save('replay-progress.json',replay)
-            time.sleep(.1)
-            replay=self.io.call('replay_status')
-        self.timings['replay_command_wall_s'] = time.monotonic()-replay_started
+        if continuation is not None:
+            import hashlib
+            folder=Path(continuation)
+            names=('before.json','replay-result.json','selected-replay.json')
+            records={name:json.loads((folder/name).read_text()) for name in names}
+            if records['selected-replay.json']!=recipe:raise ResetBlocked('Completed replay recipe changed; no continuation')
+            previous_pose=records['before.json']['local_pose']
+            replay=records['replay-result.json']
+            require_replay_complete(replay,self.request_id)
+            self.save('continued-replay.json',dict(source=str(folder),request_id=self.request_id,
+                input_sha256={name:hashlib.sha256((folder/name).read_bytes()).hexdigest() for name in names},
+                replay_dispatched=False))
+            self.timings['replay_command_wall_s']=0.
+        else:
+            self.status('replay')
+            replay_started = time.monotonic()
+            replay=self.io.call('replay_start',dict(episode=recipe['episode'],edit_recipe=recipe,request_id=self.request_id))
+            while replay.get('running') is True:
+                if replay.get('request_id')!=self.request_id:
+                    raise ResetBlocked('Another Replay replaced this sequence; reset not launched')
+                if time.monotonic()-replay_started>self.args.replay_timeout:
+                    raise TimeoutError('Replay completion uncertain; no movement retry or cube launch')
+                self.save('replay-progress.json',replay)
+                time.sleep(.1)
+                replay=self.io.call('replay_status')
+            self.timings['replay_command_wall_s'] = time.monotonic()-replay_started
         self.save('replay-result.json', replay)
         require_replay_complete(replay, self.request_id)
         self.io.motion_completed_robot_wall=self.io.last_robot_wall
@@ -169,8 +197,12 @@ class TabletopResetSequence:
             if time.monotonic()-handoff_started > 5:
                 raise ResetBlocked('Primary replay did not release ownership; reset not launched')
             time.sleep(.05)
+        # Status endpoints are separate reads. A Stop between controller and
+        # pose reads must win even when an old pose Event was already set.
+        state = self.io.call('state')
         self.save('handoff.json', dict(controller=state, local_pose=pose))
-        require_replay_handoff(state, pose, self.request_id)
+        require_replay_handoff(state, pose, self.request_id, previous_pose=previous_pose)
+        self.io.reset_replay_handoff = dict(request_id=self.request_id, previous_pose=previous_pose)
         self.timings['interstage_handoff_wall_s'] = time.monotonic()-handoff_started
         cube_started = time.monotonic()
         self.status('reset')

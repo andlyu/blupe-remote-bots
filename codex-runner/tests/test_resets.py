@@ -31,6 +31,7 @@ def replay(request_id='example',**overrides):
 
 def state(current):
     return dict(mode='STOPPED',launched=True,feedback_available=True,adapter_fault=None,replay=current,
+                command_source='operator/replay',policy_phase='replay_held',event='Replay complete; arms holding',
                 safety=dict(controller_ok=True,drives_enabled=True),auto_queue=dict(enabled=False,running=False),
                 api=dict(authorized=False,session_id=None))
 

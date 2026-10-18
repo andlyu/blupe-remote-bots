@@ -208,3 +208,22 @@ Read `provider.managed_execution`: `phase`, atomic stage `progress`, and termina
 Failure, Stop, replaced ownership or uncertain replay cannot start the cube stage.
 Inspect retained comparison/timing/error receipts; no movement is automatically
 retried. Failed planning time is included in telemetry even when no plan exists.
+
+## Fresh cube-only resets and hosted runners
+
+`python -m remote_yam.resets.cube_runner --config station.json --output RUN_DIR --request-id RUN_ID`
+runs the configured public cube CLI without Replay or an extra replay Home. Each
+output directory must be fresh. Station resources and20mm closing remain explicit
+configuration; native motor/force/current protections and cube Stop are retained.
+It writes request-bound progress and terminal receipts for `ManagedCommandPolicy`.
+
+For a hosted runner, `ConfiguredPoliciesMixin` loads operator-owned
+`YAM_CONFIGURED_RUNNERS_FILE` metadata and a `RemoteRunnerPolicy` proxy. That proxy
+uses the existing local runner visitor/CSRF/Run/status/Stop API over an operator
+SSH tunnel; browser payloads cannot supply commands, endpoints or station paths.
+`runner_origin` is the local runner's configured origin; optional `transport_origin`
+is a trusted loopback tunnel endpoint. The latter sends the original Host/Origin.
+No robot keys/calibration/recordings are uploaded to the hosted web server.
+The host application retains its own allowance/admission policy. A start write is
+attempted once, ambiguous responses are reconciled with the same visitor, and
+Stop retains ownership until the underlying executable terminates.
