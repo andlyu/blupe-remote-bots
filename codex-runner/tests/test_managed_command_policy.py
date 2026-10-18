@@ -32,6 +32,7 @@ result=dict(request_id=rid,state='cancelled' if stopped else 'complete',goals_re
 if mode=='missing':sys.exit(2)
 if mode=='mismatch':result['request_id']='old-run'
 if mode=='goals-failed':result.update(goals_reached=False,state='not_reached')
+if mode=='queue-owner':result.update(goals_reached=False,state='failed',error='Queue/API owner blocks initialization',private='secret')
 (out/('failure.json' if stopped else 'result.json')).write_text(json.dumps(result))
 sys.exit(130 if stopped else 2 if mode=='goals-failed' else 0)
 '''
@@ -115,6 +116,19 @@ class ManagedTests(unittest.TestCase):
     def test_read_only_controller_cannot_start_managed_executable(self):
         with self.assertRaisesRegex(RuntimeError,'disabled'):
             RunnerController(MockSessionAPI(),hardware_control_enabled=False).join_and_run(self.policy(),'Reset bin')
+
+    def test_queue_owner_failure_keeps_private_receipt_and_projects_fixed_category(self):
+        from remote_yam.run_errors import public_run_error
+        policy=self.policy('queue-owner'); controller=RunnerController(MockSessionAPI())
+        controller.join_and_run(policy,'Reset bin')
+        self.wait(lambda:not controller._worker.is_alive())
+        state=controller.status()
+        self.assertEqual(state['status'],'failed')
+        self.assertEqual(policy._result['private'],'secret')
+        self.assertEqual(policy.public_config()['managed_execution']['failure'],dict(
+            code='queue_api_owner',message='Robot initialization was blocked by queue/API ownership.'))
+        self.assertEqual(public_run_error(state),'Robot initialization was blocked by queue/API ownership.')
+        self.assertEqual(controller._session_api.create_requests,[])
 
     def test_failed_goals_preserve_the_actual_result(self):
         policy=self.policy('goals-failed');controller=RunnerController(MockSessionAPI())

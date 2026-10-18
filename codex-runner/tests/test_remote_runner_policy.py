@@ -69,3 +69,33 @@ def test_config_robot_scope_fixed_task_and_cross_visitor_exclusion(tmp_path,monk
     with pytest.raises(Exception,match='version'):app.launch(None,dict(provider='reset_bin',model='old'))
     app.visitors={'busy':SimpleNamespace(controller=SimpleNamespace(busy=lambda:True,_provider=None))}
     with pytest.raises(Exception,match='active'):app.launch(None,dict(provider='reset_bin',model=SPEC['model']))
+
+
+def test_terminal_failure_survives_proxy_without_forwarding_raw_error():
+    from remote_yam.run_errors import public_run_error
+    p,c=setup(); terminal=state('failed','failed')
+    terminal['error']='RuntimeError: Queue/API owner blocks initialization'
+    terminal['provider']['managed_execution']['result']['error']='secret /private/config'
+    c.status.return_value=terminal
+    with pytest.raises(RuntimeError) as caught:p.run_managed('Reset')
+    assert str(caught.value)=='Robot initialization was blocked by queue/API ownership.'
+    assert public_run_error(dict(status='failed',error='RuntimeError: '+str(caught.value),provider=p.public_config()))==str(caught.value)
+    assert 'secret' not in str(p.public_config()) and '/private' not in str(p.public_config())
+    c.start.assert_called_once()
+
+
+def test_unknown_remote_failure_stays_private():
+    p,c=setup(); terminal=state('failed','failed')
+    terminal['error']='private exception with https://private/token'
+    terminal['provider']['managed_execution']['failure']={'code':'unknown','message':'secret'}
+    c.status.return_value=terminal
+    with pytest.raises(RuntimeError) as caught:p.run_managed('Reset')
+    assert 'private' not in str(caught.value) and 'secret' not in str(p.public_config())
+
+
+def test_proxy_uses_only_allowlisted_failure_code_not_remote_message():
+    p,c=setup(); terminal=state('failed','failed')
+    terminal['provider']['managed_execution']['failure']=dict(code='queue_api_owner',message='secret')
+    c.status.return_value=terminal
+    with pytest.raises(RuntimeError,match='queue/API ownership'):p.run_managed('Reset')
+    assert 'secret' not in str(p.public_config())

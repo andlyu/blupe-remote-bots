@@ -175,3 +175,40 @@ def test_camera_failure_never_echoes_unrecognized_payloads():
     for cause in ('https://private.example/token', 'private-key', 'HTTP 503 private-key'):
         message = f'Camera failure: left camera frame unavailable after 3 attempt(s) ({cause})'
         assert public_runner_diagnostic({'error': message}) is None
+
+
+def test_queue_owner_reason_is_safe_in_live_and_saved_results(tmp_path):
+    from remote_yam.past_runs import RunNames
+    expected = 'Robot initialization was blocked by queue/API ownership.'
+    names = RunNames(tmp_path/'queue.sqlite3')
+    for prefix in ('', 'RuntimeError: '):
+        state = dict(status='failed', error=prefix+'Queue/API owner blocks initialization')
+        assert public_run_error(state) == expected
+        names.remember_result('ep_queue', state)
+        assert names.results()['ep_queue']['errors'] == expected
+    assert public_run_error(dict(error='Queue/API owner blocks initialization secret')) == 'The run encountered a model or runner error.'
+
+
+def test_configured_runner_failures_are_specific_and_never_echo_private_text():
+    for error, fragment in (
+        ('Configured runner is unavailable; no reset was started', 'unavailable'),
+        ('Configured runner policy version differs', 'version'),
+        ('Reset start was not confirmed; it was not retried', 'not confirmed'),
+        ('Executable exited without a terminal receipt; inspect command.log', 'terminal receipt'),
+        ('Executable receipt does not match this request', 'different request'),
+        ('Reset goals were not reached; inspect terminal receipt', 'goals'),
+    ):
+        result = public_run_error(dict(status='failed', error='RuntimeError: '+error))
+        assert fragment in result
+        assert 'command.log' not in result
+        assert public_run_error(dict(error=error+' https://private/token')) == 'The run encountered a model or runner error.'
+
+
+def test_failure_category_message_is_regenerated_and_invalid_codes_are_private():
+    expected = 'Robot initialization was blocked by queue/API ownership.'
+    for code in ('queue_api_owner','unknown', ['queue_api_owner'], None):
+        state=dict(status='failed',error='private exception',provider=dict(managed_execution=dict(
+            phase='failed',failure=dict(code=code,message='secret https://private/token'))))
+        assert public_run_error(state)==(expected if code=='queue_api_owner' else 'The run encountered a model or runner error.')
+    assert public_run_error(dict(status='running',provider=dict(managed_execution=dict(
+        phase='running',failure=dict(code='queue_api_owner'))))) is None
