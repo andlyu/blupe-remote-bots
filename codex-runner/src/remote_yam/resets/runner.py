@@ -76,11 +76,16 @@ def main(argv=None):
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--request-id')
     parser.add_argument('--cancel-file',type=Path)
+    parser.add_argument('--ssh',help='Explicit transport override; no default credential/address')
+    parser.add_argument('--identity',help='Explicit private identity-file override')
     args=parser.parse_args(argv)
     stopped=threading.Event()
     def stop(*_args):stopped.set()
     signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
-    result=run_reset(args.config,args.output,request_id=args.request_id,
+    config=json.loads(args.config.read_text())
+    if args.ssh is not None:config['transport']['ssh']=args.ssh
+    if args.identity is not None:config['transport']['identity']=args.identity
+    result=run_reset(config,args.output,request_id=args.request_id,
                      cancelled=lambda:stopped.is_set() or bool(args.cancel_file and args.cancel_file.exists()))
     print(json.dumps(result),flush=True)
     return 0 if result.get('goals_reached') is True else 130 if result['state']=='cancelled' else 2

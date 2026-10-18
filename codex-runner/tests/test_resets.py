@@ -127,3 +127,13 @@ def test_failed_pickup_planning_still_records_planning_time(tmp_path,monkeypatch
     with pytest.raises(ResetBlocked):program.run_pickup_feedback(scene,[dict(color='blue')])
     timing=[event for event in events if event['event']=='planning_timing']
     assert len(timing)==1 and timing[0]['wall_s']>=0
+
+
+def test_public_cli_retains_explicit_transport_overrides_without_defaults(tmp_path,monkeypatch):
+    import remote_yam.resets.runner as runner
+    path=tmp_path/'station.json';path.write_text(json.dumps(config()))
+    called=[]
+    monkeypatch.setattr(runner.signal,'signal',lambda *a:None)
+    monkeypatch.setattr(runner,'run_reset',lambda config,output,**kw:called.append(config) or dict(state='complete',goals_reached=True))
+    assert runner.main(['--config',str(path),'--output',str(tmp_path/'out'),'--ssh','stub-override','--identity','stub-key-path'])==0
+    assert called[0]['transport']==dict(ssh='stub-override',identity='stub-key-path')
