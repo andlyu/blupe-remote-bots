@@ -87,7 +87,12 @@ class SessionResetIO:
     def call(self, operation, payload=None):
         self.check_cancelled()
         if operation == 'state':
-            return self.require_session(self.camera.read('state'))
+            state = self.require_session(self.camera.read('state'))
+            if self.motion_completed_robot_wall is None:
+                # This first same-robot receipt follows the queue's Home. It
+                # excludes a still-buffered image from before that handoff.
+                self.motion_completed_robot_wall = self.camera.last_robot_wall
+            return state
         if operation == 'pose_status':
             return self._execution('status', {})
         if operation == 'reserve':
@@ -105,7 +110,14 @@ class SessionResetIO:
             body = {k:v for k,v in payload.items() if k != 'owner_token'}
             if operation == 'preview':
                 body['execution_policy'] = self.execution_policy
-            return self._execution(operation, body)
+            result = self._execution(operation, body)
+            if operation == 'wait' and result.get('state') == 'holding':
+                # HTTP completion came through the coordinator, while camera
+                # timestamps originate on the robot. Obtain the same-host
+                # post-completion clock receipt used by the former SSH wait.
+                self.require_session(self.camera.read('state'))
+                self.motion_completed_robot_wall = self.camera.last_robot_wall
+            return result
         raise ValueError('Unsupported session reset operation')
 
     def _owner(self, payload):

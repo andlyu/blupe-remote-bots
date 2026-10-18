@@ -116,6 +116,28 @@ def test_lost_execute_ack_is_not_reposted():
     assert io.api.plans==1
 
 
+def test_camera_clock_receipts_follow_queue_home_and_completed_motion():
+    io=bridge();io.camera.last_robot_wall=10.
+    token=io.call('reserve',{'execution_policy':'controller-faults'})['owner_token']
+    assert io.motion_completed_robot_wall==10.
+    p=io.call('preview',dict(owner_token=token,joints_rad=[.1]*12,grippers=[.5,.5]))
+    io.call('execute',dict(owner_token=token,plan_id=p['plan_id']))
+    io.camera.last_robot_wall=20.
+    io.call('wait',dict(owner_token=token,plan_id=p['plan_id'],timeout_s=2))
+    assert io.motion_completed_robot_wall==20.
+    assert io.api.plans==1
+
+
+def test_stop_after_motion_ack_blocks_the_camera_continuation():
+    io=bridge();token=io.call('reserve',{'execution_policy':'controller-faults'})['owner_token']
+    p=io.call('preview',dict(owner_token=token,joints_rad=[.1]*12,grippers=[.5,.5]))
+    io.call('execute',dict(owner_token=token,plan_id=p['plan_id']))
+    io.camera.current['mode']='DISABLED'
+    with pytest.raises(KeyboardInterrupt):
+        io.call('wait',dict(owner_token=token,plan_id=p['plan_id'],timeout_s=2))
+    assert io.api.plans==1
+
+
 def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp_path):
     config=tmp_path/'station.json'
     config.write_text(json.dumps(dict(resources={},io_routes={},transport=dict(ssh='inert'))))
