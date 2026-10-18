@@ -227,3 +227,9 @@ No robot keys/calibration/recordings are uploaded to the hosted web server.
 The host application retains its own allowance/admission policy. A start write is
 attempted once, ambiguous responses are reconciled with the same visitor, and
 Stop retains ownership until the underlying executable terminates.
+
+The size-aware and pickup-feedback CLI accepts `--feedback-extra-open-gap-mm`
+(default20). For a30mm cube and the existing10mm pregrasp clearance, setting40
+requests80mm pregrasp opening. Close/carry (`--feedback-close-gap-mm`, default20)
+and release40mm remain independent. Warm-started reference plans receive the
+selected opening too; this option does not change native gripper travel/guards.

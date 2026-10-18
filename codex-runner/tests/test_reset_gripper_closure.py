@@ -42,7 +42,8 @@ def test_recorded_old_target_and_corrected_default_conversion():
     assert gap(observed_encoder)==pytest.approx(.030339356704011574)
 
 
-def test_actual_combined_cli_defaults_do_not_reintroduce_positive_relief(tmp_path,monkeypatch):
+@pytest.mark.parametrize('extra_mm,opening_m',[(20.,.060),(40.,.080)])
+def test_actual_combined_cli_defaults_do_not_reintroduce_positive_relief(tmp_path,monkeypatch,extra_mm,opening_m):
     from remote_yam.resets import cube_cli
     monkeypatch.setattr('remote_yam.resets.yam_cube_size_profile.contact_for_cube',lambda *a,**k:dict(tcp_height_above_support_m=.022))
     monkeypatch.setattr('remote_yam.resets.yam_cube_size_profile.resize_targets',lambda target,*a:copy.deepcopy(target))
@@ -51,6 +52,7 @@ def test_actual_combined_cli_defaults_do_not_reintroduce_positive_relief(tmp_pat
         p=SimpleNamespace(args=args,planner=SimpleNamespace(),ref={},targets={},report={})
         configure_size_aware(p,args.cube_edges_m)
         assert p.planner.grasp_compression_m==.0005 and p.planner.grasp_gap_relief_m==0.
+        assert gap(pregrasp_aperture(.030,p.planner.pregrasp_clearance_m,REF,p.planner.pregrasp_extra_open_gap_m))==pytest.approx(opening_m)
         selected.append(gap(grasp_aperture(.030,REF,compression_m=p.planner.grasp_compression_m,
                                           gap_relief_m=p.planner.grasp_gap_relief_m,command_gap_m=p.planner.grasp_command_gap_m)))
         return SimpleNamespace(sense_only=lambda:0,planner=p.planner)
@@ -59,6 +61,7 @@ def test_actual_combined_cli_defaults_do_not_reintroduce_positive_relief(tmp_pat
           '--targets',str(tmp_path/'goals.json'),'--parts',str(tmp_path/'parts'),
           '--output',str(tmp_path/'run'),'--planning-profile','pickup-feedback',
           '--after-replay','offline','--home-after-replay','--staging-feedback','--feedback-close-gap-mm','20','--sense-only']
+    if extra_mm!=20.:argv+=['--feedback-extra-open-gap-mm',str(extra_mm)]
     assert cube_cli.main(argv,shared_io=object())==0
     assert selected==pytest.approx([.020])
 
@@ -74,13 +77,14 @@ def test_native_travel_is_not_extended_or_silently_clipped():
 
 
 @pytest.mark.parametrize('arm',['left','right'])
-def test_old_warm_reference_close_and_every_carry_stage_use_new_target(arm,monkeypatch):
+@pytest.mark.parametrize('extra_mm,expected_open_m',[(20.,.060),(40.,.080)])
+def test_old_warm_reference_close_and_every_carry_stage_use_new_target(arm,monkeypatch,extra_mm,expected_open_m):
     import remote_yam.resets.yam_cube_feedback_geometry as geometry
     monkeypatch.setattr(geometry,'solve_endpoint',lambda planner,seed,*a:seed)
     rotation=np.diag([1.,-1.,-1.]);point=np.array([.3,-.2,.022]);q=[0.]*12
     index=0 if arm=='left' else 1
     planner=SimpleNamespace(world=lambda row:np.asarray(row['xyz'],float),contact_reference=REF,
-        pregrasp_extra_open_gap_m=.020,grasp_compression_m=.0005,grasp_gap_relief_m=0.,grasp_command_gap_m=.020,
+        pregrasp_extra_open_gap_m=extra_mm/1000,grasp_compression_m=.0005,grasp_gap_relief_m=0.,grasp_command_gap_m=.020,
         ik=SimpleNamespace(_forward=Mock(),_poses=lambda:((point,rotation),(point,rotation))))
     source=dict(xyz=[.3,-.2,.03],yaw_rad=0.)
     old_close=aperture_for_gap(.0301,REF);opened=aperture_for_gap(.060,REF);released=aperture_for_gap(.040,REF)
@@ -101,7 +105,7 @@ def test_old_warm_reference_close_and_every_carry_stage_use_new_target(arm,monke
     for stage in corrected['stages']:
         name=stage['name']
         if name=='close' or name in carry:assert gap(stage['grippers'][index])==pytest.approx(.020)
-        if name in ('open','approach','align','descend'):assert gap(stage['grippers'][index])==pytest.approx(.060)
+        if name in ('open','approach','align','descend'):assert gap(stage['grippers'][index])==pytest.approx(expected_open_m)
         if name in ('release','retreat_clear'):assert gap(stage['grippers'][index])==pytest.approx(.040)
         assert stage['grippers'][1-index]==state['right_gripper' if index==0 else 'left_gripper']
 

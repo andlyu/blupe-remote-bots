@@ -30,7 +30,7 @@ def configure_size_aware(program,edges):
     # above the25mm cube or unnecessarily lowering a successful30mm grasp.
     program.ref['preferred_tcp_depth_below_top_m']=.030-contact_for_cube(.030,original)['tcp_height_above_support_m']
     planner.pregrasp_clearance_m=.010
-    planner.pregrasp_extra_open_gap_m=.020
+    planner.pregrasp_extra_open_gap_m=getattr(program.args,'feedback_extra_open_gap_mm',20.)/1000
     planner.grasp_offset_m=.008
     planner.prefer_centered_grasps=True
     # Native close/carry position target. The separate bounded CAD contact
@@ -193,8 +193,8 @@ class SizeAwareCubeProgram(SizeAwarePlanning,CubeProgram):
         edges=getattr(args,'cube_edges_m',dict.fromkeys(('blue','orange','yellow'),.030))
         configure_size_aware(self,edges)
         save(self.out/'size-aware-profile.json',dict(cube_edges_m=self.cube_edges_m,
-            pregrasp_clearance_m=.010,pregrasp_extra_open_gap_m=.020,
-            pregrasp_gap_for30mm_m=.060,grasp_compression_m=self.planner.grasp_compression_m,
+            pregrasp_clearance_m=.010,pregrasp_extra_open_gap_m=self.planner.pregrasp_extra_open_gap_m,
+            pregrasp_gap_for30mm_m=.040+self.planner.pregrasp_extra_open_gap_m,grasp_compression_m=self.planner.grasp_compression_m,
             grasp_gap_relief_m=self.planner.grasp_gap_relief_m,
             commanded_close_gap_m=self.planner.grasp_command_gap_m,
             modeled_contact_gap_by_color_m={c:edge-self.planner.grasp_compression_m+self.planner.grasp_gap_relief_m for c,edge in self.cube_edges_m.items()},
