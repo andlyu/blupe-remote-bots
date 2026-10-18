@@ -1379,15 +1379,25 @@ function createRunLaunchGuard() {
   }
   function renderPublicRunNotice(state, taskFailure = null) {
     const run = state.public_run;
-    const error = taskFailure?.reason || run?.error || state.robot_fault;
+    const chat = $('aspireTaskPanel');
+    const failureInChat = taskFailure && chat?.dataset.enabled === 'true' && !chat.hidden &&
+      chat.dataset.failureKey === JSON.stringify(taskFailure);
+    const sameAttempt = renderCurrentConversation.lastRun?.attempt_id &&
+      renderCurrentConversation.lastRun.attempt_id === run?.attempt_id;
+    const generic = 'The run encountered a model or runner error.';
+    const publicErrorInChat = failureInChat && (run?.error === taskFailure.reason ||
+      (sameAttempt && run?.error === generic));
+    const taskError = failureInChat ? null : taskFailure?.reason;
+    const runError = publicErrorInChat ? null : run?.error;
+    const error = state.robot_fault || (taskError === generic ? runError || taskError : taskError || runError);
     const warning = ['preparing', 'running'].includes(run?.status) ? run?.warning : null;
     const notice = error || warning;
     const element = $('publicRunError');
     element.hidden = !notice;
     element.dataset.tone = error ? 'error' : 'warning';
-    element.textContent = notice ? (taskFailure || run?.error || warning
-      ? `${run?.runner_name || state.runner_name || 'Anonymous'} — ${error ? (error === 'Run reached time limit' ? 'Failure' : 'run error') : 'connection warning'}: ${notice}`
-      : `Robot error: ${notice}`) : '';
+    element.textContent = notice ? (state.robot_fault
+      ? `Robot error: ${notice}`
+      : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${error ? (error === 'Run reached time limit' ? 'Failure' : 'run error') : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
     window.yamRuntimeSteering?.update(state);
@@ -1428,12 +1438,7 @@ function createRunLaunchGuard() {
     else if (state.provider?.vision?.retry?.state === 'failed') message(state.provider.vision.retry.message, true);
     else if (state.provider?.vision?.retry?.state === 'recovered' && /^(Waiting for next |No image)/.test($('message').textContent)) message('Camera feeds recovered. Continuing the run.');
     const queue = state.queue_snapshot;
-    const sharedError = state.public_run?.error || state.robot_fault;
-    const sameAttempt = live?.attempt_id && live.attempt_id === state.public_run?.attempt_id;
-    $('publicRunError').hidden = !sharedError || !!(failureInChat && !state.robot_fault &&
-      (sharedError === taskFailure.reason || (sameAttempt && sharedError === 'The run encountered a model or runner error.')));
-    $('publicRunError').textContent = sharedError
-      ? `${state.public_run?.error ? (state.public_run.runner_name || 'Anonymous') + (sharedError === 'Run reached time limit' ? ' — Failure: ' : ' — run error: ') : 'Robot error: '}${sharedError}` : '';
+    renderPublicRunNotice(state, taskFailure);
     const station = queue?.stations?.find(item => item.jetson_id === selectedRobot);
     if (station) updateCameraAvailability(station.connected === true);
     const faultNotice = {pending:'Notifying the operator…', submitted:'The operator has been notified.', failed:'Could not notify the operator.', unavailable:'Operator attention needed.'}[station?.fault_notification] || 'Operator attention needed.';
@@ -2957,15 +2962,17 @@ function aspireRecordedUpdates(item) {
 function aspireLiveTask(run,state) {
   run=aspireSharedRun(run);
   const route = state?.provider?.launch_route;
+  const publicError = run?.attempt_id && run.attempt_id === state?.attempt_id &&
+    run.error !== 'The run encountered a model or runner error.' ? run.error : null;
   if(route?.actual_policy === 'astra') return {...run,task:route.prompt,status:state.status,
-    attempt_id:state.attempt_id,error:state.error ?? run?.error,launch_route:route,task_progress:null};
+    attempt_id:state.attempt_id,error:publicError || (state.error ?? run?.error),launch_route:route,task_progress:null};
   const own = state?.provider?.task_progress;
   if(own) return {
-    task:own.task || run?.task,status:state.status,task_progress:own,error:state.error,display_error:run?.display_error,
+    task:own.task || run?.task,status:state.status,task_progress:own,error:publicError || state.error,display_error:run?.display_error,
     run_id:state.interactions?.run_id,attempt_id:state.attempt_id,
     events:run?.events || state?.interactions?.events || []};
   if(state?.error && state.attempt_id && state.attempt_id === run?.attempt_id)
-    run={...run,error:state.error};
+    run={...run,error:publicError || state.error};
   const preparing = (state?.whats_running || []).filter(item => item.status === 'preparing');
   if(preparing.length === 1 && !['preparing','running'].includes(run?.status)) {
     const current = preparing[0];

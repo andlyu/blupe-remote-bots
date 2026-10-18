@@ -14,6 +14,8 @@ import subprocess
 import threading
 import uuid
 
+from .runner_failures import failure_from_error
+
 
 def load_policies(path, robot_id):
     if not path:
@@ -55,6 +57,7 @@ class ManagedCommandPolicy:
         self._process = None
         self._phase = 'preparing'
         self._result = None
+        self._failure = None
 
     def public_config(self):
         progress = None
@@ -67,7 +70,8 @@ class ManagedCommandPolicy:
         return dict(provider=self.provider_name, model=self.model, display_name=self.spec['label'],
                     model_calls=0, recording_path=str(self.directory),
                     managed_execution=dict(request_id=self.request_id, phase=self._phase,
-                                           progress=progress, result=deepcopy(self._result)))
+                                           progress=progress, result=deepcopy(self._result),
+                                           failure=deepcopy(self._failure)))
 
     def _emit(self, message, **details):
         if callable(self.interaction_sink):
@@ -96,8 +100,9 @@ class ManagedCommandPolicy:
     def run_managed(self, prompt):
         try:
             return self._execute(prompt)
-        except Exception:
+        except Exception as exc:
             self._phase = 'failed'
+            self._failure = failure_from_error(str(exc))
             raise
 
     def _execute(self, prompt):

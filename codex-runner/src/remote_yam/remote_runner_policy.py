@@ -4,6 +4,7 @@ import threading
 import time
 
 from .runner_policy_client import RunnerPolicyClient
+from .runner_failures import failure_from_state
 
 
 class RemoteRunnerPolicy:
@@ -17,12 +18,13 @@ class RemoteRunnerPolicy:
         self._stop = threading.Event()
         self._phase, self._progress, self._result = 'preparing', None, None
         self._stop_sent = False
+        self._failure = None
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, display_name=self.spec['label'],
             model_calls=0, managed_execution=dict(phase=self._phase,
                 request_id=getattr(self, 'request_id', None), progress=deepcopy(self._progress),
-                result=deepcopy(self._result)))
+                result=deepcopy(self._result), failure=deepcopy(self._failure)))
 
     def request_stop(self):
         self._stop.set()
@@ -84,7 +86,9 @@ class RemoteRunnerPolicy:
                     return self._result
                 if self._phase == 'cancelled':
                     return self._result
-                raise RuntimeError('Reset did not reach its goals; terminal evidence is retained by the configured runner')
+                self._failure = failure_from_state(state)
+                raise RuntimeError(self._failure['message'] if self._failure else
+                    'Reset did not reach its goals; terminal evidence is retained by the configured runner')
             time.sleep(.2)
 
     def _status(self):

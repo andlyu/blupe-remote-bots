@@ -60,6 +60,10 @@ def run_result(meta):
 
 def public_runner_diagnostic(state):
     """Preserve allowlisted diagnostics; never include arbitrary provider text."""
+    from .runner_failures import failure_from_state
+    failure = failure_from_state(state)
+    if failure:
+        return failure['message']
     error = state.get('error')
     if not isinstance(error, str):
         return None
