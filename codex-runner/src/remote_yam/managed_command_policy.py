@@ -26,6 +26,12 @@ def load_policies(path, robot_id):
         if raw.get('robot_id') != robot_id:
             continue
         spec = deepcopy(raw)
+        if spec.get('execution') not in (None, 'session_cube'):
+            raise ValueError('Unknown configured policy execution mode')
+        if spec.get('execution') == 'session_cube' and (
+                not isinstance(spec.get('session_config'), str)
+                or not Path(spec['session_config']).is_absolute()):
+            raise ValueError('Session reset requires an absolute station configuration')
         command = spec.get('command')
         if (not isinstance(command, list) or not command or not all(isinstance(x, str) for x in command)
                 or not Path(command[0]).is_absolute() or '{output}' not in command

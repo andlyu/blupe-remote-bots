@@ -7,6 +7,17 @@ It does not import a private `blupe_evals` package or shell to a private runner.
 Station recordings, target records, calibration, collision assets, controller
 addresses and credentials are external configuration.
 
+Cube-only configured policies may select `execution: "session_cube"` with an
+absolute `session_config` and explicit `execution_policy`. `CubeSessionPolicy`
+joins the normal queue and receives its measured Home handoff. It runs the same
+cube program through lease-bound `yam_cube_reset` execution requests, without
+manual initialization, local-pose reservation or pausing Auto Queue. Existing
+queue/session Stop and completion cleanup retain ownership. The Session API and
+native controller must support this executor; a geometry-off cube profile is
+an explicit native operator selection, separate from ordinary model packets.
+Source/resource hashes are checked before queue admission. Never automatically
+retry an uncertain motion. The replay qualification below is a separate flow.
+
 Current qualification: an earlier integration trial completed box replay and
 its no-motion handoff, then failed planning from the measured endpoint before
 any cube motion. The subsequently requested one-Home/fresh-image/staging sequence

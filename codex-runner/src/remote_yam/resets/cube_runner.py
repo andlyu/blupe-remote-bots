@@ -19,7 +19,7 @@ def save(path, value):
     temporary.replace(path)
 
 
-def run_cube_reset(config, output, *, request_id=None, cube_main=None):
+def run_cube_reset(config, output, *, request_id=None, cube_main=None, shared_io=None):
     """Fresh output/request identity, no Replay and no extra replay Home."""
     if cube_main is None:
         from .cube_cli import main as cube_main
@@ -38,7 +38,8 @@ def run_cube_reset(config, output, *, request_id=None, cube_main=None):
     key = hashlib.sha256(config['transport']['ssh'].encode()).hexdigest()[:16]
     lock = (Path(tempfile.gettempdir()) / ('yam-tabletop-reset-' + key + '.lock')).open('a+')
     finished = threading.Event()
-    prior_signal = signal.getsignal(signal.SIGTERM)
+    main_thread = threading.current_thread() is threading.main_thread()
+    prior_signal = signal.getsignal(signal.SIGTERM) if main_thread else None
     result, code = None, 2
     def progress():
         while not finished.wait(.25):
@@ -55,7 +56,7 @@ def run_cube_reset(config, output, *, request_id=None, cube_main=None):
             entrypoint='remote_yam.resets.cube_cli.main', replay_requested=False))
         thread.start()
         with configured(resources):
-            code = cube_main(argv)
+            code = cube_main(argv, shared_io=shared_io) if shared_io is not None else cube_main(argv)
     except KeyboardInterrupt:
         code = 130
         result = dict(state='cancelled', goals_reached=False)
@@ -65,7 +66,8 @@ def run_cube_reset(config, output, *, request_id=None, cube_main=None):
         finished.set()
         if thread.ident is not None:
             thread.join(1)
-        signal.signal(signal.SIGTERM, prior_signal)
+        if main_thread:
+            signal.signal(signal.SIGTERM, prior_signal)
         lock.close()
     if result is None:
         try:
