@@ -138,16 +138,18 @@ def test_stop_after_motion_ack_blocks_the_camera_continuation():
     assert io.api.plans==1
 
 
-def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp_path):
+@pytest.mark.parametrize('outcome,goals,reason',[('complete',True,'policy_complete'),
+                                              ('cancelled',False,'user_requested')])
+def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp_path,outcome,goals,reason):
     config=tmp_path/'station.json'
     config.write_text(json.dumps(dict(resources={},io_routes={},transport=dict(ssh='inert'))))
     calls=[]
     def run(config,output,**kwargs):
         calls.append(kwargs['shared_io'].context)
-        return dict(state='complete',goals_reached=True,request_id=kwargs['request_id'])
+        return dict(state=outcome,goals_reached=goals,request_id=kwargs['request_id'])
     policy=CubeSessionPolicy('reset_bin',dict(model='cube-reset-session-v1',label='Reset bin',
         task='Reset bin',session_config=str(config)),tmp_path,io_factory=Camera,cube_runner=run)
-    api=MockSessionAPI();controller=RunnerController(api)
+    api=MockSessionAPI();api.stop_session=Mock(wraps=api.stop_session);controller=RunnerController(api)
     controller.join_and_run(policy,'Reset bin')
     deadline=time.monotonic()+3
     while controller._worker.is_alive() and time.monotonic()<deadline:time.sleep(.01)
@@ -155,8 +157,9 @@ def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp
     assert len(api.create_requests)==1
     assert len(calls)==1, controller.status()['error']
     assert calls[0]['session_id']==controller.status()['session_id']
-    assert policy.public_config()['managed_execution']['phase']=='complete'
+    assert policy.public_config()['managed_execution']['phase']==outcome
     assert controller.status()['error'] is None
+    assert api.stop_session.call_args.kwargs['reason']==reason
 
 
 def test_cube_runner_accepts_injected_session_io_in_worker_thread(tmp_path):

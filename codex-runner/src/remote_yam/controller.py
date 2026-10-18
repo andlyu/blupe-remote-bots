@@ -1003,9 +1003,10 @@ class RunnerController(HomeSceneStartup):
             context = dict(session_id=session_id, episode_id=episode_id, lease_id=lease_id,
                            robot_id=self._robot_id)
             cancelled = lambda: (self._stop_event.is_set() or self._provider is not provider)
-            session_policy(prompt, provider_observation, self._session_api, context, cancelled)
+            result = session_policy(prompt, provider_observation, self._session_api, context, cancelled)
             if not cancelled():
-                self.stop('policy_complete')
+                self.stop('user_requested' if isinstance(result, dict) and
+                          result.get('state') == 'cancelled' else 'policy_complete')
             return
         trajectory_builder = getattr(provider, "build_trajectory", None)
         if getattr(self._session_api, "supports_trajectories", False) is True:

@@ -215,13 +215,17 @@ class CubeSessionPolicy:
                     request_id=self.request_id, shared_io=io)
             if is_cancelled() or self._result.get('state') == 'cancelled':
                 self._phase = 'cancelled'
-                return
+                return deepcopy(self._result)
             if self._result.get('goals_reached') is not True:
                 self._phase = 'failed'
                 raise RuntimeError(self._result.get('error') or 'Reset goals were not reached')
             self._phase = 'complete'
+            return deepcopy(self._result)
         except KeyboardInterrupt:
             self._phase = 'cancelled'
+            self._result = self._result or dict(state='cancelled', goals_reached=False,
+                                                request_id=self.request_id)
+            return deepcopy(self._result)
         except Exception:
             self._phase = 'failed'
             raise
