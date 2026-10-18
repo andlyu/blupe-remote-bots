@@ -136,6 +136,12 @@ class SessionResetIO:
         self.camera.motion_completed_robot_wall = self.motion_completed_robot_wall
         return self.camera.capture(*args, **kwargs)
 
+    def captures(self, report, count=3, *, after_robot_wall=None, camera='top'):
+        # Reuse distinct-frame selection through OUR capture method, so every
+        # frame retains the lease/Stop check and post-motion clock receipt.
+        return RobotIO.captures(self, report, count=count,
+                                after_robot_wall=after_robot_wall, camera=camera)
+
     def continuation_event(self, *args, **kwargs):
         self.camera.continuation_event(*args, **kwargs)
 
