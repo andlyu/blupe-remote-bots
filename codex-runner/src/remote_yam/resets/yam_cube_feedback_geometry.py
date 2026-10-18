@@ -65,7 +65,7 @@ def retarget_source(planner, plan, nominal, observed, state, *, scene=None):
     yaw_rotation=Rotation.from_euler('z',yaw).as_matrix()
     offset_rotation=(yaw_rotation@close_rotation[:,0]-close_rotation[:,0])*float(plan.get('grasp_offset_native_x_m',0.))
     pickup_delta=delta+offset_rotation
-    from .yam_cube_grasps import aperture_for_gap,pregrasp_aperture
+    from .yam_cube_grasps import aperture_for_gap,pregrasp_aperture,grasp_aperture
     width = plan.get('contact_geometry',{}).get('projected_grasp_width_m',.030)
     minimum_release = aperture_for_gap(width+.010,planner.contact_reference)
     minimum_open = pregrasp_aperture(width,.010,planner.contact_reference,
@@ -73,10 +73,17 @@ def retarget_source(planner, plan, nominal, observed, state, *, scene=None):
     corrected['pregrasp_aperture']=max(float(plan.get('pregrasp_aperture',0.)),minimum_open)
     corrected['pregrasp_extra_open_gap_m']=float(getattr(planner,'pregrasp_extra_open_gap_m',0.))
     relief=float(getattr(planner,'grasp_gap_relief_m',0.))
-    compressed=aperture_for_gap(width+relief,planner.contact_reference)
-    corrected['grasp_compression_m']=0.
+    compression=float(getattr(planner,'grasp_compression_m',0.))
+    contact_closed=grasp_aperture(width,planner.contact_reference,
+                              compression_m=compression,gap_relief_m=relief)
+    command_gap=getattr(planner,'grasp_command_gap_m',None)
+    compressed=grasp_aperture(width,planner.contact_reference,
+                              compression_m=compression,gap_relief_m=relief,command_gap_m=command_gap)
+    corrected['grasp_compression_m']=compression
     corrected['grasp_gap_relief_m']=relief
-    corrected['contact_geometry']['nominal_aperture']=compressed
+    corrected['grasp_command_gap_m']=command_gap
+    corrected['contact_geometry']['nominal_aperture']=contact_closed
+    corrected['contact_geometry']['commanded_aperture']=compressed
     changed = 0
     for stage in corrected['stages']:
         name = stage['name']

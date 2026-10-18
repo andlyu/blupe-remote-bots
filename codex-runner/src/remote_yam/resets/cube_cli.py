@@ -12,6 +12,7 @@ def main(argv=None,shared_io=None):
  p.add_argument('--execution-policy',choices=('controller-faults','validated'),help='Qualified default: controller-faults continues the planned program through observation/state/geometry warnings, retaining native motor guards and Stop. Legacy default: validated. Requires matching native controller.')
  p.add_argument('--planning-profile',choices=('legacy','qualified','size-aware','pickup-feedback'),default='qualified',help='pickup-feedback enables fresh measured RGB-D pickup IK/replanning and completed-placement corrections; timing is selected separately')
  p.add_argument('--feedback-reference-root',type=Path,help='Optional warm-start initial-scene.json/original-plans.json; fresh RGB-D and full path audits still determine every move')
+ p.add_argument('--feedback-close-gap-mm',type=float,default=20.,help='Size-aware close/carry POSITION target in millimeters; blocked contact and native force/current limits remain separate')
  p.add_argument('--after-replay',help='Continue only from this completed primary replay in powered Hold; Stop must never trigger automatic relaunch')
  p.add_argument('--home-after-replay',action='store_true',help='Perform exactly one existing native Home before the first fresh cube scene')
  p.add_argument('--staging-feedback',action='store_true',help='Use the existing audited staging scheduler to warm-start fresh pickup feedback')

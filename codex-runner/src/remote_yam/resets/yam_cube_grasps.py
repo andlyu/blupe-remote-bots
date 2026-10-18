@@ -20,6 +20,19 @@ def aperture_for_gap(gap,reference):
     return float(value)
 
 
+def grasp_aperture(width,reference,*,compression_m=0.,gap_relief_m=0.,command_gap_m=None):
+    """Supported position closure; CAD gap is not installed contact or force.
+
+    Compression reduces TOTAL jaw separation. Native travel/current/force
+    limits remain the controller's responsibility and are never changed here.
+    """
+    if not math.isfinite(compression_m) or not 0<=compression_m<=.002:
+        raise ResetBlocked('Invalid exploratory grasp compression')
+    if not math.isfinite(gap_relief_m) or not 0<=gap_relief_m<=.0002:
+        raise ResetBlocked('Invalid exploratory grasp relief')
+    return aperture_for_gap(width-compression_m+gap_relief_m if command_gap_m is None else command_gap_m,reference)
+
+
 def pregrasp_aperture(width,clearance,reference,extra_gap_m=0.):
     """Add total jaw separation, bounded by calibrated native travel."""
     if not math.isfinite(extra_gap_m) or extra_gap_m<0:
@@ -136,10 +149,12 @@ def geometry_plan_cube(planner,color,scene,targets,joints,grippers,validator):
          yaw,offset=seed['yaw'],seed['offset'];key=(side,round(yaw,9),offset,tilt)
          if key in blocked_grasps or not feasible[yaw]:continue
          compression=float(getattr(planner,'grasp_compression_m',0.))
-         if not math.isfinite(compression) or not 0<=compression<=.002:raise ResetBlocked('Invalid exploratory grasp compression')
          relief=float(getattr(planner,'grasp_gap_relief_m',0.))
-         if not math.isfinite(relief) or not 0<=relief<=.0002:raise ResetBlocked('Invalid exploratory grasp relief')
-         closed=aperture_for_gap(seed['projected_width_m']-compression+relief,planner.contact_reference)
+         contact_closed=grasp_aperture(seed['projected_width_m'],planner.contact_reference,
+                               compression_m=compression,gap_relief_m=relief)
+         command_gap=getattr(planner,'grasp_command_gap_m',None)
+         closed=grasp_aperture(seed['projected_width_m'],planner.contact_reference,
+                               compression_m=compression,gap_relief_m=relief,command_gap_m=command_gap)
          extra_open_gap=float(getattr(planner,'pregrasp_extra_open_gap_m',0.))
          opened=pregrasp_aperture(seed['projected_width_m'],pregrasp_clearance,planner.contact_reference,extra_open_gap)
          released=aperture_for_gap(seed['projected_width_m']+(.010 if destination.get('planning_goal_kind')=='staging' else pregrasp_clearance),planner.contact_reference)
@@ -203,11 +218,11 @@ def geometry_plan_cube(planner,color,scene,targets,joints,grippers,validator):
               motion('retreat',high_dst,target_rotation,1.,False,True)
               rank+=1
               plan=plain(dict(color=color,arm=side,stages=stages,destination_scene_row=copy.deepcopy(destination),
-                planning_uncertainty_xy_m=uncertainty,grasp_compression_m=compression,grasp_gap_relief_m=relief,
+                planning_uncertainty_xy_m=uncertainty,grasp_compression_m=compression,grasp_gap_relief_m=relief,grasp_command_gap_m=command_gap,
                 grasp_offset_native_x_m=offset,grasp_yaw_rad=yaw,approach_tilt_rad=tilt,
                 pregrasp_aperture=opened,pregrasp_extra_open_gap_m=extra_open_gap,
                 release_aperture=released,release_clearance_m=release_clearance,retract_m=retract,transfer_height_m=height,
-                destination_yaw_offset_rad=destination_yaw-yaw,contact_geometry=dict(geometry,nominal_aperture=closed,projected_grasp_width_m=seed['projected_width_m']),
+                destination_yaw_offset_rad=destination_yaw-yaw,contact_geometry=dict(geometry,nominal_aperture=contact_closed,commanded_aperture=closed,projected_grasp_width_m=seed['projected_width_m']),
                 contact_pose_status='Reference CAD candidate; physical contact unverified',
                 candidate_selection=dict(rank=rank,method='geometry-directed source-prefix reuse with full installed-CAD validation',bidirectional_primitives=bool(getattr(planner,'bidirectional_primitives',False))),
                 final_joints=q,final_grippers=g,limitations=['Offline CAD audit does not establish physical contact readiness']))

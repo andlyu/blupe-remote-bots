@@ -64,6 +64,64 @@ def validate_tangential_offset(offset,grip_rotation,source_yaw,reference,edge=.0
   assert overlap>=.010,'Tangential pad overlap below10mm'
 
 
+def intended_tip_contact_kind(names,side,color,stage,plan,native,pad,pad_y,aperture,reference,distance):
+ """Classify only selected-cube/active-tip contact, including bounded preload edges."""
+ tipname=next((n for n in names if n.startswith(side+'_installed_tip_left_') or n.startswith(side+'_installed_tip_right_')),None)
+ if len(names)!=2 or not tipname or 'cube_'+color not in names:return None
+ if not (stage.get('carrying') or stage.get('intended_selected_contact')):return None
+ bounds=np.asarray(pad['pad_bounds_native_grasp_m']);native=np.asarray(native)
+ if not np.all(np.isfinite(native)) or not math.isfinite(distance):return None
+ if abs(native[1]-pad_y)>.001:return None
+ # Preserve the existing pad patch policy exactly.
+ if distance>=-.001 and all(bounds[0,k]-.001<=native[k]<=bounds[1,k]+.001 for k in [0,2]):return 'pad'
+ compression=float(plan.get('grasp_compression_m',0.));relief=float(plan.get('grasp_gap_relief_m',0.))
+ geometry=plan['contact_geometry'];width=float(geometry['projected_grasp_width_m'])
+ edge_bound=float(geometry['candidate_vertical_error_bound_m'])
+ values=(compression,relief,width,edge_bound,aperture,pad_y)
+ if not all(math.isfinite(v) for v in values):return None
+ if not (0<compression<=.002 and 0<=relief<=.0002 and width>0 and 0<=edge_bound<=.002):return None
+ gap=lambda a:reference['closed_gap_m']+reference['opening_travel_m']*a
+ # Release starts at the previous carry aperture. Admit only that unloading
+ # transition while preload remains, never an opening-stage collision later.
+ unloading=(stage['name']=='release' and stage.get('intended_selected_contact') and
+            'grippers' in stage and gap(stage['grippers'][0 if side=='left' else 1])>=width)
+ if stage['name']!='close' and not stage.get('carrying') and not unloading:return None
+ commanded=width-compression+relief
+ if abs(gap(geometry['nominal_aperture'])-commanded)>1e-9:return None
+ effective=width-gap(aperture)
+ if not 0<effective<=compression-relief+1e-6:return None
+ # Each jaw can indent only its share of actual commanded preload. Retain
+ # the old 1mm depth ceiling and front-plane band; extend only the pad edge
+ # to the existing <=2mm contact-height uncertainty, never to the whole tip.
+ if distance < -min(.001,effective/2+1e-6):return None
+ if not all(bounds[0,k]-edge_bound<=native[k]<=bounds[1,k]+edge_bound for k in [0,2]):return None
+ return 'preload_edge'
+
+
+def contact_blocked_aperture(plan,stage,aperture,reference):
+ """Offline loaded-grasp hypothesis; never rewrites a native command.
+
+ A position setpoint beyond contact does not imply rigid-cube deformation.
+ Use the separately declared bounded CAD contact aperture for loaded jaws.
+ """
+ command_gap=plan.get('grasp_command_gap_m')
+ if command_gap is None:return aperture
+ geometry=plan['contact_geometry'];width=geometry['projected_grasp_width_m']
+ gap=lambda a:reference['closed_gap_m']+reference['opening_travel_m']*a
+ contact=geometry['nominal_aperture'];compression=plan['grasp_compression_m'];relief=plan['grasp_gap_relief_m']
+ assert all(math.isfinite(v) for v in (command_gap,contact,compression,relief))
+ assert 0<=compression<=.002 and 0<=relief<=.0002
+ assert abs(gap(contact)-(width-compression+relief))<1e-9
+ assert 0<=geometry['commanded_aperture']<=1 and abs(gap(geometry['commanded_aperture'])-command_gap)<1e-9
+ closing=stage['name']=='close' or stage.get('carrying')
+ index=0 if plan['arm']=='left' else 1
+ unloading=stage['name']=='release' and stage.get('intended_selected_contact') and gap(stage['grippers'][index])>=width
+ if closing:
+  assert abs(gap(stage['grippers'][index])-command_gap)<1e-9
+ if closing or unloading:return max(aperture,contact)
+ return aperture
+
+
 def main(argv=None):
  p=argparse.ArgumentParser();p.add_argument('--runtime-root',type=Path,required=True);p.add_argument('--preview',type=Path,required=True);p.add_argument('--parts',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--allow-initial-object-touch',action='store_true');p.add_argument('--allow-staging',action='store_true');p.add_argument('--reuse-model',action='store_true');p.add_argument('--stop-on-failure',action='store_true');a=p.parse_args(argv)
  started=time.monotonic();preview=json.loads((a.preview/'result.json').read_text());scene=json.loads((a.preview/'planning-scene.json').read_text());state=json.loads((a.preview/'controller-state.json').read_text());report=json.loads((a.preview/'calibration.json').read_text());ref=reference_contact(a.runtime_root)
@@ -160,11 +218,14 @@ def main(argv=None):
   assert np.linalg.norm(np.array(declared_place['expected_tip_world_m'])-wanted_place)<1e-9
   relative_pos=relative_rot=None
   for stage in plan['stages']:
-   minimum=100.;carry_min=100.;samples=0;pad_contacts=0;maxfk=0.;bad=[]
+   minimum=100.;carry_min=100.;samples=0;pad_contacts=0;preload_edges=0;maxfk=0.;bad=[];command_min=100.;model_min=100.
    for target in stage['points_rad']:
     target=np.array(target);endg=np.array(stage['grippers']);count=max(1,math.ceil(np.max(abs(target-q))/.005),math.ceil(np.max(abs(endg-g))/.05))
     for alpha in np.linspace(0,1,count+1):
      current=q+alpha*(target-q);jaws=g+alpha*(endg-g);assert np.array_equal(current[inactive],initial[inactive]);data.qpos[qids]=current
+     command_min=min(command_min,float(ref['closed_gap_m']+ref['opening_travel_m']*jaws[idx]))
+     jaws[idx]=contact_blocked_aperture(plan,stage,jaws[idx],ref)
+     model_min=min(model_min,float(ref['closed_gap_m']+ref['opening_travel_m']*jaws[idx]))
      for i,s in enumerate(['left','right']):
       for joint in ['joint7','joint8']:data.qpos[model.joint(s+'_installed_'+joint).qposadr[0]]=.0475*jaws[i]
      mujoco.mj_forward(model,data)
@@ -190,13 +251,15 @@ def main(argv=None):
       tipname=next((n for n in names if n.startswith(side+'_installed_tip_')),None)
       if tipname and 'cube_'+color in names and (stage.get('carrying') or stage.get('intended_selected_contact')):
        native=(c.pos-tip)@r;which='tip_left' if '_tip_left_' in tipname else 'tip_right';pad=next(t for t in ref['tips'] if t['name']==which);bounds=np.array(pad['pad_bounds_native_grasp_m']);py=pad['pad_y_m']+(.0475*jaws[idx] if which=='tip_left' else -.0475*jaws[idx])
-       if c.dist>=-.001 and abs(native[1]-py)<=.001 and all(bounds[0,k]-.001<=native[k]<=bounds[1,k]+.001 for k in [0,2]):pad_contacts+=1;continue
+       kind=intended_tip_contact_kind(names,side,color,stage,plan,native,pad,py,jaws[idx],ref,float(c.dist))
+       if kind:
+        pad_contacts+=1;preload_edges+=int(kind=='preload_edge');continue
       bad.append(dict(geoms=names,distance_m=float(c.dist),stage=stage['name'],sample=samples))
      samples+=1
     q=target;g=endg
    destination_error=float(np.linalg.norm(tip-wanted_place)) if stage['name']=='place' else 0.
    status='PASS' if destination_error<=.002 and not bad and (touch is None or touch.verdict()['passed']) and minimum-error>=.005-1e-9 and maxfk<1e-5 and (not stage.get('carrying') or carry_min>=(-1e-6 if stage.get('intended_selected_contact') else .004)) else 'BLOCKED'
-   row=dict(color=color,stage=stage['name'],state=status,samples=samples,min_installed_gripper_z_m=minimum,minimum_after_assumed_height_error_m=minimum-error,held_cube_min_z_m=carry_min if stage.get('carrying') else None,pad_contact_samples=pad_contacts,max_fk_disagreement_m=maxfk,unexpected_contact_count=len(bad),unexpected_contacts=bad[:12],inactive_arm_exact=True)
+   row=dict(color=color,stage=stage['name'],state=status,samples=samples,min_installed_gripper_z_m=minimum,minimum_after_assumed_height_error_m=minimum-error,held_cube_min_z_m=carry_min if stage.get('carrying') else None,pad_contact_samples=pad_contacts,preload_edge_contact_samples=preload_edges,min_commanded_jaw_gap_m=command_min,min_modeled_jaw_gap_m=model_min,max_fk_disagreement_m=maxfk,unexpected_contact_count=len(bad),unexpected_contacts=bad[:12],inactive_arm_exact=True)
    rows.append(row)
    if stage['name']=='place':row['destination_tip_error_m']=destination_error
    if status!='PASS':

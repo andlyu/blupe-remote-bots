@@ -33,8 +33,11 @@ def configure_size_aware(program,edges):
     planner.pregrasp_extra_open_gap_m=.020
     planner.grasp_offset_m=.008
     planner.prefer_centered_grasps=True
-    planner.grasp_compression_m=0.
-    planner.grasp_gap_relief_m=getattr(program.args,'feedback_grip_relief_mm',.1)/1000
+    # Native close/carry position target. The separate bounded CAD contact
+    # hypothesis models object-blocked jaws; it is not force calibration.
+    planner.grasp_command_gap_m=getattr(program.args,'feedback_close_gap_mm',20.)/1000
+    planner.grasp_compression_m=.0005
+    planner.grasp_gap_relief_m=getattr(program.args,'feedback_grip_relief_mm',0.)/1000
     planner.preserve_carry_orientation=True
     planner.allow_corner_grasps=False
     planner.preserve_pickup_clearance_m=.075
@@ -191,7 +194,11 @@ class SizeAwareCubeProgram(SizeAwarePlanning,CubeProgram):
         configure_size_aware(self,edges)
         save(self.out/'size-aware-profile.json',dict(cube_edges_m=self.cube_edges_m,
             pregrasp_clearance_m=.010,pregrasp_extra_open_gap_m=.020,
-            pregrasp_gap_for30mm_m=.060,grasp_gap_relief_m=self.planner.grasp_gap_relief_m,
+            pregrasp_gap_for30mm_m=.060,grasp_compression_m=self.planner.grasp_compression_m,
+            grasp_gap_relief_m=self.planner.grasp_gap_relief_m,
+            commanded_close_gap_m=self.planner.grasp_command_gap_m,
+            modeled_contact_gap_by_color_m={c:edge-self.planner.grasp_compression_m+self.planner.grasp_gap_relief_m for c,edge in self.cube_edges_m.items()},
+            closure_semantics='20mm native position command; separate object-blocked CAD contact hypothesis; no measured grip force',
             preferred_tcp_depth_below_top_m=self.ref['preferred_tcp_depth_below_top_m'],
             vertical_planning_reserve_m=self.ref['candidate_vertical_error_bound_m'],
             minimum_installed_tip_floor_clearance_m=.005,
