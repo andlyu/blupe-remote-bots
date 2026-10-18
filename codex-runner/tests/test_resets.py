@@ -137,3 +137,19 @@ def test_public_cli_retains_explicit_transport_overrides_without_defaults(tmp_pa
     monkeypatch.setattr(runner,'run_reset',lambda config,output,**kw:called.append(config) or dict(state='complete',goals_reached=True))
     assert runner.main(['--config',str(path),'--output',str(tmp_path/'out'),'--ssh','stub-override','--identity','stub-key-path'])==0
     assert called[0]['transport']==dict(ssh='stub-override',identity='stub-key-path')
+
+
+def test_replay_component_does_not_require_private_or_optional_vision_packages():
+    import subprocess,sys
+    source=Path(__file__).resolve().parents[1]/'src'
+    code="""import importlib.abc,sys
+sys.path.insert(0,SOURCE)
+class Forbid(importlib.abc.MetaPathFinder):
+ def find_spec(self,name,*args):
+  if name.split('.')[0] in ('cv2','scipy','blupe_evals'):raise AssertionError(name)
+sys.meta_path.insert(0,Forbid())
+from remote_yam.resets.recorded_replay import RecordedReplay
+from remote_yam.resets.replay_edit import apply_edit
+assert 'cv2' not in sys.modules and 'scipy' not in sys.modules
+""".replace('SOURCE',repr(str(source)))
+    subprocess.run([sys.executable,'-I','-c',code],check=True)
