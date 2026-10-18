@@ -99,3 +99,16 @@ def test_proxy_uses_only_allowlisted_failure_code_not_remote_message():
     c.status.return_value=terminal
     with pytest.raises(RuntimeError,match='queue/API ownership'):p.run_managed('Reset')
     assert 'secret' not in str(p.public_config())
+
+
+@pytest.mark.parametrize('seconds',[600,180,300])
+def test_hosted_controller_selected_duration_reaches_same_child_run(seconds):
+    from remote_yam.controller import RunnerController
+    from remote_yam.session import MockSessionAPI
+    p,c=setup();c.status.return_value=state('complete','stopped')
+    controller=RunnerController(MockSessionAPI())
+    controller.join_and_run(p,'Reset bin',run_duration_s=seconds)
+    controller._worker.join(3)
+    assert not controller._worker.is_alive()
+    assert controller.status()['run_duration_s']==seconds
+    assert c.start.call_args.kwargs['run_duration_s']==seconds

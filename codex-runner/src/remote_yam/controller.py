@@ -371,6 +371,9 @@ class RunnerController(HomeSceneStartup):
         would add a competing owner and its automatic Home path.
         """
         try:
+            configure_duration = getattr(provider, 'configure_run_duration', None)
+            if callable(configure_duration):
+                configure_duration(run_duration_s)
             with self._lock:
                 if self._stop_event.is_set():
                     self._status='stopped'

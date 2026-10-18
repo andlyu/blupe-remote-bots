@@ -19,6 +19,11 @@ class RemoteRunnerPolicy:
         self._phase, self._progress, self._result = 'preparing', None, None
         self._stop_sent = False
         self._failure = None
+        self.run_duration_s = spec.get('default_run_duration_s', 600)
+
+    def configure_run_duration(self, seconds):
+        # The owning controller supplies its already selected/validated duration.
+        self.run_duration_s = seconds
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, display_name=self.spec['label'],
@@ -52,7 +57,7 @@ class RemoteRunnerPolicy:
         # same visitor, never by repeating the write or creating another visitor.
         try:
             self.client.start(self.spec.get('remote_policy', self.provider_name),
-                runner_name='Hosted ' + self.spec['label'], run_duration_s=600)
+                runner_name='Hosted ' + self.spec['label'], run_duration_s=self.run_duration_s)
         except Exception:
             state = self._status()
             if not state.get('attempt_id'):

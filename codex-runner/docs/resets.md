@@ -246,6 +246,15 @@ and release40mm remain independent. Warm-started reference plans receive the
 selected opening too; this option does not change native gripper travel/guards.
 # Recorded box Replay in a queue session
 
+Set `default_run_duration_s: 600` in both the local policy and hosted proxy
+configuration to default Reset bin to ten minutes. The model selector applies
+that policy's default; other providers keep five minutes. Explicit changes are
+remembered per provider/robot for the current page, including a browser-restored
+nondefault value. Re-selecting a provider does not overwrite its explicit choice.
+Requests that omit a duration also receive the configured server default.
+The hosted proxy forwards the owning controller's selected duration to its child
+runner, so both deadlines match. Explicit deadlines and normal Stop remain.
+
 For the combined Reset bin, configure `sequence` as
 `["recorded_box_replay", "camera_clear_home", "cube_reset"]` and bind the existing
 station `recipe` (saved source/edit/calibration, generated Home disabled). The
