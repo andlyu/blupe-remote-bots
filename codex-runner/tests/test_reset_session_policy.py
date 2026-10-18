@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+import numpy as np
 
 from remote_yam.controller import RunnerController
 from remote_yam.resets.session_policy import CubeSessionPolicy, SessionResetIO
@@ -227,3 +228,41 @@ def test_sequence_execute_ack_loss_is_never_reposted():
     io.api._request=lost
     with pytest.raises(TimeoutError):io.sequence_motion('recorded_replay',recipe={},request_id='a'*32)
     assert io.api.plans==1
+
+
+def test_real_wrist_consumer_collects_distinct_frames_through_session_checks(tmp_path,monkeypatch):
+    from remote_yam.resets.yam_cube_program import wrist_rows
+    import remote_yam.api_depth as depth
+    import remote_yam.resets.kinematics as kinematics
+    io=bridge();io.motion_completed_robot_wall=100.
+    rgb=np.zeros((32,32,3),dtype=np.uint8);rgb[:,:,2]=255
+    frames=[SimpleNamespace(rgb=rgb,depth=np.full((32,32),.1),
+        metadata=dict(sequence=index,captured_at=100.+index),age_upper_s=.1) for index in (1,1,2,3)]
+    calls=[]
+    def capture(report,**kwargs):
+        calls.append(kwargs)
+        assert io.camera.motion_completed_robot_wall==100.
+        return frames.pop(0)
+    io.camera.capture=capture
+    monkeypatch.setattr(depth,'factory_ray',lambda profile,u,v:np.array([u*.001,v*.001,1.]))
+    monkeypatch.setattr(kinematics,'arm_pose',lambda *args:np.eye(4))
+    report=dict(cameras=dict(left=dict(T_grasp_camera=np.eye(4).tolist(),depth_intrinsics={})))
+    rows,after=wrist_rows(io,report,'blue','left',tmp_path/'wrist',count=3)
+    assert [r['sequence'] for r in rows]==[1,2,3]
+    assert len(calls)==4 and all(c['camera']=='left' for c in calls)
+    assert io.camera.calls==['state']*6  # Before/after plus each attempted frame.
+    assert after['api']['authorized'] and io.api.calls==[]
+
+
+@pytest.mark.parametrize('stop',['callback','lease'])
+def test_multi_frame_wrist_capture_stops_before_the_next_frame(stop):
+    io=bridge();calls=[]
+    def capture(report,**kwargs):
+        calls.append(kwargs)
+        if stop=='callback':io.cancelled=lambda:True
+        else:io.camera.current['api']['authorized']=False
+        return SimpleNamespace(metadata=dict(sequence=1,captured_at=1.))
+    io.camera.capture=capture
+    with pytest.raises(KeyboardInterrupt):io.captures({},count=3,camera='right',after_robot_wall=.5)
+    assert len(calls)==1 and calls[0]==dict(camera='right',after_robot_wall=.5)
+    assert io.api.calls==[]
