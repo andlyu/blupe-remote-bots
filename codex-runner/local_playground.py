@@ -26,6 +26,9 @@ class LocalPlayground(HostedRunner):
             def factory(model, directory, name=name, spec=spec):
                 if model != spec['model']:
                     raise RequestError(400, 'Unknown configured policy version')
+                if spec.get('execution') == 'session_cube':
+                    from remote_yam.resets.session_policy import CubeSessionPolicy
+                    return CubeSessionPolicy(name, spec, directory)
                 return ManagedCommandPolicy(name, spec, directory)
             self.extra_providers[name] = factory
         # Only the public-queue launchers join BluPe's public visitor room.

@@ -296,6 +296,19 @@ class CubeProgram:
         """Use native Home to clear the cameras before a fresh table capture."""
         read=self.io.read if self.controller_only else self.io.call
         initial=read('state');pose=read('pose_status');save(self.out/'startup-before.json',dict(controller=initial,local_pose=pose))
+        if getattr(self.io, 'session_owned', False):
+            self.io.require_session(initial)
+            require(initial.get('homed') is True and initial.get('settled') is True,
+                'Reset requires the normal queue measured-Home handoff')
+            require(pose.get('execution_policy') == self.args.execution_policy,
+                'Session executor differs from the selected reset execution policy')
+            if getattr(self.args,'timing_profile','native') in ('sim-qualified','sim-free'):
+                require(pose.get('cube_timing_profile') == CUBE_TIMING_PROFILE,
+                    'Session executor lacks the selected simulation-qualified timing')
+            self.startup_needs_planning_home=False
+            self.event('session_startup_ready',motor_owner='session_api',
+                action='Use existing queue lease and measured Home; no manual initialization')
+            return
         if getattr(self.args,'after_replay',None):
             from .yam_tabletop_reset import require_replay_handoff
             context=getattr(self.io,'reset_replay_handoff',{})
@@ -632,7 +645,7 @@ class CubeProgram:
                     final=compare(scene,self.targets,self.report['calibration_id'])
                 goals_reached=all(r['state']=='already_correct' for r in final.values())
                 outcome='complete' if goals_reached else 'completed_unverified' if any(r['state']=='unverified' for r in final.values()) else 'completed_with_deviations'
-                io.call('release',{'owner_token':self.token});self.token=None;tokenfile.unlink(missing_ok=True);save(self.out/'result.json',dict(state=outcome,goals_reached=goals_reached,goals_sha256=self.goals_sha,comparison=final,motion_commands=self.motion_count,execution_policy='controller-faults' if self.controller_only else 'validated',terminal='Torque hold following selected execution policy; queue paused'));self.event(outcome,motion_commands=self.motion_count,comparison=final);return 0
+                io.call('release',{'owner_token':self.token});self.token=None;tokenfile.unlink(missing_ok=True);save(self.out/'result.json',dict(state=outcome,goals_reached=goals_reached,goals_sha256=self.goals_sha,comparison=final,motion_commands=self.motion_count,execution_policy='controller-faults' if self.controller_only else 'validated',terminal='Session API owns completion and queue parking' if getattr(io,'session_owned',False) else 'Torque hold following selected execution policy; queue paused'));self.event(outcome,motion_commands=self.motion_count,comparison=final);return 0
             except BaseException as exc:
                 hold=None
                 if self.token is not None or self.motion_count or self.pending is not None or getattr(self,'startup_in_flight',False):
