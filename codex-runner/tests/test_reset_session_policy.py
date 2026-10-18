@@ -116,16 +116,40 @@ def test_lost_execute_ack_is_not_reposted():
     assert io.api.plans==1
 
 
-def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp_path):
+def test_camera_clock_receipts_follow_queue_home_and_completed_motion():
+    io=bridge();io.camera.last_robot_wall=10.
+    token=io.call('reserve',{'execution_policy':'controller-faults'})['owner_token']
+    assert io.motion_completed_robot_wall==10.
+    p=io.call('preview',dict(owner_token=token,joints_rad=[.1]*12,grippers=[.5,.5]))
+    io.call('execute',dict(owner_token=token,plan_id=p['plan_id']))
+    io.camera.last_robot_wall=20.
+    io.call('wait',dict(owner_token=token,plan_id=p['plan_id'],timeout_s=2))
+    assert io.motion_completed_robot_wall==20.
+    assert io.api.plans==1
+
+
+def test_stop_after_motion_ack_blocks_the_camera_continuation():
+    io=bridge();token=io.call('reserve',{'execution_policy':'controller-faults'})['owner_token']
+    p=io.call('preview',dict(owner_token=token,joints_rad=[.1]*12,grippers=[.5,.5]))
+    io.call('execute',dict(owner_token=token,plan_id=p['plan_id']))
+    io.camera.current['mode']='DISABLED'
+    with pytest.raises(KeyboardInterrupt):
+        io.call('wait',dict(owner_token=token,plan_id=p['plan_id'],timeout_s=2))
+    assert io.api.plans==1
+
+
+@pytest.mark.parametrize('outcome,goals,reason',[('complete',True,'policy_complete'),
+                                              ('cancelled',False,'user_requested')])
+def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp_path,outcome,goals,reason):
     config=tmp_path/'station.json'
     config.write_text(json.dumps(dict(resources={},io_routes={},transport=dict(ssh='inert'))))
     calls=[]
     def run(config,output,**kwargs):
         calls.append(kwargs['shared_io'].context)
-        return dict(state='complete',goals_reached=True,request_id=kwargs['request_id'])
+        return dict(state=outcome,goals_reached=goals,request_id=kwargs['request_id'])
     policy=CubeSessionPolicy('reset_bin',dict(model='cube-reset-session-v1',label='Reset bin',
         task='Reset bin',session_config=str(config)),tmp_path,io_factory=Camera,cube_runner=run)
-    api=MockSessionAPI();controller=RunnerController(api)
+    api=MockSessionAPI();api.stop_session=Mock(wraps=api.stop_session);controller=RunnerController(api)
     controller.join_and_run(policy,'Reset bin')
     deadline=time.monotonic()+3
     while controller._worker.is_alive() and time.monotonic()<deadline:time.sleep(.01)
@@ -133,8 +157,9 @@ def test_provider_joins_normal_queue_and_session_completion_uses_normal_stop(tmp
     assert len(api.create_requests)==1
     assert len(calls)==1, controller.status()['error']
     assert calls[0]['session_id']==controller.status()['session_id']
-    assert policy.public_config()['managed_execution']['phase']=='complete'
+    assert policy.public_config()['managed_execution']['phase']==outcome
     assert controller.status()['error'] is None
+    assert api.stop_session.call_args.kwargs['reason']==reason
 
 
 def test_cube_runner_accepts_injected_session_io_in_worker_thread(tmp_path):
