@@ -5,6 +5,7 @@ from pathlib import Path
 import threading
 
 from .remote_runner_policy import RemoteRunnerPolicy
+from .policy_defaults import default_run_duration
 
 
 class ConfiguredPoliciesMixin:
@@ -17,6 +18,7 @@ class ConfiguredPoliciesMixin:
         self._configured_launch_lock = threading.RLock()
         providers = dict(kwargs.get('extra_providers', {}))
         for name, spec in self.configured_policies.items():
+            default_run_duration(spec)
             def factory(model, directory, name=name, spec=spec):
                 if model != spec['model']:
                     raise RequestError(400, 'Unknown configured policy version')
@@ -32,7 +34,8 @@ class ConfiguredPoliciesMixin:
         return setup, headers
 
     def configured_public_config(self):
-        return {name: {key: spec[key] for key in ('label', 'model', 'task', 'help')}
+        return {name: {**{key: spec[key] for key in ('label', 'model', 'task', 'help')},
+                       'default_run_duration_s': default_run_duration(spec)}
                 for name, spec in self.configured_policies.items()}
 
     def launch(self, visitor, payload, **kwargs):
@@ -48,4 +51,5 @@ class ConfiguredPoliciesMixin:
                 if payload.get('model') != spec['model']:
                     raise RequestError(400, 'Unknown configured policy version')
                 payload = {**payload, 'prompt': spec['task'], 'api_key': ''}
+                payload.setdefault('run_duration_s', default_run_duration(spec))
             return super().launch(visitor, payload, **kwargs)

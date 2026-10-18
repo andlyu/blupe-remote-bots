@@ -11,6 +11,9 @@ PLAYGROUND = 'https://playground.blupe.io'
 PUBLIC_SESSION_API = 'https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
 
+from remote_yam.policy_defaults import default_run_duration
+
+
 class LocalPlayground(HostedRunner):
     """Bridge the public viewer routes normally supplied by remote Caddy."""
 
@@ -48,6 +51,9 @@ class LocalPlayground(HostedRunner):
             if self._managed_owner is not None and self._managed_owner.controller.busy():
                 raise RequestError(409, 'A configured policy is active. Wait for its completion or Stop acknowledgement.')
             managed = payload.get('provider') in self.managed_policies
+            if managed:
+                payload = dict(payload)
+                payload.setdefault('run_duration_s', default_run_duration(self.managed_policies[payload['provider']]))
             for other in self.visitors.values():
                 active = other.controller.busy()
                 other_managed = callable(getattr(other.controller._provider, 'run_managed', None))
@@ -184,7 +190,8 @@ class LocalPlayground(HostedRunner):
         setup, headers = await super().session_extension(cookies, visitor)
         if self.managed_policies:
             setup = dict(setup, configured_providers={**setup.get('configured_providers', {}),
-                **{name: {key: spec[key] for key in ('label','model','help','task') if key in spec}
+                **{name: {**{key: spec[key] for key in ('label','model','help','task') if key in spec},
+                          'default_run_duration_s': default_run_duration(spec)}
                    for name, spec in self.managed_policies.items()}})
         config = getattr(self, 'aspire_station_config', None)
         if config:

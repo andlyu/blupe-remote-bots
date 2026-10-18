@@ -17,6 +17,25 @@ function playgroundEntryModel(search, options, session = {}) {
     || (session.local_runner ? null : astra());
 }
 
+function createProviderRunDuration(input) {
+  const explicit = new Map();
+  let selected = null;
+  let restored = input.defaultValue !== undefined && input.value !== input.defaultValue ? input.value : null;
+  const remember = () => { if (selected !== null) explicit.set(selected, input.value); };
+  input.addEventListener('input', remember);
+  input.addEventListener('change', remember);
+  return {
+    select(key, seconds = 300) {
+      if (selected === key) return;
+      if (selected === null && restored !== null) explicit.set(key, restored);
+      restored = null;
+      selected = key;
+      const minutes = Number.isInteger(seconds) && seconds >= 60 && seconds <= 600 && seconds % 60 === 0 ? seconds / 60 : 5;
+      input.value = explicit.has(key) ? explicit.get(key) : String(minutes);
+    }
+  };
+}
+
 function createRunVideoEmailControl($) {
   const button = $('emailRunVideo'), email = $('email'), status = $('emailRunVideoStatus');
   const enabled = () => button.checked;
@@ -491,6 +510,7 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   let claudeModel = 'claude-opus-5-5';
   let configuredProviders = {};
+  window.yamRunDuration = createProviderRunDuration($('runDuration'));
   let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
   const resolveViewerStream = createViewerStreamResolver();
@@ -742,6 +762,8 @@ function createRunLaunchGuard() {
     updateRunLabel();
   }
   function providerChanged(preview = true) {
+    window.yamRunDuration?.select(selectedRobot + ':' + $('provider').value,
+      configuredProviders[$('provider').value]?.default_run_duration_s);
     window.yamModelPicker?.saveSelection();
     const fixedTask = configuredProviders[$('provider').value]?.task;
     const taskState = $('prompt').dataset;

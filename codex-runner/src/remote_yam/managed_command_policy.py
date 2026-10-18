@@ -15,6 +15,7 @@ import threading
 import uuid
 
 from .runner_failures import failure_from_error
+from .policy_defaults import default_run_duration
 
 
 def load_policies(path, robot_id):
@@ -28,6 +29,7 @@ def load_policies(path, robot_id):
         if raw.get('robot_id') != robot_id:
             continue
         spec = deepcopy(raw)
+        default_run_duration(spec)
         if spec.get('execution') not in (None, 'session_cube'):
             raise ValueError('Unknown configured policy execution mode')
         if spec.get('execution') == 'session_cube' and (
