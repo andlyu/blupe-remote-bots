@@ -521,6 +521,53 @@ def test_worker_error_metadata_does_not_expose_private_text_or_arbitrary_reason(
     assert 'private-' not in json.dumps(reply,allow_nan=False)
 
 
+@pytest.mark.parametrize('message,cause,category,status', [
+    ('inference reply from private-endpoint is not JSON (HTTP 502); is the correct DreamAPI gateway running there?',
+     json.JSONDecodeError('private-body', '', 0), 'non_json_reply', 502),
+    ('inference reply carries no status envelope; is the correct DreamAPI gateway running?',
+     None, 'missing_status_envelope', None),
+    ('private-endpoint unreachable: private-details', ConnectionResetError('private-address'),
+     'connection_failure', None),
+    ('private-body with unknown SDK text', None, 'other_protocol_error', None),
+])
+def test_sdk_protocol_raise_conditions_are_classified_without_private_text(tmp_path, monkeypatch,
+                                                                         message, cause, category, status):
+    monkeypatch.setenv('DREAM_WORK_DIR', str(tmp_path))
+    path = Path(__file__).parents[1]/'src/remote_yam/dream_worker.py'
+    spec = importlib.util.spec_from_file_location('dream_protocol_diagnostics', path)
+    worker = importlib.util.module_from_spec(spec); spec.loader.exec_module(worker)
+    class DreamProtocolError(RuntimeError):
+        pass
+    error = DreamProtocolError(message); error.__cause__ = cause
+    reply = worker.error_response(error, phase='predict', timing={
+        'rtt_ms': 31000, 'response_bytes': 17, 'request_bytes': 40000,
+        'gateway_ms': float('nan'), 'network_ms': -1, 'secret': 'private-timing'})
+    assert reply['protocol_category'] == category and reply['http_status'] == status
+    assert reply['phase'] == 'predict'
+    assert reply['timing'] == dict(rtt_ms=31000, response_bytes=17, request_bytes=40000)
+    assert 'private-' not in json.dumps(reply, allow_nan=False)
+
+
+def test_protocol_failure_reaches_journal_and_user_without_retry(tmp_path):
+    provider = adapter(tmp_path)
+    provider.worker_factory = SessionWorker
+    events = []
+    provider.interaction_sink = lambda kind, message, **details: events.append((kind, details))
+    try:
+        provider.wait_ready(lambda: False)
+        provider._worker.responses = [dict(ok=False, error_type='DreamProtocolError',
+            protocol_category='non_json_reply', http_status=502, cause_type='JSONDecodeError',
+            phase='predict', timing={'rtt_ms': 31000}, retryable=False)]
+        with pytest.raises(RuntimeError, match=r'non_json_reply; HTTP 502'):
+            provider.build_trajectory('move', observation(), 0)
+        failure = [details for kind, details in events if kind == 'model_failure'][0]
+        assert failure['http_status'] == 502 and failure['phase'] == 'predict'
+        assert failure['timing'] == {'rtt_ms': 31000}
+        assert len([c for c, _ in provider._worker.calls if c == 'predict']) == 1
+    finally:
+        provider.close_transport()
+
+
 def test_completed_target_is_passed_to_sdk_instead_of_guessing_from_measured_lag(tmp_path):
     provider = adapter(tmp_path)
     try:
