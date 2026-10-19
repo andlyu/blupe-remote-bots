@@ -244,6 +244,7 @@ class HostedRunner:
                         robot_id=self.robot_id)
                 self.extra_providers[name] = factory
                 self.dream_providers[name] = {'label': label, 'model': checkpoint,
+                    'default_run_duration_s': 120, 'max_run_duration_s': 120,
                     'motion_cap': {'default_step_deg': 20, 'gateway_step_deg': gateway_step},
                     'help': 'Dream-1 follows your instruction using the overhead and wrist cameras. Runs until the time limit or Stop.'}
         self.observation = None
@@ -505,8 +506,11 @@ class HostedRunner:
                     result = await asyncio.to_thread(self.past_runs.page, offset)
                 names = await asyncio.to_thread(self.run_names.names)
                 outcomes = await asyncio.to_thread(self.run_names.results)
+                replay_speeds = await asyncio.to_thread(self.run_names.replay_speeds)
                 for row in result['runs']:
                     row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                    if row['episode_id'] in replay_speeds:
+                        row['replay_speed'] = replay_speeds[row['episode_id']]
                     from remote_yam.past_runs import merge_run_result
                     merge_run_result(row, outcomes.get(row['episode_id'], {}))
             except Exception:
@@ -584,9 +588,12 @@ class HostedRunner:
                     result = await asyncio.to_thread(self.past_runs.page, offset, episode_ids=ids, robot_id=self.robot_id)
                     names = await asyncio.to_thread(self.run_names.names)
                     outcomes = await asyncio.to_thread(self.run_names.results)
+                    replay_speeds = await asyncio.to_thread(self.run_names.replay_speeds)
                     from remote_yam.past_runs import merge_run_result
                     for row in result['runs']:
                         row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                        if row['episode_id'] in replay_speeds:
+                            row['replay_speed'] = replay_speeds[row['episode_id']]
                         merge_run_result(row, outcomes.get(row['episode_id'], {}))
                 except Exception:
                     raise RequestError(503, 'Run history is temporarily unavailable. Please retry.') from None
@@ -871,9 +878,10 @@ class HostedRunner:
                 raise RequestError(400, "API depth must be true or false")
             if use_api_depth and not (name == 'codex' and self.local_codex and self.api_depth_provider_factory):
                 raise RequestError(400, "API depth requires a configured local Astra runner")
-            duration = payload.get("run_duration_s", 300)
-            if type(duration) is not int or not 60 <= duration <= 600:
-                raise RequestError(400, "Choose a run duration from 1 to 10 minutes")
+            maximum_duration = 120 if name in ('dream', 'dream_flash') else 600
+            duration = payload.get("run_duration_s", min(300, maximum_duration))
+            if type(duration) is not int or not 60 <= duration <= maximum_duration:
+                raise RequestError(400, f"Choose a run duration from 1 to {maximum_duration // 60} minutes")
             runner_name = payload.get('runner_name', 'Anonymous')
             try:
                 handles = social_handles(payload)

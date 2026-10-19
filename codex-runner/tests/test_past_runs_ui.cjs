@@ -22,3 +22,15 @@ test('live speed restores the original file and normal playback; fast mode resto
   assert.equal(playbackSource(original, true).rate, 1);
   assert.equal(playbackSource(original, false).rate, 10);
 });
+
+test('Dream effective 2x keeps the existing trimmed file and accounts for encoded speed',()=>{
+  for(const encoded of [2,10]) {
+    const run={video_url:'https://example.com/viewing/run.mp4',compressed:true,preview_speed:encoded,replay_speed:2};
+    const source=playbackSource(run,false);
+    assert.equal(source.url,run.video_url);assert.equal(source.rate*encoded,2);assert.equal(source.speed,2);
+    assert.equal(playbackSource(run,true).rate,1);
+    assert.equal(playbackSource(run,true).url,'https://example.com/videos/run.mp4');
+    assert.equal(playbackSource({...run,replay_speed:undefined},false).rate,1);
+  }
+  assert.equal(playbackSource({video_url:'original',replay_speed:2},false).rate,2);
+});

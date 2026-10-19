@@ -25,13 +25,19 @@ function createProviderRunDuration(input) {
   input.addEventListener('input', remember);
   input.addEventListener('change', remember);
   return {
-    select(key, seconds = 300) {
-      if (selected === key) return;
+    select(key, seconds = 300, maximum = 600) {
+      const maxMinutes = Number.isInteger(maximum) && maximum >= 60 && maximum <= 600 ? maximum / 60 : 10;
+      input.max = String(maxMinutes);
+      if (selected === key) {
+        if (Number(input.value) > maxMinutes) input.value = String(maxMinutes);
+        return;
+      }
       if (selected === null && restored !== null) explicit.set(key, restored);
       restored = null;
       selected = key;
       const minutes = Number.isInteger(seconds) && seconds >= 60 && seconds <= 600 && seconds % 60 === 0 ? seconds / 60 : 5;
       input.value = explicit.has(key) ? explicit.get(key) : String(minutes);
+      if (Number(input.value) > maxMinutes) input.value = String(maxMinutes);
     }
   };
 }
@@ -323,7 +329,9 @@ function createRunLaunchGuard() {
   $('pastRunDetails').after(speedButton);
   const playbackSource = (run, live) => ({
     url: live ? (run.original_video_url || run.video_url.replace('/previews/', '/videos/').replace('/viewing/', '/videos/')) : run.video_url,
-    rate: live || run.compressed ? 1 : 10
+    // Encoded previews already include their recorded speed and idle removal.
+    rate: live ? 1 : run.replay_speed === 2 ? 2 / (run.compressed ? (run.preview_speed || 10) : 1) : run.compressed ? 1 : 10,
+    speed: live ? 1 : run.replay_speed === 2 ? 2 : run.compressed ? (run.preview_speed || 10) : 10
   });
   speedButton.addEventListener('click', () => {
     if (selectedRun) openRun(selectedRun, speedButton.dataset.live !== 'true');
@@ -341,9 +349,9 @@ function createRunLaunchGuard() {
     window.yamReplayEmail?.setRun(run);
     speedButton.hidden = run.original_available === false;
     speedButton.dataset.live = String(live);
-    speedButton.textContent = live ? '10× speed' : 'Live speed';
+    speedButton.textContent = live ? `${playbackSource(run, false).speed}× speed` : 'Live speed';
     const cameras = live ? 'Top, left and right cameras' : run.camera_order.includes('observer') ? 'Top, side, left and right cameras' : 'Three cameras · side view was not recorded';
-    $('pastRunDetails').textContent = (live ? 'Live speed · 1× · all pauses retained' : run.compressed ? '10× speed · idle pauses removed' : '10× playback · original recording, pauses retained') + ' · ' + cameras + ' · ' + (run.result || 'Unknown') + ': ' + ((run.result === 'Failure' && run.errors) || run.result_reason || 'Result was not recorded');
+    $('pastRunDetails').textContent = (live ? 'Live speed · 1× · all pauses retained' : run.compressed ? `${playbackSource(run, false).speed}× speed · idle pauses removed` : `${playbackSource(run, false).speed}× playback · original recording, pauses retained`) + ' · ' + cameras + ' · ' + (run.result || 'Unknown') + ': ' + ((run.result === 'Failure' && run.errors) || run.result_reason || 'Result was not recorded');
     $('pastRunError').textContent = '';
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
     renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
@@ -772,7 +780,8 @@ function createRunLaunchGuard() {
     $('dreamMotionHelp').textContent = 'Larger moves are slowed with extra waypoints, preserving the path and final target.'
       + (motion?.gateway_step_deg ? ` This robot’s configured limit is ${Number(motion.gateway_step_deg.toFixed(2))}° / 100 ms; the lower limit applies.` : ' Robot checks also apply.');
     window.yamRunDuration?.select(selectedRobot + ':' + $('provider').value,
-      configuredProviders[$('provider').value]?.default_run_duration_s);
+      configuredProviders[$('provider').value]?.default_run_duration_s,
+      configuredProviders[$('provider').value]?.max_run_duration_s);
     window.yamModelPicker?.saveSelection();
     const fixedTask = configuredProviders[$('provider').value]?.task;
     const taskState = $('prompt').dataset;

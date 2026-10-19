@@ -215,3 +215,18 @@ by this change. A later user-initiated run must establish actual startup phase
 durations and the amount of Home overlap. There is no fixed45-second sleep. The
 separate third-request protocol failure and all motion/Stop/native checks remain
 unchanged.
+
+## Duration and recorded replay pacing
+
+New beta and Flash launches default to 120 seconds and accept 60–120 seconds.
+The server rejects longer or noninteger durations before queue admission. The
+UI offers one or two minutes and preserves other providers' duration choices.
+The selected limit reaches the existing session/native timeout path.
+
+Saved run configuration exposes only an episode's replay pacing (Dream 2×, other
+providers 10×), without exposing the saved configuration or credentials.
+A publisher must match both episode and robot before encoding a new Dream clip.
+Missing identity defers publication. Current motion/idle selection and quality
+metadata are independent of pacing. The cache adapter reports actual encoded
+speed: new 2× clips play at 1×, legacy 10× Dream clips at 0.2×. Original full-timing
+recordings remain available through the existing Live speed option.
