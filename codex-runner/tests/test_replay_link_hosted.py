@@ -38,3 +38,24 @@ class ReplayLinkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body['runs'],[])
         code,_=await self.call_replay(b'episode_id=..%2Fprivate')
         self.assertEqual(code,400)
+
+    async def test_run_receipt_is_available_before_video_and_has_its_name_outcome_and_metrics(self):
+        self.app.past_runs = Mock()
+        self.app.past_runs.get.return_value = None
+        self.app.run_names.remember_metadata('ep_processing','yam-1','Move duck',123)
+        self.app.run_names.remember('ep_processing','Andrew')
+        self.app.run_names.remember_result('ep_processing',{'provider':{'outcome':{'status':'done','summary':'Duck placed'}},
+            'run_metrics':{'model_s':12,'execution_s':4},'step_timings':[{'step':1,'model_s':12}]})
+        code,body=await self.call_replay(b'episode_id=ep_processing')
+        self.assertEqual(code,200)
+        run=body['runs'][0]
+        self.assertEqual(run['runner_name'],'Andrew')
+        self.assertEqual(run['prompt'],'Move duck')
+        self.assertEqual(run['result'],'Success')
+        self.assertEqual(run['run_metrics']['model_s'],12)
+        self.assertEqual(run['step_timings'][0]['step'],1)
+        self.assertIsNone(run['video_url'])
+        self.assertEqual(run['video_status'],'processing')
+        self.app.run_names.remember_metadata('ep_other','other','Other robot',1)
+        code,body=await self.call_replay(b'episode_id=ep_other')
+        self.assertEqual(body['runs'],[])
