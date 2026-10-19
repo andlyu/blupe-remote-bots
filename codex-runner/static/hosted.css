@@ -1051,7 +1051,7 @@ body.cameraExpanded{overflow:hidden}
     .observerEnhancedPanel:fullscreen .syncTilePicture,.cameraDialog .observerEnhancedPanel .syncTilePicture{flex:1;min-height:0;height:auto!important}
     .observerEnhancedPanel:fullscreen canvas[data-sync-tile],.cameraDialog .observerEnhancedPanel canvas[data-sync-tile]{height:100%!important;object-fit:contain;transform:none}
     .observerEnhancedPanel:fullscreen .observerEnhancement,.cameraDialog .observerEnhancedPanel .observerEnhancement{flex:none}
-    .cameraDialog>.observerEnhancedPanel{flex:none!important;height:100dvh!important}
+    .cameraDialog>.observerEnhancedPanel{flex:1!important;height:auto!important;min-height:0}
     .cameraDialog .observerEnhancement button,.observerEnhancedPanel:fullscreen .observerEnhancement button{color:white;border-color:#829b8b}
     .cameraDialog .observerCompareLabel.after{right:90px}
     .observerEnhancedPanel .expandCamera{opacity:1!important}
@@ -1059,4 +1059,5 @@ body.cameraExpanded{overflow:hidden}
     .observerEnhancement .enhancementHeading{flex-wrap:nowrap}
     .observerEnhancement .enhancementHeading strong{font-size:12px;flex:1}
     .observerEnhancement .enhancementHeading button{flex:none}
+    @media(max-height:500px){.cameraDialog .observerEnhancement .enhancementChoices,.cameraDialog .observerEnhancement .enhancementNote{display:none}.cameraDialog .observerEnhancement{padding:4px 10px}}
 /* END observer enhancement preview v1 */
