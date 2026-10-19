@@ -112,3 +112,85 @@ def test_hosted_controller_selected_duration_reaches_same_child_run(seconds):
     assert not controller._worker.is_alive()
     assert controller.status()['run_duration_s']==seconds
     assert c.start.call_args.kwargs['run_duration_s']==seconds
+
+
+def test_hosted_reset_executes_in_the_host_without_a_remote_runner(tmp_path,monkeypatch):
+    """The hosted factory owns the actual session policy, not a Mac proxy."""
+    from remote_yam.controller import RunnerController
+    from remote_yam.session import MockSessionAPI
+    from remote_yam.resets.session_policy import CubeSessionPolicy
+    station=tmp_path/'station.json'
+    station.write_text(json.dumps(dict(resources={},io_routes={},transport=dict(ssh='inert'))))
+    spec=dict(robot_id='yam-1',model='hosted-reset-v1',label='Reset bin',task='Reset bin',help='Reset',
+              execution='session_cube',session_config=str(station),default_run_duration_s=600)
+    settings=tmp_path/'policies.json';settings.write_text(json.dumps(dict(reset_bin=spec)))
+    monkeypatch.setenv('YAM_CONFIGURED_RUNNERS_FILE',str(settings))
+    class Base:
+        def __init__(self,**kwargs):self.kwargs=kwargs;self.visitors={}
+        def launch(self,visitor,payload,**kwargs):return payload
+    class App(ConfiguredPoliciesMixin,Base):pass
+    class Camera:
+        def __init__(self,*args,**kwargs):pass
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+    with patch('remote_yam.configured_policy_hosting.RemoteRunnerPolicy',side_effect=AssertionError('Mac proxy used')):
+        app=App(robot_id='yam-1')
+        policy=app.kwargs['extra_providers']['reset_bin'](spec['model'],tmp_path/'recording')
+        assert isinstance(policy,CubeSessionPolicy)
+        policy.io_factory=Camera
+        contexts=[]
+        def cube(config,output,**kwargs):
+            contexts.append(kwargs['shared_io'].context)
+            return dict(state='complete',goals_reached=True,request_id=kwargs['request_id'])
+        policy.cube_runner=cube
+        api=MockSessionAPI();controller=RunnerController(api)
+        controller.join_and_run(policy,'Reset bin')
+        controller._worker.join(3)
+        assert not controller._worker.is_alive()
+        assert len(api.create_requests)==1
+        assert contexts[0]['session_id']==controller.status()['session_id']
+        assert policy.public_config()['managed_execution']['phase']=='complete'
+        assert controller.status()['error'] is None
+    public=app.configured_public_config()['reset_bin']
+    assert public['default_run_duration_s']==600
+    assert 'session_config' not in public and 'execution' not in public
+    assert not App(robot_id='other').configured_policies
+
+
+def test_hosted_api_client_includes_admission_fields_and_keeps_visitor_authority():
+    c=RunnerPolicyClient('https://playground.example');requests=[]
+    replies=[dict(csrf='test-token',configured_providers=dict(reset_bin=dict(model='hosted-v1',task='Reset bin'))),
+             dict(attempt_id='hosted-attempt',status='queued'),dict(attempt_id='hosted-attempt',status='running'),dict(ok=True)]
+    def open(req,**kwargs):
+        requests.append(req)
+        return io.BytesIO(json.dumps(replies.pop(0)).encode())
+    c.opener=SimpleNamespace(open=open)
+    c.connect();c.cookie='visitor=test-only'
+    c.start(email='operator@example.com',runner_name='Remote operator')
+    c.stop()
+    payload=json.loads(requests[1].data)
+    assert payload['email']=='operator@example.com' and payload['runner_name']=='Remote operator'
+    assert payload['model']=='hosted-v1' and payload['prompt']=='Reset bin'
+    assert [r.full_url.rsplit('/',1)[1] for r in requests]==['session','run','status','stop']
+    assert requests[1].get_header('Cookie')=='visitor=test-only'
+    assert requests[1].get_header('X-yam-runner-token')=='test-token'
+    assert requests[3].get_header('X-yam-runner-token')=='test-token'
+
+
+def test_hosted_cli_sends_email_and_name_without_a_second_start(tmp_path,monkeypatch):
+    import runpy
+    from pathlib import Path
+    example=Path(__file__).resolve().parents[1]/'examples/reset_environment.py'
+    module=runpy.run_path(str(example));clients=[]
+    class Client:
+        def __init__(self,origin,robot):self.origin=origin;self.robot=robot;self.calls=[];clients.append(self)
+        def connect(self):return dict(robot_id=self.robot)
+        def save(self,path):pass
+        def start(self,policy,**kwargs):self.calls.append((policy,kwargs));return dict(attempt_id='test-attempt')
+        def status(self):return dict(status='stopped',provider=dict(managed_execution=dict(phase='complete',result=dict(goals_reached=True))))
+    module['main'].__globals__['RunnerPolicyClient']=Client
+    assert module['main'](['--origin','https://playground.example','--start','--wait',
+        '--email','operator@example.com','--runner-name','Remote operator',
+        '--session-file',str(tmp_path/'visitor.json')])==0
+    assert clients[0].origin=='https://playground.example'
+    assert clients[0].calls==[('reset_bin',dict(email='operator@example.com',runner_name='Remote operator'))]
