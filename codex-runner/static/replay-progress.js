@@ -112,6 +112,6 @@
       }
     });
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install,{once:true});
+  if(document.readyState!=='complete') document.addEventListener('DOMContentLoaded',install,{once:true});
   else install();
 })();
