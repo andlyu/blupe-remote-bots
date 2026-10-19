@@ -155,7 +155,10 @@ class DreamWorker:
                     self.process.kill()
                     self.process.wait()
             for stream in (self.process.stdin, self.process.stdout):
-                stream.close()
+                try:
+                    stream.close()
+                except OSError:
+                    pass  # A dead child may reject a buffered stdin flush.
 
 
 class DreamAdapter:

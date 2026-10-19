@@ -11,3 +11,12 @@ Verified against official dreamlabs-client1.0.0 and dreamlabs1.0.0 wheel sources
 Source SHA-256 values (wheel contents, not runtime timing evidence):
 - `facade.py`: `24d3d83e21aaca76d48e20762864a249f4ca948560eb741a3211a51ad7f31104`
 - `client_ik.py`: `6294e874f38d75526756acf42bc1592765367bf1fe2740e610c417297b845057`
+
+
+## Resident solver and episode reuse
+
+SDK1.0.0 `DreamClient.reset_episode()` delegates to `PolicyClient.reset_episode()` before clearing its `_window`. The documented contract ends the remote session and chunk blending without constructing another policy or IK solver. `PolicyClient` refuses a concurrent reset during get_action; therefore the resident manager drains its single in-flight reply before resetting and handing ownership to another visitor. It never resets concurrently with inference. The SDK window's clear operation empties the observation, frame rings, recent timestamps and collection schedule. `_record=False` continues to disable background recording.
+
+Two prepared policies in one process retain their respective checkpoint metadata/embodiment checks and static IK configuration. Only the documented episode-reset operation crosses visitor boundaries. Checkpoint configuration is not rewritten and no native motion, feedback or Home logic changes. The SDK's pinned `_policy._ik.traj_ready` event is read during initial preparation to ensure background trajectory compilation has completed; an absent/incompatible event fails preparation instead of reporting ready.
+
+Each wire command is handled in its own function scope; reset/release replaces outer command references. Before lending again, every prepared client has been reset successfully, the shared input timestamp is cleared, and no previous request result can be read as a new visitor's response. A failed cleanup or broken transport destroys the process. Credential file changes also invalidate prepared readiness.

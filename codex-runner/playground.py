@@ -141,7 +141,7 @@ class HostedRunner:
                  max_sessions: int = 32, idle_seconds: float = 1800,
                  lifetime_seconds: float = 7200, api_factory=None,
                  provider_factory=None, api_depth_provider_factory=None, use_api_depth=False, extra_providers=None, chat_database=None, share_conversation=True,
-                 groot_key_file="", groot_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None):
+                 groot_key_file="", groot_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None):
         parsed = urlsplit(public_origin)
         if (not parsed.hostname or parsed.path not in {"", "/"} or parsed.query
                 or parsed.fragment or parsed.username or parsed.password):
@@ -214,8 +214,9 @@ class HostedRunner:
         self.visitors: dict[str, Visitor] = {}
         self.monitor_api = self.api_factory()
         self.dream_providers = {}
+        self.dream_worker_ready = dream_worker_ready or (lambda: True)
         if dream_credentials_file and dream_python and self.hardware == 'yam' and self.joint_counts == (6, 6):
-            from remote_yam.dream_policy import DreamAdapter, MODELS
+            from remote_yam.dream_policy import DreamAdapter, DreamWorker, MODELS
             from remote_yam.controller_workspace import workspace_for_robot
             workspace = workspace_for_robot(self.robot_id)
             gateway_step = None
@@ -229,6 +230,8 @@ class HostedRunner:
                 raise ValueError('Dream requires all three YAM camera roles')
             for name, (checkpoint, label) in MODELS.items():
                 def factory(model, directory, name=name, checkpoint=checkpoint):
+                    if not self.dream_worker_ready():
+                        raise RequestError(503, 'Dream is preparing; please retry shortly')
                     if model not in ('', checkpoint):
                         raise RequestError(400, 'Unknown Dream checkpoint')
                     return DreamAdapter(provider=name, model=checkpoint, credentials=dream_credentials_file,
@@ -237,6 +240,7 @@ class HostedRunner:
                         observation_source=lambda: self.monitor_api.get_robot_observation(self.robot_id),
                         gateway_max_step_deg=gateway_step,
                         worker_pool=dream_worker_pool,
+                        worker_factory=dream_worker_factory or DreamWorker,
                         robot_id=self.robot_id)
                 self.extra_providers[name] = factory
                 self.dream_providers[name] = {'label': label, 'model': checkpoint,
@@ -550,7 +554,7 @@ class HostedRunner:
             await self.json(send, 200, {**local_setup, **application_setup,
                                       "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
-                                      "dream_providers": self.dream_providers,
+                                      "dream_providers": self.dream_providers if self.dream_worker_ready() else {},
                                       **await self.chat_setup(visitor),
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},

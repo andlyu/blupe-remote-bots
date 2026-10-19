@@ -67,6 +67,34 @@ model-record retrieval and per-session setup can remain. Measure fresh processes
 and background trajectory readiness rather than treating a populated directory
 as proof of instant readiness. See the [pinned JAX guide](refs/jax/INDEX.md).
 
+For preparation reused in memory across visitors, a hosted fleet can create one
+`remote_yam.dream_worker_pool.DreamWorkerPool(python, credentials, directory)`.
+Call `prime()` before advertising Dream. It prepares both supported checkpoints
+and waits for each pinned SDK trajectory-ready event in one SDK process. Supply
+the same pool's `factory` as `dream_worker_factory` on all hosted robot apps,
+and `lambda: pool.status()['ready']` as `dream_worker_ready`. Retain the existing
+shared `dream_worker_pool` semaphore; queued visitors acquire no worker handle.
+SDK policy construction, graph tracing and compilation occur at preparation,
+not when a visitor selects an already prepared checkpoint.
+
+Each visitor receives an exclusive handle. The SDK's documented
+`reset_episode()` ends the previous remote model session, empties its image and
+observation window, and resets chunk blending. Handles clear the worker's
+timestamp and keep adapter history/commanded targets private to the visitor.
+Each checkpoint retains its own prepared SDK policy and static IK configuration.
+Different interpreters or changed credential files cannot borrow the worker.
+
+Stop returns without waiting for a pending SDK reply. One serial task drains
+that reply and resets the SDK before the next visitor can acquire ownership;
+the late result cannot enter a new visitor's call. The adapter's existing
+semaphore releases promptly. Reset/transport failure discards the worker and
+removes readiness; deployment must prepare a replacement before admitting Dream
+again. Public configuration hides unready Dream models and forged run requests
+are rejected before queue creation. Shut the pool down with `close()` on service
+shutdown. Keep the persistent JAX cache for compatible service restarts, prepare
+once per new process, and retain the one-process memory budget. Actual prediction
+continues after confirmed Home with fresh inputs and normal native guards.
+
 ## Observation and execution contract
 
 The adapter polls measured state and all three camera views at up to 5 Hz while
