@@ -568,6 +568,74 @@ def test_protocol_failure_reaches_journal_and_user_without_retry(tmp_path):
         provider.close_transport()
 
 
+@pytest.mark.parametrize('failure,category,http_status', [
+    ('non_json', 'non_json_reply', 502),
+    ('envelope', 'missing_status_envelope', None),
+    ('connection', 'connection_failure', None),
+])
+def test_real_worker_bridge_preserves_warmup_then_sdk_protocol_failure(tmp_path, monkeypatch,
+                                                                     failure, category, http_status):
+    """Exercise the adapter + actual worker subprocess, with a controlled SDK.
+
+    These are synthetic failure fixtures, not a successful live inference test.
+    The known exception branches match pinned SDK 1.0.0. No robot API exists here.
+    """
+    sdk = tmp_path/'controlled_sdk'; sdk.mkdir()
+    (sdk/'dream.py').write_text('''
+import os
+__version__ = '1.0.0'
+class DreamServerError(RuntimeError):
+    code='DA-2000'; reason='pool_warming'; retryable=True; retry_after_s=0
+class DreamProtocolError(RuntimeError): pass
+class DreamClient:
+    last_timing = None
+    def __init__(self): self.calls=0
+    def policy(self, config): pass
+    def close(self): pass
+    def set_observation(self, frames, state, timestamp):
+        assert set(frames)=={'video.overhead','video.wrist_l','video.wrist_r'}
+        assert len(state['state.left_arm'])==len(state['state.right_arm'])==6
+    def get_action(self, commanded=None):
+        self.calls+=1
+        if self.calls==1: raise DreamServerError('private warmup endpoint')
+        self.last_timing={'rtt_ms':31000,'response_bytes':17,'secret':'private timing'}
+        mode=os.environ['DREAM_BRIDGE_FAILURE']
+        if mode=='non_json':
+            raise DreamProtocolError('inference reply from private-host is not JSON (HTTP 502); is the correct DreamAPI gateway running there?')
+        if mode=='envelope':
+            raise DreamProtocolError('inference reply carries no status envelope; is the correct DreamAPI gateway running?')
+        raise DreamProtocolError('private connection detail') from ConnectionResetError('private address')
+''')
+    monkeypatch.setenv('PYTHONPATH', str(sdk))
+    # DreamWorker intentionally strips DREAM_* overrides; use a general fixture
+    # variable so the bridge retains the same production environment filtering.
+    module = sdk/'dream.py'
+    module.write_text(module.read_text().replace('DREAM_BRIDGE_FAILURE', 'TEST_BRIDGE_FAILURE'))
+    monkeypatch.setenv('TEST_BRIDGE_FAILURE', failure)
+    provider = adapter(tmp_path/'bridge')
+    provider.robot_id = 'robot-ba8413962083809c'
+    provider.observation_source = lambda: dict(observation(), jetson_id=provider.robot_id)
+    provider.python = sys.executable
+    provider.worker_factory = DreamWorker
+    events = []
+    provider.interaction_sink = lambda kind, message, **details: events.append((kind, message, details))
+    try:
+        with pytest.raises(RuntimeError, match=category):
+            provider.build_trajectory('synthetic fixture', observation(), 0)
+        assert any(kind=='model_progress' and message=='Dream model is warming'
+                   for kind, message, _ in events)
+        detail = next(d for kind, _, d in events if kind=='model_failure')
+        assert sum(kind=='model_failure' for kind, _, _ in events)==1
+        assert detail['protocol_category']==category and detail['http_status']==http_status
+        assert detail['phase']=='predict'
+        assert detail['timing']==dict(rtt_ms=31000, response_bytes=17)
+        assert 'private' not in json.dumps(events)
+        worker = provider._worker
+    finally:
+        provider.close_transport()
+    assert worker.process.poll() is not None
+
+
 def test_completed_target_is_passed_to_sdk_instead_of_guessing_from_measured_lag(tmp_path):
     provider = adapter(tmp_path)
     try:
