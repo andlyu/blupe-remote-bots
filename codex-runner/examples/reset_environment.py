@@ -16,6 +16,8 @@ def main(argv=None):
     parser.add_argument('--origin',default='http://127.0.0.1:8787')
     parser.add_argument('--robot-id',default='yam-1')
     parser.add_argument('--policy',default='reset_bin')
+    parser.add_argument('--runner-name',default='API operator',help='Name attached to this run')
+    parser.add_argument('--email',help='Email required by hosted guest admission; not needed for a local runner')
     parser.add_argument('--session-file',type=Path,help='Private visitor capability file for later status/Stop')
     action=parser.add_mutually_exclusive_group()
     action.add_argument('--start',action='store_true',help='Start real execution once; no automatic retry')
@@ -33,7 +35,7 @@ def main(argv=None):
         print(json.dumps(dict(robot_id=metadata['robot_id'],configured_providers=metadata.get('configured_providers',{})),indent=2));return 0
     if not args.session_file and not args.wait:parser.error('start requires --wait or a --session-file to retain status/Stop authority')
     try:
-        try:result=client.start(args.policy)
+        try:result=client.start(args.policy,runner_name=args.runner_name,email=args.email)
         finally:
             if args.session_file:client.save(args.session_file)
         print(json.dumps(result),flush=True)

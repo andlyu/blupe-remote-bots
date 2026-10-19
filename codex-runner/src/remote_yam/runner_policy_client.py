@@ -43,15 +43,18 @@ class RunnerPolicyClient:
         if cookies:self.cookie=cookies
         return self.metadata
 
-    def start(self,policy='reset_bin',*,runner_name='API operator',run_duration_s=600,prompt=None):
+    def start(self,policy='reset_bin',*,runner_name='API operator',run_duration_s=600,prompt=None,email=None):
         metadata=self.metadata or self.connect()
         spec=metadata.get('configured_providers',{}).get(policy)
         if not spec:
             raise ValueError('Policy is not installed for this robot: '+policy)
         task=spec.get('task') or prompt
         if not task:raise ValueError('This configured policy requires a prompt')
-        result=self._request('/api/run',dict(provider=policy,model=spec['model'],prompt=task,
-                            runner_name=runner_name,run_duration_s=run_duration_s))
+        payload=dict(provider=policy,model=spec['model'],prompt=task,
+                     runner_name=runner_name,run_duration_s=run_duration_s)
+        if email is not None:
+            payload['email']=email
+        result=self._request('/api/run',payload)
         self.attempt_id=result['attempt_id']
         return result
 

@@ -244,6 +244,72 @@ The size-aware and pickup-feedback CLI accepts `--feedback-extra-open-gap-mm`
 requests80mm pregrasp opening. Close/carry (`--feedback-close-gap-mm`, default20)
 and release40mm remain independent. Warm-started reference plans receive the
 selected opening too; this option does not change native gripper travel/guards.
+## Execute the reset in the hosted backend
+
+A hosted runner can own `CubeSessionPolicy` directly, using the same normal robot
+queue and Session API execution as the local session policy. In the existing
+operator-owned `YAM_CONFIGURED_RUNNERS_FILE`, select `execution: "session_cube"`:
+
+```json
+{
+  "reset_bin": {
+    "robot_id": "yam-1",
+    "label": "Reset bin",
+    "model": "reset-bin-replay-session-v5",
+    "task": "Reset bin",
+    "help": "Recorded box Replay, camera-clear Home, then cube reset.",
+    "execution": "session_cube",
+    "execution_policy": "controller-faults",
+    "session_config": "/var/lib/yam-reset/station.json",
+    "recording_root": "/var/lib/yam-reset/runs",
+    "default_run_duration_s": 600,
+    "sequence": ["recorded_box_replay", "camera_clear_home", "cube_reset"],
+    "sha256": {"/var/lib/yam-reset/station.json": "DEPLOYMENT_SHA256"}
+  }
+}
+```
+
+Use the installed station's model identity and complete source/resource hash
+manifest. The hosted factory constructs the actual session policy in the hosted
+process; it does not open a second runner session or instantiate a
+`RemoteRunnerPolicy`. The browser and API both use the same `/api/run` route,
+queue, native execution, progress receipts and Stop lifecycle. Existing remote
+runner configurations remain supported when `execution` is omitted or is
+`"remote_runner"`.
+
+Before activation, install the station configuration, calibration, immutable
+goals, gripper meshes, collision components and public reset dependencies on the
+host. Rebind their paths and regenerate the administrative hash manifest. The
+station camera/state transport must be reachable from the host directly to the
+robot; pointing it at a visitor's machine retains that dependency. The current
+session policy uses an explicitly configured SSH camera/state transport, while
+motor requests use its existing Session API lease. Do not copy a user's login
+credentials or assume a private LAN address is reachable from the hosted server.
+Installing this factory alone does not migrate assets, activate a station, or
+establish that a physical reset succeeds.
+
+The public CLI also accepts hosted admission fields. From `codex-runner`:
+
+```sh
+# Discovery only; does not start a reset.
+python examples/reset_environment.py --origin https://playground.blupe.io
+
+# Starts one physical reset using the configured hosted policy.
+python examples/reset_environment.py --origin https://playground.blupe.io \
+  --robot-id yam-1 --runner-name "Remote operator" --email "you@example.com" \
+  --start --wait --session-file /tmp/yam-reset-session.json
+
+# Later, retain this exact visitor file for status or Stop.
+python examples/reset_environment.py --status --session-file /tmp/yam-reset-session.json
+python examples/reset_environment.py --stop --session-file /tmp/yam-reset-session.json
+```
+
+The Python equivalent is `client.start("reset_bin", email="you@example.com",
+runner_name="Remote operator")`. The host application still enforces its normal
+email, allowance and visitor authorization rules. These fields do not grant a new
+permission or change the execution transport. After an ambiguous response,
+inspect the same visitor's status instead of sending another start.
+
 # Recorded box Replay in a queue session
 
 Set `default_run_duration_s: 600` in both the local policy and hosted proxy

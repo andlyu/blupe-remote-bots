@@ -1,4 +1,4 @@
-"""Configured remote policies for hosted or local Playground subclasses."""
+"""Configured station policies executed here or by an explicit remote runner."""
 import json
 import os
 from pathlib import Path
@@ -19,9 +19,15 @@ class ConfiguredPoliciesMixin:
         providers = dict(kwargs.get('extra_providers', {}))
         for name, spec in self.configured_policies.items():
             default_run_duration(spec)
+            execution = spec.get('execution', 'remote_runner')
+            if execution not in ('remote_runner', 'session_cube'):
+                raise ValueError('Unknown configured policy execution: ' + str(execution))
             def factory(model, directory, name=name, spec=spec):
                 if model != spec['model']:
                     raise RequestError(400, 'Unknown configured policy version')
+                if spec.get('execution') == 'session_cube':
+                    from .resets.session_policy import CubeSessionPolicy
+                    return CubeSessionPolicy(name, spec, directory)
                 return RemoteRunnerPolicy(name, spec)
             providers[name] = factory
         kwargs['extra_providers'] = providers
