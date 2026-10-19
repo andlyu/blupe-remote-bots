@@ -432,6 +432,10 @@ public Playground. Model camera capture remains independent of viewing transport
 
 ## Deterministic environment resets
 
+To reset YAM's bin and blocks through the hosted API, follow
+[Reset the environment](docs/resets.md#reset-the-environment-through-the-hosted-api)
+for the copyable start, status and Stop commands.
+
 For the importable recorded box replay, measured cube pick/place and combined
 reset implementation, selector setup and Run/status/Stop clients, see
 [Environment resets](docs/resets.md). Station recordings, calibration, goals and

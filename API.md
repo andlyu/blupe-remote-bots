@@ -315,6 +315,11 @@ state, feedback, retries, model calls, and stop handling.
 
 ## Deterministic environment resets
 
+To reset YAM's bin and blocks through the hosted Playground API, follow
+[Reset the environment](codex-runner/docs/resets.md#reset-the-environment-through-the-hosted-api)
+for the example client's start, status and Stop commands. It uses the hosted
+runner's `/api/*` routes and normal visitor admission.
+
 For the importable recorded box replay, measured cube pick/place and combined
 reset implementation, selector setup and Run/status/Stop clients, see
 [Environment resets](codex-runner/docs/resets.md). Station recordings, calibration, goals and
