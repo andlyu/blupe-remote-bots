@@ -327,6 +327,8 @@ def fetch(path):
 
 class PastRuns:
     def __init__(self, reader=fetch, *, robot_id="yam-1"):
+        from remote_yam.quick_replays import QuickReplays
+        self.quick_replays = QuickReplays()
         self.robot_id = robot_id
         self.reader = reader
         self.lock = threading.Lock()
@@ -335,7 +337,16 @@ class PastRuns:
         self.details = {}
         self.viewing = {}
 
-    def page(self, offset=0):
+    def get(self, episode_id):
+        if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id):
+            raise ValueError('Invalid episode ID')
+        local = self.quick_replays.get(episode_id, self.robot_id)
+        if local:
+            return local
+        rows = self.page(episode_id=episode_id)['runs']
+        return rows[0] if rows else None
+
+    def page(self, offset=0, *, episode_id=None):
         with self.lock:
             stale = False
             if self.rows is None or time.monotonic() - self.updated > 60:
@@ -382,7 +393,7 @@ class PastRuns:
                     if self.rows is None:
                         raise
                     stale = True
-            selected = self.rows[offset:offset+12]
+            selected = ([r for r in self.rows if r['episode_id']==episode_id] if episode_id is not None else self.rows[offset:offset+12])
             now = time.monotonic()
             missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
             with ThreadPoolExecutor(max_workers=4) as pool:
@@ -413,7 +424,11 @@ class PastRuns:
         duration = video_meta.get('duration_s')
         if isinstance(duration, bool) or not isinstance(duration, (int, float)) or not math.isfinite(duration) or duration < 0:
             duration = 0 if video_meta.get('frames') == 0 or meta.get('rows') == 0 else None
-        return eid, {**run_result(meta), 'video_duration_s': duration, 'video_url': BASE + f'{"viewing" if viewing else "previews" if compressed else "videos"}/{eid}.mp4',
+        video_path=preview.get('video_path')
+        if not isinstance(video_path,str) or not re.fullmatch(r'(?:viewing|quick)/ep_[A-Za-z0-9_-]+(?:-[0-9a-f]{64})?\.mp4',video_path):
+            video_path=f'{"viewing" if viewing else "previews" if compressed else "videos"}/{eid}.mp4'
+        return eid, {**run_result(meta), 'video_duration_s': duration, 'video_url': BASE + video_path,
+                     'video_quality':preview.get('quality_stage','final'), 'video_sha256':preview.get('sha256'),
                      'original_video_url': BASE + f'videos/{eid}.mp4',
                      'original_available': row.get('original_available', True),
                      'compressed': compressed,

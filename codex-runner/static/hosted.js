@@ -165,7 +165,7 @@ function renderStepMetricsChart(container, timings) {
     speedButton.hidden = run.original_available === false;
     speedButton.dataset.live = String(live);
     speedButton.textContent = live ? '10× speed' : 'Live speed';
-    const cameras = live ? 'Top, left and right cameras' : run.camera_order.includes('observer') ? 'Top, side, left and right cameras' : 'Three cameras · side view was not recorded';
+    const cameras = !live && run.camera_order.length===1 ? 'Main camera · quick preview' : live ? 'Top, left and right cameras' : run.camera_order.includes('observer') ? 'Top, side, left and right cameras' : 'Three cameras · side view was not recorded';
     $('pastRunDetails').textContent = (live ? 'Live speed · 1× · all pauses retained' : run.compressed ? '10× speed · idle pauses removed' : '10× playback · original recording, pauses retained') + ' · ' + cameras + ' · ' + (run.result || 'Unknown') + ': ' + ((run.result === 'Failure' && run.errors) || run.result_reason || 'Result was not recorded');
     $('pastRunError').textContent = '';
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
@@ -177,6 +177,7 @@ function renderStepMetricsChart(container, timings) {
     if (!dialog.open) dialog.showModal();
     player.play().catch(() => {});
   }
+  window.yamReplayHistory = {openRun, refresh: () => load(true)};
   $('closePastRun').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => { player.pause(); player.removeAttribute('src'); player.load(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) {

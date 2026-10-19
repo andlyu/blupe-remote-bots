@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from http.cookies import SimpleCookie, CookieError
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -404,7 +405,7 @@ class HostedRunner:
             await self.json(send, 200, {"selected": self.robot_id, "robots": [
                 {**{k: robot[k] for k in ("id", "name", "url")}, "hardware": robot.get("hardware", ""), "connected": self.robot_connected(robot["id"])} for robot in self.robots]})
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/replay-progress.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -413,15 +414,34 @@ class HostedRunner:
             runs = await asyncio.to_thread(self.run_names.comparisons, self.robot_id)
             await self.json(send, 200, {'runs': runs})
             return
+        quick_video=re.fullmatch(r'/api/quick-replays/(ep_[A-Za-z0-9_-]{1,100})/([0-9a-f]{64})\.mp4',path)
+        if method == 'GET' and quick_video:
+            video=await asyncio.to_thread(self.past_runs.quick_replays.video,*quick_video.groups(),headers.get('range'))
+            if video is None:
+                raise RequestError(404,'Replay is not available')
+            status,body,extra=video
+            await self.respond(send,status,body,'video/mp4',extra)
+            return
         if method == 'GET' and path == '/api/past-runs':
             try:
-                offset = int(parse_qs(scope.get('query_string', b'').decode()).get('offset', ['0'])[0])
+                query = parse_qs(scope.get('query_string', b'').decode())
+                episode_id = query.get('episode_id', [None])[0]
+                if episode_id is not None and not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id):
+                    raise ValueError()
+                offset = int(query.get('offset', ['0'])[0])
                 if not 0 <= offset <= 100000:
                     raise ValueError()
             except (ValueError, UnicodeError):
                 raise RequestError(400, 'Invalid page') from None
             try:
-                result = await asyncio.to_thread(self.past_runs.page, offset)
+                if episode_id is not None:
+                    if query.get('preview')==['1']:
+                        row=self.past_runs.quick_replays.get(episode_id,self.robot_id)
+                    else:
+                        row = await asyncio.to_thread(self.past_runs.get, episode_id)
+                    result = {'runs':[row] if row else [], 'next_offset':None, 'stale':False}
+                else:
+                    result = await asyncio.to_thread(self.past_runs.page, offset)
                 names = await asyncio.to_thread(self.run_names.names)
                 outcomes = await asyncio.to_thread(self.run_names.results)
                 for row in result['runs']:
@@ -633,7 +653,6 @@ class HostedRunner:
                 raise RequestError(503, "NO SIGNAL") from None
             await self.respond(send, 200, frame.jpeg, "image/jpeg")
         elif path.startswith('/api/public-images/'):
-            import re
             from remote_yam.interactions import recording_directory
             parts = path.split('/')
             if len(parts) != 5 or not re.fullmatch('[a-f0-9]{64}', parts[4]):
@@ -917,7 +936,7 @@ class HostedRunner:
         headers = [(b"content-type", content_type.encode()), (b"content-length", str(size).encode()),
                    (b"cache-control", b"no-store"), (b"x-content-type-options", b"nosniff"),
                    (b"referrer-policy", b"no-referrer"),
-                   (b"content-security-policy", b"default-src 'none'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com; media-src https://huggingface.co https://*.huggingface.co https://*.hf.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")]
+                   (b"content-security-policy", b"default-src 'none'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com; media-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")]
         if self.secure:
             headers.append((b"strict-transport-security", b"max-age=31536000"))
         await send({"type": "http.response.start", "status": status, "headers": headers + list(extra)})
