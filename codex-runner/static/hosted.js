@@ -3784,3 +3784,232 @@ function aspireTaskWorking(run) {
   window.addEventListener('blupe-robot-selected',() => {draftPreview=localAspire;liveRun = liveState = pendingAttempt = null;selected = 'preview';renderFailure($('taskRunFailure'),null);loadCatalog();});
   panel.hidden = selectorBox.hidden = true;loadCatalog();
 })();
+
+// BEGIN observer enhancement preview v1
+// This viewing-only experiment uses the already decoded observer frame.
+// RCAS shader adapted from https://github.com/GPUOpen-Effects/FidelityFX-FSR
+/*
+Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+(() => {
+  if (new URLSearchParams(location.search).get('observer_enhance') !== '1') return;
+  document.documentElement.classList.add('observerEnhancementPreview');
+  const vertex = `#version 300 es
+    in vec2 position; out vec2 uv;
+    void main(){ uv=(position+1.0)*0.5; gl_Position=vec4(position,0.0,1.0); }`;
+  const fragment = `#version 300 es
+    precision highp float;
+    uniform sampler2D image; uniform vec2 pixel; uniform float amount; uniform float divider;
+    in vec2 uv; out vec4 color;
+    float luma(vec3 p){return dot(p,vec3(0.5,1.0,0.5));}
+    void main(){
+      vec3 e=texture(image,uv).rgb;
+      if(uv.x<divider || amount==0.0){color=vec4(e,1.0);return;}
+      vec3 b=texture(image,uv+vec2(0.0,pixel.y)).rgb;
+      vec3 d=texture(image,uv-vec2(pixel.x,0.0)).rgb;
+      vec3 f=texture(image,uv+vec2(pixel.x,0.0)).rgb;
+      vec3 h=texture(image,uv-vec2(0.0,pixel.y)).rgb;
+      vec3 lo=min(min(b,d),min(f,h)), hi=max(max(b,d),max(f,h));
+      vec3 hitMin=min(lo,e)/max(4.0*hi,vec3(0.0001));
+      vec3 hitMax=(vec3(1.0)-max(hi,e))/min(4.0*lo-4.0,vec3(-0.0001));
+      vec3 limiter=max(-hitMin,hitMax);
+      float lobe=max(-0.1875,min(max(max(limiter.r,limiter.g),limiter.b),0.0))*amount;
+      float bl=luma(b),dl=luma(d),el=luma(e),fl=luma(f),hl=luma(h);
+      float span=max(max(max(bl,dl),max(fl,hl)),el)-min(min(min(bl,dl),min(fl,hl)),el);
+      float noise=clamp(abs((bl+dl+fl+hl)*0.25-el)/max(span,0.0001),0.0,1.0);
+      lobe*=1.0-0.5*noise;
+      color=vec4(clamp((e+lobe*(b+d+f+h))/(1.0+4.0*lobe),0.0,1.0),1.0);
+    }`;
+  let active = null, disposed = false, preference = new URLSearchParams(location.search).get('enhancement_engine')==='cpu'?'cpu':'auto';
+  let settings={split:50,strength:65,enabled:true};
+  function enhance(source) {
+    const panel = source.closest('figure'), picture = source.parentElement;
+    const output = document.createElement('canvas');
+    output.className = 'observerEnhancedCanvas';
+    output.setAttribute('aria-hidden','true');
+    const line = document.createElement('div'); line.className = 'observerCompareLine';
+    const before = document.createElement('span'); before.className = 'observerCompareLabel before'; before.textContent='Before';
+    const after = document.createElement('span'); after.className = 'observerCompareLabel after'; after.textContent='After';
+    const controls = document.createElement('div'); controls.className='observerEnhancement';
+    controls.innerHTML = `<div class="enhancementHeading"><strong>Observer clarity · preview</strong><select aria-label="Enhancement processing"><option value="auto">Auto</option><option value="cpu">CPU</option></select><button type="button" data-enhancement-toggle aria-label="Enable observer enhancement" aria-pressed="true">On</button></div>
+      <div class="enhancementChoices" role="group" aria-label="Image comparison"><button type="button" data-compare="100" aria-pressed="false">Before</button><button type="button" data-compare="50" aria-pressed="true">Compare</button><button type="button" data-compare="0" aria-pressed="false">After</button></div>
+      <label>Before / after<input type="range" min="0" max="100" value="50" aria-label="Before and after divider"><output>50%</output></label>
+      <label>Strength<input type="range" min="0" max="100" value="65" aria-label="Enhancement strength"><output>65%</output></label>
+      <p class="enhancementNote">Same live frame on both sides. Sharpening improves clarity; camera resolution stays the same.</p>`;
+    // Existing camera expansion handles figure clicks. Controls must remain usable
+    // without opening/closing fullscreen or the phone camera dialog.
+    controls.addEventListener('click',event=>event.stopPropagation());
+    controls.addEventListener('keydown',event=>event.stopPropagation());
+    picture.append(output,line,before,after); panel.classList.add('observerEnhancedPanel');
+    const home = panel.closest('.videoPanel') || panel.parentElement;
+    function relocate(){
+      if(panel.matches(':fullscreen') || panel.closest('.cameraDialog')){
+        if(controls.parentElement!==panel)panel.append(controls);
+      }else if(controls.previousElementSibling!==home)home.after(controls);
+    }
+    document.addEventListener('fullscreenchange',relocate);relocate();
+    const [split, strength] = controls.querySelectorAll('input');
+    const toggle = controls.querySelector('[data-enhancement-toggle]'),mode=controls.querySelector('select');
+    mode.value=preference;split.value=settings.split;strength.value=settings.strength;
+    mode.addEventListener('change',()=>{
+      preference=mode.value;settings={split:split.value,strength:strength.value,enabled};
+      active?.stop();active=enhance(source);
+    });
+    let enabled=settings.enabled, stopped=false, pending=0, lastFrame='', submitted=0, program, texture, buffer;
+    let gl, fallback, base, baseContext, worker, scratch, scratchContext, busy=false, lastStrength=-1, lastSize='', outputWidth=0, outputHeight=0;
+    const costs=[], stats={engine:'',frames:0,sourceWidth:0,sourceHeight:0,width:0,height:0,cpuSubmitMs:0};
+    const publishStats=()=>{canvas.dataset.enhancementStats=JSON.stringify(stats);};
+    try {
+      if(preference==='cpu')throw Error('CPU selected');
+      gl=output.getContext('webgl2',{alpha:false,antialias:false,depth:false,stencil:false,powerPreference:'low-power',preserveDrawingBuffer:false});
+      if (!gl) throw Error('WebGL unavailable');
+      const compile=(kind,code)=>{
+        const shader=gl.createShader(kind); gl.shaderSource(shader,code); gl.compileShader(shader);
+        if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){const reason=gl.getShaderInfoLog(shader);gl.deleteShader(shader);throw Error(reason);}
+        return shader;
+      };
+      program=gl.createProgram();
+      const vs=compile(gl.VERTEX_SHADER,vertex),fs=compile(gl.FRAGMENT_SHADER,fragment);
+      gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
+      gl.deleteShader(vs);gl.deleteShader(fs);
+      if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+      gl.useProgram(program);
+      buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      const position=gl.getAttribLocation(program,'position');
+      gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+      texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+      stats.engine='webgl2-rcas';
+    } catch {
+      if(gl){gl.deleteProgram(program);gl.deleteTexture(texture);gl.deleteBuffer(buffer);gl.getExtension('WEBGL_lose_context')?.loseContext();}
+      gl=null;
+      const replacement=document.createElement('canvas');replacement.className=output.className;
+      replacement.setAttribute('aria-hidden','true');output.replaceWith(replacement);
+      fallback=replacement.getContext('2d',{alpha:false});
+      base=document.createElement('canvas');base.className=output.className;base.setAttribute('aria-hidden','true');replacement.before(base);
+      baseContext=base.getContext('2d',{alpha:false});
+      scratch=document.createElement('canvas');scratchContext=scratch.getContext('2d',{alpha:false,willReadFrequently:true});
+      worker=new Worker('/static/observer-enhancement-worker.js?v=1');
+      worker.onerror=()=>{enabled=false;toggle.textContent='Unavailable';toggle.disabled=true;visibility();};
+      worker.onmessage=({data})=>{
+        busy=false;if(stopped)return;
+        if(enabled&&source.isConnected&&source.dataset.frameSource==='video'){
+          fallback.putImageData(new ImageData(data.enhanced,data.width,data.height),0,0);
+          baseContext.putImageData(new ImageData(data.original,data.width,data.height),0,0);
+          lastFrame=data.sourceFrame;lastStrength=data.strength;submitted++;
+          Object.assign(stats,{frames:submitted,sourceFrame:lastFrame,sourceWidth:source.width,sourceHeight:source.height,width:data.width,height:data.height,workerMs:Math.round(data.workerMs*100)/100,processingWallMs:Math.round((performance.now()-data.started)*100)/100});
+          publishStats();visibility();
+        }
+        if(source.dataset.presentedFrame!==lastFrame||Number(strength.value)/100!==lastStrength)request();
+      };
+      stats.engine='cpu-worker-rcas';
+    }
+    const canvas=gl?output:fallback.canvas;
+    function size() {
+      const bounds=source.getBoundingClientRect();
+      // Phone previews are bounded by display pixels, native dimensions and DPR2.
+      // No synthetic 4K buffers for a small phone tile. Match object-fit:contain.
+      const scale=Math.min(bounds.width/source.width,bounds.height/source.height);
+      const dpr=Math.min(window.devicePixelRatio||1,2);
+      outputWidth=Math.max(1,Math.min(source.width,Math.round(source.width*scale*dpr)));
+      outputHeight=Math.max(1,Math.round(outputWidth*source.height/source.width));
+      const key=outputWidth+'x'+outputHeight;
+      if(key!==lastSize){canvas.width=outputWidth;canvas.height=outputHeight;if(base){base.width=outputWidth;base.height=outputHeight;scratch.width=outputWidth;scratch.height=outputHeight;}lastSize=key;}
+    }
+    function visibility() {
+      const visible=enabled&&source.dataset.frameSource==='video'&&submitted>0;
+      canvas.hidden=!visible;line.hidden=before.hidden=after.hidden=!visible;
+      if(base)base.hidden=!visible;
+      if(!visible)return;
+      const fraction=Number(split.value)/100;
+      line.style.left=split.value+'%';line.hidden=fraction===0||fraction===1;
+      before.hidden=fraction===0;after.hidden=fraction===1;
+      if(!gl)canvas.style.clipPath='inset(0 0 0 '+split.value+'%)';
+    }
+    function draw() {
+      pending=0;
+      if(stopped||document.hidden||!enabled||!source.isConnected||source.dataset.frameSource!=='video') {visibility();return;}
+      if(worker&&busy)return;
+      const started=performance.now();size();
+      try {
+        if(gl){
+          gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);
+          if(lastFrame!==source.dataset.presentedFrame){
+            gl.bindTexture(gl.TEXTURE_2D,texture);
+            gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);
+          }
+          gl.uniform2f(gl.getUniformLocation(program,'pixel'),1/canvas.width,1/canvas.height);
+          gl.uniform1f(gl.getUniformLocation(program,'amount'),Number(strength.value)/100);
+          gl.uniform1f(gl.getUniformLocation(program,'divider'),Number(split.value)/100);
+          gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+        }else{
+          if(lastFrame===source.dataset.presentedFrame&&lastStrength===Number(strength.value)/100){visibility();return;}
+          scratchContext.imageSmoothingEnabled=true;scratchContext.imageSmoothingQuality='high';
+          scratchContext.drawImage(source,0,0,canvas.width,canvas.height);
+          const original=scratchContext.getImageData(0,0,canvas.width,canvas.height).data;
+          busy=true;
+          worker.postMessage({original,width:canvas.width,height:canvas.height,strength:Number(strength.value)/100,sourceFrame:source.dataset.presentedFrame,started},[original.buffer]);
+          stats.cpuSubmitMs=Math.round((performance.now()-started)*100)/100;
+          return;
+        }
+        lastFrame=source.dataset.presentedFrame;submitted++;
+        costs.push(performance.now()-started);if(costs.length>120)costs.shift();
+        Object.assign(stats,{frames:submitted,sourceFrame:lastFrame,sourceWidth:source.width,sourceHeight:source.height,width:canvas.width,height:canvas.height,cpuSubmitMs:Math.round(costs.reduce((a,b)=>a+b,0)/costs.length*100)/100});
+        publishStats();visibility();
+      }catch{
+        enabled=false;toggle.textContent='Enhancement unavailable';toggle.disabled=true;visibility();
+      }
+    }
+    function request(){if(!pending&&!stopped)pending=requestAnimationFrame(draw);}
+    const frames=new MutationObserver(request);
+    frames.observe(source,{attributes:true,attributeFilter:['data-presented-frame','data-frame-source','width','height']});
+    const resized=new ResizeObserver(request);resized.observe(source);
+    const update=()=>{
+      split.parentElement.querySelector('output').value=split.value+'%';
+      strength.parentElement.querySelector('output').value=strength.value+'%';
+      controls.querySelectorAll('[data-compare]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.compare===split.value)));
+      visibility();request();
+    };
+    split.addEventListener('input',update);strength.addEventListener('input',update);
+    controls.querySelectorAll('[data-compare]').forEach(button=>button.addEventListener('click',()=>{split.value=button.dataset.compare;update();}));
+    toggle.addEventListener('click',()=>{enabled=!enabled;toggle.setAttribute('aria-pressed',String(enabled));toggle.textContent=enabled?'On':'Off';visibility();request();});
+    canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();enabled=false;toggle.disabled=true;toggle.textContent='Enhancement unavailable';visibility();});
+    document.addEventListener('visibilitychange',request);
+    toggle.setAttribute('aria-pressed',String(enabled));toggle.textContent=enabled?'On':'Off';update();
+    return {source,relocate,stop(){
+      stopped=true;cancelAnimationFrame(pending);frames.disconnect();resized.disconnect();document.removeEventListener('visibilitychange',request);
+      document.removeEventListener('fullscreenchange',relocate);panel.classList.remove('observerEnhancedPanel');
+      canvas.remove();base?.remove();line.remove();before.remove();after.remove();controls.remove();worker?.terminate();
+      if(gl){gl.deleteTexture(texture);gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}
+    }};
+  }
+  function connect() {
+    if(disposed)return;
+    const source=document.querySelector('canvas[data-sync-tile][data-camera-role="observer"]');
+    if(active?.source===source){active?.relocate();return;}
+    active?.stop();active=null;
+    if(source)active=enhance(source);
+  }
+  const cameras=new MutationObserver(connect);
+  cameras.observe(document.body,{subtree:true,childList:true});connect();
+  window.addEventListener('pagehide',()=>{disposed=true;cameras.disconnect();active?.stop();document.documentElement.classList.remove('observerEnhancementPreview');},{once:true});
+})();
+// END observer enhancement preview v1
