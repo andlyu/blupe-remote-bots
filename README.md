@@ -195,6 +195,10 @@ of the private local recording archive; retained API data expires as usual.
 
 ## Deterministic environment resets
 
+To reset YAM's bin and blocks through the hosted API, follow
+[Reset the environment](codex-runner/docs/resets.md#reset-the-environment-through-the-hosted-api)
+for the copyable start, status and Stop commands.
+
 For the importable recorded box replay, measured cube pick/place and combined
 reset implementation, selector setup and Run/status/Stop clients, see
 [Environment resets](codex-runner/docs/resets.md). Station recordings, calibration, goals and

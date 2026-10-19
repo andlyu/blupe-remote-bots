@@ -1,5 +1,50 @@
 # Environment resets: replay and measured cube positioning
 
+## Reset the environment through the hosted API
+
+To reset YAM's bin and blocks, run the example API client from a current checkout
+of this repository. From the repository root, using Python 3.10 or newer:
+
+```bash
+cd codex-runner
+python3 examples/reset_environment.py \
+  --origin https://playground.blupe.io \
+  --robot-id yam-1 \
+  --runner-name "Your name" \
+  --email "you@example.com" \
+  --start --wait \
+  --session-file /tmp/yam1-reset-session.json
+```
+
+Replace the name and email with your own. The command submits one **Reset bin**
+job through the Playground API, joins the normal robot queue, and waits for its
+result. The hosted backend coordinates recorded box replay, camera-clear Home,
+then cube reset. The selected reset defaults to a ten-minute run deadline.
+
+`--start` requests physical execution. Ctrl-C while waiting requests Stop. Keep
+the same private session file to inspect or stop that run from another terminal:
+
+```bash
+python3 examples/reset_environment.py --status --session-file /tmp/yam1-reset-session.json
+python3 examples/reset_environment.py --stop --session-file /tmp/yam1-reset-session.json
+```
+
+If the start response is unclear, check status before submitting another start.
+Continue checking status after requesting Stop to confirm the run has ended.
+The session file contains authentication material and is written mode0600; keep
+it out of source control and logs. To discover the configured reset without
+starting a job, run:
+
+```bash
+python3 examples/reset_environment.py --origin https://playground.blupe.io --robot-id yam-1
+```
+
+The hosted YAM reset is deployed. Deployment checks verified the hosted policy,
+camera reads and API discovery/status; those checks do not establish that a
+complete physical reset has succeeded.
+
+## Implementation and qualification
+
 The reusable implementation lives in [`remote_yam.resets`](../src/remote_yam/resets/),
 including the recorded replay engine/editor, RGB-D cube fitting, grasp and
 placement planning, geometry audits, controller I/O, and combined Python runner.
@@ -18,13 +63,12 @@ an explicit native operator selection, separate from ordinary model packets.
 Source/resource hashes are checked before queue admission. Never automatically
 retry an uncertain motion. The replay qualification below is a separate flow.
 
-Current qualification: an earlier integration trial completed box replay and
+An earlier integration trial completed box replay and
 its no-motion handoff, then failed planning from the measured endpoint before
-any cube motion. The subsequently requested one-Home/fresh-image/staging sequence
-is an offline software update and has not received another physical trial. The complete reset is **not activated or qualified as successful**.
-The reusable source and inert-hardware tests are available independently of that
-station's unresolved planning case. Check installed session metadata before
-requesting a real reset.
+any cube motion. Subsequent software and deployment checks cover the
+one-Home/fresh-image/staging sequence, configuration and transport. They do not
+qualify the complete reset as physically successful. Check installed session
+metadata before requesting a real reset.
 
 ## Select it like another policy
 
