@@ -75,6 +75,31 @@
       };
     }
     player.addEventListener('ended',()=>{if(target?.next && dialog.open) apply(target.next);});
+    player.addEventListener('canplay',()=>{
+      if(!panel.dataset.firstPlayableAt && panel.dataset.timingStartedAt) {
+        panel.dataset.firstPlayableAt=String(Date.now());
+        panel.dataset.readyAfterMs=String(Date.now()-Number(panel.dataset.timingStartedAt));
+      }
+    });
+    // Opt-in saved-recording timing view. It only waits for public replay
+    // artifacts; this never submits a policy or changes a recording's identity.
+    const query=new URLSearchParams(location.search),timingId=query.get('replay_timing');
+    if(valid(timingId)) {
+      const button=document.createElement('button');button.textContent='Measure saved-run preview delivery';
+      button.type='button';button.id='measureReplayDelivery';
+      document.getElementById('past-runs')?.prepend(button);
+      button.addEventListener('click',()=>{
+        const at=Number(query.get('preview_at'))||Date.now();
+        button.disabled=true;button.textContent='Timing trial armed';
+        setTimeout(()=>{
+          review?.ready();player.pause();player.removeAttribute('src');player.load();
+          player.parentElement.hidden=true;
+          if(!dialog.open) dialog.showModal();
+          panel.dataset.timingStartedAt=String(at);
+          begin(timingId,document.getElementById('robotSelector')?.value);
+        },Math.max(0,at-Date.now()));
+      });
+    }
     dialog.addEventListener('close',stop);
     window.addEventListener('blupe-robot-selected',()=>{stop();activeSession=null;});
     // Internal history cards call the original lexical openRun. Recognize the

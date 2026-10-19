@@ -10,7 +10,7 @@ function setup(){
   nodes.robotSelector.value='robot';
   const window={addEventListener(n,f){events[n]=f},yamReplayReview:{observe(){}},yamReplayHistory:{openRun(run){opened.push(run)}}};
   vm.runInNewContext(source,{window,document:{readyState:'complete',getElementById:id=>nodes[id],createElement:element},
-    Date:{now:()=>clock},setTimeout(f){timers.set(++tid,f);return tid},clearTimeout:id=>timers.delete(id),
+    location:{search:''},URLSearchParams,Date:{now:()=>clock},setTimeout(f){timers.set(++tid,f);return tid},clearTimeout:id=>timers.delete(id),
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))},encodeURIComponent});
   const flush=()=>new Promise(setImmediate);
   const answer=(request,runs)=>request.resolve({ok:true,json:async()=>({runs})});
