@@ -4,6 +4,14 @@ Dream-1 beta and Dream-1 beta Flash use the same bimanual YAM queue, lease,
 trajectory validation and Stop path as the other shared policies. Selecting
 Dream does not connect a second motor controller. Prompts remain editable.
 
+SDK protocol failures preserve only a static category (non-JSON reply, missing
+status envelope, connection failure, or other protocol error), safe HTTP status
+when present, an allowlisted cause type, command phase and numeric timing fields.
+The interaction journal and user error retain that category; raw SDK messages,
+endpoints and response bodies are excluded. Protocol errors stop the run without
+an added inference retry. Historical failures recorded before this diagnostic
+change cannot be classified retrospectively from their exception type alone.
+
 ## Setup
 
 Create a separate Python 3.12 environment and install
