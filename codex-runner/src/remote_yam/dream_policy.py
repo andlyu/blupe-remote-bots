@@ -515,7 +515,9 @@ class DreamAdapter:
                     self.interaction_sink('model_timing', 'Dream joint chunk received', **self.last_probe)
                 return points
             diagnostics = {key: reply.get(key) for key in ('error_type', 'code', 'reason', 'retryable',
-                           'phase', 'protocol_category', 'http_status', 'cause_type', 'timing')}
+                           'phase', 'protocol_category', 'http_status', 'cause_type', 'cause_family',
+                           'cause_errno', 'cause_reason', 'transport_stage', 'protocol_trace',
+                           'http_connection_policy', 'timing')}
             if (reply.get('error_type') == 'DreamSessionExpired' and reply.get('code') == 'DA-0001'
                     and session_recoveries == 0):
                 # The SDK adopted the replacement and discarded its action.
@@ -534,6 +536,9 @@ class DreamAdapter:
                                    ('code', 'error_type', 'reason', 'protocol_category') if diagnostics[key])
                 if diagnostics['http_status'] is not None:
                     detail += '; HTTP ' + str(diagnostics['http_status'])
+                for key in ('cause_type', 'transport_stage'):
+                    if diagnostics[key]:
+                        detail += '; ' + diagnostics[key]
                 raise RuntimeError('Dream request failed (' + (detail or 'unknown error') + ')')
             delay = reply.get('retry_after_s')
             delay = max(1, float(delay)) if type(delay) in (int, float) and math.isfinite(delay) else 5

@@ -775,3 +775,114 @@ def test_run_payload_cannot_override_fixed_motion_cap(tmp_path, monkeypatch):
                             dream_max_joint_step_deg=9999))
     assert providers[0].public_config()['max_joint_step_deg']==20.
     assert providers[0].public_config()['effective_joint_step_deg']==9.
+
+
+@pytest.mark.parametrize('cause_name,family', [
+    ('SSLEOFError','tls'),('SSLZeroReturnError','tls'),('SSLWantReadError','tls'),
+    ('SSLCertVerificationError','tls'),('CannotSendRequest','http'),
+    ('ResponseNotReady','http'),('LineTooLong','http'),('ConnectionAbortedError','network'),
+])
+def test_protocol_diagnostics_retain_bounded_ssl_http_subclasses(tmp_path,monkeypatch,cause_name,family):
+    import ssl,http.client
+    path=Path(__file__).parents[1]/'src/remote_yam/dream_worker.py'
+    monkeypatch.setenv('DREAM_WORK_DIR',str(tmp_path))
+    spec=importlib.util.spec_from_file_location('bounded_protocol',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    klass=getattr(ssl,cause_name,None) or getattr(http.client,cause_name,None) or getattr(__import__('builtins'),cause_name)
+    cause=klass('private endpoint, key and payload')
+    error=type('DreamProtocolError',(RuntimeError,),{})('private SDK endpoint text');error.__cause__=cause
+    reply=module.error_response(error,phase='predict')
+    assert reply['protocol_category']=='connection_failure'
+    assert reply['cause_type']==cause_name and reply['cause_family']==family
+    assert reply['http_status'] is None and 'private' not in json.dumps(reply)
+
+
+def test_protocol_context_and_static_trace_hide_request_locals(tmp_path,monkeypatch):
+    import http.client,ssl
+    monkeypatch.setenv('DREAM_WORK_DIR',str(tmp_path))
+    spec=importlib.util.spec_from_file_location('trace_protocol',Path(__file__).parents[1]/'src/remote_yam/dream_worker.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    class Socket:
+        def sendall(self,value):raise ssl.SSLEOFError(8,'private TLS endpoint')
+    connection=http.client.HTTPConnection('private-host');connection.sock=Socket()
+    try:
+        try:connection.request('POST','/private-route',body='private-image',headers={'Authorization':'private-key'})
+        except Exception:raise type('DreamProtocolError',(RuntimeError,),{})('private wrapper') from None
+    except Exception as error:
+        assert error.__cause__ is None
+        reply=module.error_response(error,phase='predict')
+    assert reply['cause_type']=='SSLEOFError' and reply['cause_errno']==8
+    assert reply['transport_stage']=='request_send'
+    assert 1<=len(reply['protocol_trace'])<=8
+    assert all(r['module']=='http.client' and set(r)=={'module','function','line'} for r in reply['protocol_trace'])
+    assert 'private' not in json.dumps(reply) and 'Authorization' not in json.dumps(reply)
+
+
+def test_unknown_oserror_subtype_cannot_export_arbitrary_class_or_reason(tmp_path,monkeypatch):
+    monkeypatch.setenv('DREAM_WORK_DIR',str(tmp_path))
+    spec=importlib.util.spec_from_file_location('unknown_protocol',Path(__file__).parents[1]/'src/remote_yam/dream_worker.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    cause=type('PrivateHostAndKey',(OSError,),{'reason':['private']})(103,'private-host')
+    error=type('DreamProtocolError',(RuntimeError,),{})('private');error.__cause__=cause
+    reply=module.error_response(error,phase='predict')
+    assert reply['cause_type']=='OSError' and reply['cause_family']=='network'
+    assert reply['cause_reason'] is None and 'private' not in json.dumps(reply).lower()
+
+
+@pytest.mark.parametrize('fail',[False,True])
+def test_worker_renews_only_http_channel_preserving_model_session_and_history(tmp_path,monkeypatch,fail):
+    sdk=tmp_path/'sdk';sdk.mkdir();trace=tmp_path/'transport.jsonl'
+    (sdk/'dream.py').write_text('''
+import json,os,ssl
+from types import SimpleNamespace
+__version__='1.0.0'
+class DreamProtocolError(RuntimeError):pass
+class Channel:
+    connected=False
+    def _drop(self):self.connected=False
+class DreamClient:
+    last_timing={'rtt_ms':1,'response_bytes':0}
+    def __init__(self):
+        self._policy=SimpleNamespace(_transport=Channel());self.session_id=None;self.frames=[]
+    def record(self,kind,**values):
+        with open(os.environ['TEST_HTTP_TRACE'],'a') as out:out.write(json.dumps(dict(kind=kind,**values))+'\\n')
+    def policy(self,config):self.record('policy')
+    def set_observation(self,frames,state,timestamp):self.frames.append(state['prompt'])
+    def get_action(self,commanded=None):
+        channel=self._policy._transport
+        self.record('predict',session_id=self.session_id,frames=list(self.frames),connected=channel.connected)
+        if channel.connected or os.environ['TEST_HTTP_FAIL']=='yes':
+            try:raise ssl.SSLEOFError(8,'private address and payload')
+            except ssl.SSLError as cause:raise DreamProtocolError('private endpoint') from cause
+        channel.connected=True;self.session_id='same-model-session'
+        return {key:[[0.]*6+[.5] for _ in range(48)] for key in ['q_l_chunk','q_r_chunk']}
+    def reset_episode(self):
+        self._policy._transport.connected=True
+        self.frames=[];self.session_id=None;self.record('reset')
+    def close(self):pass
+''')
+    monkeypatch.setenv('PYTHONPATH',str(sdk));monkeypatch.setenv('TEST_HTTP_TRACE',str(trace))
+    monkeypatch.setenv('TEST_HTTP_FAIL','yes' if fail else 'no')
+    worker=DreamWorker(sys.executable,tmp_path/'synthetic-credentials',tmp_path/'worker')
+    try:
+        assert worker.call('configure',checkpoint='dreamlabs/dream-1-beta')['ok']
+        def predict(n):return worker.call('predict',ticks=[dict(timestamp=n,frames={},observation={'prompt':str(n)})])
+        if fail:
+            reply=predict(1)
+            assert not reply['ok'] and reply['cause_type']=='SSLEOFError'
+            assert reply['protocol_category']=='connection_failure'
+            assert reply['http_connection_policy']=='fresh_per_exchange'
+            assert 'private' not in json.dumps(reply)
+        else:
+            assert all(predict(n)['ok'] for n in (1,2,3))
+            assert worker.call('reset')['ok']
+            assert predict(4)['ok']
+    finally:worker.close()
+    records=[json.loads(line) for line in trace.read_text().splitlines()]
+    predictions=[r for r in records if r['kind']=='predict']
+    assert len([r for r in records if r['kind']=='policy'])==1
+    assert len(predictions)==(1 if fail else 4)  # No extra inference retry.
+    assert all(r['connected'] is False for r in predictions)
+    if not fail:
+        assert [r['session_id'] for r in predictions]==[None,'same-model-session','same-model-session',None]
+        assert [r['frames'] for r in predictions]==[['1'],['1','2'],['1','2','3'],['4']]
