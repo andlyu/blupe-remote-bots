@@ -60,7 +60,12 @@ allow up to five seconds of recovery with new measured samples. Persistent gaps
 fail with the affected field named. Malformed values, nonfinite values, wrong
 robot identity and invalid camera sets fail immediately; no commanded values
 replace missing measurements. A capture failure during inference discards the
-late response. After inference, motion retiming uses the latest valid measured
+late response. If camera retries outlast the original state sample, the adapter
+reads measured state again and pairs it with the recovered complete camera set.
+Expired frames and invalid or missing remeasured state still cannot be used.
+Camera retry logs retain the role, HTTP status and attempt; the camera transport
+keeps its existing bounded retries, separate from the five-second feedback
+recovery window. After inference, motion retiming uses the latest valid measured
 sample. These checks do not change Home, queue admission or lease behavior.
 
 The SDK adds its YAM hand poses and uses Dream's current YAM default: the EEF
@@ -71,7 +76,13 @@ starts at the completed endpoint rather than an earlier row inferred from encode
 lag. Optional SDK background
 recording is explicitly disabled. A changed prompt resets the SDK episode and
 camera history. Model cold starts honor `pool_warming` retry delays, while Stop
-remains cancellable. Session cleanup releases the Dream session on worker exit.
+remains cancellable. Session cleanup releases the Dream session on worker exit. If the SDK reports
+`DreamSessionExpired` / `DA-0001`, it has already adopted a replacement model
+session and discarded that response. The bridge requests one new prediction
+from a new camera/state tick; it does not replay a packet, restart Home or alter
+the robot lease/step IDs. A second replacement during that decision fails. Stop
+can cancel the recovery, and authentication errors do not retry. Logs retain
+allowlisted code/reason/type fields without server text or session identifiers.
 
 The existing runner executes one packet to completion before asking for the
 next. Dream chunks at the configured 20 Hz are sampled at their 100 ms endpoints

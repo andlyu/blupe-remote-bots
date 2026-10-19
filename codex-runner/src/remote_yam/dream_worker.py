@@ -1,5 +1,6 @@
 """JSON-lines bridge to an isolated Dream SDK environment. No robot transport."""
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -8,6 +9,25 @@ import sys
 os.environ['DREAM_LOG'] = 'off'
 os.environ.setdefault('LOGURU_LEVEL', 'WARNING')
 os.environ.setdefault('JAX_COMPILATION_CACHE_DIR', str(Path(os.environ['DREAM_WORK_DIR']) / 'jax'))
+
+# Emit documented status fields, never arbitrary server text or identifiers.
+ERROR_CODES = {'DA-0000', 'DA-0001', 'DA-1000', 'DA-2000', 'DA-4000', 'DA-5000', 'DA-6000',
+               'not_found', 'conflict', 'invalid_request', 'validation', 'invalid_api_key', 'forbidden'}
+ERROR_REASONS = {'pool_warming', 'rate_limited', 'pool_full', 'queue_timeout', 'max_serves',
+                 'cannot_scale', 'missing', 'unknown_key', 'disabled', 'over_cap', 'not_entitled',
+                 'unknown_checkpoint', 'too_large', 'client_outdated', 'malformed', 'new',
+                 'expired', 'evicted', 'idle_timeout', 'session_expired', 'server_restart',
+                 'unknown_session', 'session_not_found'}
+
+
+def error_response(error):
+    code, reason = getattr(error, 'code', None), getattr(error, 'reason', None)
+    delay = getattr(error, 'retry_after_s', None)
+    return dict(ok=False, error_type=type(error).__name__,
+                code=code if isinstance(code, str) and code in ERROR_CODES else None,
+                reason=reason if isinstance(reason, str) and reason in ERROR_REASONS else None,
+                retryable=getattr(error, 'retryable', False) is True,
+                retry_after_s=delay if type(delay) in (float, int) and math.isfinite(delay) and delay >= 0 else None)
 
 
 def main():
@@ -64,10 +84,7 @@ def main():
                 response = {'ok': True, 'result': result}
             except Exception as error:
                 # Never return exception text, request objects or credential contents.
-                response = {'ok': False, 'error_type': type(error).__name__,
-                            'code': getattr(error, 'code', None),
-                            'reason': getattr(error, 'reason', None),
-                            'retry_after_s': getattr(error, 'retry_after_s', None)}
+                response = error_response(error)
             print(json.dumps(response, default=lambda value: value.tolist(), allow_nan=False), flush=True)
     finally:
         client.close()
