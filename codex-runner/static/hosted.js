@@ -767,6 +767,10 @@ function createRunLaunchGuard() {
     updateRunLabel();
   }
   function providerChanged(preview = true) {
+    const motion = configuredProviders[$('provider').value]?.motion_cap;
+    $('dreamMotionSettings').hidden = !motion;
+    $('dreamMotionHelp').textContent = 'Larger moves are slowed with extra waypoints, preserving the path and final target.'
+      + (motion?.gateway_step_deg ? ` This robot’s configured limit is ${Number(motion.gateway_step_deg.toFixed(2))}° / 100 ms; the lower limit applies.` : ' Robot checks also apply.');
     window.yamRunDuration?.select(selectedRobot + ':' + $('provider').value,
       configuredProviders[$('provider').value]?.default_run_duration_s);
     window.yamModelPicker?.saveSelection();
@@ -832,6 +836,7 @@ function createRunLaunchGuard() {
       $('codexSetup').hidden = true; $('claudeSetup').hidden = true;
       $('forget').hidden = true; $('responseSpeed').value = 'standard';
       $('policyHelp').textContent = configured.help || '';
+      window.yamApplication?.configuredProviderChanged?.(configured, applicationContext());
       window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel(); return;
     }
@@ -2226,7 +2231,7 @@ function createRunLaunchGuard() {
       window.yamModelPicker?.reset();
       configureLocalRunDialog(!!session.local_runner);
       $('provider').innerHTML = originalProviderMarkup;
-      configuredProviders = session.configured_providers || {};
+      configuredProviders = {...(session.configured_providers || {}), ...(session.dream_providers || {})};
       $('geminiCallingMode').value = 'sparse';
       for (const [value, spec] of Object.entries(configuredProviders)) {
         const option = Object.assign(document.createElement('option'), {value, textContent:spec.label});
@@ -2561,9 +2566,9 @@ function bindQuickTaskDraft(prompt, quick) {
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
   for (const child of [...options.children]) {
-    if (child !== duration && child !== $('effortField') && child !== $('geminiCallingModeField')) advanced.append(child);
+    if (child !== duration && child !== $('effortField') && child !== $('geminiCallingModeField') && child !== $('dreamMotionSettings')) advanced.append(child);
   }
-  options.prepend(pickerHeader, $('effortField'), $('geminiCallingModeField'));
+  options.prepend(pickerHeader, $('effortField'), $('geminiCallingModeField'), $('dreamMotionSettings'));
   options.append(advanced);
   function modelChoice(option, selectedId) {
     if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};

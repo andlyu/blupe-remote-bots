@@ -406,7 +406,7 @@ def main() -> None:
     parser.add_argument("--session-api", help="Session API base URL; defaults to mock")
     parser.add_argument("--robot-id", default="yam-1", help="Robot whose read-only live feedback is shown")
     parser.add_argument("--camera-origin", default=None, help="Trusted camera origin; defaults to the Session API origin")
-    parser.add_argument("--provider", choices=("auto", "local_raise_lower", "openai", "astra", "codex", "claude"), default="auto", help="Default inference policy/provider")
+    parser.add_argument("--provider", choices=("auto", "local_raise_lower", "openai", "astra", "codex", "claude", "dream", "dream_flash"), default="auto", help="Default inference policy/provider")
     parser.add_argument("--codex-login", action="store_true", help="Sign in to Codex with ChatGPT if needed, then launch the runner")
     parser.add_argument("--claude-login", action="store_true", help="Sign in to Claude Code with your Claude account if needed, then launch the runner")
     parser.add_argument("--no-key-prompt", action="store_true", help="Do not request a missing provider key when Join Queue is invoked")
