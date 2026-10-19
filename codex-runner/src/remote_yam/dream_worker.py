@@ -91,72 +91,132 @@ def main():
                           'stage_timings': startup_spans}), flush=True)
         return
     last_timestamp = None
+    clients = {}
+    prepared = False
+    phase = None
+    request_started = False
+
+    def all_clients():
+        return list({id(c): c for c in [client, *clients.values()] if c is not None}.values())
 
     def close(*_):
-        client.close()
+        for current in all_clients():
+            current.close()
         raise SystemExit(0)
+
+    def configure(client, command, spans):
+        if dream.__version__ != '1.0.0':
+            raise ValueError('Unsupported Dream SDK version')
+        checkpoint = command['checkpoint']
+        if checkpoint not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash'):
+            raise ValueError('Unknown checkpoint')
+        parts = {'right_arm': [0, 6], 'right_gripper': [6, 7],
+                 'left_arm': [7, 13], 'left_gripper': [13, 14]}
+        with stage(spans, 'sdk_configure'):
+            client.policy(dict(checkpoint=checkpoint, robot='yam', strict=True,
+                timeout_ms=15000, action_hz=20, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
+                embodiment={'state': parts, 'action': dict(parts),
+                    'video': {role: 'observation.images.' + role
+                              for role in ('overhead', 'wrist_l', 'wrist_r')}},
+                _record=False))
+
+    def handle(command, spans):
+        # Request payloads/arrays/actions live only in this call's frame, not in
+        # the resident command loop after a release/reset. SDK windows are
+        # cleared by its documented reset_episode() boundary (SDK 1.0.0).
+        nonlocal client, last_timestamp, prepared, phase, request_started
+        kind = command['command']
+        phase = {'prime': 'configure', 'release': 'reset'}.get(kind, kind)
+        if kind == 'prime':
+            if prepared or clients:
+                raise ValueError('Dream worker is already prepared')
+            checkpoints = command['checkpoints']
+            if (not checkpoints or len(set(checkpoints)) != len(checkpoints)
+                    or any(c not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash') for c in checkpoints)):
+                raise ValueError('Unknown prepared checkpoint')
+            for checkpoint in checkpoints:
+                current = client if not clients else dream.DreamClient()
+                clients[checkpoint] = current
+                configure(current, {'checkpoint': checkpoint}, spans)
+                # SDK 1.0.0 compiles trajectory IK on a background thread. Read
+                # its pinned readiness event; never advertise a partially
+                # prepared solver. No observations or get_action are involved.
+                with stage(spans, 'sdk_full_preparation'):
+                    if not current._policy._ik.traj_ready.wait(120):
+                        raise RuntimeError('Dream trajectory preparation failed')
+            prepared = True
+            client = None
+            return {'sdk_version': dream.__version__, 'fully_ready': True, 'checkpoints': checkpoints}
+        if kind == 'configure':
+            checkpoint = command['checkpoint']
+            if prepared:
+                if checkpoint not in clients:
+                    raise ValueError('Checkpoint was not prepared')
+                if client is not None:
+                    client.reset_episode()
+                client = clients[checkpoint]
+                with stage(spans, 'sdk_reset'):
+                    client.reset_episode()
+            else:
+                configure(client, command, spans)
+            last_timestamp = None
+            return {'sdk_version': dream.__version__, 'prepared_reused': prepared}
+        if kind == 'release':
+            with stage(spans, 'sdk_reset'):
+                for current in all_clients():
+                    current.reset_episode()
+            if prepared:
+                client = None
+            last_timestamp = None
+            return {}
+        if client is None:
+            raise RuntimeError('Dream visitor is not configured')
+        if kind == 'reset':
+            with stage(spans, 'sdk_reset'):
+                client.reset_episode()
+            last_timestamp = None
+            return {}
+        if kind == 'predict':
+            phase = 'observation'
+            with stage(spans, 'sdk_observation_update'):
+                for tick in command['ticks']:
+                    if last_timestamp is not None and tick['timestamp'] <= last_timestamp:
+                        continue
+                    observation = {key: np.asarray(value, dtype=np.float32) if key.startswith('state.') else value
+                                   for key, value in tick['observation'].items()}
+                    client.set_observation(tick['frames'], observation, timestamp=tick['timestamp'])
+                    last_timestamp = tick['timestamp']
+            phase = 'predict'
+            request_started = True
+            with stage(spans, 'sdk_get_action'):
+                action = client.get_action(commanded=command.get('commanded'))
+            return {'action': action, 'timing': client.last_timing}
+        raise ValueError('Unknown worker command')
 
     signal.signal(signal.SIGTERM, close)
     try:
         for line in sys.stdin:
             command = json.loads(line)
+            if command.get('command') == 'close':
+                return
             phase = None
             request_started = False
             spans = []
             try:
-                kind = command['command']
-                phase = kind
-                if kind == 'configure':
-                    if dream.__version__ != '1.0.0':
-                        raise ValueError('Unsupported Dream SDK version')
-                    checkpoint = command['checkpoint']
-                    if checkpoint not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash'):
-                        raise ValueError('Unknown checkpoint')
-                    parts = {'right_arm': [0, 6], 'right_gripper': [6, 7],
-                             'left_arm': [7, 13], 'left_gripper': [13, 14]}
-                    with stage(spans, 'sdk_configure'):
-                        client.policy(dict(checkpoint=checkpoint, robot='yam', strict=True,
-                            timeout_ms=15000, action_hz=20, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
-                            embodiment={'state': parts, 'action': dict(parts),
-                                'video': {role: 'observation.images.' + role
-                                          for role in ('overhead', 'wrist_l', 'wrist_r')}},
-                            _record=False))
-                    result = {'sdk_version': dream.__version__}
-                elif kind == 'reset':
-                    with stage(spans, 'sdk_reset'):
-                        client.reset_episode()
-                    last_timestamp = None
-                    result = {}
-                elif kind == 'predict':
-                    phase = 'observation'
-                    with stage(spans, 'sdk_observation_update'):
-                        for tick in command['ticks']:
-                            if last_timestamp is not None and tick['timestamp'] <= last_timestamp:
-                                continue
-                            observation = {key: np.asarray(value, dtype=np.float32) if key.startswith('state.') else value
-                                           for key, value in tick['observation'].items()}
-                            client.set_observation(tick['frames'], observation, timestamp=tick['timestamp'])
-                            last_timestamp = tick['timestamp']
-                    phase = 'predict'
-                    request_started = True
-                    with stage(spans, 'sdk_get_action'):
-                        action = client.get_action(commanded=command.get('commanded'))
-                    result = {'action': action, 'timing': client.last_timing}
-                elif kind == 'close':
-                    client.close()
-                    return
-                else:
-                    raise ValueError('Unknown worker command')
+                result = handle(command, spans)
                 response = {'ok': True, 'result': result}
             except Exception as error:
-                # Never return exception text, request objects or credential contents.
                 response = error_response(error, phase=phase,
                                           timing=client.last_timing if request_started else None)
             response['stage_timings'] = startup_spans + spans
             startup_spans = []
             print(json.dumps(response, default=lambda value: value.tolist(), allow_nan=False), flush=True)
+            # A reset/release replaces the command line too. Keep no previous
+            # frame payload or action in these outer-loop references.
+            del command, response
     finally:
-        client.close()
+        for current in all_clients():
+            current.close()
 
 
 if __name__ == '__main__':
