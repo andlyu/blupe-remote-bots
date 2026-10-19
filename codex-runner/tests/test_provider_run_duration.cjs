@@ -14,6 +14,8 @@ function page(initial='5') {
   const context=vm.createContext({$,window:{},selectedRobot:'fixture',setupProvider:null,aspireRunAvailable:false,
     localStorage:{getItem(){return null}},aspireRetryLimit(){return 1},updateRunLabel(){},updateSavedKey(){},
     configuredProviders:{reset_bin:{model:'reset',task:'Reset bin',label:'Reset bin',default_run_duration_s:600},
+      dream:{model:'dreamlabs/dream-1-beta',default_run_duration_s:120,max_run_duration_s:120},
+      dream_flash:{model:'dreamlabs/dream-1-flash',default_run_duration_s:120,max_run_duration_s:120},
       other_policy:{model:'other',task:'Other task',label:'Other policy'}}});
   const create=vm.runInContext('(function createProviderRunDuration(input){'+durationSource+')',context);
   context.window.yamRunDuration=create($('runDuration'));
@@ -23,6 +25,7 @@ function page(initial='5') {
   return {select(provider){$('provider').value=provider;changed();},
     edit(value){$('runDuration').value=String(value);listeners.input();},
     minutes(){return $('runDuration').value;},
+    maximum(){return $('runDuration').max;},
     requestSeconds(){return vm.runInContext(requestDuration,context);}};
 }
 
@@ -45,4 +48,15 @@ test('a browser-restored nondefault duration remains an explicit choice',()=>{
   const p=page('4');p.select('reset_bin');assert.equal(p.requestSeconds(),240);
   p.select('openai');assert.equal(p.requestSeconds(),300);
   p.select('reset_bin');assert.equal(p.requestSeconds(),240);
+});
+
+test('both Dream providers cap restored and refreshed choices at two minutes without changing other providers',()=>{
+  const p=page('8');p.select('openai');assert.equal(p.requestSeconds(),480);
+  for(const provider of ['dream','dream_flash']) {
+    p.select(provider);assert.equal(p.requestSeconds(),120);assert.equal(p.maximum(),'2');
+    p.edit(1);p.select(provider);assert.equal(p.requestSeconds(),60);
+    p.edit(9);p.select(provider);assert.equal(p.requestSeconds(),120);
+    p.select('openai');assert.equal(p.requestSeconds(),480);assert.equal(p.maximum(),'10');
+  }
+  const restored=page('10');restored.select('dream');assert.equal(restored.requestSeconds(),120);
 });

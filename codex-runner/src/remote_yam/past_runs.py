@@ -185,6 +185,20 @@ class RunNames:
     def __init__(self, path):
         self.path = Path(path)
 
+    def replay_speeds(self):
+        """Only expose pacing derived from recorded provider identity."""
+        if not self.path.exists():
+            return {}
+        with sqlite3.connect(self.path) as db:
+            if not db.execute("SELECT name FROM sqlite_master WHERE name='run_configuration'").fetchone():
+                return {}
+            settings = {}
+            for eid, value in db.execute('SELECT * FROM run_configuration'):
+                provider = json.loads(value).get('provider')
+                if isinstance(provider, str) and provider:
+                    settings[eid] = 2 if provider in {'dream', 'dream_flash'} else 10
+            return settings
+
     def pending(self, episode_id, robot_id):
         """Public receipt metadata is available before the video is published."""
         if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id or '') or not self.path.exists():

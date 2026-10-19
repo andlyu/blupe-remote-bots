@@ -5,6 +5,7 @@ import test_hosted
 
 
 class ReplayLinkTests(unittest.IsolatedAsyncioTestCase):
+    call = test_hosted.HostedTests.call
     asyncSetUp = test_hosted.HostedTests.asyncSetUp
     asyncTearDown = test_hosted.HostedTests.asyncTearDown
     async def call_replay(self, query):
@@ -23,6 +24,7 @@ class ReplayLinkTests(unittest.IsolatedAsyncioTestCase):
         self.app.run_names = Mock()
         self.app.run_names.names.return_value = {'ep_old':'Runner'}
         self.app.run_names.results.return_value = {'ep_old':{'result':'Stopped'}}
+        self.app.run_names.replay_speeds.return_value = {}
         code,body=await self.call_replay(b'episode_id=ep_old')
         self.assertEqual(code,200)
         self.assertEqual(body['runs'][0]['runner_name'],'Runner')
@@ -38,6 +40,26 @@ class ReplayLinkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body['runs'],[])
         code,_=await self.call_replay(b'episode_id=..%2Fprivate')
         self.assertEqual(code,400)
+
+    async def test_recorded_dream_identity_controls_public_and_personal_replay_pacing(self):
+        self.app.past_runs = Mock()
+        rows=[]
+        for provider in ('dream','dream_flash','codex'):
+            eid='ep_'+provider
+            self.app.run_names.remember_metadata(eid,'yam-1','Task',1,
+                {'provider':provider,'api_key':'never-export','system_prompt':'private'})
+            rows.append({'episode_id':eid,'robot_id':'yam-1','video_url':'https://example.com/viewing/'+eid+'.mp4',
+                         'compressed':True,'preview_speed':10})
+        self.app.past_runs.page.return_value={'runs':rows,'next_offset':None}
+        code,body=await self.call_replay(b'')
+        self.assertEqual(code,200)
+        self.assertEqual([row.get('replay_speed') for row in body['runs']],[2,2,10])
+        self.assertNotIn('never-export',json.dumps(body));self.assertNotIn('private',json.dumps(body))
+        browser=await test_hosted.HostedTests.session(self)
+        code,body,_=await test_hosted.HostedTests.call(self,'/api/my-runs',method='POST',
+            payload={'episode_ids':[row['episode_id'] for row in rows]},**browser)
+        self.assertEqual(code,200)
+        self.assertEqual([row.get('replay_speed') for row in body['runs']],[2,2,10])
 
     async def test_run_receipt_is_available_before_video_and_has_its_name_outcome_and_metrics(self):
         self.app.past_runs = Mock()

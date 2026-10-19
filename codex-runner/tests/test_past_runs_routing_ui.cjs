@@ -18,7 +18,7 @@ test('hover previews are muted, exclusive, and stop on exit, modal open, or robo
   const run = {episode_index:1, prompt:'Move block', camera_order:[], started_at:0,
     video_url:'https://example.com/previews/run.mp4', compressed:true};
   vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},encodeURIComponent,
-    fetch:async()=>({ok:true,json:async()=>({runs:[run,{...run,compressed:false}],next_offset:null})})});
+    fetch:async()=>({ok:true,json:async()=>({runs:[run,{...run,compressed:false},{...run,replay_speed:2,preview_speed:10}],next_offset:null})})});
   listeners['blupe-robot-selected']({detail:'yam-1'});
   await new Promise(setImmediate);
   const cards = nodes.get('pastRunsList').children.map(li=>li.children[0]);
@@ -30,6 +30,9 @@ test('hover previews are muted, exclusive, and stop on exit, modal open, or robo
   cards[1].listeners.pointerenter({pointerType:'mouse'});
   assert.equal(first.pauses,1);assert.equal(second.playbackRate,10);
   cards[1].listeners.pointerleave();assert.equal(second.pauses,1);
+  cards[2].listeners.pointerenter({pointerType:'mouse'});
+  const dream=cards[2].children.find(child=>child.preload==='metadata');
+  assert.equal(dream.playbackRate,.2);assert.equal(dream.src,run.video_url);
   cards[0].listeners.pointerenter({pointerType:'mouse'});
   cards[0].listeners.click();assert.equal(first.pauses,2);assert.equal(nodes.get('pastRunDialog').open,true);
   cards[1].listeners.pointerenter({pointerType:'mouse'});assert.equal(second.plays,1);
