@@ -629,6 +629,8 @@ class DreamClient:
         assert detail['protocol_category']==category and detail['http_status']==http_status
         assert detail['phase']=='predict'
         assert detail['timing']==dict(rtt_ms=31000, response_bytes=17)
+        sdk_stages = {d.get('stage') for kind, _, d in events if kind=='policy_timing'}
+        assert {'sdk_import','sdk_client_init','sdk_configure','sdk_observation_update','sdk_get_action'} <= sdk_stages
         assert 'private' not in json.dumps(events)
         worker = provider._worker
     finally:
