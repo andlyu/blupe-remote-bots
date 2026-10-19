@@ -89,6 +89,18 @@ def test_recovery_generation_discards_capture_already_in_flight(tmp_path):
         provider.close_transport(); old_done.set(); fresh_done.set(); thread.join(2)
 
 
+def test_recovery_feedback_watermark_uses_the_robot_clock(tmp_path):
+    from types import SimpleNamespace
+    provider = adapter(tmp_path)
+    provider._prompt = 'same run'
+    observed_at = time.time()-1.5  # Fresh feedback can use a slightly offset clock.
+    provider.observation_source = lambda: dict(observation(), observed_at=observed_at)
+    provider._worker = SimpleNamespace(recover=lambda **kwargs: None, close=lambda: None)
+    assert provider._recover_worker(72, 'worker_timeout') == observed_at
+    assert provider._history_generation == 1 and not provider._history
+    provider.close_transport()
+
+
 def test_units_arm_order_endpoint_sampling_and_duration():
     state = state_input(observation(), 'move')
     assert state['state.left_arm'] == pytest.approx([math.radians(10)] * 6)

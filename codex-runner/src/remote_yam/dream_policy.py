@@ -484,17 +484,20 @@ class DreamAdapter:
             # requesting another prediction. No failed request/action is replayed.
             if callable(self.refresh_observation):
                 self.refresh_observation()
+            fresh, _ = self._read_observation(self._prompt)
             with self._changed:
                 self._history_generation += 1
                 self._history.clear()
                 self._commanded = self._pending_commanded = None
-                recovered_at = time.time()
+                # Compare feedback timestamps only with that same source's
+                # watermark, never order a robot clock against the server clock.
+                observed_after = fresh['observed_at']
             if self.interaction_sink:
                 self.interaction_sink('worker_recovery', 'Dream worker recovered; collecting fresh inputs',
                                       state='completed', attempt=1, first_step_id=first_step_id)
                 self.interaction_sink('model_progress', 'Dream worker recovered; collecting fresh inputs',
                                       progress_type='status')
-            return recovered_at
+            return observed_after
         except Exception:
             if self.interaction_sink:
                 self.interaction_sink('worker_recovery', 'Dream worker recovery ended',
