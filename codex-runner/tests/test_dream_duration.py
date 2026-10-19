@@ -41,10 +41,12 @@ def test_dream_duration_boundary_before_queue_and_local_deadline(tmp_path,robot_
             assert controller.status()['run_duration_s']==expected
             with controller._lock:
                 controller._status='running';controller._run_started_at=1000
-            with patch('remote_yam.controller.time.time',return_value=1000+expected-.001):
-                assert not controller._provider_cancelled(policy)
-            with patch('remote_yam.controller.time.time',return_value=1000+expected):
-                assert controller._provider_cancelled(policy)
+                # Hold the same lock as the real snapshot handler, so a queued
+                # background snapshot cannot overwrite this synthetic clock.
+                with patch('remote_yam.controller.time.time',return_value=1000+expected-.001):
+                    assert not controller._provider_cancelled(policy)
+                with patch('remote_yam.controller.time.time',return_value=1000+expected):
+                    assert controller._provider_cancelled(policy)
         assert not api.action_log and not api.trajectory_log
     finally:
         for visitor in app.visitors.values():
