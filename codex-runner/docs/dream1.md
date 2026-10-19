@@ -45,9 +45,27 @@ session metadata and model configuration.
 
 On a small hosted fleet, pass one shared `threading.BoundedSemaphore` as
 `dream_worker_pool` to bound SDK/IK processes across stations. With a pool,
-SDK preparation begins in the controller's existing post-Home readiness gate,
-so queued visitors consume no worker. Stop cancels a slot wait and releases an
+SDK preparation begins after lease grant, so it can overlap native Home while
+queued visitors consume no worker. Stop cancels a slot wait and releases an
 owned worker. Local launch keeps its existing preparation behavior.
+
+For server-wide compiled-solver reuse, explicitly set
+`JAX_COMPILATION_CACHE_DIR` to a persistent, service-owned directory. The worker
+honors that path across distinct visitor processes; without it, the fallback
+remains the visitor's private SDK work directory plus `jax`. SDK sessions,
+observation history and commanded targets remain private to each worker. No
+observation or prediction is needed to prepare the local solver through SDK
+policy configuration.
+
+Protect the cache directory with0700 permissions and trust every writer. JAX
+keys compiled executables by computation HLO, jaxlib version, relevant XLA flags
+and device configuration. Deployment must track SDK source/runtime and robot/IK
+configuration compatibility, prewarm invalidated configurations before exposing
+Dream as ready, and retain compatible artifacts across release paths/restarts.
+The cache avoids repeated compilation work; Python imports, graph tracing,
+model-record retrieval and per-session setup can remain. Measure fresh processes
+and background trajectory readiness rather than treating a populated directory
+as proof of instant readiness. See the [pinned JAX guide](refs/jax/INDEX.md).
 
 ## Observation and execution contract
 

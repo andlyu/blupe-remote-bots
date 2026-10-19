@@ -658,6 +658,42 @@ def test_completed_target_is_passed_to_sdk_instead_of_guessing_from_measured_lag
         provider.close_transport()
 
 
+@pytest.mark.parametrize('configured', [False, True])
+def test_worker_honors_service_compilation_cache_and_keeps_private_work_dirs(tmp_path, monkeypatch, configured):
+    sdk = tmp_path/'sdk'; sdk.mkdir()
+    (sdk/'dream.py').write_text('''
+import json, os
+from pathlib import Path
+__version__='1.0.0'
+class DreamClient:
+    def policy(self, config):
+        with open(os.environ['TEST_CACHE_RECEIPT'], 'a') as out:
+            out.write(json.dumps({'cache':os.environ['JAX_COMPILATION_CACHE_DIR'],
+                                  'work':os.environ['DREAM_WORK_DIR']})+'\\n')
+    def close(self): pass
+''')
+    monkeypatch.setenv('PYTHONPATH', str(sdk))
+    receipt = tmp_path/'cache-paths.jsonl'
+    monkeypatch.setenv('TEST_CACHE_RECEIPT', str(receipt))
+    shared = tmp_path/'persistent compilation cache'
+    if configured:
+        monkeypatch.setenv('JAX_COMPILATION_CACHE_DIR', str(shared))
+    else:
+        monkeypatch.delenv('JAX_COMPILATION_CACHE_DIR', raising=False)
+    for visitor in ('visitor-one', 'visitor-two'):
+        directory = tmp_path/visitor
+        worker = DreamWorker(sys.executable, tmp_path/'synthetic-credentials', directory)
+        try:
+            assert worker.call('configure', checkpoint='dreamlabs/dream-1-beta')['ok']
+        finally:
+            worker.close()
+        assert worker.process.poll() is not None
+    rows = [json.loads(line) for line in receipt.read_text().splitlines()]
+    assert [row['work'] for row in rows] == [str(tmp_path/v) for v in ('visitor-one','visitor-two')]
+    assert [row['cache'] for row in rows] == ([str(shared)]*2 if configured else
+        [str(tmp_path/v/'jax') for v in ('visitor-one','visitor-two')])
+
+
 def test_worker_process_protocol_closes_session_and_hides_key(tmp_path, monkeypatch):
     fake = tmp_path / 'sdk'
     fake.mkdir()

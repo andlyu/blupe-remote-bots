@@ -106,7 +106,10 @@ class DreamWorker:
         env = {k: v for k, v in os.environ.items() if not k.startswith('DREAM_')}
         env.update(DREAM_CREDENTIALS=str(Path(credentials).expanduser().resolve()),
                    DREAM_WORK_DIR=str(directory.resolve()), DREAM_LOG='off',
-                   JAX_COMPILATION_CACHE_DIR=str((directory / 'jax').resolve()), PYTHONUNBUFFERED='1')
+                   PYTHONUNBUFFERED='1')
+        # Honor a trusted service-owned persistent cache across visitor workers.
+        # Unconfigured local runs retain their private cache directory.
+        env.setdefault('JAX_COMPILATION_CACHE_DIR', str((directory / 'jax').resolve()))
         self.process = subprocess.Popen([str(python), str(Path(__file__).with_name('dream_worker.py'))],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, bufsize=1, env=env)
