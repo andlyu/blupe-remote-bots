@@ -4,6 +4,9 @@ import math
 import threading
 import time
 import sys
+import json
+import importlib.util
+from pathlib import Path
 
 from PIL import Image
 import pytest
@@ -380,6 +383,142 @@ def test_decode_failure_has_camera_identity_without_exposing_exception_text(tmp_
     assert caught.value.field == 'camera_top' and not caught.value.retryable
     assert 'top camera image decoding' in str(caught.value)
     assert 'private-bad-pixels' not in str(caught.value)
+
+
+@pytest.mark.parametrize('problem', [None,'identity','missing_gripper','stale_state','stale_frame'])
+def test_camera_retry_pairs_new_images_with_remeasured_state(tmp_path, monkeypatch, problem):
+    clock = [100.]
+    monkeypatch.setattr('remote_yam.dream_policy.time.time', lambda:clock[0])
+    provider = adapter(tmp_path)
+    reads, events = [], []
+    def source():
+        measured = dict(observation(), left_joints_deg=[len(reads)]*6)
+        if reads:
+            if problem == 'identity': measured['jetson_id']='another-robot'
+            if problem == 'missing_gripper': measured['left_gripper']=None
+            if problem == 'stale_state': measured['observed_at']=100.
+        reads.append(measured)
+        return measured
+    class RecoveringCameras(Cameras):
+        def capture_for_policy(self, observed, **kwargs):
+            kwargs['on_event']('camera_retry','Waiting for next left frame',
+                              dict(camera='left',attempt=1,cause='HTTP 503'))
+            clock[0] = 106.
+            frames=super().capture_for_policy(observed)
+            if problem == 'stale_frame':
+                frames[0]=CameraFrame(frames[0].name,frames[0].jpeg,100.)
+            return frames
+    provider.observation_source=source
+    provider.camera_source=RecoveringCameras()
+    provider.interaction_sink=lambda kind,*args,**kwargs:events.append(kind)
+    if problem:
+        with pytest.raises(DreamObservationError) as caught:
+            provider._capture_tick()
+        assert caught.value.field == dict(identity='jetson_id',missing_gripper='left_gripper',
+                                          stale_state='observed_at',stale_frame='camera_right')[problem]
+    else:
+        tick=provider._capture_tick()
+        assert tick['observed_at']==106.
+        assert tick['observation']['state.left_arm']==pytest.approx([math.radians(1)]*6)
+        assert 'observation_refreshed' in events and 'camera_retry' in events
+    assert len(reads)==2
+
+
+def test_camera_exhaustion_names_actual_role_and_http_status(tmp_path):
+    provider=adapter(tmp_path)
+    class FailedCameras:
+        def capture_for_policy(self, observed, **kwargs):
+            kwargs['on_event']('camera_failure','Camera failed',
+                dict(camera='left',attempt=10,cause='HTTP 503',http_status=503))
+            raise RuntimeError('private upstream detail must not escape')
+    provider.camera_source=FailedCameras()
+    with pytest.raises(DreamObservationError) as caught:
+        provider._capture_tick()
+    assert caught.value.field=='camera_left'
+    assert 'left camera capture failed (HTTP 503)' in str(caught.value)
+    assert 'private upstream' not in str(caught.value)
+
+
+def expired_reply():
+    return dict(ok=False,error_type='DreamSessionExpired',code='DA-0001',reason='expired',retryable=False)
+
+
+class SessionWorker(Worker):
+    def __init__(self,*args):
+        super().__init__(*args)
+        self.responses=[]
+
+    def call(self,command,**kwargs):
+        result=super().call(command,**kwargs)
+        return self.responses.pop(0) if command=='predict' and self.responses else result
+
+
+def test_session_replacement_requeries_new_input_without_replaying_or_resetting(tmp_path):
+    provider=adapter(tmp_path)
+    provider.worker_factory=SessionWorker
+    try:
+        points=provider.build_trajectory('move',observation(),0)
+        provider.trajectory_completed(observation(),len(points))
+        completed=provider._commanded
+        provider._worker.responses=[expired_reply()]
+        following=provider.build_trajectory('move',observation(),len(points))
+        calls=[payload for command,payload in provider._worker.calls if command=='predict']
+        assert len(calls)==3
+        assert calls[2]['ticks'][-1]['timestamp']>calls[1]['ticks'][-1]['timestamp']
+        assert calls[2]['commanded']==completed
+        assert following[0]['step_id']==len(points)
+        assert not any(command=='reset' for command,_ in provider._worker.calls)
+    finally:
+        provider.close_transport()
+
+
+@pytest.mark.parametrize('replies,expected', [([expired_reply(),expired_reply()],2),
+    ([dict(ok=False,error_type='DreamAuthError',code='DA-1000',reason='disabled')],1)])
+def test_prediction_recovery_is_bounded_and_auth_errors_do_not_retry(tmp_path,replies,expected):
+    provider=adapter(tmp_path)
+    provider.worker_factory=SessionWorker
+    try:
+        provider.wait_ready(lambda:False)
+        provider._worker.responses=replies
+        with pytest.raises(RuntimeError,match='Dream request failed .*Dream'):
+            provider.build_trajectory('move',observation(),0)
+        assert len([c for c,_ in provider._worker.calls if c=='predict'])==expected
+    finally:
+        provider.close_transport()
+
+
+def test_stop_cancels_session_recovery_before_another_prediction(tmp_path):
+    provider=adapter(tmp_path)
+    provider.worker_factory=SessionWorker
+    cancelled=threading.Event()
+    provider.cancelled=cancelled.is_set
+    provider.interaction_sink=lambda kind,*args,**kwargs:cancelled.set() if kind=='model_progress' else None
+    try:
+        provider.wait_ready(lambda:False)
+        provider._worker.responses=[expired_reply()]
+        with pytest.raises(RuntimeError,match='cancelled'):
+            provider.build_trajectory('move',observation(),0)
+        assert len([c for c,_ in provider._worker.calls if c=='predict'])==1
+    finally:
+        provider.close_transport()
+
+
+def test_worker_error_metadata_does_not_expose_private_text_or_arbitrary_reason(tmp_path,monkeypatch):
+    monkeypatch.setenv('DREAM_WORK_DIR',str(tmp_path))
+    path=Path(__file__).parents[1]/'src/remote_yam/dream_worker.py'
+    spec=importlib.util.spec_from_file_location('dream_worker_diagnostics',path)
+    worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(worker)
+    class DreamSessionExpired(RuntimeError):
+        code='DA-0001';reason='expired';retryable=False;retry_after_s=None
+    error=DreamSessionExpired('private credential and server identifiers')
+    reply=worker.error_response(error)
+    assert reply==dict(ok=False,error_type='DreamSessionExpired',code='DA-0001',reason='expired',
+                       retryable=False,retry_after_s=None)
+    assert 'private credential' not in json.dumps(reply)
+    error.code='private-code';error.reason='private-reason';error.retry_after_s=float('nan')
+    reply=worker.error_response(error)
+    assert reply['code'] is None and reply['reason'] is None and reply['retry_after_s'] is None
+    assert 'private-' not in json.dumps(reply,allow_nan=False)
 
 
 def test_completed_target_is_passed_to_sdk_instead_of_guessing_from_measured_lag(tmp_path):

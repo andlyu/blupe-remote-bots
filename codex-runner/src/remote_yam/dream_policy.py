@@ -263,7 +263,7 @@ class DreamAdapter:
             raise RuntimeError('Dream preparation cancelled')
         return waited
 
-    def _capture_tick(self):
+    def _read_observation(self, prompt):
         try:
             raw = self.observation_source()
         except Exception as error:
@@ -287,19 +287,49 @@ class DreamAdapter:
         if age > 5:
             raise DreamObservationError('Dream requires fresh measured YAM state (observed_at expired)',
                                         field='observed_at', retryable=True)
+        return observation, state_input(observation, prompt)
+
+    def _capture_tick(self):
         with self._changed:
             prompt = self._prompt
-        state = state_input(observation, prompt)
+        observation, state = self._read_observation(prompt)
+        observed_at = observation['observed_at']
+        camera_began = time.monotonic()
+        last_failure = {}
+        def camera_event(kind, message, details):
+            if kind == 'camera_failure':
+                last_failure.update(details)
+            if self.interaction_sink:
+                self.interaction_sink(kind, message, **details)
         try:
-            frames = self.camera_source.capture_for_policy(observation, cancelled=self._cancelled)
+            frames = self.camera_source.capture_for_policy(observation, cancelled=self._cancelled,
+                                                           on_event=camera_event)
         except Exception as error:
-            raise DreamObservationError('Dream camera capture failed (' + type(error).__name__ + ')',
-                                        field='camera_capture') from None
-        if time.time() - observed_at > 5:
-            raise DreamObservationError('Dream measured state expired during camera capture',
-                                        field='observed_at', retryable=True)
+            role = last_failure.get('camera')
+            detail = last_failure.get('cause')
+            message = 'Dream ' + (role + ' ' if role in CAMERAS else '') + 'camera capture failed'
+            message += ' (' + (str(detail) if detail else type(error).__name__) + ')'
+            raise DreamObservationError(message, field='camera_' + role if role in CAMERAS else 'camera_capture') from None
         if len(frames) != 3 or {frame.name for frame in frames} != set(CAMERAS):
             raise DreamObservationError('Dream requires overhead and both wrist cameras', field='camera_roles')
+        if time.time() - observed_at > 5:
+            # Camera retries return a NEW complete set. Pair it with newly read
+            # measured feedback instead of discarding those images with an old pose.
+            observation, state = self._read_observation(prompt)
+            observed_at = observation['observed_at']
+            if self.interaction_sink:
+                self.interaction_sink('observation_refreshed',
+                    'Fresh measured feedback paired after camera recovery',
+                    camera_capture_s=time.monotonic() - camera_began)
+        now = time.time()
+        for frame in frames:
+            captured = frame.source_captured_at if frame.source_captured_at is not None else frame.received_at
+            if now - captured > 5:
+                raise DreamObservationError('Dream ' + frame.name + ' camera frame expired during capture',
+                                            field='camera_' + frame.name, retryable=True)
+            if now - captured < -2:
+                raise DreamObservationError('Dream ' + frame.name + ' camera timestamp is ahead of the local clock',
+                                            field='camera_' + frame.name)
         from PIL import Image
         encoded = {}
         for frame in frames:
@@ -387,6 +417,7 @@ class DreamAdapter:
             self._collector.start()
         began = time.monotonic()
         deadline = began + 600
+        session_recoveries = 0
         while True:
             # Require a new camera tick for this decision; never reuse an old snapshot.
             ticks = self._wait_for_ticks(began)
@@ -419,8 +450,23 @@ class DreamAdapter:
                 if self.interaction_sink:
                     self.interaction_sink('model_timing', 'Dream joint chunk received', **self.last_probe)
                 return points
+            diagnostics = {key: reply.get(key) for key in ('error_type', 'code', 'reason', 'retryable')}
+            if (reply.get('error_type') == 'DreamSessionExpired' and reply.get('code') == 'DA-0001'
+                    and session_recoveries == 0):
+                # The SDK adopted the replacement and discarded its action.
+                # Request once from NEW input; keep robot lease, Home and step IDs.
+                session_recoveries += 1
+                if self.interaction_sink:
+                    self.interaction_sink('model_progress',
+                        'Dream model session was replaced; requesting a fresh prediction',
+                        progress_type='status', recovery_attempt=session_recoveries, **diagnostics)
+                began = time.monotonic()
+                continue
             if reply.get('reason') != 'pool_warming' or time.monotonic() >= deadline:
-                raise RuntimeError('Dream request failed (' + str(reply.get('code') or reply.get('error_type')) + ')')
+                if self.interaction_sink:
+                    self.interaction_sink('model_failure', 'Dream prediction request failed', **diagnostics)
+                detail = '; '.join(str(diagnostics[key]) for key in ('code', 'error_type', 'reason') if diagnostics[key])
+                raise RuntimeError('Dream request failed (' + (detail or 'unknown error') + ')')
             delay = reply.get('retry_after_s')
             delay = max(1, float(delay)) if type(delay) in (int, float) and math.isfinite(delay) else 5
             if self.interaction_sink:
