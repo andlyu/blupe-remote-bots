@@ -5,15 +5,20 @@ window and resets chunk blending while retaining IK. See docs/refs/dreamlabs.
 No fork of a JAX process and no sharing of an active SDK episode is involved.
 """
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from collections import deque
+import logging
 from pathlib import Path
 import threading
 import time
 
-from .dream_policy import DreamWorker, MODELS
+from .dream_policy import DreamWorker, DreamWorkerUnavailable, MODELS
+
+LOG = logging.getLogger(__name__)
 
 
 class DreamWorkerPool:
-    def __init__(self, python, credentials, directory, *, worker_factory=DreamWorker):
+    def __init__(self, python, credentials, directory, *, worker_factory=DreamWorker,
+                 recovery_delays=(1., 10., 30.), recovery_window=600., prime_timeout=360.):
         self.python = str(python)
         self.credentials = str(Path(credentials).expanduser().resolve())
         self.directory = Path(directory)
@@ -26,6 +31,13 @@ class DreamWorkerPool:
         self._ready = False
         self._priming = False
         self._credential_revision = None
+        self._recovery_pending = False
+        self._recovery_exhausted = False
+        self._recovery_attempts = deque()
+        self._recovery_delays = tuple(recovery_delays)
+        self._recovery_window = recovery_window
+        self._prime_timeout = prime_timeout
+        threading.Thread(target=self._maintain, daemon=True, name='dream-worker-recovery').start()
 
     def _credentials_revision(self):
         info = Path(self.credentials).stat()
@@ -35,21 +47,46 @@ class DreamWorkerPool:
         with self._condition:
             if self._worker is not None and self._worker.process.poll() is not None:
                 self._ready = False
+                self._recovery_pending = not self._recovery_exhausted
             try:
                 if self._credentials_revision() != self._credential_revision:
                     self._ready = False
+                    self._recovery_pending = False
             except OSError:
                 self._ready = False
+                self._recovery_pending = False
             return dict(ready=self._ready and not self._stop.is_set(),
-                        busy=self._owner is not None, preparing=self._priming)
+                        busy=self._owner is not None, preparing=self._priming,
+                        recovery_attempts=len(self._recovery_attempts),
+                        recovery_exhausted=self._recovery_exhausted)
 
     def prime(self, *, timeout=360):
         """Deployment calls this before advertising Dream; never from a visitor."""
+        return self._prime(timeout=timeout)
+
+    def _prime(self, *, timeout, owner=None, recovery=False):
         with self._condition:
-            if self._stop.is_set() or self._owner or self._priming:
+            if self._stop.is_set() or self._owner is not owner or self._priming:
                 raise RuntimeError('Dream prepared worker cannot be primed now')
             if self.status()['ready']:
                 return
+            if recovery:
+                if self._credentials_revision() != self._credential_revision:
+                    self._recovery_pending = False
+                    raise RuntimeError('Dream credentials changed; preparation requires operator review')
+                now = time.monotonic()
+                while self._recovery_attempts and now-self._recovery_attempts[0] >= self._recovery_window:
+                    self._recovery_attempts.popleft()
+                if len(self._recovery_attempts) >= len(self._recovery_delays):
+                    self._recovery_pending = False
+                    self._recovery_exhausted = True
+                    LOG.warning('[dream-worker] recovery_limit_reached')
+                    raise RuntimeError('Dream worker recovery limit reached')
+                self._recovery_attempts.append(now)
+                LOG.info('[dream-worker] recovery_started attempt=%d', len(self._recovery_attempts))
+            else:
+                self._recovery_attempts.clear()
+                self._recovery_exhausted = False
             self._priming = True
         try:
             self._discard()
@@ -65,18 +102,63 @@ class DreamWorkerPool:
                                 cancelled=self._stop.is_set, timeout=timeout)
             if not reply['ok'] or reply.get('result', {}).get('fully_ready') is not True:
                 raise RuntimeError('Dream full preparation failed')
+            if recovery:
+                clean = worker.call('release', cancelled=self._stop.is_set, timeout=10)
+                if not clean['ok']:
+                    raise RuntimeError('Dream replacement episode cleanup failed')
             with self._condition:
                 if self._stop.is_set():
                     raise RuntimeError('Dream preparation cancelled')
                 self._ready = True
+                self._recovery_pending = False
+            if recovery:
+                LOG.info('[dream-worker] recovery_ready')
             return reply
         except Exception:
-            self._discard()
+            self._discard(recover=recovery)
+            if recovery:
+                LOG.warning('[dream-worker] recovery_failed')
             raise
         finally:
             with self._condition:
                 self._priming = False
                 self._condition.notify_all()
+
+    def _maintain(self):
+        """Prepare replacements only; never repeat an inference or acquire a robot."""
+        while not self._stop.wait(.1):
+            with self._condition:
+                self.status()
+                if (not self._recovery_pending or self._owner is not None or self._priming):
+                    continue
+                index = min(len(self._recovery_attempts), len(self._recovery_delays)-1)
+                delay = self._recovery_delays[index] if self._recovery_delays else 0
+            if self._stop.wait(delay):
+                return
+            with self._condition:
+                if self._stop.is_set():
+                    return
+                if not self._recovery_pending or self._owner is not None or self._priming:
+                    continue
+                future = self._executor.submit(self._restore, None, None)
+            try:
+                future.result()
+            except Exception:
+                pass  # Readiness remains false; retries have a fixed budget.
+
+    def _restore(self, owner, checkpoint):
+        self._prime(timeout=self._prime_timeout, owner=owner, recovery=True)
+        if owner is None or owner.closed.is_set() or self._stop.is_set():
+            return
+        # Same exclusive owner, fresh SDK session and empty observation window.
+        try:
+            reply = self._worker.call('configure', checkpoint=checkpoint,
+                                      cancelled=self._stop.is_set, timeout=10)
+            if not reply['ok']:
+                raise RuntimeError('Dream recovered worker configuration failed')
+        except Exception:
+            self._discard(recover=True)
+            raise RuntimeError('Dream recovered worker configuration failed')
 
     def factory(self, python, credentials, directory):
         if (str(python) != self.python or
@@ -112,11 +194,13 @@ class DreamWorkerPool:
             # drains its reply before release/reset or another visitor's call.
             reply = worker.call(command, cancelled=self._stop.is_set, timeout=timeout, **payload)
             if not reply['ok'] and command in {'configure', 'reset'}:
-                self._discard()
+                self._discard(recover=True)
             return reply
-        except Exception:
-            self._discard()
-            raise
+        except Exception as error:
+            reason = 'worker_timeout' if str(error) == 'Dream worker timed out' else 'worker_failure'
+            self._discard(recover=True)
+            LOG.warning('[dream-worker] worker_failed reason=%s', reason)
+            raise DreamWorkerUnavailable('Dream prepared worker failed; recovery required', reason=reason) from None
 
     def _release(self, owner):
         def release():
@@ -130,7 +214,7 @@ class DreamWorkerPool:
                     if not reply['ok']:
                         raise RuntimeError('Dream episode cleanup failed')
             except Exception:
-                self._discard()
+                self._discard(recover=True)
             finally:
                 with self._condition:
                     if self._owner is owner:
@@ -142,9 +226,11 @@ class DreamWorkerPool:
             self._executor.submit(release)
             self._condition.notify_all()
 
-    def _discard(self):
+    def _discard(self, *, recover=False):
         with self._condition:
             self._ready = False
+            if recover and not self._stop.is_set():
+                self._recovery_pending = True
             worker, self._worker = self._worker, None
             self._condition.notify_all()
         if worker is not None:
@@ -175,6 +261,17 @@ class _VisitorWorker:
                 if self.pool._owner is not self:
                     raise RuntimeError('Dream visitor is not configured')
                 future = self.pool._executor.submit(self.pool._invoke, self, command, payload, timeout)
+        return self._wait(future, cancelled)
+
+    def recover(self, *, checkpoint, cancelled=lambda: False):
+        with self._lock, self.pool._condition:
+            if (self.closed.is_set() or cancelled() or self.pool._owner is not self
+                    or self.pool._stop.is_set()):
+                raise RuntimeError('Dream worker recovery cancelled')
+            future = self.pool._executor.submit(self.pool._restore, self, checkpoint)
+        return self._wait(future, cancelled)
+
+    def _wait(self, future, cancelled):
         while True:
             if self.closed.is_set() or cancelled() or self.pool._stop.is_set():
                 raise RuntimeError('Dream request cancelled')
