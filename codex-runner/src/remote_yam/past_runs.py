@@ -185,6 +185,21 @@ class RunNames:
     def __init__(self, path):
         self.path = Path(path)
 
+    def pending(self, episode_id, robot_id):
+        """Public receipt metadata is available before the video is published."""
+        if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id or '') or not self.path.exists():
+            return None
+        with sqlite3.connect(self.path) as db:
+            if not db.execute("SELECT name FROM sqlite_master WHERE name='run_metadata'").fetchone():
+                return None
+            row = db.execute('SELECT robot_id,task,started_at FROM run_metadata WHERE episode_id=? AND robot_id=?',
+                             (episode_id, robot_id)).fetchone()
+        if row is None:
+            return None
+        return {'episode_id':episode_id, 'robot_id':row[0], 'prompt':row[1], 'started_at':row[2],
+                'episode_index':None, 'video_status':'processing', 'video_url':None,
+                'video_duration_s':None, 'camera_order':[]}
+
     def remember_metadata(self, episode_id, robot_id, task, started_at, configuration=None):
         if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id or ''):
             return
@@ -333,6 +348,8 @@ class RunNames:
         if not self.path.exists():
             return {}
         with sqlite3.connect(self.path) as db:
+            if not db.execute("SELECT name FROM sqlite_master WHERE name='run_names'").fetchone():
+                return {}
             return dict(db.execute('SELECT episode_id, name FROM run_names'))
 
 

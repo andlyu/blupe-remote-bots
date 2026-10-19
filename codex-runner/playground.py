@@ -464,6 +464,8 @@ class HostedRunner:
             try:
                 if episode_id is not None:
                     row = await asyncio.to_thread(self.past_runs.get, episode_id)
+                    if row is None:
+                        row = await asyncio.to_thread(self.run_names.pending, episode_id, self.robot_id)
                     result = {'runs': [row] if row else [], 'next_offset': None, 'stale': False}
                 else:
                     result = await asyncio.to_thread(self.past_runs.page, offset)

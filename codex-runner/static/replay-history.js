@@ -85,22 +85,28 @@
       if (scope === generation && version === searchVersion) $('myRunsStatus').textContent = error.message;
     }
   }
+  function renderSummary(run) {
+    $('pastRunTitle').textContent = `${run.runner_name || 'Your run'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
+    $('pastRunPrompt').textContent = run.prompt || '';
+    const reason = run.ending_reason || run.result_reason;
+    $('pastRunDetails').textContent = [run.result, reason].filter(Boolean).join(': ');
+    renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
+    renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
+    $('aspirePastLineage')?.remove();
+    const lineage = document.createElement('div'); lineage.id = 'aspirePastLineage';
+    window.yamAspireLineage?.history(lineage, run); $('pastRunPrompt').after(lineage);
+  }
   function openEpisode(id, known = {}) {
     if (!validId(id) || !robot) return;
     ready();
-    pending = {id, robot, generation};
+    pending = {id, robot, generation, known};
     $('past-runs').scrollIntoView({behavior: 'smooth', block: 'start'});
     player.pause(); player.yamRecordingView?.(); player.yamRecordingView = null;
     player.removeAttribute('src'); player.load(); player.parentElement.hidden = true;
     processing.hidden = false;
     if ($('pastRunSpeed')) $('pastRunSpeed').hidden = true;
-    $('pastRunTitle').textContent = 'Your run';
-    $('pastRunPrompt').textContent = known.prompt || '';
-    $('pastRunDetails').textContent = '';
+    renderSummary(known);
     $('pastRunError').textContent = '';
-    $('pastRunMetricsSummary').textContent = '';
-    $('pastRunMetricsChart').replaceChildren();
-    $('aspirePastLineage')?.remove();
     if (!dialog.open) dialog.showModal();
     poll(pending);
   }
@@ -113,6 +119,10 @@
       if (pending !== request || request.generation !== generation || !dialog.open) return;
       $('pastRunError').textContent = '';
       const run = data.runs?.find(row => row.episode_id === request.id && row.robot_id === request.robot);
+      if (run) {
+        request.known = {...request.known, ...run};
+        renderSummary(request.known);
+      }
       if (run && run.video_duration_s !== 0 && run.video_url) {
         processingRuns.delete(run.episode_id);
         window.yamReplayHistory.openRun(run);
@@ -141,7 +151,8 @@
       completedSessions.add(sid); remember(state); processingRuns.add(state.episode_id);
       const enteredEmail = $('email')?.value.trim();
       if (enteredEmail) { email = enteredEmail; $('runHistoryEmail').value = email; $('clearRunHistoryEmail').hidden = false; }
-      openEpisode(state.episode_id, saved[0]); loadMine();
+      openEpisode(state.episode_id, {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
+        run_metrics:state.run_metrics, step_timings:state.step_timings}); loadMine();
     }
     if (processingRuns.size && token && Date.now() - lastMineAt > 10000) loadMine();
     if (!$('myRunsList').dataset.loaded && token) { $('myRunsList').dataset.loaded = 'true'; loadMine(); }
