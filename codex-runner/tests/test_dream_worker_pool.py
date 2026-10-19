@@ -280,9 +280,11 @@ def test_idle_dead_worker_is_prepared_again_without_any_prediction(resident):
     assert not any(r['kind'] == 'predict-start' for r in rows(trace))
 
 
-def test_failed_background_preparation_opens_circuit_after_three_attempts(resident):
+@pytest.mark.parametrize('window', [600., .001])
+def test_failed_background_preparation_opens_circuit_after_three_attempts(resident, window):
     pool, _, _, *_ = resident
     pool._recovery_delays = (.01, .01, .01)
+    pool._recovery_window = window  # Slow failures must not evade the burst cap.
     attempts = []
     def broken(*args):
         attempts.append(1)

@@ -34,6 +34,7 @@ class DreamWorkerPool:
         self._recovery_pending = False
         self._recovery_exhausted = False
         self._recovery_attempts = deque()
+        self._recovery_failures = 0
         self._recovery_delays = tuple(recovery_delays)
         self._recovery_window = recovery_window
         self._prime_timeout = prime_timeout
@@ -77,7 +78,8 @@ class DreamWorkerPool:
                 now = time.monotonic()
                 while self._recovery_attempts and now-self._recovery_attempts[0] >= self._recovery_window:
                     self._recovery_attempts.popleft()
-                if len(self._recovery_attempts) >= len(self._recovery_delays):
+                if (len(self._recovery_attempts) >= len(self._recovery_delays) or
+                        self._recovery_failures >= len(self._recovery_delays)):
                     self._recovery_pending = False
                     self._recovery_exhausted = True
                     LOG.warning('[dream-worker] recovery_limit_reached')
@@ -86,6 +88,7 @@ class DreamWorkerPool:
                 LOG.info('[dream-worker] recovery_started attempt=%d', len(self._recovery_attempts))
             else:
                 self._recovery_attempts.clear()
+                self._recovery_failures = 0
                 self._recovery_exhausted = False
             self._priming = True
         try:
@@ -117,6 +120,8 @@ class DreamWorkerPool:
         except Exception:
             self._discard(recover=recovery)
             if recovery:
+                with self._condition:
+                    self._recovery_failures += 1
                 LOG.warning('[dream-worker] recovery_failed')
             raise
         finally:
@@ -149,6 +154,8 @@ class DreamWorkerPool:
     def _restore(self, owner, checkpoint):
         self._prime(timeout=self._prime_timeout, owner=owner, recovery=True)
         if owner is None or owner.closed.is_set() or self._stop.is_set():
+            with self._condition:
+                self._recovery_failures = 0
             return
         # Same exclusive owner, fresh SDK session and empty observation window.
         try:
@@ -157,8 +164,12 @@ class DreamWorkerPool:
             if not reply['ok']:
                 raise RuntimeError('Dream recovered worker configuration failed')
         except Exception:
+            with self._condition:
+                self._recovery_failures += 1
             self._discard(recover=True)
             raise RuntimeError('Dream recovered worker configuration failed')
+        with self._condition:
+            self._recovery_failures = 0
 
     def factory(self, python, credentials, directory):
         if (str(python) != self.python or

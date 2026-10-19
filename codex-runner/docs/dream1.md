@@ -118,7 +118,8 @@ continues after confirmed Home with fresh inputs and normal native guards.
 
 The prepared pool replaces an idle dead worker without acquiring a robot session
 or making a prediction. Background replacement backs off by 1, 10 and 30 seconds.
-At most three replacement attempts are allowed in a ten-minute burst; exhaustion
+At most three replacement attempts are allowed in a ten-minute burst, and three
+consecutive failed preparations also open the circuit even outside that window; exhaustion
 leaves Dream unavailable until explicit preparation/restart. Changed credentials
 also require explicit preparation. The old child exits before a new one starts;
 both checkpoints must be ready and episode cleanup must pass before admission.
