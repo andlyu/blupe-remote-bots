@@ -1,5 +1,6 @@
 """JSON-lines bridge to an isolated Dream SDK environment. No robot transport."""
 import json
+from contextlib import contextmanager
 import math
 import os
 from pathlib import Path
@@ -58,10 +59,37 @@ def error_response(error, *, phase=None, timing=None):
 
 
 def main():
-    import dream
-    import numpy as np
+    try:
+        from .latency_spans import timed_span, journal_span
+    except ImportError:  # The isolated worker is launched by its script path.
+        from latency_spans import timed_span, journal_span
 
-    client = dream.DreamClient()
+    def stage_event(kind, message, **details):
+        # Persist boundaries even when Stop interrupts configuration before a
+        # reply. Keep stdout strictly one JSON response per worker command.
+        path = Path(os.environ['DREAM_WORK_DIR'])/'stage-timings.jsonl'
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, 'a') as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(json.dumps(details, allow_nan=False)+'\n')
+
+    @contextmanager
+    def stage(spans, name):
+        with journal_span(stage_event, name):
+            with timed_span(spans, name):
+                yield
+
+    startup_spans = []
+    try:
+        with stage(startup_spans, 'sdk_import'):
+            import dream
+            import numpy as np
+        with stage(startup_spans, 'sdk_client_init'):
+            client = dream.DreamClient()
+    except Exception as error:
+        print(json.dumps({**error_response(error, phase='configure'),
+                          'stage_timings': startup_spans}), flush=True)
+        return
     last_timestamp = None
 
     def close(*_):
@@ -74,6 +102,7 @@ def main():
             command = json.loads(line)
             phase = None
             request_started = False
+            spans = []
             try:
                 kind = command['command']
                 phase = kind
@@ -85,29 +114,33 @@ def main():
                         raise ValueError('Unknown checkpoint')
                     parts = {'right_arm': [0, 6], 'right_gripper': [6, 7],
                              'left_arm': [7, 13], 'left_gripper': [13, 14]}
-                    client.policy(dict(checkpoint=checkpoint, robot='yam', strict=True,
-                        timeout_ms=15000, action_hz=20, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
-                        embodiment={'state': parts, 'action': dict(parts),
-                            'video': {role: 'observation.images.' + role
-                                      for role in ('overhead', 'wrist_l', 'wrist_r')}},
-                        _record=False))
+                    with stage(spans, 'sdk_configure'):
+                        client.policy(dict(checkpoint=checkpoint, robot='yam', strict=True,
+                            timeout_ms=15000, action_hz=20, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
+                            embodiment={'state': parts, 'action': dict(parts),
+                                'video': {role: 'observation.images.' + role
+                                          for role in ('overhead', 'wrist_l', 'wrist_r')}},
+                            _record=False))
                     result = {'sdk_version': dream.__version__}
                 elif kind == 'reset':
-                    client.reset_episode()
+                    with stage(spans, 'sdk_reset'):
+                        client.reset_episode()
                     last_timestamp = None
                     result = {}
                 elif kind == 'predict':
                     phase = 'observation'
-                    for tick in command['ticks']:
-                        if last_timestamp is not None and tick['timestamp'] <= last_timestamp:
-                            continue
-                        observation = {key: np.asarray(value, dtype=np.float32) if key.startswith('state.') else value
-                                       for key, value in tick['observation'].items()}
-                        client.set_observation(tick['frames'], observation, timestamp=tick['timestamp'])
-                        last_timestamp = tick['timestamp']
+                    with stage(spans, 'sdk_observation_update'):
+                        for tick in command['ticks']:
+                            if last_timestamp is not None and tick['timestamp'] <= last_timestamp:
+                                continue
+                            observation = {key: np.asarray(value, dtype=np.float32) if key.startswith('state.') else value
+                                           for key, value in tick['observation'].items()}
+                            client.set_observation(tick['frames'], observation, timestamp=tick['timestamp'])
+                            last_timestamp = tick['timestamp']
                     phase = 'predict'
                     request_started = True
-                    action = client.get_action(commanded=command.get('commanded'))
+                    with stage(spans, 'sdk_get_action'):
+                        action = client.get_action(commanded=command.get('commanded'))
                     result = {'action': action, 'timing': client.last_timing}
                 elif kind == 'close':
                     client.close()
@@ -119,6 +152,8 @@ def main():
                 # Never return exception text, request objects or credential contents.
                 response = error_response(error, phase=phase,
                                           timing=client.last_timing if request_started else None)
+            response['stage_timings'] = startup_spans + spans
+            startup_spans = []
             print(json.dumps(response, default=lambda value: value.tolist(), allow_nan=False), flush=True)
     finally:
         client.close()

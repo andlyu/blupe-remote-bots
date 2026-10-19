@@ -12,6 +12,7 @@ import threading
 import time
 
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
+from .latency_spans import journal_span
 
 MODELS = {'dream': ('dreamlabs/dream-1-beta', 'Dream-1 beta'),
           'dream_flash': ('dreamlabs/dream-1-beta-flash', 'Dream-1 beta Flash')}
@@ -186,6 +187,7 @@ class DreamAdapter:
         self._commanded = None
         self._pending_commanded = None
         self.last_probe = None
+        self._capture_sequence = 0
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, cadence_hz=10,
@@ -202,9 +204,32 @@ class DreamAdapter:
     def start_preparation(self, cancelled):
         self.cancelled = cancelled
         # A hosted fleet may bound heavy SDK/IK processes. Do not reserve one
-        # for a queued visitor: wait_ready runs only after normal lease/Home.
+        # for a queued visitor. The controller activates it after lease grant,
+        # allowing SDK preparation to overlap Home without occupying a queued slot.
         if self.worker_pool is None:
             self._start_preparation()
+
+    def prepare_after_lease(self, cancelled):
+        self.cancelled = cancelled
+        self._start_preparation()
+
+    def _worker_timings(self, reply):
+        allowed = {'sdk_import', 'sdk_client_init', 'sdk_configure',
+                   'sdk_observation_update', 'sdk_get_action', 'sdk_reset'}
+        for row in reply.get('stage_timings') or []:
+            if not isinstance(row, dict) or row.get('stage') not in allowed:
+                continue
+            values = [row.get('started_at'), row.get('duration_s')]
+            if (row.get('status') not in {'ok', 'error'} or
+                    any(type(value) not in (int, float) or not math.isfinite(value) or value < 0 for value in values)):
+                continue
+            if self.interaction_sink:
+                try:
+                    self.interaction_sink('policy_timing', 'Dream SDK stage: '+row['stage'],
+                        stage=row['stage'], state='completed' if row['status']=='ok' else 'error',
+                        started_at=values[0], duration_s=values[1], clock_source='sdk_worker')
+                except Exception:
+                    pass
 
     def _start_preparation(self):
         if self._preparation is not None:
@@ -213,23 +238,27 @@ class DreamAdapter:
         def prepare():
             try:
                 if self.worker_pool is not None:
-                    while not self._cancelled():
-                        if self.worker_pool.acquire(timeout=.1):
-                            with self._transport_lock:
-                                self._worker_slot = True
-                                if self._cancelled():
-                                    self._close_worker()
-                                    return
-                            break
-                    else:
-                        return
+                    with journal_span(self.interaction_sink, 'worker_acquisition'):
+                        while not self._cancelled():
+                            if self.worker_pool.acquire(timeout=.1):
+                                with self._transport_lock:
+                                    self._worker_slot = True
+                                    if self._cancelled():
+                                        self._close_worker()
+                                        return
+                                break
+                        else:
+                            return
                 with self._transport_lock:
                     if self._cancelled():
                         self._close_worker()
                         return
-                    worker = self.worker_factory(self.python, self.credentials, self.directory)
+                    with journal_span(self.interaction_sink, 'worker_start'):
+                        worker = self.worker_factory(self.python, self.credentials, self.directory)
                     self._worker = worker
-                reply = worker.call('configure', checkpoint=self.model, cancelled=self._cancelled, timeout=180)
+                with journal_span(self.interaction_sink, 'worker_configure'):
+                    reply = worker.call('configure', checkpoint=self.model, cancelled=self._cancelled, timeout=180)
+                self._worker_timings(reply)
                 if not reply['ok']:
                     self._failure = 'Dream SDK setup failed (' + reply.get('error_type', 'unknown') + ')'
                     return
@@ -251,17 +280,18 @@ class DreamAdapter:
         threading.Thread(target=watch, daemon=True, name='dream-session-cleanup').start()
 
     def wait_ready(self, cancelled):
-        if self._preparation is None:
-            self._start_preparation()
-        waited = not self._ready.is_set()
-        while not self._ready.wait(.1):
-            if self._failure:
-                raise RuntimeError(self._failure)
+        with journal_span(self.interaction_sink, 'adapter_wait_ready'):
+            if self._preparation is None:
+                self._start_preparation()
+            waited = not self._ready.is_set()
+            while not self._ready.wait(.1):
+                if self._failure:
+                    raise RuntimeError(self._failure)
+                if cancelled() or self._cancelled():
+                    raise RuntimeError('Dream preparation cancelled')
             if cancelled() or self._cancelled():
                 raise RuntimeError('Dream preparation cancelled')
-        if cancelled() or self._cancelled():
-            raise RuntimeError('Dream preparation cancelled')
-        return waited
+            return waited
 
     def _read_observation(self, prompt):
         try:
@@ -290,9 +320,18 @@ class DreamAdapter:
         return observation, state_input(observation, prompt)
 
     def _capture_tick(self):
+        capture_started_at, capture_started = time.time(), time.perf_counter()
+        self._capture_sequence += 1
+        capture_id = self._capture_sequence
+        # Boundary events only for the first capture, not every 5 Hz sample.
+        # The selected sample's numeric timings are retained per prediction.
+        sink = self.interaction_sink if capture_id == 1 else None
         with self._changed:
             prompt = self._prompt
-        observation, state = self._read_observation(prompt)
+        state_began = time.perf_counter()
+        with journal_span(sink, 'observation_read', capture_id=capture_id):
+            observation, state = self._read_observation(prompt)
+        state_read_s = time.perf_counter()-state_began
         observed_at = observation['observed_at']
         camera_began = time.monotonic()
         last_failure = {}
@@ -302,20 +341,25 @@ class DreamAdapter:
             if self.interaction_sink:
                 self.interaction_sink(kind, message, **details)
         try:
-            frames = self.camera_source.capture_for_policy(observation, cancelled=self._cancelled,
-                                                           on_event=camera_event)
+            with journal_span(sink, 'camera_acquisition', capture_id=capture_id):
+                frames = self.camera_source.capture_for_policy(observation, cancelled=self._cancelled,
+                                                               on_event=camera_event)
         except Exception as error:
             role = last_failure.get('camera')
             detail = last_failure.get('cause')
             message = 'Dream ' + (role + ' ' if role in CAMERAS else '') + 'camera capture failed'
             message += ' (' + (str(detail) if detail else type(error).__name__) + ')'
             raise DreamObservationError(message, field='camera_' + role if role in CAMERAS else 'camera_capture') from None
+        camera_capture_s = time.monotonic()-camera_began
         if len(frames) != 3 or {frame.name for frame in frames} != set(CAMERAS):
             raise DreamObservationError('Dream requires overhead and both wrist cameras', field='camera_roles')
         if time.time() - observed_at > 5:
             # Camera retries return a NEW complete set. Pair it with newly read
             # measured feedback instead of discarding those images with an old pose.
-            observation, state = self._read_observation(prompt)
+            state_began = time.perf_counter()
+            with journal_span(sink, 'observation_refresh', capture_id=capture_id):
+                observation, state = self._read_observation(prompt)
+            state_read_s += time.perf_counter()-state_began
             observed_at = observation['observed_at']
             if self.interaction_sink:
                 self.interaction_sink('observation_refreshed',
@@ -330,6 +374,7 @@ class DreamAdapter:
             if now - captured < -2:
                 raise DreamObservationError('Dream ' + frame.name + ' camera timestamp is ahead of the local clock',
                                             field='camera_' + frame.name)
+        encoding_began = time.perf_counter()
         from PIL import Image
         encoded = {}
         for frame in frames:
@@ -341,7 +386,10 @@ class DreamAdapter:
                 raise DreamObservationError('Dream ' + frame.name + ' camera image decoding failed ('
                     + type(error).__name__ + ')', field='camera_' + frame.name) from None
             encoded['video.' + CAMERAS[frame.name]] = base64.b64encode(output.getvalue()).decode()
-        return dict(timestamp=time.monotonic(), observed_at=observed_at, frames=encoded, observation=state)
+        return dict(timestamp=time.monotonic(), observed_at=observed_at, frames=encoded, observation=state,
+                    capture_timing=dict(capture_id=capture_id, started_at=capture_started_at,
+                        duration_s=time.perf_counter()-capture_started, state_read_s=state_read_s,
+                        camera_capture_s=camera_capture_s, encoding_s=time.perf_counter()-encoding_began))
 
     def _collect(self):
         unavailable_since = None
@@ -420,9 +468,19 @@ class DreamAdapter:
         session_recoveries = 0
         while True:
             # Require a new camera tick for this decision; never reuse an old snapshot.
-            ticks = self._wait_for_ticks(began)
-            reply = self._worker.call('predict', ticks=ticks, commanded=self._commanded,
-                                      cancelled=self._cancelled)
+            with journal_span(self.interaction_sink, 'observation_wait', first_step_id=first_step_id):
+                ticks = self._wait_for_ticks(began)
+            capture_timing = ticks[-1].get('capture_timing')
+            if self.interaction_sink and capture_timing:
+                try:
+                    self.interaction_sink('policy_timing', 'Dream input capture timing',
+                        stage='selected_observation_capture', state='completed', **capture_timing)
+                except Exception:
+                    pass
+            with journal_span(self.interaction_sink, 'worker_predict', first_step_id=first_step_id):
+                reply = self._worker.call('predict', ticks=ticks, commanded=self._commanded,
+                                          cancelled=self._cancelled)
+            self._worker_timings(reply)
             if self._cancelled():
                 raise RuntimeError('Dream prediction cancelled; result discarded')
             if reply['ok']:

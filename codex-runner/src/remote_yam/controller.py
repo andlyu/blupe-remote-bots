@@ -16,6 +16,7 @@ from .ik import IKSolver, parse_observation
 from .feedback import feedback_decision, feedback_fields
 from .providers import PolicyComplete, ProviderAdapter
 from .interactions import InteractionLog
+from .latency_spans import journal_span
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET, SCHEMA_VERSION, TERMINAL_STATES, SessionAPI, SessionAPIError, SessionEventStream
 
 
@@ -782,6 +783,7 @@ class RunnerController(HomeSceneStartup):
                     self._episode_id = str(episode_id)
                 if lease_id:
                     self._lease_id = str(lease_id)
+            self._prepare_leased_provider()
             if active_trajectory is not None:
                 if not isinstance(active_trajectory, Mapping):
                     raise RuntimeError("Session snapshot active_trajectory must be an object")
@@ -852,8 +854,24 @@ class RunnerController(HomeSceneStartup):
                     }
                     self._error = f"{reason}: {reason}"
 
+        if state == 'preparing' and payload.get('reason') == 'jetson_leased':
+            self._prepare_leased_provider(lease_event=True)
+
         if self._is_terminal(state):
             self._cancel_home_plan()
+
+    def _prepare_leased_provider(self, *, lease_event=False):
+        with self._lock:
+            provider = self._provider
+            # Canonical jetson_leased lifecycle events carry an episode but
+            # no lease_id. Reconnected snapshots do carry the active lease.
+            if (self._status not in {'preparing', 'running'} or not self._episode_id
+                    or not (lease_event or self._lease_id)):
+                return
+        preparation = getattr(provider, 'prepare_after_lease', None)
+        if callable(preparation):
+            with journal_span(self._interactions.add, 'lease_preparation'):
+                preparation(lambda: self._provider_cancelled(provider))
 
     def _handle_error(self, payload: Mapping[str, Any]) -> None:
         legacy = not payload.get("code") and payload.get("reason") is not None
@@ -920,22 +938,32 @@ class RunnerController(HomeSceneStartup):
         if step_id >= MAX_COMMANDS:
             raise RuntimeError(f"Session command limit of {MAX_COMMANDS} reached")
         readiness = getattr(provider, 'wait_ready', None)
+        timing_sink = self._interactions.add if getattr(provider, 'provider_name', '') in {'dream', 'dream_flash'} else None
+        if timing_sink and step_id == 0:
+            observed = payload.get('observed_at')
+            timing_sink('policy_timing', 'Home observation received', stage='home_observation_received',
+                        state='received', homed=payload.get('homed') is True,
+                        settled=payload.get('settled') is True,
+                        observation_reported_at=observed if type(observed) in (int,float) and math.isfinite(observed) else None)
         if callable(readiness):
             cancelled = lambda: self._stop_event.is_set() or self._provider is not provider
-            if readiness(cancelled):
+            with journal_span(timing_sink, 'controller_wait_ready', step_id=step_id):
+                waited = readiness(cancelled)
+            if waited:
                 # A cold start can outlive the original completion sample.
                 # Re-establish the same lease and fresh measured feedback.
-                live = self._session_api.get_session(session_id)
-                if (live.get('status') != 'running' or live.get('episode_id') != episode_id or live.get('lease_id') != lease_id
-                        or live.get('latest_observation_step') != step_id or live.get('active_trajectory') is not None):
-                    raise RuntimeError('Session changed while GR00T was warming')
-                fresh = self._session_api.get_robot_observation(self._robot_id)
-                if payload.get('source') == 'hardware' and (payload.get('settled') is not True or (step_id == 0 and payload.get('homed') is not True)):
-                    raise RuntimeError('GR00T requires confirmed completion before waiting')
-                payload = dict(payload)
-                for key in ('left_joints_deg','right_joints_deg','left_gripper','right_gripper','observed_at','settled','homed'):
-                    payload[key] = fresh.get(key)
-                self.update_monitor_observation(fresh)
+                with journal_span(timing_sink, 'lease_feedback_refresh', step_id=step_id):
+                    live = self._session_api.get_session(session_id)
+                    if (live.get('status') != 'running' or live.get('episode_id') != episode_id or live.get('lease_id') != lease_id
+                            or live.get('latest_observation_step') != step_id or live.get('active_trajectory') is not None):
+                        raise RuntimeError('Session changed while GR00T was warming')
+                    fresh = self._session_api.get_robot_observation(self._robot_id)
+                    if payload.get('source') == 'hardware' and (payload.get('settled') is not True or (step_id == 0 and payload.get('homed') is not True)):
+                        raise RuntimeError('GR00T requires confirmed completion before waiting')
+                    payload = dict(payload)
+                    for key in ('left_joints_deg','right_joints_deg','left_gripper','right_gripper','observed_at','settled','homed'):
+                        payload[key] = fresh.get(key)
+                    self.update_monitor_observation(fresh)
             if cancelled():
                 return
         provider_observation = dict(payload)
@@ -961,7 +989,8 @@ class RunnerController(HomeSceneStartup):
         if time.time() - observed_at > 10.0:
             raise RuntimeError("Fresh station safety context is required before inference")
         if station.get("source") == "hardware":
-            station = self._reconcile_hardware_feedback(payload, station, require_home=step_id == 0)
+            with journal_span(timing_sink, 'feedback_reconciliation', step_id=step_id):
+                station = self._reconcile_hardware_feedback(payload, station, require_home=step_id == 0)
         station_robot = station.get("jetson_id")
         if provider_observation.get("jetson_id") not in (None, station_robot):
             raise RuntimeError("Leased observation robot identity differs from station")
@@ -980,6 +1009,9 @@ class RunnerController(HomeSceneStartup):
             provider_observation["homed"] = (
                 payload.get("homed") is True and station.get("homed") is True
             )
+            if timing_sink and step_id == 0 and provider_observation['homed'] and provider_observation['settled']:
+                timing_sink('policy_timing', 'Home feedback confirmed',
+                            stage='home_feedback_confirmed', state='completed')
             provider_observation["settled"] = (
                 payload.get("settled") is True and station.get("settled") is True
             )

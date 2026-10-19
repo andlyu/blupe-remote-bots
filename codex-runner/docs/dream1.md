@@ -114,3 +114,36 @@ cancellation and the existing controller also verifies the active lease before
 dispatch. SDK errors expose types/status codes rather than request or credential
 text. SDK 1.0.0 is pinned because this bridge depends on its documented state,
 camera and action contracts.
+
+## SDK preparation and Home ordering
+
+Hosted queue admission alone starts no heavy SDK process. The canonical
+`jetson_leased` event (which has no lease_id in its payload), or an already-leased
+reconnect snapshot, starts cancellable SDK preparation under the existing single
+worker slot. This lets setup overlap native Home. The ordinary first-observation
+path still waits for SDK readiness, validates the same live lease/step, reconciles
+confirmed Home feedback and supplies fresh measured state/images before prediction.
+No saved-Home speculation, synthetic homed state or early Dream request is added.
+Astra's saved-scene protocol remains ineligible for Dream. See the pinned
+[startup/observation contract reference](refs/dreamlabs/STARTUP-CONTRACT.md).
+
+`policy_timing` events separate lease preparation scheduling, worker acquisition,
+worker creation/configuration, readiness wait, lease/feedback refresh, Home report
+arrival, confirmed Home feedback, selected camera/state/encoding cost and prediction.
+Child timings separate SDK imports, client construction, policy configuration,
+observation update and get_action. Parent/worker wall timestamps are from the same
+host and durations use monotonic clocks. Native observation timestamps are labeled
+separately; lease scheduling/Home-report arrival are not physical motor-start times.
+
+The worker also appends protected `stage-timings.jsonl` in its existing SDK working
+directory, including stage starts before a long configuration. Those boundaries
+survive Stop before a command reply; stdout retains exactly one JSON response per
+command. No prompts, frames, joints, endpoints, credentials or arbitrary SDK text
+enter timing rows. Camera boundaries are emitted only for the first capture, with
+numeric summaries for the selected sample per prediction, avoiding 5 Hz journal spam.
+
+The earlier45.366 s readiness/revalidation interval is not retrospectively split
+by this change. A later user-initiated run must establish actual startup phase
+durations and the amount of Home overlap. There is no fixed45-second sleep. The
+separate third-request protocol failure and all motion/Stop/native checks remain
+unchanged.
