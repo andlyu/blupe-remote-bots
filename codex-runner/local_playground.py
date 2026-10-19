@@ -321,6 +321,7 @@ class LocalPlayground(HostedRunner):
 
 def serve(args):
     import os
+    import sys
     import webbrowser
     import uvicorn
     origin = f'http://127.0.0.1:{args.port}'
@@ -331,11 +332,17 @@ def serve(args):
     if groot_key_file is None:
         saved_key = Path.home() / '.config/runpod/api-key'
         groot_key_file = str(saved_key) if saved_key.is_file() else ''
+    dream_credentials = os.environ.get('YAM_DREAM_CREDENTIALS')
+    if dream_credentials is None:
+        saved_dream = Path.home() / '.dreamlabs/credentials'
+        dream_credentials = str(saved_dream) if saved_dream.is_file() else ''
     app = fleet(LocalPlayground, dict(public_origin=origin, session_api=args.session_api,
         camera_origin=args.camera_origin or args.session_api or 'http://127.0.0.1:8089',
         astra_endpoint=os.environ.get('ASTRA_ENDPOINT', ''),
         groot_key_file=groot_key_file,
         groot_config=json.loads(os.environ.get('YAM_GROOT_CONFIG', '{}')),
+        dream_credentials_file=dream_credentials,
+        dream_python=os.environ.get('YAM_DREAM_PYTHON', sys.executable),
         hardware_control=args.allow_hardware_control, development=True,
         local_codex=True, local_claude=True,
         share_conversation=not getattr(args, "no_share_conversation", False),

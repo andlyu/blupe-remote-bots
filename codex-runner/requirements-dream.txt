@@ -1,0 +1,3 @@
+# Install in a separate Python 3.12 venv and set YAM_DREAM_PYTHON to its Python.
+dreamlabs==1.0.0
+dreamlabs-client==1.0.0

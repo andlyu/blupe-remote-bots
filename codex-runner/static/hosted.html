@@ -203,6 +203,7 @@
         <div id="codexSetup" hidden><p id="codexStatus" class="help" role="status"></p><button type="button" id="codexCheck">Check Codex connection</button><p class="help">First-time sign-in: <code>./run.sh --codex-login --provider codex</code></p></div>
         <div id="claudeSetup" hidden><p id="claudeStatus" class="help" role="status"></p><button type="button" id="claudeCheck">Check Claude connection</button><p class="help">First-time sign-in: <code>./run.sh --claude-login --provider claude</code></p></div>
 
+        <div id="dreamMotionSettings" hidden><div class="runTimeControl"><span>Joint motion cap</span><output id="dreamMotionCap" aria-describedby="dreamMotionHelp">20° / 100 ms</output></div><p id="dreamMotionHelp" class="help">Larger moves are slowed with extra waypoints, preserving the path and final target.</p></div>
         <p id="policyHelp" class="help">The model observes the cameras, chooses a move, and waits for robot feedback before deciding again.</p>
         <div id="runnerIdentity"><label for="runnerName">Your name</label><input id="runnerName" required maxlength="32" autocomplete="nickname" placeholder="Name shown with your run">
         <p class="help">Your name, task, and readable Astra conversation will be visible to everyone watching.</p></div>
