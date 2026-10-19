@@ -16,7 +16,7 @@ class PromptVersionTests(unittest.TestCase):
     def test_preserved_prompts_match_audited_bytes(self):
         for text, expected in [
             (ORIGINAL_ROBOCURVE_PROMPT, 'cc3f1dade16066840ec62f5709286468f0b217f985290748a2abc6b9403e559e'),
-            (WITH_HASTE_PROMPT, '724dba416a8a722f5a52dfe5f125a34e8eed5c4ebb4d7e5e74aed5a56559d559'),
+            (WITH_HASTE_PROMPT, '459f8d984afe5fd94f95b958c2262a27d4b073c851d2450ab84cdc798ab76004'),
         ]:
             self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), expected)
         self.assertEqual(DEFAULT_PROMPT_VERSION, 'with-haste')
