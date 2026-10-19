@@ -12,6 +12,28 @@ endpoints and response bodies are excluded. Protocol errors stop the run without
 an added inference retry. Historical failures recorded before this diagnostic
 change cannot be classified retrospectively from their exception type alone.
 
+SDK1.0.0 on Linux/OpenSSL3.0 can raise `SSLEOFError` when reusing an idle TLS
+connection; its stale-connection retry handles several other socket errors but
+does not cover this subclass. A loopback TLS reproduction against the exact
+installed transport failed for idle reused connections at both small and large
+body sizes, while fresh connections passed through800KB. This does not establish
+a remote request-size limit or retrospectively recover a discarded cause.
+
+The bridge now drops only the SDK's HTTP channel before/after prediction and
+episode reset. The logical model session, camera window, smoothing/command
+anchors and compiled solver remain intact. Each prediction still makes its
+ordinary request; no new inference retry is added. This incurs a fresh TCP/TLS
+connection per exchange; remote handshake overhead has not been measured by the
+local reproduction. Endpoint configuration and certificate verification remain.
+
+Protocol diagnostics retain bounded TLS/HTTP subclass names or a safe base
+family, numeric errno, allowlisted SSL reason and transport stage. At most eight
+allowlisted module/function/line entries can identify send, response headers,
+response body, decoding or envelope validation. They include no filenames,
+frame locals, SDK message text, headers, bodies, endpoints or credentials.
+`http_connection_policy=fresh_per_exchange` identifies the new channel policy.
+See [Python HTTP/TLS contract](refs/python/HTTP-TLS.md).
+
 ## Setup
 
 Create a separate Python 3.12 environment and install

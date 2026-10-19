@@ -1,5 +1,7 @@
 """JSON-lines bridge to an isolated Dream SDK environment. No robot transport."""
 import json
+import http.client
+import ssl
 from contextlib import contextmanager
 import math
 import os
@@ -37,18 +39,46 @@ def error_response(error, *, phase=None, timing=None):
         # branches locally; never forward that message or an arbitrary cause.
         message = str(error)
         status = re.search(r'is not JSON \(HTTP ([1-5][0-9]{2})\);', message)
-        cause = type(error.__cause__).__name__ if error.__cause__ else None
-        causes = {'JSONDecodeError', 'UnicodeDecodeError', 'BrokenPipeError',
-                  'ConnectionResetError', 'RemoteDisconnected', 'ConnectionRefusedError',
-                  'gaierror', 'SSLError', 'OSError', 'HTTPException', 'IncompleteRead',
-                  'BadStatusLine'}
+        # Preserve bounded standard-library causes, including TLS/HTTP
+        # subclasses. Exact-name-only matching hid SSL EOF as 'other'.
+        cause = error.__cause__ or error.__context__
+        names = {'JSONDecodeError', 'UnicodeDecodeError', 'BrokenPipeError',
+                 'ConnectionResetError', 'RemoteDisconnected', 'ConnectionRefusedError',
+                 'ConnectionAbortedError', 'TimeoutError', 'gaierror', 'herror',
+                 'SSLError', 'SSLEOFError', 'SSLZeroReturnError', 'SSLWantReadError',
+                 'SSLWantWriteError', 'SSLSyscallError', 'SSLCertVerificationError',
+                 'OSError', 'HTTPException', 'IncompleteRead', 'BadStatusLine',
+                 'CannotSendRequest', 'CannotSendHeader', 'ResponseNotReady',
+                 'LineTooLong', 'NotConnected', 'UnknownProtocol', 'UnknownTransferEncoding'}
+        family = ('tls' if isinstance(cause, ssl.SSLError) else
+                  'http' if isinstance(cause, http.client.HTTPException) else
+                  'network' if isinstance(cause, OSError) else
+                  'json' if isinstance(cause, (json.JSONDecodeError, UnicodeDecodeError)) else None)
+        name = type(cause).__name__ if cause is not None else None
+        safe_name = name if name in names else {'tls':'SSLError', 'http':'HTTPException',
+                                               'network':'OSError', 'json':'JSONDecodeError'}.get(family)
         category = ('non_json_reply' if status else
                     'missing_status_envelope' if message.startswith('inference reply carries no status envelope;') else
-                    'connection_failure' if cause in causes - {'JSONDecodeError', 'UnicodeDecodeError'} else
+                    'connection_failure' if family in {'tls', 'http', 'network'} or
+                        safe_name in names - {'JSONDecodeError', 'UnicodeDecodeError'} else
                     'other_protocol_error')
+        trace, transport_stage = protocol_trace(error)
+        if category == 'non_json_reply':
+            transport_stage = 'response_decode'
+        elif category == 'missing_status_envelope':
+            transport_stage = 'response_envelope'
+        number = getattr(cause, 'errno', None)
+        reason = getattr(cause, 'reason', None)
         response.update(protocol_category=category,
                         http_status=int(status.group(1)) if status else None,
-                        cause_type=cause if cause in causes else None)
+                        cause_type=safe_name, cause_family=family,
+                        cause_errno=number if type(number) is int and abs(number) <= 65535 else None,
+                        cause_reason=reason if isinstance(reason, str) and reason in {'UNEXPECTED_EOF_WHILE_READING',
+                            'PROTOCOL_IS_SHUTDOWN', 'TLSV1_ALERT_INTERNAL_ERROR',
+                            'SSLV3_ALERT_BAD_RECORD_MAC', 'CERTIFICATE_VERIFY_FAILED',
+                            'WRONG_VERSION_NUMBER'} else None,
+                        transport_stage=transport_stage, protocol_trace=trace,
+                        http_connection_policy='fresh_per_exchange')
     if isinstance(timing, dict):
         safe = {key: value for key, value in timing.items()
                 if key in {'rtt_ms', 'request_bytes', 'response_bytes', 'serve_infer_ms', 'gateway_ms', 'network_ms'}
@@ -56,6 +86,60 @@ def error_response(error, *, phase=None, timing=None):
         if safe:
             response['timing'] = safe
     return response
+
+
+def protocol_trace(error):
+    """Static module/function/line only; never filenames, text or frame locals."""
+    allowed = {'dream.transport': {'request', '_exchange', 'decode'},
+               'dream.client': {'get_action', '_post'}, 'dream.facade': {'get_action'},
+               'http.client': {'request', '_send_request', 'endheaders', '_send_output',
+                   'send', 'getresponse', 'begin', '_read_status', 'read', 'readinto',
+                   '_safe_read', '_read_chunked', '_get_chunk_left', '_read_next_chunk_size'},
+               'ssl': {'sendall', 'send', 'write', 'read', 'recv', 'recv_into'},
+               'socket': {'readinto', 'create_connection'}}
+    result, stage, seen = [], None, set()
+    for _ in range(3):
+        if error is None or id(error) in seen:
+            break
+        seen.add(id(error))
+        tb = error.__traceback__
+        while tb is not None:
+            frame = tb.tb_frame
+            module, function = frame.f_globals.get('__name__'), frame.f_code.co_name
+            if module in allowed and function in allowed[module]:
+                row = dict(module=module, function=function, line=tb.tb_lineno)
+                if row not in result:
+                    result.append(row)
+                if module == 'http.client':
+                    if function in {'request', '_send_request', 'endheaders', '_send_output', 'send'}:
+                        stage = 'request_send'
+                    elif function in {'getresponse', 'begin', '_read_status'}:
+                        stage = 'response_headers'
+                    elif function in {'read', 'readinto', '_safe_read', '_read_chunked',
+                                      '_get_chunk_left', '_read_next_chunk_size'}:
+                        stage = 'response_body'
+            tb = tb.tb_next
+        error = error.__cause__ or error.__context__
+    return result[-8:], stage
+
+
+def close_http_connection(client):
+    # Pinned SDK1.0.0 _drop closes HTTP/TLS only; it retains PolicyClient's
+    # model-session ID, smoother, observation window and compiled IK. A reused
+    # Linux/OpenSSL3.0 socket can raise SSLEOFError during a write, which the
+    # SDK's narrow stale-connection retry does not handle. Avoid reuse rather
+    # than retrying an ambiguously processed inference. See refs/python/HTTP-TLS.
+    transport = getattr(getattr(client, '_policy', None), '_transport', None)
+    if transport is not None:
+        transport._drop()
+
+
+def reset_episode(client):
+    close_http_connection(client)
+    try:
+        client.reset_episode()
+    finally:
+        close_http_connection(client)
 
 
 def main():
@@ -153,10 +237,10 @@ def main():
                 if checkpoint not in clients:
                     raise ValueError('Checkpoint was not prepared')
                 if client is not None:
-                    client.reset_episode()
+                    reset_episode(client)
                 client = clients[checkpoint]
                 with stage(spans, 'sdk_reset'):
-                    client.reset_episode()
+                    reset_episode(client)
             else:
                 configure(client, command, spans)
             last_timestamp = None
@@ -164,7 +248,7 @@ def main():
         if kind == 'release':
             with stage(spans, 'sdk_reset'):
                 for current in all_clients():
-                    current.reset_episode()
+                    reset_episode(current)
             if prepared:
                 client = None
             last_timestamp = None
@@ -173,7 +257,7 @@ def main():
             raise RuntimeError('Dream visitor is not configured')
         if kind == 'reset':
             with stage(spans, 'sdk_reset'):
-                client.reset_episode()
+                reset_episode(client)
             last_timestamp = None
             return {}
         if kind == 'predict':
@@ -189,7 +273,11 @@ def main():
             phase = 'predict'
             request_started = True
             with stage(spans, 'sdk_get_action'):
-                action = client.get_action(commanded=command.get('commanded'))
+                close_http_connection(client)
+                try:
+                    action = client.get_action(commanded=command.get('commanded'))
+                finally:
+                    close_http_connection(client)
             return {'action': action, 'timing': client.last_timing}
         raise ValueError('Unknown worker command')
 

@@ -1,0 +1,10 @@
+# Python3.12 HTTP/TLS transport reference
+
+Source: official Python3.12 documentation, read2026-10-19. Documentation/source license: PSF, https://docs.python.org/3/license.html. This source-derived use-case index covers the standard-library APIs used by the pinned Dream SDK transport and our local-only reproduction.
+
+- TLS server/client setup and certificate verification: https://docs.python.org/3.12/library/ssl.html#socket-creation. Use `SSLContext(PROTOCOL_TLS_SERVER)`, `load_cert_chain`, and `wrap_socket(..., server_side=True)` on a loopback socket. Client uses `create_default_context(cafile=<test CA>)`; do not turn certificate verification off. The test CA/key are synthetic local fixtures.
+- EOF/cause classification: https://docs.python.org/3.12/library/ssl.html#ssl.SSLEOFError. `SSLEOFError` derives from `SSLError`, itself an `OSError`. Abrupt TLS termination makes transport reuse inappropriate. `SSLZeroReturnError` represents clean TLS closure; OpenSSL/version/platform can affect observed errors.
+- HTTP lifetime: https://docs.python.org/3.12/library/http.client.html#httpconnection-objects. A response must be fully read before the connection can be reused. `HTTPConnection.close()` closes the network channel, separately from application/model session state.
+- Error hierarchy: https://docs.python.org/3.12/library/http.client.html#exceptions. Concrete subclasses such as `ResponseNotReady`, `CannotSendRequest`, and `LineTooLong` must not be lost merely because diagnostics recognize only the base class name.
+
+Pinned SDK1.0.0 `dream.transport.Transport._exchange` retries a reused connection through `_StaleConnectionError` for BrokenPipeError/ConnectionResetError/RemoteDisconnected before an HTTP response, but its generic OSError/HTTPException branch includes TLS subclasses without that stale retry. `Transport._drop()` closes only its HTTP connection and clears its reuse flag; it preserves the model session held in PolicyClient. Inspect against the installed transport SHA before applying an integration hook.
