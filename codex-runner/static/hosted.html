@@ -11,6 +11,7 @@
   <script src="/static/model-picker.js" defer></script>
   <script src="/static/system-prompt.js" defer></script>
   <script src="/static/reactions.js" defer></script>
+  <script src="/static/replay-email.js" defer></script>
   <script src="/static/hosted.js" defer></script>
   <script src="/static/replay-history.js" defer></script>
 </head>
@@ -299,8 +300,22 @@
   <div class="recordedPlayer"><video id="pastRunVideo" controls playsinline preload="none"></video></div>
   <p id="pastRunError" role="status"></p>
   <p id="pastRunPrompt"></p><p id="pastRunDetails" class="help"></p>
+  <div class="replayEmailActions"><button id="replayEmailButton" type="button" hidden>Email me the video</button><span id="replayEmailHint" class="help" hidden></span></div>
+  <p id="replayEmailStatus" class="help" role="status" aria-live="polite"></p>
   <h3>Run totals</h3><p id="pastRunMetricsSummary" class="help"></p>
   <div id="pastRunMetricsChart"></div>
+</dialog>
+
+<dialog id="replayEmailDialog" aria-labelledby="replayEmailTitle">
+  <h2 id="replayEmailTitle">Email me the video</h2>
+  <form id="replayEmailForm">
+    <label for="replayEmailAddress">Email address</label>
+    <input id="replayEmailAddress" type="email" autocomplete="email" required maxlength="254">
+    <p class="help">We’ll send this replay as an MP4 attachment when it fits, plus a link to watch it.</p>
+    <p id="replayEmailError" role="alert"></p>
+    <button id="replayEmailSend" type="submit">Send video</button>
+    <button id="replayEmailCancel" type="button">Cancel</button>
+  </form>
 </dialog>
 
   <div class="coffeeSupport">
