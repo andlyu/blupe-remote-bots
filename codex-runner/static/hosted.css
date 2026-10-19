@@ -1024,3 +1024,7 @@ body.cameraExpanded{overflow:hidden}
   .playgroundConsole .visitorChat input,.playgroundConsole .visitorChat textarea{font-size:16px}
   .playgroundConsole .visitorChat.visitorChatExpanded{height:min(560px,72dvh)}
 }
+
+
+/* Replay receipt V0: visible actions and an honest indeterminate render state. */
+.runHistorySearch{margin:20px 0}.runHistorySearch label{display:block;margin-bottom:8px}.runHistorySearch>div{display:flex;gap:10px;flex-wrap:wrap}.runHistorySearch input{flex:1;min-width:200px}.personalRunList{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding:0;list-style:none}.personalRunCard{width:100%;height:100%;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:18px;border:1px solid currentColor;border-radius:14px;cursor:pointer}.pastRunWatch{display:inline-flex;align-items:center;gap:8px;background:#e9f8c6;color:#183510;padding:8px 12px;border-radius:999px;font-size:14px;font-weight:700}.pastRunCard:hover,.pastRunCard:focus-visible{outline:2px solid #567d26;outline-offset:3px}.replayProcessing{padding:40px 20px;text-align:center;background:#f3f5ef;border-radius:16px;color:#26351d}.replayProcessing[hidden]{display:none}.replayProcessing progress{width:min(360px,100%);accent-color:#567d26}#past-runs>h2{margin-top:30px}

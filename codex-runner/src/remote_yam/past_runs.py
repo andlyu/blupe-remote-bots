@@ -354,7 +354,13 @@ class PastRuns:
         self.details = {}
         self.viewing = {}
 
-    def page(self, offset=0):
+    def get(self, episode_id):
+        if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id):
+            raise ValueError('Invalid episode ID')
+        rows = self.page(episode_id=episode_id)['runs']
+        return rows[0] if rows else None
+
+    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None):
         with self.lock:
             stale = False
             if self.rows is None or time.monotonic() - self.updated > 60:
@@ -401,7 +407,10 @@ class PastRuns:
                     if self.rows is None:
                         raise
                     stale = True
-            selected = self.rows[offset:offset+12]
+            available = [r for r in self.rows if (episode_ids is None or r['episode_id'] in episode_ids)
+                         and (robot_id is None or r['robot_id'] == robot_id)]
+            selected = ([r for r in available if r['episode_id'] == episode_id]
+                        if episode_id is not None else available[offset:offset+12])
             now = time.monotonic()
             missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
             with ThreadPoolExecutor(max_workers=4) as pool:
@@ -412,7 +421,7 @@ class PastRuns:
                 wanted = {r['episode_id'] for r in selected}
                 self.details = {k: v for k, v in self.details.items() if k in wanted}
             result = [dict(r, **self.details[r['episode_id']][1]) for r in selected]
-            return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(self.rows) else None,
+            return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
                     'stale': stale}
 
     def _detail(self, row):
@@ -427,7 +436,9 @@ class PastRuns:
         if viewing:
             meta = {**meta, **viewing}
             preview = viewing['preview']
-        compressed = preview.get('speed') == 10
+        speed = preview.get('speed', preview.get('nominal_action_speed')
+                            if preview.get('processing') == 'main-flow-or-gripper-v1' else None)
+        compressed = (type(speed) in (int, float) and math.isfinite(speed) and 1 <= speed <= 10)
         video_meta = preview if compressed else (meta.get('video') or {})
         duration = video_meta.get('duration_s')
         if isinstance(duration, bool) or not isinstance(duration, (int, float)) or not math.isfinite(duration) or duration < 0:
@@ -436,5 +447,6 @@ class PastRuns:
                      'original_video_url': BASE + f'videos/{eid}.mp4',
                      'original_available': row.get('original_available', True),
                      'compressed': compressed,
+                     'preview_speed': speed if compressed else None,
                      'video_layout': video_meta.get('layout'),
                      'camera_order': preview.get('camera_order', ['left', 'top', 'right']) if compressed else ['left', 'top', 'right']}
