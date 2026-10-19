@@ -110,12 +110,37 @@ Stop returns without waiting for a pending SDK reply. One serial task drains
 that reply and resets the SDK before the next visitor can acquire ownership;
 the late result cannot enter a new visitor's call. The adapter's existing
 semaphore releases promptly. Reset/transport failure discards the worker and
-removes readiness; deployment must prepare a replacement before admitting Dream
-again. Public configuration hides unready Dream models and forged run requests
+removes readiness while a replacement prepares. Public configuration hides unready Dream models and forged run requests
 are rejected before queue creation. Shut the pool down with `close()` on service
 shutdown. Keep the persistent JAX cache for compatible service restarts, prepare
 once per new process, and retain the one-process memory budget. Actual prediction
 continues after confirmed Home with fresh inputs and normal native guards.
+
+The prepared pool replaces an idle dead worker without acquiring a robot session
+or making a prediction. Background replacement backs off by 1, 10 and 30 seconds.
+At most three replacement attempts are allowed in a ten-minute burst, and three
+consecutive failed preparations also open the circuit even outside that window; exhaustion
+leaves Dream unavailable until explicit preparation/restart. Changed credentials
+also require explicit preparation. The old child exits before a new one starts;
+both checkpoints must be ready and episode cleanup must pass before admission.
+
+An active run can recover one discarded worker while retaining its exclusive
+visitor owner. The replacement starts a fresh SDK session. Before requesting a
+new action, the controller verifies the same robot lease, completed step and idle
+executor; the adapter clears prior command anchors and camera history, discards
+in-flight captures from the old history generation, and waits for feedback/images
+collected after recovery. The failed prediction is never submitted or replayed.
+Run step IDs continue normally. Stop and the original run deadline still cancel
+recovery and prevent submission, including after a late preparation result.
+Recovery consumes the remaining time budget and can outlast it; it does not imply
+uninterrupted motion or establish why the original SDK call stalled. A second
+worker failure in the same run ends that run. Returned SDK protocol errors retain
+their existing fail-closed behavior.
+
+The run journal records bounded `worker_recovery` transitions and model status
+messages. Service logs use `[dream-worker]` for failures, preparation and recovery
+limit events, with static reasons and numeric attempts only. Readiness proves
+preparation, not successful inference.
 
 ## Observation and execution contract
 

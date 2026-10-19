@@ -58,6 +58,49 @@ def adapter(tmp_path, **kwargs):
         observation_source=observation, robot_id='yam-1', worker_factory=Worker, **kwargs)
 
 
+def test_recovery_generation_discards_capture_already_in_flight(tmp_path):
+    provider = adapter(tmp_path)
+    provider._prompt = 'same run'
+    old_started, old_done = threading.Event(), threading.Event()
+    fresh_started, fresh_done = threading.Event(), threading.Event()
+    count = []
+    def capture():
+        count.append(1)
+        old = len(count) == 1
+        (old_started if old else fresh_started).set()
+        assert (old_done if old else fresh_done).wait(2)
+        return dict(timestamp=time.monotonic(), observed_at=time.time(),
+                    observation={'prompt': 'same run', 'version': 'old' if old else 'fresh'})
+    provider._capture_tick = capture
+    thread = threading.Thread(target=provider._collect)
+    try:
+        thread.start(); assert old_started.wait(1)
+        with provider._changed:
+            provider._history_generation += 1
+            provider._history.clear()
+        old_done.set(); assert fresh_started.wait(1)
+        with provider._changed:
+            assert not provider._history
+        fresh_done.set()
+        with provider._changed:
+            assert provider._changed.wait_for(lambda: bool(provider._history), timeout=1)
+            assert all(tick['observation']['version'] == 'fresh' for tick in provider._history)
+    finally:
+        provider.close_transport(); old_done.set(); fresh_done.set(); thread.join(2)
+
+
+def test_recovery_feedback_watermark_uses_the_robot_clock(tmp_path):
+    from types import SimpleNamespace
+    provider = adapter(tmp_path)
+    provider._prompt = 'same run'
+    observed_at = time.time()-1.5  # Fresh feedback can use a slightly offset clock.
+    provider.observation_source = lambda: dict(observation(), observed_at=observed_at)
+    provider._worker = SimpleNamespace(recover=lambda **kwargs: None, close=lambda: None)
+    assert provider._recover_worker(72, 'worker_timeout') == observed_at
+    assert provider._history_generation == 1 and not provider._history
+    provider.close_transport()
+
+
 def test_units_arm_order_endpoint_sampling_and_duration():
     state = state_input(observation(), 'move')
     assert state['state.left_arm'] == pytest.approx([math.radians(10)] * 6)

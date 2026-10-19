@@ -20,6 +20,13 @@ CAMERAS = {'top': 'overhead', 'left': 'wrist_l', 'right': 'wrist_r'}
 OBSERVATION_RECOVERY_S = 5.
 
 
+class DreamWorkerUnavailable(RuntimeError):
+    """The prepared process was discarded; its prediction must never be reused."""
+    def __init__(self, message, *, reason='worker_failure'):
+        super().__init__(message)
+        self.reason = reason
+
+
 class DreamObservationError(ValueError):
     """Only locally authored diagnostics may be exposed in the run log."""
     def __init__(self, message, *, field, retryable=False):
@@ -194,6 +201,8 @@ class DreamAdapter:
         self._pending_commanded = None
         self.last_probe = None
         self._capture_sequence = 0
+        self._history_generation = 0
+        self._worker_recoveries = 0
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, cadence_hz=10,
@@ -402,9 +411,12 @@ class DreamAdapter:
         while not self._cancelled():
             started = time.monotonic()
             try:
+                with self._changed:
+                    generation = self._history_generation
                 tick = self._capture_tick()
                 with self._changed:
-                    if tick['observation']['prompt'] == self._prompt and not self._cancelled():
+                    if (generation == self._history_generation and
+                            tick['observation']['prompt'] == self._prompt and not self._cancelled()):
                         self._history.append(tick)
                         self._changed.notify_all()
                 if unavailable_since is not None and self.interaction_sink:
@@ -440,17 +452,57 @@ class DreamAdapter:
                 return
             self._stop.wait(max(0, .2 - (time.monotonic() - started)))
 
-    def _wait_for_ticks(self, not_before=None):
+    def _wait_for_ticks(self, not_before=None, observed_after=None):
         with self._changed:
             while True:
                 if self._failure:
                     raise RuntimeError(self._failure)
                 if self._cancelled():
                     raise RuntimeError('Dream cancelled')
-                if (self._history and time.time() - self._history[-1]['observed_at'] <= 5
-                        and (not_before is None or self._history[-1]['timestamp'] >= not_before)):
-                    return list(self._history)
+                ticks = [tick for tick in self._history
+                         if observed_after is None or tick['observed_at'] >= observed_after]
+                if (ticks and time.time() - ticks[-1]['observed_at'] <= 5
+                        and (not_before is None or ticks[-1]['timestamp'] >= not_before)):
+                    return ticks
                 self._changed.wait(.1)
+
+    def _recover_worker(self, first_step_id, reason):
+        recover = getattr(self._worker, 'recover', None)
+        if self._worker_recoveries or not callable(recover) or self._cancelled():
+            raise DreamWorkerUnavailable('Dream worker recovery is unavailable')
+        self._worker_recoveries += 1
+        if self.interaction_sink:
+            self.interaction_sink('worker_recovery', 'Dream worker is recovering; motion is paused',
+                                  state='started', attempt=1, first_step_id=first_step_id, reason=reason)
+            self.interaction_sink('model_progress', 'Dream worker is recovering; motion is paused',
+                                  progress_type='status')
+        try:
+            recover(checkpoint=self.model, cancelled=self._cancelled)
+            if self._cancelled():
+                raise RuntimeError('Dream worker recovery cancelled')
+            # Revalidate the SAME lease, completed step and idle executor before
+            # requesting another prediction. No failed request/action is replayed.
+            if callable(self.refresh_observation):
+                self.refresh_observation()
+            fresh, _ = self._read_observation(self._prompt)
+            with self._changed:
+                self._history_generation += 1
+                self._history.clear()
+                self._commanded = self._pending_commanded = None
+                # Compare feedback timestamps only with that same source's
+                # watermark, never order a robot clock against the server clock.
+                observed_after = fresh['observed_at']
+            if self.interaction_sink:
+                self.interaction_sink('worker_recovery', 'Dream worker recovered; collecting fresh inputs',
+                                      state='completed', attempt=1, first_step_id=first_step_id)
+                self.interaction_sink('model_progress', 'Dream worker recovered; collecting fresh inputs',
+                                      progress_type='status')
+            return observed_after
+        except Exception:
+            if self.interaction_sink:
+                self.interaction_sink('worker_recovery', 'Dream worker recovery ended',
+                                      state='failed', attempt=1, first_step_id=first_step_id)
+            raise
 
     def build_trajectory(self, prompt, observation, first_step_id):
         if self._cancelled():
@@ -472,10 +524,11 @@ class DreamAdapter:
         began = time.monotonic()
         deadline = began + 600
         session_recoveries = 0
+        observed_after = None
         while True:
             # Require a new camera tick for this decision; never reuse an old snapshot.
             with journal_span(self.interaction_sink, 'observation_wait', first_step_id=first_step_id):
-                ticks = self._wait_for_ticks(began)
+                ticks = self._wait_for_ticks(began, observed_after)
             capture_timing = ticks[-1].get('capture_timing')
             if self.interaction_sink and capture_timing:
                 try:
@@ -483,9 +536,14 @@ class DreamAdapter:
                         stage='selected_observation_capture', state='completed', **capture_timing)
                 except Exception:
                     pass
-            with journal_span(self.interaction_sink, 'worker_predict', first_step_id=first_step_id):
-                reply = self._worker.call('predict', ticks=ticks, commanded=self._commanded,
-                                          cancelled=self._cancelled)
+            try:
+                with journal_span(self.interaction_sink, 'worker_predict', first_step_id=first_step_id):
+                    reply = self._worker.call('predict', ticks=ticks, commanded=self._commanded,
+                                              cancelled=self._cancelled)
+            except DreamWorkerUnavailable as error:
+                observed_after = self._recover_worker(first_step_id, error.reason)
+                began = time.monotonic()
+                continue
             self._worker_timings(reply)
             if self._cancelled():
                 raise RuntimeError('Dream prediction cancelled; result discarded')
