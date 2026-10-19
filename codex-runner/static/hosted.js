@@ -310,7 +310,7 @@ function createRunLaunchGuard() {
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
-  const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration >= 0 && duration < 1;
+  const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
   let preview = null;
   const previewViews = [];
@@ -319,7 +319,7 @@ function createRunLaunchGuard() {
     preview = null;
   }
   const speedButton = document.createElement('button');
-  speedButton.type = 'button'; speedButton.textContent = 'Live speed';
+  speedButton.id = 'pastRunSpeed'; speedButton.type = 'button'; speedButton.textContent = 'Live speed';
   $('pastRunDetails').after(speedButton);
   const playbackSource = (run, live) => ({
     url: live ? (run.original_video_url || run.video_url.replace('/previews/', '/videos/').replace('/viewing/', '/videos/')) : run.video_url,
@@ -330,6 +330,7 @@ function createRunLaunchGuard() {
   });
   function openRun(run, live = false) {
     if (zeroSecondVideo(run.video_duration_s) || (live && run.original_available === false)) return;
+    window.yamReplayReview?.ready();
     stopPreview();
     $('pastRunTitle').textContent = `${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt;
@@ -401,7 +402,7 @@ function createRunLaunchGuard() {
         const robotName = {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods SO101', 'robot-abecb4cd868ab24b':'SO101'}[run.robot_id || 'yam-1'] || run.robot_id;
         title.textContent = `${robotName} · ${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : '#'+run.episode_index} · ${new Date(run.started_at*1000).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
         const prompt = document.createElement('span'); prompt.className = 'pastRunPrompt'; prompt.textContent = run.prompt;
-        const watch = document.createElement('span'); watch.className = 'pastRunLabel'; watch.textContent = '▶ Watch video';
+        const watch = document.createElement('span'); watch.className = 'pastRunWatch'; watch.textContent = '▶ Watch replay';
         const outcome = document.createElement('span'); outcome.className = 'pastRunLabel';
         outcome.textContent = run.result || 'Unknown';
         const errors = document.createElement('span'); errors.className = 'pastRunLabel';
@@ -451,6 +452,7 @@ function createRunLaunchGuard() {
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
+  window.yamReplayHistory = {openRun, refresh: () => load(true)};
   $('refreshPastRuns').addEventListener('click', () => load(true));
   $('morePastRuns').addEventListener('click', () => load());
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
@@ -1432,6 +1434,7 @@ function createRunLaunchGuard() {
     }
     updateSavedKey(state.saved_key_providers);
     window.yamAnalytics?.observe(state);
+    window.yamReplayReview?.observe(state, selectedRobot, csrf);
     $('whatsRunning').textContent = state.whats_running?.length
       ? state.whats_running.map(run => `${run.runner_name || 'Anonymous'} · ${run.task || 'Task unavailable'}${run.status === 'preparing' ? ' (preparing)' : ''}`).join('\n')
       : 'No policy is running.';

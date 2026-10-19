@@ -12,6 +12,7 @@
   <script src="/static/system-prompt.js" defer></script>
   <script src="/static/reactions.js" defer></script>
   <script src="/static/hosted.js" defer></script>
+  <script src="/static/replay-history.js" defer></script>
 </head>
 <body class="playgroundConsole"><main><div class="runnerContent">
   <div class="playgroundHeader">
@@ -270,7 +271,16 @@
 
   </section>
   <section id="past-runs" class="panel playgroundResources pastRuns" aria-labelledby="pastRunsTitle">
-        <div class="statusHeader"><h2 id="pastRunsTitle">Past runs</h2><button id="refreshPastRuns" type="button">Refresh</button></div>
+        <div class="statusHeader"><h2 id="pastRunsTitle">Your runs</h2><button id="refreshPastRuns" type="button">Refresh</button></div>
+        <p class="help">Runs from this browser and email. Search an email used for a previous run.</p>
+        <form id="runHistorySearch" class="runHistorySearch">
+          <label for="runHistoryEmail">Find previous runs by email</label>
+          <div><input id="runHistoryEmail" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required><button type="submit">Find runs</button><button id="clearRunHistoryEmail" type="button" hidden>Clear email</button></div>
+        </form>
+        <p id="myRunsStatus" class="help" role="status">Your runs will appear here.</p>
+        <ol id="myRunsList" class="personalRunList"></ol>
+        <button id="moreMyRuns" type="button" hidden>More of your runs</button>
+        <h2>All runs</h2>
         <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
         <p id="pastRunsStatus" class="help" role="status">Loading past runs…</p>
         <ol id="pastRunsList"></ol>
@@ -285,6 +295,7 @@
 </div>
 <dialog id="pastRunDialog" aria-labelledby="pastRunTitle">
   <div class="statusHeader"><h2 id="pastRunTitle">Past run</h2><button id="closePastRun" type="button" aria-label="Close video">Close</button></div>
+  <div id="replayProcessing" class="replayProcessing" role="status" aria-live="polite" hidden><progress aria-label="Processing replay"></progress><p>Processing your replay. This usually takes about a minute.</p><p class="help">You can close this and run another while it processes.</p></div>
   <div class="recordedPlayer"><video id="pastRunVideo" controls playsinline preload="none"></video></div>
   <p id="pastRunError" role="status"></p>
   <p id="pastRunPrompt"></p><p id="pastRunDetails" class="help"></p>

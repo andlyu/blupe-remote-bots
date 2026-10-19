@@ -441,7 +441,7 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/replay-history.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -452,13 +452,21 @@ class HostedRunner:
             return
         if method == 'GET' and path == '/api/past-runs':
             try:
-                offset = int(parse_qs(scope.get('query_string', b'').decode()).get('offset', ['0'])[0])
+                query = parse_qs(scope.get('query_string', b'').decode())
+                episode_id = query.get('episode_id', [None])[0]
+                if episode_id is not None and not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id):
+                    raise ValueError()
+                offset = int(query.get('offset', ['0'])[0])
                 if not 0 <= offset <= 100000:
                     raise ValueError()
             except (ValueError, UnicodeError):
                 raise RequestError(400, 'Invalid page') from None
             try:
-                result = await asyncio.to_thread(self.past_runs.page, offset)
+                if episode_id is not None:
+                    row = await asyncio.to_thread(self.past_runs.get, episode_id)
+                    result = {'runs': [row] if row else [], 'next_offset': None, 'stale': False}
+                else:
+                    result = await asyncio.to_thread(self.past_runs.page, offset)
                 names = await asyncio.to_thread(self.run_names.names)
                 outcomes = await asyncio.to_thread(self.run_names.results)
                 for row in result['runs']:
@@ -525,7 +533,27 @@ class HostedRunner:
             payload = await self.body(receive)
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
-            if path == "/api/stream-health":
+            if path == "/api/my-runs":
+                from remote_yam.run_history import history_ids
+                try:
+                    ids = await asyncio.to_thread(history_ids, self.submission_log.path,
+                                                  payload.get('email', ''), payload.get('episode_ids', []))
+                    offset = payload.get('offset', 0)
+                    if type(offset) is not int or not 0 <= offset <= 100000:
+                        raise ValueError('Invalid history page')
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
+                try:
+                    result = await asyncio.to_thread(self.past_runs.page, offset, episode_ids=ids, robot_id=self.robot_id)
+                    names = await asyncio.to_thread(self.run_names.names)
+                    outcomes = await asyncio.to_thread(self.run_names.results)
+                    from remote_yam.past_runs import merge_run_result
+                    for row in result['runs']:
+                        row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                        merge_run_result(row, outcomes.get(row['episode_id'], {}))
+                except Exception:
+                    raise RequestError(503, 'Run history is temporarily unavailable. Please retry.') from None
+            elif path == "/api/stream-health":
                 from remote_yam.stream_health import public_report, log_report
                 try:
                     report = public_report(payload)
@@ -712,7 +740,6 @@ class HostedRunner:
                 raise RequestError(503, "NO SIGNAL") from None
             await self.respond(send, 200, frame.jpeg, "image/jpeg")
         elif path.startswith('/api/public-images/'):
-            import re
             from remote_yam.interactions import recording_directory
             parts = path.split('/')
             if len(parts) != 5 or not re.fullmatch('[a-f0-9]{64}', parts[4]):

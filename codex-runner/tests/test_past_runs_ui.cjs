@@ -6,9 +6,9 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf8');
 const declaration = source.match(/const zeroSecondVideo = ([^;]+);/)[1];
 const zeroSecondVideo = vm.runInNewContext(`(${declaration})`);
-test('clips whose player shows 0:00 do not offer playback', () => {
-  for (const duration of [0, 0.04, 0.11, 0.999]) assert.equal(zeroSecondVideo(duration), true);
-  for (const duration of [1, 3.39, null, undefined, NaN, Infinity, -1]) assert.equal(zeroSecondVideo(duration), false);
+test('only empty clips suppress playback; sub-second recordings are playable', () => {
+  assert.equal(zeroSecondVideo(0), true);
+  for (const duration of [0.04, 0.11, 0.999, 1, 3.39, null, undefined, NaN, Infinity, -1]) assert.equal(zeroSecondVideo(duration), false);
 });
 
 const playbackSource = vm.runInNewContext('(' + source.match(/const playbackSource = ([\s\S]*?);/)[1] + ')');
