@@ -64,6 +64,10 @@ main.chatClosed{grid-template-columns:minmax(0,1fr)}.visitorChatHeading{display:
 .pastRunPrompt { padding-top: 0; line-height: 1.45; overflow-wrap: anywhere; }
 #pastRunDialog { box-sizing: border-box; width: min(1200px, 94vw); max-height: 94dvh; overflow: auto; padding: 24px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
 #pastRunDialog::backdrop { background: #000c; }
+.replayEmailActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+#replayEmailDialog { box-sizing: border-box; width: min(440px, 94vw); padding: 24px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+#replayEmailDialog::backdrop { background: #0008; }
+#replayEmailForm { display: grid; gap: 12px; }
 #pastRunVideo { width: 100%; max-height: 68dvh; background: #000; }
 #pastRunPrompt { white-space: pre-wrap; overflow-wrap: anywhere; }
 

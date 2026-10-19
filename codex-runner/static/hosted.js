@@ -338,6 +338,7 @@ function createRunLaunchGuard() {
     const lineageBox = document.createElement('div'); lineageBox.id = 'aspirePastLineage';
     window.yamAspireLineage?.history(lineageBox, run); $('pastRunPrompt').after(lineageBox);
     selectedRun = run;
+    window.yamReplayEmail?.setRun(run);
     speedButton.hidden = run.original_available === false;
     speedButton.dataset.live = String(live);
     speedButton.textContent = live ? '10× speed' : 'Live speed';
@@ -575,10 +576,12 @@ function createRunLaunchGuard() {
       error.paymentConfirmed = result.payment_confirmed === true;
       throw error;
     }
+    if (result.replay_email) window.yamReplayEmail?.configure(result.replay_email, csrf);
     return path === '/api/status' ? runLaunchGuard.project(result) : result;
   }
   const runVideoEmail = createRunVideoEmailControl($);
   window.yamRunVideoEmail = runVideoEmail;
+  window.yamReplayEmail = createReplayEmailControl({$, send: api});
   function buttons() {
     window.yamReactions?.setAvailable(!!csrf && !ended);
     $('run').disabled = !csrf || ended || active || submitting;
@@ -2207,6 +2210,7 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      window.yamReplayEmail.configure(session.replay_email, csrf);
       window.yamReactions?.reset(session.reaction_cursor);
       chatScope = session.chat_scope === 'public' ? 'Shared with everyone watching this robot' : 'Shared in this playground';
       window.yamSystemPrompt?.configure(session.system_prompts, session.robot_id);

@@ -31,6 +31,7 @@
     try { localStorage.setItem(storageKey, JSON.stringify(saved.slice(0, 100))); } catch (_) {}
   }
   function ready() {
+    window.yamReplayEmail?.setRun(null);
     pending = null;
     clearTimeout(timer);
     processing.hidden = true;
