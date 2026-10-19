@@ -42,7 +42,8 @@
         const run=data.runs?.find(row=>row.episode_id===request.id && row.robot_id===request.robot);
         if(run?.video_url && run.video_duration_s!==0) {
           if(!request.quick) { apply(run);return; }
-          if(run.video_quality!=='quick' && run.video_sha256!==request.sha) {
+          if(run.video_quality!=='quick') {
+            if(run.video_sha256===request.sha) {stop();return;}
             if(player.ended || (player.paused && !player.currentTime)) {apply(run);return;}
             request.next=run;progress(request);return;
           }

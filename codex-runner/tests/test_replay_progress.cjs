@@ -45,6 +45,13 @@ test('final edit waits for playback to end rather than interrupting the viewer',
   assert.equal(c.opened.length,2);assert.equal(c.opened[1].video_quality,'final');
   assert.equal(c.nodes.replayProgress.hidden,true);
 });
+test('opening an already-final immutable source does not leave an improvement countdown',async()=>{
+  const c=setup();c.window.yamReplayHistory.openRun(c.run('final'));
+  c.nodes.pastRunVideo.src='/api/quick-replays/ep_mine/'+'a'.repeat(64)+'.mp4';
+  c.nodes.pastRunVideo.emit('loadstart');
+  c.answer(c.requests[0],[{...c.run('final'),video_sha256:'a'.repeat(64)}]);await c.flush();
+  assert.equal(c.nodes.replayProgress.hidden,true);assert.equal(c.timers.size,0);
+});
 test('closing or changing robot discards late readiness responses',async()=>{
   for(const change of ['close','robot']){
     const c=setup();c.observe('running');c.observe('stopped');
