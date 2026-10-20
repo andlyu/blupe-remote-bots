@@ -1,7 +1,9 @@
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
+import sys
 import numpy as np
 import pytest
 from remote_yam.dream_ik_preparation import prepare_trajectory_variants
+from remote_yam.dream_sdk_trace import DreamSDKTrace
 
 _solve_traj = None
 
@@ -45,3 +47,27 @@ def test_preparation_error_restores_kernel_and_cannot_report_ready(monkeypatch, 
     with pytest.raises(RuntimeError, match='compilation failure'):
         prepare_trajectory_variants(client)
     assert globals()['_solve_traj'] is kernel
+
+
+def test_startup_preparation_with_passive_diagnostics_already_installed(tmp_path, monkeypatch):
+    calls = []
+    def kernel(*args):
+        calls.append(args)
+        return [np.zeros((48, 6)), np.zeros((48, 6))]
+    module = ModuleType('dream_ik.solver')
+    module._solve_traj = kernel
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setattr(Solver, '__module__', module.__name__)
+    monkeypatch.setitem(globals(), '_solve_traj', kernel)
+    client = SimpleNamespace(_solver=Solver(), _solve_spec=lambda: SimpleNamespace(solve='traj'))
+    trace = DreamSDKTrace(tmp_path)
+    try:
+        trace.ik_diagnostics.install(client)
+        wrapped = client._solver.solve_traj
+        assert prepare_trajectory_variants(client) == ['independent', 'coupled']
+        assert client._solver.solve_traj is wrapped
+        assert calls[-2][-2] is None
+        np.testing.assert_array_equal(calls[-1][-2], client._solver.side_base)
+        assert globals()['_solve_traj'] is kernel
+    finally:
+        trace.close()

@@ -4,6 +4,7 @@ Pinned source contract: dream_ik/solver.py ChunkIK.solve_traj passes either
 None or side_base to _solve_traj. These have different JAX pytree structures.
 No robot observation, model request, solver setting or session is changed.
 """
+from inspect import unwrap
 import numpy as np
 
 
@@ -22,7 +23,9 @@ def prepare_trajectory_variants(client_ik, rows=48):
     # Capture the SDK's exact kernel arguments, including its arm specs and
     # weights. This runs during exclusive startup after traj_ready; restore the
     # binding even on error. All returned trajectories are discarded.
-    bindings = solver.solve_traj.__func__.__globals__
+    # Passive tracing uses functools.wraps on the bound method. Resolve its
+    # original definition before finding the SDK module's kernel binding.
+    bindings = unwrap(solver.solve_traj).__func__.__globals__
     original = bindings['_solve_traj']
     captured = []
     def capture(*args, **kwargs):
