@@ -59,6 +59,22 @@ class SteeringInbox:
         with self._lock:
             return any(row['state'] == 'queued' for row in self._messages)
 
+    def include_prompt(self, original_goal):
+        """Consume queued corrections into a policy's single language input."""
+        with self._lock:
+            queued = [row for row in self._messages if row['state'] == 'queued']
+            if not queued:
+                return None
+            prompt = (original_goal + '\n\nRun-owner guidance (newer updates take precedence '
+                      'over conflicting earlier instructions):\n' + '\n'.join(
+                          f"{row['id']}. {row['text']}" for row in self._messages
+                          if row['state'] in {'queued', 'included'}))
+            for row in queued:
+                row.update(state='included', included_at=time.time())
+                self._emit('steering_included', 'Steering included in model context',
+                           steering_id=row['id'])
+            return prompt
+
     def include(self, history):
         """Append user turns without mutating history from the HTTP thread."""
         with self._lock:
