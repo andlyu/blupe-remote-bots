@@ -68,6 +68,7 @@ def test_timeout_with_error_takes_priority_and_history_retains_it(tmp_path):
     import sqlite3
     with sqlite3.connect(names.path) as db:
         assert db.execute('SELECT result,reason FROM run_results').fetchone() == ('Failure','Run reached time limit')
+    assert names.results()['ep_timeout']['errors'] == 'Run reached time limit'
 
 
 def test_timeout_safety_code_survives_generic_error():
@@ -106,7 +107,7 @@ def test_station_unsafe_displays_recorded_diagnostic_without_outcome_change(tmp_
     result=names.results()['ep_guard']
     assert result['errors']==error
     assert result['result']=='Failure' and result['result_reason']==error
-    assert 'private' not in public_run_error({'error':error+' private-key'})
+    assert 'private-key' not in public_run_error({'error':error+' api_key=private-key'})
 
 
 def test_existing_replay_generic_label_uses_saved_exact_error():
@@ -186,7 +187,7 @@ def test_queue_owner_reason_is_safe_in_live_and_saved_results(tmp_path):
         assert public_run_error(state) == expected
         names.remember_result('ep_queue', state)
         assert names.results()['ep_queue']['errors'] == expected
-    assert public_run_error(dict(error='Queue/API owner blocks initialization secret')) == 'The run encountered a model or runner error.'
+    assert public_run_error(dict(error='Queue/API owner blocks initialization api_key=private-key')) == 'Queue/API owner blocks initialization api_key=[redacted]'
 
 
 def test_configured_runner_failures_are_specific_and_never_echo_private_text():
@@ -201,14 +202,115 @@ def test_configured_runner_failures_are_specific_and_never_echo_private_text():
         result = public_run_error(dict(status='failed', error='RuntimeError: '+error))
         assert fragment in result
         assert 'command.log' not in result
-        assert public_run_error(dict(error=error+' https://private/token')) == 'The run encountered a model or runner error.'
+        assert public_run_error(dict(error=error+' https://private/token')) == error+' [URL redacted]'
 
 
 def test_failure_category_message_is_regenerated_and_invalid_codes_are_private():
     expected = 'Robot initialization was blocked by queue/API ownership.'
     for code in ('queue_api_owner','unknown', ['queue_api_owner'], None):
-        state=dict(status='failed',error='private exception',provider=dict(managed_execution=dict(
+        state=dict(status='failed',error='RuntimeError: fixture worker exited',provider=dict(managed_execution=dict(
             phase='failed',failure=dict(code=code,message='secret https://private/token'))))
-        assert public_run_error(state)==(expected if code=='queue_api_owner' else 'The run encountered a model or runner error.')
+        assert public_run_error(state)==(expected if code=='queue_api_owner' else 'RuntimeError: fixture worker exited')
     assert public_run_error(dict(status='running',provider=dict(managed_execution=dict(
         phase='running',failure=dict(code='queue_api_owner'))))) is None
+
+
+def test_unknown_error_cause_survives_live_and_saved_results(tmp_path):
+    from remote_yam.past_runs import RunNames
+    error = 'RuntimeError: Dream preparation cancelled'
+    state = dict(status='stopped', error=error)
+    assert public_run_error(state) == error
+    names = RunNames(tmp_path/'errors.sqlite3')
+    names.remember_result('ep_cancelled', state)
+    assert names.results()['ep_cancelled']['errors'] == error
+    assert names.results()['ep_cancelled']['result_reason'] == error
+
+
+def test_legacy_generic_error_uses_recorded_cause_when_available():
+    generic = 'The run encountered a model or runner error.'
+    state = dict(error=generic, interactions=dict(events=[
+        dict(kind='error', message='RuntimeError: Dream preparation cancelled')]))
+    assert public_run_error(state) == 'RuntimeError: Dream preparation cancelled'
+    assert public_run_error(dict(error=generic)) == 'Run failed without a recorded error detail.'
+
+
+def test_unknown_errors_redact_credentials_urls_and_paths_without_hiding_the_cause():
+    error = ('ValueError: worker exited; api_key="fixture-private-key"; token=fixture-token; '
+             'Bearer fixture-bearer; Basic fixture-basic; sk-fixture-api-key '
+             'https://user:password@private.example/v1?key=fixture-url '
+             '/home/ubuntu/private.json')
+    detail = public_run_error(dict(status='stopped', error=error))
+    assert detail.startswith('ValueError: worker exited;')
+    for secret in ('fixture-private-key', 'fixture-token', 'fixture-bearer', 'fixture-basic',
+                   'sk-fixture-api-key', 'private.example', 'fixture-url', '/home/ubuntu'):
+        assert secret not in detail
+    assert '[redacted]' in detail and '[private path]' in detail
+
+
+def test_unknown_safety_error_uses_recorded_message_and_details_are_bounded():
+    assert public_run_error(dict(safety_error=dict(message='Lease was revoked', code='lease_revoked'))) == 'Lease was revoked'
+    detail = public_run_error(dict(error='ValueError: '+('x'*3000)+'\x00'))
+    assert detail.startswith('ValueError: ') and len(detail) == 2000 and '\x00' not in detail
+
+
+def test_dream_deadline_cancellation_is_timeout_before_gateway_terminal_event():
+    import threading
+    from unittest.mock import Mock, patch
+    from remote_yam.controller import RunnerController
+    from remote_yam.dream_policy import DreamAdapter
+    from remote_yam.session import MockSessionAPI
+    controller = RunnerController(MockSessionAPI(), share_conversation=False)
+    policy = DreamAdapter.__new__(DreamAdapter)
+    policy._ready = threading.Event(); policy._ready.set()
+    policy._preparation = object(); policy._stop = threading.Event()
+    policy.interaction_sink = None
+    policy.cancelled = lambda: controller._provider_cancelled(policy)
+    controller._provider = policy
+    controller._session_id = 'deadline-session'
+    controller._status = 'running'
+    controller._run_started_at = 1000
+    controller._run_duration_s = 120
+    controller._session_api.stop_session = Mock()
+    controller._session_api.get_session = Mock(return_value={'status':'running'})
+    controller._cancel_home_plan = Mock()
+    controller._poll_home_scene = Mock()
+    controller.process_next_event = lambda _: policy.wait_ready(lambda: False)
+    with patch('remote_yam.controller.time.time', return_value=1120):
+        controller._run_loop(None)
+    state = controller.status()
+    assert state['status'] == 'timed_out'
+    assert public_run_error(state) == 'Run reached time limit'
+    controller._session_api.stop_session.assert_called_once_with('deadline-session', reason='policy_runtime_timeout')
+    assert any(r['kind']=='lifecycle' and r['details']['reason']=='policy_runtime_timeout'
+               for r in state['interactions']['events'])
+
+
+def test_real_worker_failure_is_not_timeout_without_deadline_cancellation():
+    from unittest.mock import Mock
+    from remote_yam.controller import RunnerController
+    from remote_yam.session import MockSessionAPI
+    controller = RunnerController(MockSessionAPI(), share_conversation=False)
+    controller._session_id = 'current-session'
+    controller._deadline_cancelled_session = 'older-session'
+    controller._status = 'running'
+    controller._session_api.get_session = Mock(return_value={'status':'running'})
+    controller._session_api.stop_session = Mock()
+    controller.process_next_event = Mock(side_effect=RuntimeError('Dream worker exited'))
+    controller._run_loop(None)
+    assert controller.status()['status'] == 'stopped'
+    assert public_run_error(controller.status()) == 'RuntimeError: Dream worker exited'
+
+
+def test_operator_stop_and_provider_replacement_do_not_record_deadline_cancellation():
+    from remote_yam.controller import RunnerController
+    from remote_yam.session import MockSessionAPI
+    controller = RunnerController(MockSessionAPI(), share_conversation=False)
+    policy = object(); controller._provider = policy
+    controller._session_id = 'stop-session'
+    controller._status = 'running'; controller._run_started_at = 0; controller._run_duration_s = 120
+    controller._stop_event.set()
+    assert controller._provider_cancelled(policy)
+    assert controller._deadline_cancelled_session is None
+    controller._stop_event.clear()
+    assert controller._provider_cancelled(object())
+    assert controller._deadline_cancelled_session is None

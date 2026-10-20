@@ -66,11 +66,11 @@ class PastRunsTests(unittest.TestCase):
     def test_accepted_model_ending_recovered_from_log_and_errors_separate(self):
         with tempfile.TemporaryDirectory() as root:
             names = RunNames(Path(root)/'names.sqlite3')
-            names.remember_result('ep_test', {'error':'PRIVATE PROVIDER DETAIL', 'interactions': {'events': [
+            names.remember_result('ep_test', {'error':'ValueError: invalid model response api_key=PRIVATE', 'interactions': {'events': [
                 {'kind':'tool_result','details':{'result':{'status':'done','summary':'The apple is on the plate.'}}}]}})
             result = names.results()['ep_test']
             self.assertEqual(result['ending_reason'], 'The apple is on the plate.')
-            self.assertEqual(result['errors'], 'Runner or model error')
+            self.assertEqual(result['errors'], 'ValueError: invalid model response api_key=[redacted]')
             self.assertNotIn('PRIVATE', json.dumps(result))
 
     def test_names_persist_across_catalog_instances(self):
@@ -80,10 +80,10 @@ class PastRunsTests(unittest.TestCase):
             self.assertEqual(RunNames(path).names(), {'ep_test': 'Alex'})
             RunNames(path).remember('ep_test', 'Different visitor')
             self.assertEqual(RunNames(path).names()['ep_test'], 'Alex')
-    def test_failure_survives_restart_without_public_exception_text(self):
+    def test_failure_survives_restart_with_redacted_exception_text(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root)/'names.sqlite3'
-            RunNames(path).remember_result('ep_test', {'error': 'Provider error containing SECRET'})
+            RunNames(path).remember_result('ep_test', {'error': 'Provider error: malformed response api_key=SECRET'})
             result = RunNames(path).results()['ep_test']
             self.assertEqual(result['result'], 'Failure')
             self.assertNotIn('SECRET', json.dumps(result))

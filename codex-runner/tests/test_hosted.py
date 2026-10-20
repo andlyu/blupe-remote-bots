@@ -406,10 +406,10 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
         current = owner.controller.status()
         for phase in ('running', 'stopped'):
             with patch.object(owner.controller, 'status', return_value={
-                    **current, 'status':phase, 'error':'RuntimeError: private-key /private/path'}):
+                    **current, 'status':phase, 'error':'RuntimeError: fixture worker exited; api_key=private-key /private/path'}):
                 for viewer in (b,c):
                     state = (await self.call('/api/status', **viewer))[1]
-                    self.assertEqual(state['public_run']['error'], 'The run encountered a model or runner error.')
+                    self.assertEqual(state['public_run']['error'], 'RuntimeError: fixture worker exited; api_key=[redacted] [private path]')
                     self.assertNotIn('private-key', json.dumps(state))
                     self.assertNotIn('/private/path', json.dumps(state))
         with patch.object(owner.controller, 'status', return_value={**current, 'status':'running', 'error':None}):

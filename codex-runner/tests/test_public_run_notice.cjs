@@ -85,3 +85,16 @@ test('owner task view uses the public reason for the same attempt and ignores st
   const old={...run,attempt_id:'old'};
   assert.equal(context.aspireLiveTask(old,state).error,old.error);
 });
+
+test('legacy generic messages never replace a recorded cause or invent one', () => {
+  const {element,render}=fixture();
+  const generic='The run encountered a model or runner error.';
+  render({public_run:{runner_name:'andrew',status:'stopped',error:generic}});
+  assert.match(element.textContent,/without a recorded error detail/);
+  assert.doesNotMatch(element.textContent,/model or runner error/);
+  render({public_run:{runner_name:'andrew',status:'stopped',error:'RuntimeError: Dream preparation cancelled'}});
+  assert.equal(element.textContent,'andrew — run error: RuntimeError: Dream preparation cancelled');
+  const helpers=source.slice(source.indexOf('function aspireLiveTask('),source.indexOf('function aspireElapsed('));
+  const context=vm.createContext({aspireSharedRun:run=>run});vm.runInContext(helpers,context);
+  assert.doesNotMatch(context.taskRunFailure({status:'stopped',error:generic}).reason,/model or runner error/);
+});
