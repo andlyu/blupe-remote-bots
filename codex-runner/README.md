@@ -269,8 +269,11 @@ After a code update, relaunch this process; browser refresh alone is insufficien
 The UI reports Astra's latest note, call count, outcome and local recording path.
 Exact request/response bodies and image blobs are saved under
 `recordings/robocurve_<id>/`; no authorization headers or provider key are saved.
-`done` is model-reported success. Gateway rejection still stops and holds the
-arms. This adapter has passed the full-stack simulated-driver tests, with model
+`done` is model-reported success. A compatible gateway can repair workspace-only
+rejections or return a verified measured hold for a fresh model decision; see
+[workspace recovery](docs/CONTROLLER-WORKSPACE.md#controller-workspace-recovery).
+Hardware, feedback and unverified-hold faults still end the run. This adapter has
+passed the full-stack simulated-driver tests, with model
 HTTP and camera pixels supplied as fixtures; a live run remains separate.
 
 Reference and intentional differences: `../../docs/refs/robocurve/INDEX.md`.

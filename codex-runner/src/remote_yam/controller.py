@@ -84,6 +84,8 @@ class RunnerController(HomeSceneStartup):
         self._first_call_wander = False
         self._trajectory: dict[str, Any] | None = None
         self._last_completed_trajectory_result: dict[str, Any] | None = None
+        self._workspace_feedback = None
+        self._workspace_replan_not_before = 0.
         self._run_metrics = dict(model_s=0.0, execution_s=0.0, left_path_m=0.0, right_path_m=0.0, model_calls=0, execution_packets=0, accepted_packets=0, distance_waypoints=0, confirmed_waypoints=0)
         self._run_configuration = None
         self._step_timings: list[dict[str, Any]] = []
@@ -178,6 +180,8 @@ class RunnerController(HomeSceneStartup):
             self._submitted_step_ids = []
             self._trajectory = None
             self._last_completed_trajectory_result = None
+            self._workspace_feedback = None
+            self._workspace_replan_not_before = 0.
             self._feedback_checks = []
             self._execution_blocked_reason = None
             self._run_metrics = dict(model_s=0.0, execution_s=0.0, left_path_m=0.0, right_path_m=0.0, model_calls=0, execution_packets=0, accepted_packets=0, distance_waypoints=0, confirmed_waypoints=0)
@@ -969,6 +973,12 @@ class RunnerController(HomeSceneStartup):
             if cancelled():
                 return
         provider_observation = dict(payload)
+        feedback = getattr(self, "_workspace_feedback", None)
+        if feedback:
+            provider_observation["workspace_feedback"] = deepcopy_dict(feedback)
+        delay = getattr(self, "_workspace_replan_not_before", 0.) - time.monotonic()
+        if delay > 0 and self._stop_event.wait(delay):
+            return
         provider_observation["episode_id"] = episode_id
         observation = parse_observation(provider_observation, self._joint_counts)
         provider_observation["left_joints_deg"] = list(observation.left_joints_deg)
@@ -1502,6 +1512,7 @@ class RunnerController(HomeSceneStartup):
             if status == "accepted":
                 if trajectory["state"] not in {"dispatched", "accepted"}:
                     raise RuntimeError("Trajectory acceptance arrived out of order")
+                self._apply_workspace_recovery(trajectory, payload.get("details") or {})
                 if 'accepted_reported_at' not in trajectory:
                     trajectory['accepted_reported_at'] = payload['reported_at']
                     self._run_metrics['accepted_packets'] += 1
@@ -1518,6 +1529,34 @@ class RunnerController(HomeSceneStartup):
                                        stage='gateway', code=code, status=status,
                                        reported_progress=trajectory['progress_count'],
                                        trajectory_id=trajectory['trajectory_id'])
+                details = payload.get("details") or {}
+                if (code in {"left_tip_outside_workspace", "right_tip_outside_workspace"}
+                        and details.get("recoverable") is True):
+                    count = trajectory["progress_count"]
+                    if (details.get("workspace_recovery") != "held"
+                            or details.get("hold") != "measured_position"
+                            or details.get("next_step_id") != trajectory["last_step_id"] + 1
+                            or type(details.get("executed_waypoints")) is not int
+                            or details["executed_waypoints"] != count
+                            or (status == "rejected" and (count != 0 or trajectory["state"] != "dispatched"))
+                            or (status == "aborted" and (trajectory["state"] != "accepted"
+                                or count > trajectory["waypoint_count"]
+                                or payload.get("step_id") != min(trajectory["first_step_id"] + count,
+                                                                 trajectory["last_step_id"])))):
+                        raise RuntimeError("Workspace recovery has inconsistent hold or progress evidence")
+                    failed = getattr(self._provider, "trajectory_failed", None)
+                    if getattr(self._provider, 'supports_workspace_replanning', True) is False:
+                        raise RuntimeError('Provider cannot revise a workspace-held trajectory; its cached packet will not be replayed')
+                    if callable(failed):
+                        failed(code, message, count, feedback=details)
+                    self._workspace_feedback = dict(details, code=code, message=message)
+                    self._workspace_replan_not_before = time.monotonic() + .25
+                    self._last_completed_trajectory_result = deepcopy_dict(result)
+                    self._trajectory = None
+                    self._workspace_progress('Workspace boundary reached ('
+                        + ', '.join(details.get('boundaries') or [code])
+                        + '); holding measured pose and requesting a fresh plan', outcome='held')
+                    return
                 if (status == "aborted" and code == "joint_settle_timeout"
                         and (payload.get("details") or {}).get("recoverable") is True):
                     failed = getattr(self._provider, "trajectory_failed", None)
@@ -1600,6 +1639,46 @@ class RunnerController(HomeSceneStartup):
                     self._trajectory = trajectory
         else:
             raise RuntimeError("Completed packet has no measured final observation")
+
+    def _apply_workspace_recovery(self, trajectory, details):
+        if details.get("workspace_recovery") != "adjusted":
+            return
+        if trajectory.get("workspace_recovery") == details:
+            return
+        if trajectory.get("workspace_recovery") is not None:
+            raise RuntimeError("Controller changed its workspace replacement")
+        target = dict(trajectory["final_target"])
+        for side, count in zip(("left", "right"), self._joint_counts):
+            key = side + "_joints_deg"
+            values = details.get(key)
+            if (not isinstance(values, (list, tuple)) or len(values) != count
+                    or any(type(value) not in (int, float) or not math.isfinite(value) for value in values)):
+                raise RuntimeError("Workspace replacement is missing finite final joints")
+            grip = details.get(side + "_gripper")
+            if type(grip) not in (int, float) or not math.isfinite(grip) or not 0 <= grip <= 1:
+                raise RuntimeError("Workspace replacement has an invalid gripper target")
+            target[key], target[side + "_gripper"] = list(values), grip
+        changed = details.get("changed_waypoints")
+        if type(changed) is not int or not 1 <= changed <= trajectory["waypoint_count"]:
+            raise RuntimeError("Workspace replacement has an invalid waypoint count")
+        trajectory["final_target"] = target
+        trajectory["workspace_recovery"] = deepcopy_dict(details)
+        trajectory["path_segments"] = []  # Nominal path no longer describes execution.
+        self._workspace_feedback = deepcopy_dict(details)
+        adjusted = getattr(self._provider, "trajectory_adjusted", None)
+        if callable(adjusted):
+            adjusted(details)
+        self._workspace_progress('Workspace boundary reached ('
+            + ', '.join(details.get('boundaries') or ['boundary'])
+            + '); executing a validated replacement', changed_waypoints=changed,
+            orientation_relaxed=details.get('orientation_relaxed'), outcome='adjusted')
+
+    def _workspace_progress(self, message, **details):
+        sink = getattr(self._provider, 'interaction_sink', None)
+        if callable(sink):
+            sink('model_progress', message, progress_type='status', **details)
+        else:
+            self._interactions.add('model_progress', message, progress_type='status', **details)
 
     def _trajectory_final_observation(
         self,
@@ -1684,23 +1763,34 @@ class RunnerController(HomeSceneStartup):
 
         results = matching("trajectory_results")
         failure = next((r for r in results if r.get("status") in {"rejected", "aborted", "stopped"}), None)
-        recoverable = (failure is not None and failure.get('status') == 'aborted'
+        workspace_failure = (failure is not None and failure.get('status') in {'rejected', 'aborted'}
+                             and failure.get('code') in {'left_tip_outside_workspace', 'right_tip_outside_workspace'}
+                             and (failure.get('details') or {}).get('recoverable') is True)
+        recoverable = workspace_failure or (failure is not None and failure.get('status') == 'aborted'
                        and failure.get('code') == 'joint_settle_timeout'
                        and (failure.get('details') or {}).get('recoverable') is True)
         if failure is not None and not recoverable:
             raise RuntimeError(f"Trajectory failed while disconnected: {failure.get('code') or failure['status']}")
-        if [r.get("status") for r in results] != ["accepted", "aborted" if recoverable else "completed"]:
+        statuses = (["rejected"] if workspace_failure and failure['status'] == 'rejected'
+                    else ["accepted", "aborted" if recoverable else "completed"])
+        if [r.get("status") for r in results] != statuses:
             raise RuntimeError("Trajectory recovery requires recorded acceptance and completion")
         progress = matching("trajectory_progress")
-        expected = list(range(trajectory["first_step_id"], trajectory["last_step_id"] + 1))
+        count = ((failure.get('details') or {}).get('executed_waypoints') if workspace_failure
+                 else trajectory['waypoint_count'])
+        if type(count) is not int or not 0 <= count <= trajectory['waypoint_count']:
+            raise RuntimeError("Workspace recovery trace has invalid progress")
+        expected = list(range(trajectory["first_step_id"], trajectory["first_step_id"] + count))
         if [p.get("step_id") for p in progress] != expected:
             raise RuntimeError("Trajectory recovery has incomplete or unordered progress")
         if any(not isinstance(p.get("executed_at"), (int, float)) for p in progress):
             raise RuntimeError("Trajectory recovery is missing execution timestamps")
         with self._lock:
-            trajectory["state"] = "accepted"
+            trajectory["state"] = "dispatched" if statuses == ['rejected'] else "accepted"
+            if statuses[0] == 'accepted':
+                self._apply_workspace_recovery(trajectory, results[0].get('details') or {})
             trajectory["progress_count"] = len(progress)
-            trajectory["last_progress_step_id"] = expected[-1]
+            trajectory["last_progress_step_id"] = expected[-1] if expected else None
             # Validate the replayed settled observation through the normal path.
             trajectory["final_observation_received"] = False
         if recoverable:
@@ -1708,6 +1798,16 @@ class RunnerController(HomeSceneStartup):
             self._trajectory_result(failure)
 
     def _recover_trajectory(self, active: Mapping[str, Any]) -> None:
+        if active.get('state') == 'accepted':
+            # Active snapshots omit accepted details. Read the authenticated
+            # acceptance before validating a replayed final observation.
+            trace = self._session_api.get_episode_trace(self._session_id)
+            accepted = [r for r in trace.get('trajectory_results', [])
+                        if r.get('trajectory_id') == active.get('trajectory_id') and r.get('status') == 'accepted']
+            if len(accepted) != 1 or accepted[0].get('episode_id') != self._episode_id or accepted[0].get('lease_id') != self._lease_id:
+                raise RuntimeError('Active trajectory has no authenticated acceptance')
+            with self._lock:
+                self._apply_workspace_recovery(self._trajectory, accepted[0].get('details') or {})
         with self._lock:
             trajectory = self._trajectory
             if trajectory is None:

@@ -208,6 +208,8 @@ class DreamAdapter:
         self._capture_sequence = 0
         self._history_generation = 0
         self._worker_recoveries = 0
+        self._workspace_reset_pending = False
+        self._workspace_feedback = None
 
     def _interaction(self, kind, message, **details):
         if self.interaction_sink:
@@ -528,6 +530,22 @@ class DreamAdapter:
         if changed:
             self._worker.call('reset', cancelled=self._cancelled)
             self._commanded = self._pending_commanded = None
+            self._workspace_reset_pending = False
+            self._workspace_feedback = None
+        if self._workspace_reset_pending:
+            # SDK 1.0.0 reset_episode clears its action smoother and frame window
+            # (docs/refs/dreamlabs/client.md). Run between predictions, never in
+            # the controller event callback or concurrently with get_action.
+            reset = self._worker.call('reset', cancelled=self._cancelled)
+            if reset.get('ok') is not True:
+                raise RuntimeError('Dream could not reset workspace-recovery action history')
+            with self._changed:
+                self._history_generation += 1
+                self._history.clear()
+                self._commanded = self._pending_commanded = None
+                self._workspace_reset_pending = False
+            if callable(self.refresh_observation):
+                self.refresh_observation()
         if self._collector is None:
             self._collector = threading.Thread(target=self._collect, daemon=True, name='dream-camera-history')
             self._collector.start()
@@ -546,6 +564,8 @@ class DreamAdapter:
                 if update is not None:
                     self._prompt = update
                 active_prompt = self._prompt
+                if self._workspace_feedback:
+                    active_prompt += '\nController workspace feedback: ' + self._workspace_feedback
             # SDK 1.0.0 set_observation replaces the prompt without resetting
             # its session or frame window (docs/refs/dreamlabs/client.md).
             # Copy ticks: the collector and previous request receipts retain
@@ -654,6 +674,26 @@ class DreamAdapter:
         # The runner calls this only after gateway completion. Measured lag can
         # resemble an earlier noisy row; the SDK needs the actual final target.
         self._commanded, self._pending_commanded = self._pending_commanded, None
+
+    def trajectory_adjusted(self, details):
+        # Acceptance is not completion: keep the corrected anchor pending until
+        # measured completion, and discard the SDK's nominal blending next time.
+        self._pending_commanded = {
+            key: [math.radians(value) for value in details[side + '_joints_deg']]
+                 + [details[side + '_gripper']]
+            for key, side in (('q_l_chunk', 'left'), ('q_r_chunk', 'right'))}
+        self._workspace_reset_pending = True
+        self._workspace_feedback = ('Reached ' + ', '.join(details.get('boundary_limits') or details.get('boundaries') or ['workspace boundary'])
+            + '; controller executed a validated replacement inside the existing boundary. '
+              'Use fresh measured state and choose an in-bounds target.'
+            + (' Requested orientation was relaxed.' if details.get('orientation_relaxed') else ''))
+
+    def trajectory_failed(self, code, message, waypoint_count, *, feedback=None):
+        self._commanded = self._pending_commanded = None
+        self._workspace_reset_pending = True
+        boundaries = ', '.join((feedback or {}).get('boundary_limits') or (feedback or {}).get('boundaries') or [code])
+        self._workspace_feedback = (f'{boundaries}: {message}. Packet stopped after {waypoint_count} waypoints; '
+            'remaining actions were discarded. Use fresh measured state and revise the target; do not replay the packet.')
 
     def close_transport(self):
         self._stop.set()

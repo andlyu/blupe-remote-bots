@@ -32,7 +32,7 @@ def test_openai_default_and_override_reach_request(speed, tier):
     assert wire['service_tier'] == tier
     config = snapshot(adapter, 'Place block', 300)
     assert config['prompt_version'] == 'with-haste'
-    assert config['system_prompt_sha256'] == '724dba416a8a722f5a52dfe5f125a34e8eed5c4ebb4d7e5e74aed5a56559d559'
+    assert config['system_prompt_sha256'] == '459f8d984afe5fd94f95b958c2262a27d4b073c851d2450ab84cdc798ab76004'
     assert config['trajectory_speed'] == 4.0
     assert config['response_speed'] == (speed or 'fast')
     assert config['actual_response_speed'] == (speed or 'fast')
