@@ -1434,7 +1434,7 @@ function createRunLaunchGuard() {
     const runError = publicErrorInChat ? null : run?.error;
     const error = state.robot_fault || (taskError === generic ? runError || taskError : taskError || runError);
     const warning = ['preparing', 'running'].includes(run?.status) ? run?.warning : null;
-    const notice = error || warning;
+    const notice = error === generic ? 'Run failed without a recorded error detail.' : error || warning;
     const element = $('publicRunError');
     element.hidden = !notice;
     element.dataset.tone = error ? 'error' : 'warning';
@@ -3037,7 +3037,7 @@ function taskRunFailure(run) {
   if(!run.error && !['failed','timed_out','disconnected'].includes(run.status) &&
       !(run.status === 'stopped' && isBlocked(updates.at(-1)))) return null;
   const generic = 'The run encountered a model or runner error.';
-  const reason = (run.error && run.error !== generic ? run.error : blocked || run.error) ||
+  const reason = (run.error && run.error !== generic ? run.error : blocked) ||
     (run.status === 'timed_out' ? 'Run reached time limit' : 'The task ended without a recorded reason.');
   return {label:run.status === 'timed_out' || reason === 'Run reached time limit' ? 'Task timed out' : 'Task failed',
     reason:String(reason),task:run.task || run.task_progress?.task};

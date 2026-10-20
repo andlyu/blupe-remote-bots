@@ -281,7 +281,8 @@ class RunNames:
             result, reason = 'Failure', 'Robot safety check stopped the run'
             errors = reason
         elif state.get('error'):
-            result, reason = 'Failure', public_runner_diagnostic(state) or 'Runner or model error'
+            from .run_errors import public_run_error
+            result, reason = 'Failure', public_run_error(state)
             errors = reason
         elif state.get('status') == 'timed_out':
             result, reason = 'Failure', 'Run reached time limit'
@@ -295,7 +296,7 @@ class RunNames:
             result, reason = 'Cancelled', 'Stopped by the visitor'
         else:
             return
-        # Never expose provider exception text, URLs, or visitor credentials.
+        # Store the same redacted diagnostic shown in the live banner.
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch(mode=0o600, exist_ok=True)
         with sqlite3.connect(self.path) as db:
@@ -325,11 +326,11 @@ class RunNames:
                 previous = db.execute('SELECT r.result, r.reason FROM run_results r JOIN run_details d USING (episode_id) WHERE r.episode_id=? AND d.ending_reason IS NOT NULL', (episode_id,)).fetchone()
                 if previous:
                     result, reason = previous
+            previous = db.execute('SELECT reason FROM run_results WHERE episode_id=?', (episode_id,)).fetchone()
+            if previous and previous[0] == 'Run reached time limit' and not specific:
+                result, reason, errors = 'Failure', 'Run reached time limit', 'Run reached time limit'
             db.execute('INSERT INTO run_details VALUES (?, ?, ?) ON CONFLICT(episode_id) DO UPDATE SET errors=COALESCE(excluded.errors,errors), ending_reason=COALESCE(excluded.ending_reason,ending_reason)',
                        (episode_id, errors, ending[1] if ending else None))
-            previous = db.execute('SELECT reason FROM run_results WHERE episode_id=?', (episode_id,)).fetchone()
-            if previous and previous[0] == 'Run reached time limit' and reason == 'Runner or model error':
-                reason = errors = 'Run reached time limit'
             db.execute('INSERT INTO run_results VALUES (?, ?, ?) ON CONFLICT(episode_id) DO UPDATE SET result=excluded.result, reason=excluded.reason WHERE result != excluded.result OR reason != excluded.reason', (episode_id, result, reason))
 
     def results(self):

@@ -76,6 +76,7 @@ class RunnerController(HomeSceneStartup):
         self._return_to_rest_requested = False
         self._operator_requested = False
         self._error: str | None = None
+        self._deadline_cancelled_session: str | None = None
         self._safety_error: dict[str, Any] | None = None
         self._run_events: list[dict[str, Any]] = []
         self._submitted_step_ids: list[int] = []
@@ -125,6 +126,7 @@ class RunnerController(HomeSceneStartup):
                 self._attempt_id = uuid.uuid4().hex
             self._error = None
             self._safety_error = None
+            self._deadline_cancelled_session = None
         configure_workspace = getattr(provider, 'configure_robot_workspace', None)
         if callable(configure_workspace):
             configure_workspace(self._robot_id)
@@ -1194,8 +1196,11 @@ class RunnerController(HomeSceneStartup):
             if self._stop_event.is_set() or self._provider is not provider:
                 return True
             started = getattr(self, '_run_started_at', None)
-            return (self._status == 'running' and started is not None
-                    and time.time() - started >= self._run_duration_s)
+            expired = (self._status == 'running' and started is not None
+                       and time.time() - started >= self._run_duration_s)
+            if expired:
+                self._deadline_cancelled_session = self._session_id
+            return expired
 
     def _dispatch_trajectory(
         self,
@@ -1854,6 +1859,18 @@ class RunnerController(HomeSceneStartup):
             # the session, before this worker can consume its queued timeout event.
             with self._lock:
                 failed_session = self._session_id
+                deadline_cancelled = (failed_session is not None and
+                                      self._deadline_cancelled_session == failed_session)
+            if deadline_cancelled:
+                # The provider observed our selected-duration deadline before
+                # the gateway's terminal event arrived. Preserve that cause.
+                try:
+                    self._session_api.stop_session(failed_session, reason='policy_runtime_timeout')
+                except Exception:
+                    pass
+                self._lifecycle({}, {"state": "timed_out", "reason": "policy_runtime_timeout"})
+                self._close_events()
+                return
             if failed_session is not None:
                 try:
                     terminal = self._session_api.get_session(failed_session)

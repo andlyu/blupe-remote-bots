@@ -431,7 +431,8 @@ def test_hosted_run_recovery_preserves_session_and_never_submits_after_cancel(
                 if outcome == 'deadline':
                     with controller._lock:
                         controller._run_started_at = time.time()-121
-                    wait_for(lambda: controller._provider._stop.is_set())
+                    wait_for(lambda: controller.status()['status'] == 'timed_out')
+                    assert controller._provider is None
                 else:
                     controller.stop()
                 release.touch()

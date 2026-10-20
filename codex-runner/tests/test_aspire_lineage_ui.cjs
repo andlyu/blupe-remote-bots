@@ -482,7 +482,7 @@ test('owner errors without native progress replace the generic error for the sam
   f.poll(run,{attempt_id:'ordinary-astra',status:'stopped',error:'RuntimeError: exact preparation failure'});
   assert.equal(f.events().at(-1).message,'RuntimeError: exact preparation failure');
   f.poll(run,{attempt_id:'another-attempt',status:'stopped',error:'Unrelated error'});
-  assert.equal(f.events().at(-1).message,run.error);
+  assert.equal(f.events().at(-1).message,'The task ended without a recorded reason.');
 });
 
 test('Astra fallback failures include the owner diagnostic in chat', async () => {
