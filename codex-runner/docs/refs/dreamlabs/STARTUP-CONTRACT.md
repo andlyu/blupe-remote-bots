@@ -85,3 +85,11 @@ Exact-SDK synthetic verification compared bitwise-identical original and
 instrumented outputs, replayed the archived numerical case exactly, and
 exercised actual compiler/cache hooks with a new synthetic row shape. It makes
 no claim about the cause of earlier production stalls or physical readiness.
+
+Tracing is installed during configuration, before both-form startup preparation.
+The preparation helper uses Python's documented `inspect.unwrap` protocol to
+follow `functools.wraps` back to the original bound SDK method, then finds its
+module-global kernel binding. Inspecting `__func__` directly on the tracing
+function breaks this startup order. The regression installs real diagnostics
+before preparation; exact-SDK validation repeats both-form preparation with
+the diagnostics installed, retaining the same kernel arguments and results.
