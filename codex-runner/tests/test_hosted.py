@@ -663,6 +663,85 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
         self.app.max_sessions = 1
         self.assertEqual((await self.call("/api/session", method="POST"))[0], 503)
 
+    async def test_reset_runs_recovers_cap_without_replacing_session_or_history(self):
+        browser = await self.session()
+        visitor = next(iter(self.app.visitors.values()))
+        visitor.launches = 19
+        self.assertEqual((await self.launch(browser))[0], 200)
+        self.assertEqual(visitor.launches, 20)
+        visitor.controller.stop()
+        await asyncio.to_thread(visitor.controller._worker.join, 2)
+        self.assertFalse(visitor.controller.busy())
+        visitor.last_launch = -float('inf')
+        before_status = visitor.controller.status()
+        before_runs = (await self.call('/api/recordings', **browser))[1]
+        self.assertTrue(before_runs['runs'])
+        before_files = {p.relative_to(visitor.directory): p.read_bytes()
+                        for p in visitor.directory.rglob('*') if p.is_file()}
+        settings = (visitor.saved_keys.copy(), visitor.runner_name, visitor.runner_task,
+                    visitor.runner_session_id, visitor.born, visitor.last_launch)
+        _, rejoined, _ = await self.call('/api/session', method='POST', cookie=browser['cookie'])
+        self.assertEqual(rejoined['csrf'], browser['csrf'])
+        code, blocked, _ = await self.launch(browser)
+        self.assertEqual(code, 429)
+        self.assertIn('Reset runs', blocked['error'])
+        providers_before = len(self.providers)
+        with patch.object(visitor.controller, 'forget_key') as forget, \
+                patch.object(visitor.controller, 'disconnect') as disconnect:
+            code, result, headers = await self.call('/api/runs/reset', method='POST', **browser)
+        self.assertEqual((code, result), (200, {'ok': True}))
+        forget.assert_not_called(); disconnect.assert_not_called()
+        self.assertNotIn(b'set-cookie', headers)
+        self.assertEqual(visitor.launches, 0)
+        self.assertFalse(visitor.retired)
+        self.assertEqual(len(self.app.visitors), 1)
+        self.assertEqual(len(self.providers), providers_before)
+        self.assertEqual(visitor.controller.status(), before_status)
+        self.assertEqual((visitor.saved_keys, visitor.runner_name, visitor.runner_task,
+                          visitor.runner_session_id, visitor.born, visitor.last_launch), settings)
+        self.assertEqual((await self.call('/api/recordings', **browser))[1], before_runs)
+        self.assertEqual({p.relative_to(visitor.directory): p.read_bytes()
+                          for p in visitor.directory.rglob('*') if p.is_file()}, before_files)
+        self.assertEqual((await self.launch(browser))[0], 200)
+        self.assertEqual(visitor.launches, 1)
+
+    async def test_reset_runs_is_authenticated_and_scoped_to_cookie_visitor(self):
+        path = '/api/runs/reset'
+        self.assertEqual((await self.call(path, method='POST'))[0], 401)
+        browser = await self.session()
+        visitor = next(iter(self.app.visitors.values()))
+        other_cookie, other = self.app.new_visitor()
+        visitor.launches = other.launches = 20
+        for overrides, expected in [({'csrf':'wrong'}, 403),
+                ({'origin':'https://evil.example'}, 403),
+                ({'extra':{'host':'evil.example'}}, 421),
+                ({'extra':{'sec-fetch-site':'cross-site'}}, 403)]:
+            self.assertEqual((await self.call(path, method='POST', **{**browser, **overrides}))[0], expected)
+            self.assertEqual(visitor.launches, 20)
+        self.assertEqual((await self.call(path, **browser))[0], 404)
+        # A body-selected target must not override cookie authority.
+        self.assertEqual((await self.call(path, method='POST',
+            payload={'visitor':other_cookie}, **browser))[0], 200)
+        self.assertEqual(visitor.launches, 0)
+        self.assertEqual(other.launches, 20)
+        visitor.retired = True
+        self.assertEqual((await self.call(path, method='POST', **browser))[0], 401)
+
+    async def test_reset_runs_rejects_active_or_still_exiting_workers_and_keeps_cooldown(self):
+        browser = await self.session()
+        visitor = next(iter(self.app.visitors.values()))
+        visitor.launches = 20
+        for status, busy in [('queued', False), ('preparing', False), ('running', False), ('stopped', True)]:
+            with patch.object(visitor.controller, 'busy', return_value=busy), \
+                    patch.object(visitor.controller, 'status', return_value={'status':status}):
+                code, result, _ = await self.call('/api/runs/reset', method='POST', **browser)
+            self.assertEqual(code, 409)
+            self.assertIn('Stop', result['error'])
+            self.assertEqual(visitor.launches, 20)
+        visitor.last_launch = time.monotonic()
+        self.assertEqual((await self.call('/api/runs/reset', method='POST', **browser))[0], 200)
+        self.assertEqual((await self.launch(browser))[0], 429)
+
     async def test_camera_uses_trusted_named_route_and_shared_cache(self):
         browser = await self.session()
         self.app.observation = {"images": {"left": {"url": "https://session.example/left.jpg"}}}

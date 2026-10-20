@@ -30,6 +30,11 @@ During a conversational rollout, its owner can use **Steer your run** in Task ch
 to add instructions for the next model decision. See [runtime steering](docs/runtime-steering.md)
 for prompt integration, supported policies, delivery states and related research.
 
+Each browser session allows 20 runs. At the limit, click **Reset runs** in the
+page footer to refresh that session's allowance. Wait for your run to finish or
+use Stop first; reset does not stop or start a run. Recordings, saved keys and
+settings are kept. Separate hosted guest or subscription allowances still apply.
+
 Camera URLs must be reachable from the runner host. The current simulation publisher emits LAN URLs under `http://andrew-desktop.local:8089`, which work on that LAN but require Session API proxy/upload or externally reachable signed URLs for remote runners.
 
 ## Launch

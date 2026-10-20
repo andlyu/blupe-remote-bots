@@ -630,6 +630,8 @@ class HostedRunner:
                 result = {"ok": True}
             elif path == "/api/run":
                 result = await asyncio.to_thread(self.launch, visitor, payload)
+            elif path == '/api/runs/reset':
+                result = await asyncio.to_thread(self.reset_runs, visitor)
             elif path == '/api/steer':
                 result = await asyncio.to_thread(self.steer, visitor, payload)
             elif path == '/api/models':
@@ -855,7 +857,7 @@ class HostedRunner:
             if time.monotonic() - visitor.last_launch < 5:
                 raise RequestError(429, "Please wait a few seconds before starting another run.")
             if visitor.launches >= 20:
-                raise RequestError(429, "This browser session reached its 20-run limit. End the session to begin another.")
+                raise RequestError(429, 'This browser session reached its 20-run limit. Click Reset runs in the page footer to continue.')
             name, key, prompt, model = (payload.get(k, "") for k in ("provider", "api_key", "prompt", "model"))
             fast_provider = name in ('openai', 'codex', 'anthropic', 'claude')
             response_speed = payload.get('response_speed', 'fast' if fast_provider else 'standard')
@@ -1108,6 +1110,17 @@ class HostedRunner:
             except SteeringError as exc:
                 raise RequestError(exc.status, str(exc)) from None
             return {'ok': True, 'message': row}
+
+    def reset_runs(self, visitor):
+        # Serialize with launch/close; resetting an allowance must never stop a
+        # controller, retire a visitor or remove their recordings/credentials.
+        with visitor.lock:
+            if visitor.retired:
+                raise RequestError(401, 'Browser session ended')
+            if visitor.controller.busy() or visitor.controller.status()['status'] in ACTIVE:
+                raise RequestError(409, 'Wait for your run to finish, or use Stop, before resetting runs.')
+            visitor.launches = 0
+            return {'ok': True}
 
     def control(self, visitor, path):
         self.remember_runner(visitor)
