@@ -1,10 +1,11 @@
-// Share links select an available model after the session has built its providers.
+// Default to Dream where available; share links can select another model.
 // They never start a run or change which providers the server permits.
 function playgroundEntryModel(search, options, session = {}) {
   if (session.station_local) return null;
   const requested = (new URLSearchParams(search).get('model') || '').trim().toLowerCase();
-  const aliases = {astra:'astra', 'gpt-6-astra':'astra', argon:'argon', 'gemini-4-argon':'argon'};
-  const name = Object.hasOwn(aliases, requested) ? aliases[requested] : (session.local_runner ? null : 'astra');
+  const aliases = {dream:'dream', 'dream-1':'dream', 'dreamlabs/dream-1-beta':'dream',
+    astra:'astra', 'gpt-6-astra':'astra', argon:'argon', 'gemini-4-argon':'argon'};
+  const name = Object.hasOwn(aliases, requested) ? aliases[requested] : (session.local_runner ? null : 'dream');
   if (!name) return null;
   const available = new Set(Array.from(options).filter(option => !option.hidden && !option.disabled).map(option => option.value));
   const select = (model, providers) => {
@@ -13,7 +14,8 @@ function playgroundEntryModel(search, options, session = {}) {
     return provider ? {provider, model} : null;
   };
   const astra = () => select('gpt-6-astra', ['guest_astra', 'codex', 'openai']);
-  return (name === 'argon' ? select('gemini-4-argon', ['guest_gemini', 'gemini']) : astra())
+  return (name === 'dream' ? select('dreamlabs/dream-1-beta', ['dream'])
+    : name === 'argon' ? select('gemini-4-argon', ['guest_gemini', 'gemini']) : astra())
     || (session.local_runner ? null : astra());
 }
 

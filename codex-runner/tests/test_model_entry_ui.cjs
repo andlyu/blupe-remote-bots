@@ -9,11 +9,31 @@ const select = vm.runInNewContext(helper + '\nplaygroundEntryModel', {URLSearchP
 const choices = (...values) => values.map(value => typeof value === 'string' ? {value} : value);
 const entry = (query, options, session) => JSON.parse(JSON.stringify(select(query, options, session)));
 
-test('public entry prefers Astra even when ASPIRE or Argon is listed first', () => {
+test('public entry prefers Dream beta where available, with Astra for other stations', () => {
+  for (const query of ['', '?model=unknown', '?model=__proto__']) {
+    assert.deepEqual(entry(query, choices('hosted_aspire', 'guest_astra', 'dream_flash', 'dream')),
+      {provider:'dream', model:'dreamlabs/dream-1-beta'});
+  }
+  for (const dream of [{value:'dream', hidden:true}, {value:'dream', disabled:true}]) {
+    assert.deepEqual(entry('', choices('guest_astra', dream)),
+      {provider:'guest_astra', model:'gpt-6-astra'});
+  }
   assert.deepEqual(entry('', choices('hosted_aspire', 'guest_gemini', 'guest_astra')),
     {provider:'guest_astra', model:'gpt-6-astra'});
   assert.deepEqual(entry('', choices('guest_gemini', 'openai')),
     {provider:'openai', model:'gpt-6-astra'});
+});
+
+test('explicit model links override Dream and Dream links use only an available provider', () => {
+  const options = choices('dream', 'dream_flash', 'guest_astra', 'guest_gemini');
+  assert.deepEqual(entry('?model=astra', options), {provider:'guest_astra', model:'gpt-6-astra'});
+  assert.deepEqual(entry('?model=argon', options), {provider:'guest_gemini', model:'gemini-4-argon'});
+  for (const model of ['dream', 'dream-1', 'dreamlabs/dream-1-beta']) {
+    assert.deepEqual(entry('?model=' + model, options), {provider:'dream', model:'dreamlabs/dream-1-beta'});
+  }
+  assert.equal(entry('?model=dream', choices('dream_flash')), null);
+  assert.equal(entry('', options, {local_runner:true}), null);
+  assert.equal(entry('', options, {station_local:true}), null);
 });
 
 test('Argon share links select the existing sponsored route and compose with robot links', () => {
