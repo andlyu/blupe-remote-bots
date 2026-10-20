@@ -7,6 +7,7 @@ Authoritative READMEs extracted from the installed 1.0.0 wheel metadata on Octob
 | Isolated Python 3.12 installation and optional station dependencies | [Library](library.md#install) |
 | Private credential file, model discovery and nonmotion setup | [Client](client.md#quickstart) |
 | Three camera roles, JPEG encoding, monotonic history and radians | [Client](client.md#running-a-model) |
+| Mid-run language guidance: latest observation replaces `prompt`; `get_action` consumes it without an episode reset | [Client](client.md#running-a-model), [runner integration](../../runtime-steering.md#dream-1-prediction-boundary) |
 | EEF trajectory IK, completion anchor and joint chunk output | [Client](client.md#eef-checkpoints-and-client-ik) |
 | Session reset, release and recording disable | [Client](client.md#running-a-model) |
 

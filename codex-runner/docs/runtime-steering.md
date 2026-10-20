@@ -20,8 +20,9 @@ rates do not establish the performance of this implementation.
 
 Conversational RoboCurve providers (OpenAI/Astra, Codex, Anthropic and Claude,
 including their joint, SO101, MakerArm and Codex depth variants) share the inbox.
-Fixed code programs, ASPIRE program execution, hosted remote policies and VLA
-adapters do not consume this conversation and report live steering unavailable.
+Dream-1 beta and Flash also support owner steering through their language input
+(below). Fixed code programs, ASPIRE program execution, hosted remote policies
+and other VLA adapters report live steering unavailable.
 
 The inference thread appends each accepted message once, after its fresh camera
 observation, as a **user** turn:
@@ -44,6 +45,29 @@ message arrives during a model request, its returned tool calls receive a
 with the correction and refreshed observation. Motion already dispatched is not
 interrupted by steering. Use **Stop** to halt a run. Depth measurement subcalls
 may finish before the outer decision loop consumes a correction.
+
+### Dream-1 prediction boundary
+
+Dream receives one task string rather than conversational user turns. At the
+next prediction boundary, the runner combines the original task and accepted
+owner guidance in submission order, stating that newer guidance takes precedence.
+This becomes the `prompt` in the observations passed to SDK1.0.0
+`set_observation`; `get_action` consumes that latest prompt. Subsequent
+predictions retain the guidance when the controller passes the original run
+task again. The original task still identifies the run.
+
+Guidance does not reset the SDK episode, model session, camera window or
+completed command anchor. A correction arriving during inference discards that
+unused prediction and requests a new one at the same gateway step with fresh
+input. On the first prediction, measured pose supplies the anchor instead of an
+unexecuted result. Already dispatched motion finishes through the existing
+completion path before another prediction. Stop retains its existing behavior.
+
+`included` means the updated prompt was put into the outbound prediction
+context. It does not establish live model obedience or a physical outcome.
+`test_dream_steering.py` covers this through the authenticated owner endpoint,
+real adapter and worker subprocess with a controlled SDK; it makes no paid
+model request or robot command.
 
 Delivery states mean:
 

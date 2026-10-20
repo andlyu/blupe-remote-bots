@@ -169,6 +169,8 @@ class DreamWorker:
 
 
 class DreamAdapter:
+    supports_runtime_steering = True
+
     def __init__(self, *, provider, model, credentials, python, directory,
                  camera_source, observation_source, robot_id, worker_factory=DreamWorker,
                  gateway_max_step_deg=None, worker_pool=None):
@@ -197,12 +199,19 @@ class DreamAdapter:
         self._collector = None
         self._failure = None
         self._prompt = None
+        self._task_prompt = None
+        from .steering import SteeringInbox
+        self.steering = SteeringInbox(self._interaction)
         self._commanded = None
         self._pending_commanded = None
         self.last_probe = None
         self._capture_sequence = 0
         self._history_generation = 0
         self._worker_recoveries = 0
+
+    def _interaction(self, kind, message, **details):
+        if self.interaction_sink:
+            self.interaction_sink(kind, message, **details)
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, cadence_hz=10,
@@ -511,9 +520,10 @@ class DreamAdapter:
             self.start_preparation(self.cancelled)
         self.wait_ready(self._cancelled)
         with self._changed:
-            changed = self._prompt is not None and self._prompt != prompt
-            if self._prompt != prompt:
+            changed = self._task_prompt is not None and self._task_prompt != prompt
+            if self._task_prompt != prompt:
                 self._history.clear()
+                self._task_prompt = prompt
                 self._prompt = prompt
         if changed:
             self._worker.call('reset', cancelled=self._cancelled)
@@ -529,6 +539,19 @@ class DreamAdapter:
             # Require a new camera tick for this decision; never reuse an old snapshot.
             with journal_span(self.interaction_sink, 'observation_wait', first_step_id=first_step_id):
                 ticks = self._wait_for_ticks(began, observed_after)
+            if self._cancelled():
+                raise RuntimeError('Dream cancelled')
+            update = self.steering.include_prompt(prompt)
+            with self._changed:
+                if update is not None:
+                    self._prompt = update
+                active_prompt = self._prompt
+            # SDK 1.0.0 set_observation replaces the prompt without resetting
+            # its session or frame window (docs/refs/dreamlabs/client.md).
+            # Copy ticks: the collector and previous request receipts retain
+            # their actual capture-time values while this request gets guidance.
+            ticks = [dict(tick, observation=dict(tick['observation'], prompt=active_prompt))
+                     for tick in ticks]
             capture_timing = ticks[-1].get('capture_timing')
             if self.interaction_sink and capture_timing:
                 try:
@@ -551,6 +574,23 @@ class DreamAdapter:
             if reply['ok']:
                 # A collection failure during inference must not dispatch a late reply.
                 latest = self._wait_for_ticks()[-1]
+                if self.steering.pending():
+                    # Nothing from this prediction was dispatched. Keep the
+                    # completed command anchor, or measured pose on the first
+                    # decision, so an unused prediction cannot anchor smoothing.
+                    if self._commanded is None:
+                        measured = latest['observation']
+                        self._commanded = {
+                            key: list(measured['state.' + side + '_arm'])
+                                 + list(measured['state.' + side + '_gripper'])
+                            for key, side in (('q_l_chunk', 'left'), ('q_r_chunk', 'right'))}
+                    self._interaction('model_progress',
+                        'Dream prediction discarded; requesting a fresh prediction with newer steering',
+                        progress_type='status', first_step_id=first_step_id)
+                    if callable(self.refresh_observation):
+                        self.refresh_observation()
+                    began = time.monotonic()
+                    continue
                 result = reply['result']
                 nominal = action_waypoints(result['action'], first_step_id)
                 measured = latest['observation']
