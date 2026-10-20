@@ -240,15 +240,45 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
                           call_id=call_id, result=result)
 
     def trajectory_failed(self, code, message, waypoint_count, *, feedback=None):
-        """Return a verified measured-hold timeout to the pending model tool."""
-        if code not in ('joint_settle_timeout', 'final_position_mismatch') or self._pending is None or waypoint_count != self._pending['waypoint_count']:
+        """Return verified completion failures or a measured workspace hold."""
+        pending = self._pending
+        workspace = code in ('left_tip_outside_workspace', 'right_tip_outside_workspace')
+        if pending is None or type(waypoint_count) is not int:
             raise RuntimeError('Failed trajectory does not match the pending model tool')
-        self._tool_result(self._pending['call_id'], {
+        if workspace:
+            if (not isinstance(feedback, dict) or feedback.get('recoverable') is not True
+                    or feedback.get('workspace_recovery') != 'held'
+                    or feedback.get('hold') != 'measured_position'
+                    or type(feedback.get('executed_waypoints')) is not int
+                    or feedback['executed_waypoints'] != waypoint_count
+                    or not 0 <= waypoint_count <= pending['waypoint_count']
+                    or type(feedback.get('next_step_id')) is not int
+                    or feedback['next_step_id'] != pending['last_step_id'] + 1):
+                raise RuntimeError('Workspace failure has no verified measured hold for the pending model tool')
+        elif code not in ('joint_settle_timeout', 'final_position_mismatch') or waypoint_count != pending['waypoint_count']:
+            raise RuntimeError('Failed trajectory does not match the pending model tool')
+        self._tool_result(pending['call_id'], {
             'ok':False, 'status':'not_reached', 'code':code, 'error':message,
             'steps':waypoint_count,
-            **({'feedback':feedback} if feedback is not None else {}),
-            'instruction':('Waypoint execution has finished, but the final target was not reached. ' if code == 'final_position_mismatch' else 'Motion stopped and the arms hold their measured positions. The requested target was not reached. ') + 'Use the next fresh observation and images to choose a smaller move or different approach; do not blindly repeat the failed command. Give up if you cannot proceed safely.'})
+            **({'feedback':copy.deepcopy(feedback)} if feedback is not None else {}),
+            **({'workspace_replacement':copy.deepcopy(pending['workspace_recovery'])}
+               if pending.get('workspace_recovery') else {}),
+            'instruction':('Workspace boundary reached; only the reported prefix executed and remaining actions were discarded. '
+                if workspace else 'Waypoint execution has finished, but the final target was not reached. '
+                if code == 'final_position_mismatch' else 'Motion stopped and the arms hold their measured positions. The requested target was not reached. ')
+                + 'Use the next fresh observation and images to choose a smaller move or different approach; do not blindly repeat the failed command. Give up if you cannot proceed safely.'})
         self._pending = None
+
+    def trajectory_adjusted(self, details):
+        """Retain the gateway replacement until measured completion reports it."""
+        pending = self._pending
+        changed = details.get('changed_waypoints')
+        if (pending is None or details.get('workspace_recovery') != 'adjusted'
+                or type(changed) is not int or not 1 <= changed <= pending['waypoint_count']):
+            raise RuntimeError('Workspace replacement does not match the pending model tool')
+        if pending.get('workspace_recovery') is not None and pending['workspace_recovery'] != details:
+            raise RuntimeError('Controller changed the pending model tool workspace replacement')
+        pending['workspace_recovery'] = copy.deepcopy(details)
 
     def trajectory_completed(self, observation, waypoint_count):
         """Controller calls only after acceptance, every progress event and settle."""
@@ -256,8 +286,12 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
             raise RuntimeError('Completed trajectory does not match the pending model tool')
         if observation.get('step_id') != self._pending['last_step_id'] + 1:
             raise RuntimeError('Completed model tool has the wrong observation cursor')
-        self._tool_result(self._pending['call_id'], {'ok': True, 'steps': waypoint_count,
-                          'status': 'completed', 'cadence_hz': 10})
+        result = {'ok': True, 'steps': waypoint_count, 'status': 'completed', 'cadence_hz': 10}
+        if self._pending.get('workspace_recovery'):
+            result.update(feedback=copy.deepcopy(self._pending['workspace_recovery']),
+                instruction='The controller executed an adjusted target inside its workspace boundary. '
+                    'The original requested motion was changed; inspect replacement feedback and the next measured observation before choosing a new target.')
+        self._tool_result(self._pending['call_id'], result)
         self._pending = None
         self._failures = 0
 

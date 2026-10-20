@@ -208,9 +208,13 @@ sample. These checks do not change Home, queue admission or lease behavior.
 The SDK adds its YAM hand poses and uses Dream's current YAM default: the EEF
 head with trajectory IK (`ik: {arm: yam, head: eef, solve: traj}`). It solves the
 predicted hand poses into joint targets. After confirmed packet completion, the
-bridge passes the final commanded target to the next SDK request so the seam
-starts at the completed endpoint rather than an earlier row inferred from encoder
-lag. Optional SDK background
+bridge normally passes the final commanded target to the next SDK request so the
+seam starts at the completed endpoint rather than an earlier row inferred from
+encoder lag. After a controller workspace adjustment or verified measured hold,
+the bridge resets SDK blending, command anchors and camera history before the
+next prediction, using fresh measured state/images and boundary feedback. See
+[workspace recovery](CONTROLLER-WORKSPACE.md#controller-workspace-recovery).
+Optional SDK background
 recording is explicitly disabled. A changed prompt resets the SDK episode and
 camera history. Model cold starts honor `pool_warming` retry delays, while Stop
 remains cancellable. Session cleanup releases the Dream session on worker exit. If the SDK reports

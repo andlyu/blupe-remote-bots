@@ -42,4 +42,17 @@ checks are unchanged. The gateway remains authoritative for every packet,
 including joint limits, swept-pose workspace checks, table clearance and collisions.
 Refreshing a controller profile requires reviewing its safety/model sources,
 updating the snapshot and pinned hashes, and running the workspace tests. This
-change does not update a controller, deploy, or issue robot commands.
+profile refresh does not update a controller, deploy, or issue robot commands.
+
+## Controller workspace recovery
+
+A compatible controller can replace a workspace-only rejected packet with a
+reachable packet inside its active calibrated bounds. The runner uses the reported
+replacement target for measured completion, reports boundary/orientation feedback
+to tool providers, and invalidates [Dream's stale action and frame history](dream1.md#observation-and-execution-contract). If no
+replacement passes all guards, a verified measured hold releases the packet's
+reserved step span and requests a fresh decision; rejected actions are not replayed.
+Hardware, feedback and unverified-hold faults remain terminal. Cached raise/lower
+test policies stop rather than regenerate their fixed path, and ASPIRE saved
+programs retain their existing failure fencing. Recovery requires a compatible
+controller deployment; installing this runner alone does not add controller IK.
