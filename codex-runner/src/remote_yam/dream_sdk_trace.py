@@ -6,6 +6,7 @@ and numbers only; slow diagnostics drop records instead of delaying inference.
 from contextlib import contextmanager
 from functools import wraps
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -15,7 +16,13 @@ import time
 
 
 STAGES = frozenset({'prediction', 'http_exchange', 'http_connect', 'http_send',
-                    'http_headers', 'http_body', 'observation_fk', 'ik_solve', 'smoothing'})
+                    'http_headers', 'http_body', 'observation_fk', 'ik_solve', 'smoothing',
+                    'ik_seed', 'ik_trajectory', 'ik_clearance', 'ik_kernel',
+                    'jax_compile_or_cache', 'jax_compile', 'jax_cache_read', 'ik_replay'})
+NUMBERS = frozenset({'duration_s', 'elapsed_s', 'first_step_id', 'cpu_s', 'rows', 'arms',
+    'cache_hit', 'process_rss_mb', 'memory_available_mb', 'load_1m', 'system_busy_ratio',
+    'system_steal_ratio', 'cpu_pressure_avg10', 'memory_pressure_avg10',
+    'cgroup_throttled_us', 'resource_window_s', 'array_bytes', 'array_count', 'replay_errors'})
 STACK = {
     'dream.facade': {'get_action'},
     'dream.client': {'get_action', '_post'},
@@ -42,6 +49,11 @@ class DreamSDKTrace:
         self.sequence = 0
         self.dropped = 0
         self.write_errors = 0
+        try:
+            from .dream_ik_diagnostics import DreamIKDiagnostics
+        except ImportError:
+            from dream_ik_diagnostics import DreamIKDiagnostics
+        self.ik_diagnostics = DreamIKDiagnostics(self)
         self.writer = threading.Thread(target=self._writer, name='dream-trace-writer', daemon=True)
         self.monitor = threading.Thread(target=self._monitor, name='dream-trace-monitor', daemon=True)
         self.writer.start()
@@ -54,10 +66,12 @@ class DreamSDKTrace:
                    dropped=self.dropped, write_errors=self.write_errors)
         if prediction is not None:
             row['prediction'] = prediction
-        for key in ('duration_s', 'elapsed_s', 'first_step_id'):
+        for key in NUMBERS:
             value = numbers.get(key)
-            if type(value) in (float, int) and 0 <= value < 1e12:
+            if type(value) in (float, int) and math.isfinite(value) and 0 <= value < 1e12:
                 row[key] = value
+        if numbers.get('branch') in {'independent', 'coupled'}:
+            row['branch'] = numbers['branch']
         if 'stack' in numbers:
             row['stack'] = numbers['stack']
         try:
@@ -70,7 +84,7 @@ class DreamSDKTrace:
         with self.lock:
             self.sequence += 1
             self.active = dict(prediction=self.sequence, thread=threading.get_ident(),
-                               started=time.monotonic(), spans=[])
+                               started=time.monotonic(), cpu_started=time.process_time(), spans=[])
         try:
             with self.span('prediction', first_step_id=first_step_id):
                 yield
@@ -85,20 +99,22 @@ class DreamSDKTrace:
             active = self.active
             enabled = active is not None and active['thread'] == threading.get_ident()
             started = time.monotonic()
+            cpu_started = time.process_time()
             if enabled:
-                active['spans'].append((stage, started))
+                active['spans'].append((stage, started, cpu_started, numbers))
         if not enabled:
-            yield
+            yield None
             return
         self._emit(stage, 'started', prediction=active['prediction'], **numbers)
         state = 'completed'
         try:
-            yield
+            yield numbers
         except BaseException:
             state = 'error'
             raise
         finally:
-            self._emit(stage, state, prediction=active['prediction'], duration_s=time.monotonic() - started)
+            self._emit(stage, state, prediction=active['prediction'], duration_s=time.monotonic() - started,
+                       cpu_s=time.process_time()-cpu_started, **numbers)
             with self.lock:
                 active['spans'].pop()
 
@@ -157,6 +173,10 @@ class DreamSDKTrace:
         if ik is not None:
             self._wrap(ik, 'observe', 'observation_fk')
             self._wrap(ik, 'solve', 'ik_solve')
+            try:
+                self.ik_diagnostics.install(ik)
+            except Exception:
+                self._emit('ik_kernel', 'unsupported')
         smoother = getattr(policy, '_smoother', None)
         if smoother is not None:
             self._wrap(smoother, 'smooth', 'smoothing')
@@ -181,14 +201,20 @@ class DreamSDKTrace:
                 active = self.active
                 if active is None or not active['spans']:
                     continue
-                stage, started = active['spans'][-1]
+                span = active['spans'][-1]
+                stage, started, cpu_started, metadata = span
                 thread, since = active['thread'], active['started']
             stack = self._stack(thread)
+            try:
+                resources = self.ik_diagnostics.sample(active)
+            except Exception:
+                resources = {}
             with self.lock:
-                if self.active is not active or not active['spans'] or active['spans'][-1] != (stage, started):
+                if self.active is not active or not active['spans'] or active['spans'][-1] is not span:
                     continue
             self._emit(stage, 'waiting', prediction=active['prediction'],
-                       duration_s=time.monotonic() - started,
+                       duration_s=time.monotonic() - started, cpu_s=time.process_time()-cpu_started,
+                       **metadata, **resources,
                        elapsed_s=time.monotonic() - since, stack=stack)
 
     def _write(self, row):
@@ -216,4 +242,5 @@ class DreamSDKTrace:
 
     def close(self):
         self.stopped.set()
+        self.ik_diagnostics.close()
         self.writer.join(.1)  # Best effort; shutdown never waits on a blocked sink.

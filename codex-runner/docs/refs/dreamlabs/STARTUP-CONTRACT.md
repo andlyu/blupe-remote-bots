@@ -46,3 +46,42 @@ HTTP response, while steering was still queued. It does not retain the target
 poses needed to identify that historical solve's branch. Preparing both forms
 closes a verified coverage gap; it does not prove the exact low-level cause of
 that particular timeout or establish successful physical steering.
+
+## Passive IK diagnostics, October20,2026
+
+Pinned SDK1.0.0 `ChunkIK.solve_traj` first calls its per-tick `solve`, checks
+`_interarm_distance`, and calls `_solve_traj` with either None or the arm-base
+array. Diagnostics observe those boundaries as ik_seed, ik_clearance,
+ik_kernel, and enclosing ik_trajectory. Kernel rows, arm count and actual
+independent/coupled selection are retained. The wrapper waits on the existing
+kernel result immediately before the SDK's existing NumPy materialization;
+it never changes the objective, arguments, returned objects or graph outputs.
+
+JAX0.7.1 authoritative installed `jax/_src/compiler.py`:
+compile_or_get_cached covers the compilation/cache path; backend_compile_and_load
+identifies actual backend compilation; _cache_read returns (executable or None,
+compile time or None). Numeric hit/miss and separate durations distinguish
+persistent cache reads from backend work. No module IR, cache keys, filenames,
+code, arbitrary diagnostics or solver payload enters sdk-trace.jsonl.
+
+Boundary events include process CPU seconds and wall duration. CPU time sums
+threads in this process; it is not per-thread CPU or an exclusive solver cost.
+The existing five-second background monitor adds bounded fixed numeric OS
+samples: process RSS, available memory, load, CPU/steal deltas and their sample
+window, pressure averages and cumulative cgroup throttling where supported.
+These observations alone do not prove scheduling or memory caused a stall.
+
+One kernel still active after five seconds may enqueue one private numerical
+replay case for a background writer (one case per worker lifetime,2MiB archive
+limit,128numeric arrays maximum). Sampling cadence means capture can occur up
+to a further monitor interval later. Archive and metadata are0600 and stay in
+the private worker directory. Only numeric solver inputs, fixed SDK
+configuration, source hashes, shapes/branch and JAX weak-type information are
+saved. There are no images, prompt text, credentials, user names, Python
+objects/pickle or source archives. Original input references are released after
+the one background job. Failures drop diagnostics and retain fixed counters.
+
+Exact-SDK synthetic verification compared bitwise-identical original and
+instrumented outputs, replayed the archived numerical case exactly, and
+exercised actual compiler/cache hooks with a new synthetic row shape. It makes
+no claim about the cause of earlier production stalls or physical readiness.
