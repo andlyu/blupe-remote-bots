@@ -223,6 +223,7 @@ def main():
             if (not checkpoints or len(set(checkpoints)) != len(checkpoints)
                     or any(c not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash') for c in checkpoints)):
                 raise ValueError('Unknown prepared checkpoint')
+            variants = {}
             for checkpoint in checkpoints:
                 current = client if not clients else dream.DreamClient()
                 clients[checkpoint] = current
@@ -233,9 +234,15 @@ def main():
                 with stage(spans, 'sdk_full_preparation'):
                     if not current._policy._ik.traj_ready.wait(120):
                         raise RuntimeError('Dream trajectory preparation failed')
+                    try:
+                        from .dream_ik_preparation import prepare_trajectory_variants
+                    except ImportError:
+                        from dream_ik_preparation import prepare_trajectory_variants
+                    variants[checkpoint] = prepare_trajectory_variants(current._policy._ik)
             prepared = True
             client = None
-            return {'sdk_version': dream.__version__, 'fully_ready': True, 'checkpoints': checkpoints}
+            return {'sdk_version': dream.__version__, 'fully_ready': True,
+                    'checkpoints': checkpoints, 'trajectory_variants': variants}
         if kind == 'configure':
             checkpoint = command['checkpoint']
             if prepared:
