@@ -34,6 +34,42 @@ frame locals, SDK message text, headers, bodies, endpoints or credentials.
 `http_connection_policy=fresh_per_exchange` identifies the new channel policy.
 See [Python HTTP/TLS contract](refs/python/HTTP-TLS.md).
 
+### Tracking a prediction that does not return
+
+The worker writes `sdk-trace.jsonl` in its `DREAM_WORK_DIR`, alongside the
+existing `stage-timings.jsonl`. Deploy `dream_sdk_trace.py` beside
+`dream_worker.py`; it uses only the standard library. These private diagnostics
+persist independently of the worker's stdout reply, including when the parent
+terminates a prediction at its thirty-second deadline.
+
+Fixed stages identify observation forward kinematics, HTTP exchange, lazy
+connection setup (DNS/TCP/TLS together), sending, response headers, response body,
+local IK and smoothing. Each records start/completion/error. While a prediction
+is active, a separate monitor samples every five seconds and records the
+innermost active stage, elapsed durations and at most eight allowlisted static
+module/function/line frames. Match wall timestamps and the numeric first step
+to the visitor journal; a process-local prediction number and PID distinguish
+calls and replacement workers. Completed HTTP is a client transport boundary,
+not evidence of the server's internal inference timing.
+
+The prediction thread only enqueues fixed labels and numbers. A daemon writes
+owner-only files, rotating at 2 MiB with one backup; a bounded 128-row queue
+drops diagnostics if storage stalls. Records include dropped/write-error
+counters. There are no bodies, frames, prompts, state arrays, headers, endpoint
+addresses, remote session identifiers, exception text, filenames or frame locals.
+Sampling requires the Python interpreter to schedule the monitor; a native
+operation holding the GIL can prevent fresh samples. Missing/truncated traces
+or writer failures remain inconclusive. This telemetry does not change the
+prediction deadline, retries, returned action or worker recovery behavior.
+
+The pinned SDK's fifteen-second transport setting is a socket timeout, rather
+than an overall prediction deadline. In an offline TLS loopback test, a silent
+response timed out at fifteen seconds, while headers or body arriving in pieces
+less than fifteen seconds apart kept the exact transport active past thirty
+seconds. Local IK also runs outside the transport timeout. Those tests explain
+possible timeout paths; they do not identify the cause of an earlier run whose
+only recorded boundary was `sdk_get_action` starting.
+
 ## Setup
 
 Create a separate Python 3.12 environment and install

@@ -539,6 +539,7 @@ class DreamAdapter:
             try:
                 with journal_span(self.interaction_sink, 'worker_predict', first_step_id=first_step_id):
                     reply = self._worker.call('predict', ticks=ticks, commanded=self._commanded,
+                                              first_step_id=first_step_id,
                                               cancelled=self._cancelled)
             except DreamWorkerUnavailable as error:
                 observed_after = self._recover_worker(first_step_id, error.reason)

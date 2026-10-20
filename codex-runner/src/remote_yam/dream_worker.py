@@ -145,8 +145,12 @@ def reset_episode(client):
 def main():
     try:
         from .latency_spans import timed_span, journal_span
+        from .dream_sdk_trace import DreamSDKTrace
     except ImportError:  # The isolated worker is launched by its script path.
         from latency_spans import timed_span, journal_span
+        from dream_sdk_trace import DreamSDKTrace
+
+    sdk_trace = DreamSDKTrace(os.environ['DREAM_WORK_DIR'])
 
     def stage_event(kind, message, **details):
         # Persist boundaries even when Stop interrupts configuration before a
@@ -203,6 +207,7 @@ def main():
                     'video': {role: 'observation.images.' + role
                               for role in ('overhead', 'wrist_l', 'wrist_r')}},
                 _record=False))
+        sdk_trace.install(client)
 
     def handle(command, spans):
         # Request payloads/arrays/actions live only in this call's frame, not in
@@ -275,7 +280,8 @@ def main():
             with stage(spans, 'sdk_get_action'):
                 close_http_connection(client)
                 try:
-                    action = client.get_action(commanded=command.get('commanded'))
+                    with sdk_trace.prediction(command.get('first_step_id')):
+                        action = client.get_action(commanded=command.get('commanded'))
                 finally:
                     close_http_connection(client)
             return {'action': action, 'timing': client.last_timing}
@@ -305,6 +311,7 @@ def main():
     finally:
         for current in all_clients():
             current.close()
+        sdk_trace.close()
 
 
 if __name__ == '__main__':
