@@ -304,6 +304,7 @@ class RaiseLowerSimulationAdapter:
     """Reviewed provider-free IK relative to the first settled observation."""
 
     provider_name = "local_raise_lower"
+    supports_workspace_replanning = False
 
     def __init__(self, scene_path: str | None = None) -> None:
         self._ik = BimanualRelativeIK(scene_path)
