@@ -609,6 +609,10 @@ function createRunLaunchGuard() {
     $('operator').disabled = false;
     $('forget').disabled = !csrf || ended;
     $('disconnect').disabled = !csrf || ended;
+    $('resetRuns').disabled = !csrf || ended || active || submitting;
+    $('resetRuns').title = active
+      ? 'Wait for your run to finish, or use Stop, before resetting runs.'
+      : 'Refresh your 20-run allowance when your run is idle. History and settings are kept.';
     updateRunLabel();
   }
   let savedKeyProviders = [];
@@ -1000,6 +1004,20 @@ function createRunLaunchGuard() {
       if (error.subscriptionSetup) showSubscriptionSetup(error.subscriptionSetup);
     }
     finally { if(payload) delete payload.api_key; if(launchVersion === null || launchVersion === runLaunchGuard.version) {submitting = false; buttons();} }
+  });
+  $('resetRuns').addEventListener('click', async () => {
+    if (!csrf || ended || active || submitting) return;
+    const status = $('resetRunsStatus');
+    submitting = true; buttons();
+    status.textContent = 'Resetting runs…'; status.classList.remove('error');
+    try {
+      await api('/api/runs/reset', {});
+      runLaunchGuard.reset(); window.yamAspireLineage?.reset();
+      message('');
+      status.textContent = 'Runs reset. History and settings kept. You can run again.';
+    } catch (error) {
+      if (!error.stale) { status.textContent = error.message; status.classList.add('error'); }
+    } finally { submitting = false; buttons(); }
   });
   for (const [id, path, text] of [
     ['stop', '/api/stop', 'Stop requested. Your key is saved for your next run.'],
