@@ -155,9 +155,18 @@ class DreamIKDiagnostics:
             except (OSError, ValueError, KeyError, StopIteration):
                 pass
         try:
-            values = dict(x.split() for x in self._text('/sys/fs/cgroup/cpu.stat', 1024).splitlines())
-            data['cgroup_throttled_us'] = int(values.get('throttled_usec', '0'))
-        except (OSError, ValueError):
+            # The service can have a CPU limit even when the root cgroup does
+            # not. Missing/unavailable counters must never be reported as zero.
+            own = next(line.split(':', 2)[2] for line in
+                       self._text('/proc/self/cgroup', 4096).splitlines()
+                       if line.startswith('0::'))
+            if not own.startswith('/') or '..' in Path(own).parts:
+                raise ValueError('Unsupported cgroup path')
+            path = '/sys/fs/cgroup'+own.rstrip('/')+'/cpu.stat'
+            values = dict(x.split() for x in self._text(path, 1024).splitlines())
+            if 'throttled_usec' in values:
+                data['cgroup_throttled_us'] = int(values['throttled_usec'])
+        except (OSError, ValueError, StopIteration):
             pass
         with self.trace.lock:
             kernel = self.kernel
