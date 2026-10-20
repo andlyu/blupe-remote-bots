@@ -252,7 +252,8 @@ def test_resource_reading_parses_only_fixed_numeric_fields(tmp_path, monkeypatch
         '/proc/stat': 'cpu 10 0 10 70 0 0 0 10\n',
         '/proc/pressure/cpu': 'some avg10=1.5 avg60=0.0 avg300=0.0 total=100\n',
         '/proc/pressure/memory': 'some avg10=2.5 avg60=0.0 avg300=0.0 total=100\n',
-        '/sys/fs/cgroup/cpu.stat': 'nr_throttled 2\nthrottled_usec 123\n'}
+        '/proc/self/cgroup': '0::/system.slice/yam-web.service\n',
+        '/sys/fs/cgroup/system.slice/yam-web.service/cpu.stat': 'nr_throttled 2\nthrottled_usec 123\n'}
     monkeypatch.setattr(trace.ik_diagnostics, '_text', lambda p, *args: data[p])
     try:
         a = trace.ik_diagnostics.sample(None)
@@ -264,5 +265,9 @@ def test_resource_reading_parses_only_fixed_numeric_fields(tmp_path, monkeypatch
         assert b['cpu_pressure_avg10'] == 1.5 and b['memory_pressure_avg10'] == 2.5
         assert b['cgroup_throttled_us'] == 123
         assert SECRET not in json.dumps(b)
+        data['/sys/fs/cgroup/system.slice/yam-web.service/cpu.stat'] = 'usage_usec 10\n'
+        assert 'cgroup_throttled_us' not in trace.ik_diagnostics.sample(None)
+        data['/proc/self/cgroup'] = '0::/../'+SECRET+'\n'
+        assert 'cgroup_throttled_us' not in trace.ik_diagnostics.sample(None)
     finally:
         trace.close()
