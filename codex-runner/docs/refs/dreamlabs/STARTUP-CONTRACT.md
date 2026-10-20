@@ -20,3 +20,29 @@ SDK1.0.0 `DreamClient.reset_episode()` delegates to `PolicyClient.reset_episode(
 Two prepared policies in one process retain their respective checkpoint metadata/embodiment checks and static IK configuration. Only the documented episode-reset operation crosses visitor boundaries. Checkpoint configuration is not rewritten and no native motion, feedback or Home logic changes. The SDK's pinned `_policy._ik.traj_ready` event is read during initial preparation to ensure background trajectory compilation has completed; an absent/incompatible event fails preparation instead of reporting ready.
 
 Each wire command is handled in its own function scope; reset/release replaces outer command references. Before lending again, every prepared client has been reset successfully, the shared input timestamp is cleared, and no previous request result can be read as a new visitor's response. A failed cleanup or broken transport destroys the process. Credential file changes also invalidate prepared readiness.
+
+
+## Both trajectory kernel structures
+
+SDK1.0.0 `dream_ik/solver.py:ChunkIK.solve_traj` supplies Python `None` or the
+arm-base array to the JAX-jitted `_solve_traj` kernel. Its synthetic startup
+warmup exercises only the branch selected by those warmup targets. The two
+argument structures compile separately; `traj_ready` alone does not establish
+that both are prepared. Exact-SDK synthetic probes confirmed compilation on a
+later switch to the arm-coupled branch.
+
+After `traj_ready`, `remote_yam.dream_ik_preparation` captures the pinned SDK's
+kernel arguments from a synthetic 48-row rest-pose solve, restores the original
+function binding, and executes both base-argument forms. Materializing each
+result waits for compilation and execution. Both checkpoints complete this
+preparation before `fully_ready` is returned; preparation errors fail readiness.
+No model request or robot observation is used, all synthetic results are
+discarded, and solver weights, joint limits, speed caps and runtime branch
+selection stay as configured by the SDK. This depends on SDK1.0.0's private
+kernel signature and must be revalidated on SDK upgrades.
+
+The October20 incident trace establishes an IK timeout following a successful
+HTTP response, while steering was still queued. It does not retain the target
+poses needed to identify that historical solve's branch. Preparing both forms
+closes a verified coverage gap; it does not prove the exact low-level cause of
+that particular timeout or establish successful physical steering.

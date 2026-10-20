@@ -27,15 +27,27 @@ def resident(tmp_path, monkeypatch):
 import json, os, threading, time
 from pathlib import Path
 from types import SimpleNamespace
+import numpy as np
 __version__='1.0.0'
 def log(kind, **values):
     with open(os.environ['TEST_TRACE'],'a') as out:out.write(json.dumps(dict(kind=kind,**values))+'\\n')
+def _solve_traj(*args):
+    log('prepared-variant',variant='independent' if args[-2] is None else 'coupled')
+    return [np.zeros((48,6)),np.zeros((48,6))]
+class Solver:
+    sides=('right','left')
+    side_rest=np.zeros((2,6))
+    side_base=np.zeros((2,3))
+    def fk(self,q,side):return np.eye(4)
+    def solve_traj(self,targets,rest,history,speed,serve):
+        return _solve_traj(*range(10),None,{'unchanged':True})
 class DreamClient:
     last_timing={'rtt_ms':1}
     def __init__(self):
         self.frames=[];self.positions=[];self.session_id=None
         event=threading.Event();event.set()
-        self._policy=SimpleNamespace(_ik=SimpleNamespace(traj_ready=event))
+        self._policy=SimpleNamespace(_ik=SimpleNamespace(traj_ready=event,
+            _solver=Solver(),_solve_spec=lambda:SimpleNamespace(solve='traj')))
     def policy(self, config):
         self.checkpoint=config['checkpoint'];log('policy',checkpoint=self.checkpoint)
         while Path(os.environ['TEST_HOLD']+'-prime').exists() and not Path(os.environ['TEST_RELEASE']).exists():time.sleep(.01)
@@ -65,6 +77,8 @@ class DreamClient:
     try:
         reply=pool.prime(timeout=10)
         assert reply['result']['fully_ready']
+        assert reply['result']['trajectory_variants']=={
+            checkpoint:['independent','coupled'] for checkpoint,_ in MODELS.values()}
         yield pool,credentials,trace,hold,release,fail
     finally:pool.close()
 
@@ -93,6 +107,8 @@ def test_fully_prepared_process_reuses_both_models_and_resets_every_visitor(resi
         assert pool._worker.process.pid==pid and pool.status()['ready']
     records=rows(trace)
     assert [r['checkpoint'] for r in records if r['kind']=='policy']==models
+    assert [r['variant'] for r in records if r['kind']=='prepared-variant']==[
+        'independent','independent','coupled']*2
     predictions=[r for r in records if r['kind']=='predict-start']
     assert [r['frames'] for r in predictions]==[['visitor-'+str(i)] for i in range(4)]
     assert all(r['session_id'] is None and r['commanded'] is None for r in predictions)
