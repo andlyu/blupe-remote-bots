@@ -181,6 +181,7 @@ def main():
     last_timestamp = None
     clients = {}
     prepared = False
+    linear_algebra = 'dense'
     phase = None
     request_started = False
 
@@ -193,8 +194,16 @@ def main():
         raise SystemExit(0)
 
     def configure(client, command, spans):
+        nonlocal linear_algebra
         if dream.__version__ != '1.0.0':
             raise ValueError('Unsupported Dream SDK version')
+        if os.environ.get('YAM_DREAM_BLOCKWISE_IK', '0') == '1':
+            try:
+                from .dream_ik_blockwise import install_blockwise_gram
+            except ImportError:
+                from dream_ik_blockwise import install_blockwise_gram
+            with stage(spans, 'ik_linear_algebra_install'):
+                linear_algebra = install_blockwise_gram()
         checkpoint = command['checkpoint']
         if checkpoint not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash'):
             raise ValueError('Unknown checkpoint')
@@ -242,7 +251,8 @@ def main():
             prepared = True
             client = None
             return {'sdk_version': dream.__version__, 'fully_ready': True,
-                    'checkpoints': checkpoints, 'trajectory_variants': variants}
+                    'checkpoints': checkpoints, 'trajectory_variants': variants,
+                    'ik_linear_algebra': linear_algebra}
         if kind == 'configure':
             checkpoint = command['checkpoint']
             if prepared:
@@ -256,7 +266,8 @@ def main():
             else:
                 configure(client, command, spans)
             last_timestamp = None
-            return {'sdk_version': dream.__version__, 'prepared_reused': prepared}
+            return {'sdk_version': dream.__version__, 'prepared_reused': prepared,
+                    'ik_linear_algebra': linear_algebra}
         if kind == 'release':
             with stage(spans, 'sdk_reset'):
                 for current in all_clients():
