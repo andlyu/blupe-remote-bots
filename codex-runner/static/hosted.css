@@ -744,6 +744,7 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole .composerToolbar button{width:44px;height:44px;padding:0;border:0;border-radius:50%;font-size:23px;font-weight:400}
 .playgroundConsole #composerModel{flex:1;width:0;min-width:0;padding:5px 8px;border:0;background:transparent;font-size:11px}
 .playgroundConsole #composerSend{flex:none;background:var(--accent);color:white;font-size:24px}
+.playgroundConsole .composerToolbar #composerStop{width:auto;min-width:44px;padding:0 10px;border-radius:8px;font-size:13px;background:#fcebe9;color:#a72c24}
 .playgroundConsole #composerSend[data-running="true"]{font-size:14px}
 .playgroundConsole .promptRow>.runLaunchActions,.playgroundConsole .promptRow>#runButtons{display:none}
 .playgroundConsole .watchInteraction #message{min-height:0;font-size:12px;line-height:1.45;margin:6px 2px 0}
@@ -835,11 +836,8 @@ body.cameraExpanded{overflow:hidden}
 .runExecutionInfo{flex:none;margin:8px 0;padding:10px 12px;border-radius:9px;background:#f1f4ef;color:#465044;font-size:11px}
 .runExecutionInfo>strong{font-size:11px;font-weight:650}.runExecutionInfo>p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.6;margin:5px 0 0}
 
-.steeringComposer {border-top:1px solid var(--line, #d6d8d5);margin-top:16px;padding-top:16px;}
-.steeringComposer label {display:block;font-weight:600;margin-bottom:6px;}
-.steeringComposer textarea {box-sizing:border-box;width:100%;resize:vertical;min-height:64px;}
-.steeringComposer .actions {justify-content:flex-end;margin-top:8px;}
-.steeringComposer p:empty {display:none;}
+.mainChatSteering .help {margin:8px 0 0;}
+.mainChatSteering p:empty {display:none;}
 
 /* A compact prompt action sits beside the model picker, with its own editor. */
 #systemPromptSettings {flex:none;margin:0}

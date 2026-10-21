@@ -23,8 +23,11 @@
       state.steering.messages=[message];
       state.public_run.events.push({id:1,kind:'steering_queued',message:payload.text,timestamp:Date.now()/1000});
       data={ok:true,message};
+    } else if (path === '/api/stop') {
+      state={...state,status:'stopped',steering:{supported:true,available:false,messages:[]}};
+      data={ok:true};
     } else if (path === '/api/chat') data={messages:[],visitor:'fixture'};
-    else if (['/api/recordings','/api/past-runs','/api/run-comparisons'].includes(path)) data={runs:[],next_offset:null};
+    else if (['/api/recordings','/api/past-runs','/api/my-runs','/api/run-comparisons'].includes(path)) data={runs:[],next_offset:null};
     else if (path === '/api/stream-health') data={ok:true};
     else throw Error('Unmocked request: '+path);
     return new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
@@ -40,41 +43,60 @@
   const check=(condition,label)=>{checks.push({pass:!!condition,label});if(!condition)throw Error(label);};
   const owner=()=>({...base,status:'running',attempt_id:'fixture-owner',public_run:run,
     steering:{supported:true,available:true,messages:[]}});
+  const preview=new URLSearchParams(location.search).has('preview');
+  if(preview) state=owner();
   async function verify() {
     const report=document.createElement('pre');report.id='steeringReport';
     $('liveConversationPanel').append(report);
     try {
       await wait(()=>polls>0);
-      check($('steeringForm').hidden,'Spectator cannot steer a public run');
-      state=owner();await wait(()=>!$('steeringForm').hidden);
-      $('steeringPrompt').value='Use the right arm instead; lift before moving sideways.';
-      $('steeringPrompt').dispatchEvent(new Event('input',{bubbles:true}));
-      $('steeringForm').requestSubmit();
+      $('prompt').value='Original task draft';
+      check($('steeringHelp').hidden && !window.yamRuntimeSteering.available,'Spectator cannot steer a public run');
+      check(!$('prompt').disabled,'Spectator retains the next-task composer');
+      check(!$('steeringForm') && !$('steeringPrompt'),'No separate intervention input');
+      state=owner();await wait(()=>!$('steeringHelp').hidden && !$('prompt').disabled);
+      check($('prompt').value==='' && $('prompt').maxLength===2000,'Main composer switches to an empty prompt update');
+      check($('composerSend').getAttribute('aria-label')==='Update prompt','Main send button clearly updates the running task');
+      check(!$('composerStop').disabled && $('composerStop').getClientRects().length>0,'Separate Stop is visible beside the main send control');
+      $('prompt').value='Use the right arm instead; lift before moving sideways.';
+      $('prompt').dispatchEvent(new Event('input',{bubbles:true}));
+      await wait(()=>!$('composerSend').disabled);$('composerSend').click();
       await wait(()=>requests.some(row=>row.path==='/api/steer'));
       const sent=requests.find(row=>row.path==='/api/steer').payload;
       check(sent.attempt_id==='fixture-owner' && sent.request_id.length>=16,'Submission binds attempt and retry identity');
       await wait(()=>$('steeringDelivery').textContent.includes('waiting'));
-      check($('steeringPrompt').value==='','Accepted message clears the draft');
+      check($('prompt').value==='','Accepted message clears the draft');
       check($('sideConversationMessages').textContent.includes(sent.text),'Owner message appears in decision notes');
       state.steering.messages[0].state='included';
       run.events.push({id:2,kind:'steering_included',message:'Steering included in model context',timestamp:Date.now()/1000});
       await wait(()=>$('steeringDelivery').textContent.includes('included'));
-      $('steeringPrompt').value='Next correction';$('steeringPrompt').dispatchEvent(new Event('input'));
+      $('prompt').value='Next correction';$('prompt').dispatchEvent(new Event('input'));
       const before=polls;await wait(()=>polls>=before+2);
-      check($('steeringPrompt').value==='Next correction','Polling preserves an unsent correction');
+      check($('prompt').value==='Next correction','Polling preserves an unsent correction');
       state={...state,status:'stopped',steering:{supported:true,available:false,messages:[{state:'not_delivered'}]}};
       await wait(()=>$('steeringDelivery').textContent.includes('ended before'));
-      check($('steeringSend').disabled,'Ended runs reject UI submission');
+      check(!window.yamRuntimeSteering.available && $('prompt').value==='Original task draft','Ended runs restore the task draft and leave intervention mode');
       state={...owner(),steering:{supported:false,available:false,messages:[]}};
       await wait(()=>$('steeringDelivery').textContent.includes('unavailable'));
-      check($('steeringPrompt').disabled,'Unsupported policy explains disabled steering');
-      state={...base,public_run:run};await wait(()=>$('steeringForm').hidden);
-      check($('steeringForm').hidden,'Returning to spectator hides the composer');
+      check($('prompt').disabled,'Unsupported policy explains disabled steering');
+      state={...base,public_run:run};await wait(()=>$('steeringHelp').hidden && !$('prompt').disabled);
+      check($('steeringHelp').hidden,'Returning to spectator hides intervention guidance');
+      $('chatName').value='Fixture visitor';$('chatText').value='Hello from a spectator';
+      $('chatForm').requestSubmit();await wait(()=>requests.some(row=>row.path==='/api/chat' && row.payload.text));
+      check(requests.filter(row=>row.path==='/api/steer').length===1,'Social messages stay on the ordinary chat endpoint');
       state=owner();state.steering.messages=[{id:1,text:sent.text,state:'included'}];
-      await wait(()=>!$('steeringForm').hidden && !$('steeringPrompt').disabled);
+      await wait(()=>!$('steeringHelp').hidden && !$('prompt').disabled);
+      $('quickPrompt').value='Keep the block upright';$('quickPrompt').dispatchEvent(new Event('input',{bubbles:true}));
+      await wait(()=>!$('quickRun').disabled);
+      $('quickPrompt').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      await wait(()=>requests.filter(row=>row.path==='/api/steer').length===2);
+      check(!requests.some(row=>['/api/run','/api/stop'].includes(row.path)),'Prompt submission neither restarts nor stops the run');
+      $('composerStop').click();await wait(()=>requests.some(row=>row.path==='/api/stop'));
+      check(requests.filter(row=>row.path==='/api/stop').length===1,'Separate Stop delegates to the existing stop pathway');
+      state=owner();await wait(()=>!$('steeringHelp').hidden && !$('prompt').disabled);
       report.dataset.result='pass';report.textContent='PASS · '+checks.length+' browser checks\n'+checks.map(x=>'✓ '+x.label).join('\n');
-      $('steeringPrompt').scrollIntoView({block:'center'});
+      $('prompt').scrollIntoView({block:'center'});
     } catch(error) {report.dataset.result='fail';report.textContent='FAIL · '+error.message+'\n'+JSON.stringify(checks,null,2);}
   }
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(verify,0));
+  if(!preview) document.addEventListener('DOMContentLoaded',()=>setTimeout(verify,0));
 })();

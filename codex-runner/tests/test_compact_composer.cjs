@@ -1,13 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(process.env.YAM_TEST_HOSTED_JS || __dirname+'/../static/hosted.js','utf8');
 const start=source.indexOf("  send.addEventListener('click', () => {");
-const handler=source.slice(start,source.indexOf('  const prompt =',start));
-function harness({active=false,queued=false}={}) {
+const handler=source.slice(start,source.indexOf("  $('composerStop').addEventListener",start));
+function harness({active=false,queued=false,steering=false}={}) {
   const clicks=[],nodes={};let click;
   for(const id of ['run','stop','leaveQueue','openLocalRun'])nodes[id]={click:()=>clicks.push(id)};
   nodes.leaveQueue.hidden=!queued;nodes.leaveQueue.disabled=!queued;
   nodes.runForm={classList:{contains:()=>active}};
-  vm.runInNewContext(handler,{openRunIdentity:()=>clicks.push('identity'),$:id=>nodes[id],send:{addEventListener:(_,fn)=>{click=fn;}}});
+  vm.runInNewContext(handler,{openRunIdentity:()=>clicks.push('identity'),$:id=>nodes[id],window:{yamRuntimeSteering:{available:steering,submit:()=>clicks.push('steer')}},send:{addEventListener:(_,fn)=>{click=fn;}}});
   click();return clicks;
 }
 test('idle task opens identity confirmation before submission',()=>{
@@ -16,6 +16,9 @@ test('idle task opens identity confirmation before submission',()=>{
 test('active task and queue preserve their respective stop handlers',()=>{
   assert.deepEqual(harness({active:true}),['stop']);
   assert.deepEqual(harness({active:true,queued:true}),['leaveQueue']);
+});
+test('running owner sends a prompt update through the existing steering path',()=>{
+  assert.deepEqual(harness({active:true,steering:true}),['steer']);
 });
 const setupStart=source.indexOf('  function openRunIdentity()');
 const setup=source.slice(setupStart,source.indexOf("  send.addEventListener",setupStart));
@@ -33,4 +36,11 @@ for(const mode of ['missing','present','disabled','invalid'])test('identity conf
   assert.equal(opened,mode==='missing'?1:0);
   assert.equal(focused,['disabled','invalid'].includes(mode)?0:1);
   if(mode==='invalid'){assert.equal(advanced.open,true);assert.equal(reported,1);assert.deepEqual(popover,[true]);}
+});
+
+test('the separate Stop button delegates to the existing run stop handler',()=>{
+  let handler,stops=0;
+  const line=source.split('\n').find(row=>row.includes("$('composerStop').addEventListener('click'"));
+  vm.runInNewContext(line,{$:id=>id==='composerStop'?{addEventListener:(_,fn)=>handler=fn}:{click:()=>stops++}});
+  handler();assert.equal(stops,1);
 });
