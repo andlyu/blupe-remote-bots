@@ -3,7 +3,7 @@ const source=fs.readFileSync(path.join(__dirname,'../static/replay-progress.js')
 function setup({readyState='complete',lateDependencies=false}={}){
   const nodes={},events={},documentEvents={},requests=[],timers=new Map(),opened=[];let clock=1000,tid=0;
   function element(){return {listeners:{},children:[],hidden:false,open:true,paused:false,currentTime:1,ended:false,src:'',
-    setAttribute(k,v){this[k]=v},append(...x){this.children.push(...x)},after(x){nodes[x.id]=x},
+    setAttribute(k,v){this[k]=v},removeAttribute(k){delete this[k]},append(...x){this.children.push(...x)},after(x){nodes[x.id]=x},
     addEventListener(n,f){(this.listeners[n]??=[]).push(f)},emit(n){for(const f of this.listeners[n]||[])f()},
     parentElement:{after(x){nodes[x.id]=x}}};}
   for(const id of ['pastRunVideo','pastRunDialog','replayProcessing','robotSelector'])nodes[id]=element();
@@ -61,10 +61,20 @@ test('closing or changing robot discards late readiness responses',async()=>{
     assert.equal(c.opened.length,0);assert.equal(c.timers.size,0);
   }
 });
-test('an overrun says finishing and never claims a completed countdown',async()=>{
+test('waiting has indeterminate progress and checks the published catalog at a bounded interval',async()=>{
   const c=setup();c.observe('running');c.observe('stopped');
   c.answer(c.requests[0],[]);await c.flush();c.advance(6000);c.tick();
   const [bar,text]=c.nodes.replayProgress.children;
-  assert.match(text.textContent,/Finishing/);assert.ok(bar.value<100);
-  assert.doesNotMatch(text.textContent,/0 seconds left/);
+  assert.match(text.textContent,/Waiting for saved replay/);assert.equal(bar.value,undefined);
+  assert.doesNotMatch(text.textContent,/Finishing|seconds left/);
+  assert.doesNotMatch(c.requests[1].url,/preview=1/);
+  c.answer(c.requests[1],[c.run('final')]);await c.flush();
+  assert.equal(c.opened[0].video_quality,'final');
+});
+test('reopening a processing recording keeps waiting and a failed check is visible',async()=>{
+  const c=setup();c.window.yamReplayHistory.openRun({...c.run(),video_url:null,video_status:'processing'});
+  assert.equal(c.requests.length,1);
+  c.requests[0].resolve({ok:false});await c.flush();
+  assert.match(c.nodes.replayProgress.children[1].textContent,/status unavailable/);
+  assert.equal(c.timers.size,1);
 });

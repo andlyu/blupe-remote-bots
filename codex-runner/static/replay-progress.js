@@ -1,4 +1,4 @@
-/* Quick replay delivery, estimated progress, then a non-disruptive final upgrade. */
+/* Wait for a verified replay, then promote a final edit after playback. */
 (() => {
   'use strict';
   function install() {
@@ -8,7 +8,7 @@
     const panel=document.createElement('div'), bar=document.createElement('progress'), text=document.createElement('p');
     panel.className='replayProcessing'; panel.id='replayProgress'; panel.hidden=true;
     panel.setAttribute('role','status'); panel.setAttribute('aria-live','polite');
-    bar.max=100; bar.setAttribute('aria-label','Estimated replay preparation progress');
+    bar.max=100; bar.setAttribute('aria-label','Waiting for replay preparation');
     panel.append(bar,text); player.parentElement.after(panel);
     const baseOpen=history.openRun.bind(history);
     let target=null, timer=null, generation=0, activeSession=null;
@@ -17,29 +17,34 @@
     const terminal=new Set(['stopped','completed','failed','error','timed_out','cancelled','ended','safety_aborted','disconnected']);
     function stop() { generation++;target=null;clearTimeout(timer);panel.hidden=true; }
     function progress(request) {
-      const estimate=request.quick?60000:5000;
-      const elapsed=Date.now()-request.started;
-      const left=Math.ceil((estimate-elapsed)/1000);
-      panel.hidden=false;bar.value=Math.min(95,elapsed/estimate*100);
+      panel.hidden=false;bar.removeAttribute('value');
       text.textContent=request.next?'Improved replay ready — it will open after playback ends.':
-        `${request.quick?'Quick preview ready · Improving replay':'Preparing quick preview'}${left>0?` · about ${left} seconds left`:' · Finishing…'}`;
+        request.error?'Replay status unavailable · Retrying…':
+        request.quick?'Quick preview ready · Waiting for improved replay.':
+        'Waiting for saved replay · Preparation may take a few minutes.';
     }
     function apply(run) {
       const quality=run.video_quality;
       baseOpen(run);
-      if(quality==='quick') begin(run.episode_id,run.robot_id,true,run.video_sha256);
+      if(!run.video_url && run.video_status==='processing') begin(run.episode_id,run.robot_id);
+      else if(quality==='quick') begin(run.episode_id,run.robot_id,true,run.video_sha256);
       else stop();
     }
     async function poll(request) {
       if(target!==request || !dialog.open) return;
       progress(request);
       try {
-        const response=await fetch(`/api/past-runs?episode_id=${encodeURIComponent(request.id)}&robot_id=${encodeURIComponent(request.robot)}&preview=1`,
+        // Some stations publish through the catalog instead of the quick cache.
+        // Bound that more expensive fallback to once every five seconds.
+        const catalog=Date.now()-request.catalogAt>=5000;
+        if(catalog) request.catalogAt=Date.now();
+        const response=await fetch(`/api/past-runs?episode_id=${encodeURIComponent(request.id)}&robot_id=${encodeURIComponent(request.robot)}${catalog?'':'&preview=1'}`,
           {cache:'no-store',headers:{'X-Blupe-Robot':request.robot}});
         if(!response.ok) throw new Error('Replay check unavailable');
         const data=await response.json();
         if(target!==request || request.generation!==generation || !dialog.open) return;
         const run=data.runs?.find(row=>row.episode_id===request.id && row.robot_id===request.robot);
+        request.error=false;
         if(run?.video_url && run.video_duration_s!==0) {
           if(!request.quick) { apply(run);return; }
           if(run.video_quality!=='quick') {
@@ -48,13 +53,16 @@
             request.next=run;progress(request);return;
           }
         }
-      } catch(_) { /* Keep the playable quick clip and retry; never invent readiness. */ }
-      if(target===request && dialog.open) timer=setTimeout(()=>poll(request),250);
+      } catch(_) {
+        if(target!==request || request.generation!==generation || !dialog.open) return;
+        request.error=true;progress(request);
+      }
+      if(target===request && dialog.open) timer=setTimeout(()=>poll(request),Date.now()-request.started<10000?500:2000);
     }
     function begin(id,robot,quick=false,sha=null) {
       if(!valid(id) || !robot) return;
       if(target?.id===id && target.quick===quick && target.sha===sha) return;
-      stop();target={id,robot,quick,sha,started:Date.now(),generation};
+      stop();target={id,robot,quick,sha,started:Date.now(),catalogAt:Date.now(),generation};
       if(!quick) {
         const old=document.getElementById('replayProcessing');if(old) old.hidden=true;
       }
