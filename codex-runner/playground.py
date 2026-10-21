@@ -1111,7 +1111,7 @@ class HostedRunner:
                 raise RequestError(exc.status, str(exc)) from None
             return {'ok': True, 'message': row}
 
-    def reset_runs(self, visitor):
+    def reset_runs(self, visitor, *, allowance_reset=None):
         # Serialize with launch/close; resetting an allowance must never stop a
         # controller, retire a visitor or remove their recordings/credentials.
         with visitor.lock:
@@ -1119,8 +1119,11 @@ class HostedRunner:
                 raise RequestError(401, 'Browser session ended')
             if visitor.controller.busy() or visitor.controller.status()['status'] in ACTIVE:
                 raise RequestError(409, 'Wait for your run to finish, or use Stop, before resetting runs.')
+            # Hosting products can renew their own allowance under the same
+            # idle/launch lock. Failed renewal must not clear the shared cap.
+            extra = allowance_reset() if allowance_reset is not None else {}
             visitor.launches = 0
-            return {'ok': True}
+            return {'ok': True, **extra}
 
     def control(self, visitor, path):
         self.remember_runner(visitor)

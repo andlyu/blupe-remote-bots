@@ -1011,7 +1011,8 @@ function createRunLaunchGuard() {
     submitting = true; buttons();
     status.textContent = 'Resetting runs…'; status.classList.remove('error');
     try {
-      await api('/api/runs/reset', {});
+      const result = await api('/api/runs/reset', {});
+      await window.yamApplication?.runsReset?.(result, applicationContext());
       runLaunchGuard.reset(); window.yamAspireLineage?.reset();
       message('');
       status.textContent = 'Runs reset. History and settings kept. You can run again.';
