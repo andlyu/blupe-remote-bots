@@ -13,6 +13,10 @@ import sys
 os.environ['DREAM_LOG'] = 'off'
 os.environ.setdefault('LOGURU_LEVEL', 'WARNING')
 os.environ.setdefault('JAX_COMPILATION_CACHE_DIR', str(Path(os.environ['DREAM_WORK_DIR']) / 'jax'))
+if os.environ.get('YAM_DREAM_BLOCKWISE_IK', '0') == '1':
+    # JAX's supported precision switch is process-wide, before SDK/JAX import.
+    # It also keeps SDK-created values consistent with the float64 Gram/solve.
+    os.environ['JAX_ENABLE_X64'] = '1'
 
 # Emit documented status fields, never arbitrary server text or identifiers.
 ERROR_CODES = {'DA-0000', 'DA-0001', 'DA-1000', 'DA-2000', 'DA-4000', 'DA-5000', 'DA-6000',

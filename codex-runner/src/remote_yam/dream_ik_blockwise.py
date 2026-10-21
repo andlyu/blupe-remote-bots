@@ -8,7 +8,7 @@ from functools import wraps
 import hashlib
 from pathlib import Path
 
-IMPLEMENTATION = 'blockwise_gram_v1'
+IMPLEMENTATION = 'blockwise_gram_f64_v2'
 SOURCE_HASHES = {
     'jaxls._solvers': 'c0c261dbcbef43fd99cf215cc23259e8a6bcb945115b4d3e7a58c19f33afebb8',
     'jaxls._problem': '50de2b85664d2e770c3d83ee7c35fcf3341dcd16adccec0728f8bfe3fccd52c5',
@@ -18,10 +18,11 @@ SOURCE_HASHES = {
 
 def blockwise_gram(matrix):
     import jax.numpy as jnp
-    out = jnp.zeros((matrix.shape[1], matrix.shape[1]),
-                    dtype=matrix.block_rows[0].blocks_concat.dtype)
+    # Keep the normal equations and their Cholesky solve in float64. Rounding
+    # a more accurate sum back to float32 still changes difficult LM steps.
+    out = jnp.zeros((matrix.shape[1], matrix.shape[1]), dtype=jnp.float64)
     for row in matrix.block_rows:
-        blocks = row.blocks_concat
+        blocks = row.blocks_concat.astype(jnp.float64)
         indices = jnp.concatenate([start[:, None] + jnp.arange(width)[None, :]
                                    for start, width in zip(row.start_cols, row.block_num_cols)], axis=1)
         # SparseBlockRow.to_dense writes later blocks over earlier ones. Keep
@@ -69,6 +70,8 @@ def install_blockwise_gram():
     import jaxlib
     if jax.__version__ != '0.7.1' or jaxlib.__version__ != '0.7.1':
         raise RuntimeError('Unsupported Dream linear algebra runtime')
+    if not jax.config.x64_enabled:
+        raise RuntimeError('Dream blockwise IK requires float64 worker startup')
     modules = {name: importlib.import_module(name) for name in SOURCE_HASHES}
     for name, expected in SOURCE_HASHES.items():
         if hashlib.sha256(Path(modules[name].__file__).read_bytes()).hexdigest() != expected:
