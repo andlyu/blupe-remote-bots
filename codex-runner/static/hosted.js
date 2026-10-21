@@ -216,48 +216,60 @@ function renderStepMetricsChart(container, timings) {
   container.innerHTML = '<p class="help"><span style="color:#818cf8">■ Model thinking</span> · <span style="color:#34d399">■ Arm motion</span> · <span style="color:#fbbf24">● Left distance</span> · <span style="color:#38bdf8">● Right distance</span><br>Horizontal axis: step number. Hover for values. Missing data is left blank.</p>' + svg;
 }
 
-function createSteeringComposer({form, input, button, feedback, delivery, send, context, requestId}) {
-  let identity = '', attempt = null, available = false, pending = null, retry = null;
-  const sync = () => {input.disabled = !available;button.disabled = !available || !!pending || !input.value.trim();};
-  input.addEventListener('input', sync);
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
+function createSteeringComposer({input, help, feedback, delivery, send, context, requestId, changed = () => {}}) {
+  let identity = '', attempt = null, available = false, pending = null, retry = null, draft = null;
+  const restoreDraft = () => {
+    if (!draft) return;
+    Object.assign(input, draft);draft = null;
+  };
+  const submit = async () => {
     const text = input.value.trim();
-    if (!available || pending || !text || text.length > 2000) return;
+    if (!available || pending || !text) return;
+    if (text.length > 2000) {feedback.textContent = 'Keep prompt updates to 2,000 characters.';return;}
     const scope = context(), target = identity;
     const payload = retry?.text === text && retry?.attempt_id === attempt ? retry
       : {attempt_id:attempt, text, request_id:requestId()};
     retry = payload;
-    const request = {};pending = request;feedback.textContent = 'Sending steering…';sync();
+    const request = {};pending = request;feedback.textContent = 'Sending prompt update…';changed();
     try {
       const result = await send('/api/steer', payload);
       if (identity !== target || context() !== scope || pending !== request) return;
-      feedback.textContent = result.message?.state === 'included' ? 'Already included in model context.' : 'Steering queued for the next model decision.';
+      feedback.textContent = result.message?.state === 'included' ? 'Prompt update included in model context.' : 'Prompt update queued for the next model decision.';
       if (input.value.trim() === text) input.value = '';
       retry = null;
     } catch (error) {
       if (identity !== target || context() !== scope || pending !== request || error.stale) return;
       feedback.textContent = error.message + ' Your message is still here; you can retry.';
     } finally {
-      if (pending === request) {pending = null;sync();}
+      if (pending === request) {pending = null;changed();}
     }
-  });
-  return {update(state = {}) {
+  };
+  input.addEventListener('input', changed);
+  return {submit, get available() {return available;}, get busy() {return !!pending;}, update(state = {}) {
     const next = context() + ':' + (state.attempt_id || '');
     if (next !== identity) {
+      restoreDraft();
       identity = next;attempt = state.attempt_id;pending = null;retry = null;
-      input.value = '';feedback.textContent = '';
+      feedback.textContent = '';
     }
     const steering = state.steering || {}, rows = steering.messages || [];
     const running = state.status === 'running' && !!attempt;
     available = running && steering.available === true;
-    form.hidden = !running && !rows.length;
+    if (available && !draft) {
+      draft = {value:input.value, readOnly:input.readOnly, maxLength:input.maxLength, placeholder:input.placeholder};
+      input.value = '';input.readOnly = false;input.maxLength = 2000;
+      input.placeholder = 'Update your running task…';
+    } else if (!available) {
+      if (draft) feedback.textContent = '';
+      pending = null;retry = null;restoreDraft();
+    }
+    help.hidden = !available;
     const latest = rows.at(-1), waiting = rows.filter(row => row.state === 'queued').length;
-    delivery.textContent = running && !steering.supported ? 'Live steering is unavailable for this policy.'
-      : waiting ? `${waiting} steering message${waiting === 1 ? '' : 's'} waiting for the model.`
-      : latest?.state === 'not_delivered' ? 'Run ended before the queued steering reached the model.'
-      : latest?.state === 'included' ? 'Latest steering included in model context.' : '';
-    sync();
+    delivery.textContent = running && !steering.supported ? 'Live prompt updates are unavailable for this policy.'
+      : waiting ? `${waiting} prompt update${waiting === 1 ? '' : 's'} waiting for the model.`
+      : latest?.state === 'not_delivered' ? 'Run ended before the queued prompt update reached the model.'
+      : latest?.state === 'included' ? 'Latest prompt update included in model context.' : '';
+    changed();
   }};
 }
 
@@ -598,7 +610,8 @@ function createRunLaunchGuard() {
     $('openLocalRun').disabled = !csrf || ended || active || submitting;
     $('runGroot').disabled = !csrf || ended || active || submitting;
     $('runAstra').disabled = $('runClaude').disabled = !csrf || ended || active || submitting;
-    ['runDuration', 'runnerName', 'email', 'provider', 'model', 'prompt', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
+    ['runDuration', 'runnerName', 'email', 'provider', 'model', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
+    $('prompt').disabled = !csrf || ended || submitting || (active && !window.yamRuntimeSteering?.available);
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
     runVideoEmail.busy(!csrf || active || submitting || ended);
@@ -933,7 +946,9 @@ function createRunLaunchGuard() {
   });
   $('runForm').addEventListener('submit', async event => {
     event.preventDefault();
-    if (submitting || active || ended) return;
+    if (ended || submitting) return;
+    if (window.yamRuntimeSteering?.available) {await window.yamRuntimeSteering.submit();return;}
+    if (active) return;
     if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
     if($('provider').value === 'aspire' && !aspireRunAvailable) {message('ASPIRE is unavailable for this robot.',true);return;}
     contactRequested = false;
@@ -2066,9 +2081,9 @@ function createRunLaunchGuard() {
   }
   window.addEventListener('pagehide', () => { $('apiKey').value = ''; });
   const steeringComposer = window.yamRuntimeSteering = createSteeringComposer({
-    form:$('steeringForm'), input:$('steeringPrompt'), button:$('steeringSend'),
+    input:$('prompt'), help:$('steeringHelp'),
     feedback:$('steeringFeedback'), delivery:$('steeringDelivery'), send:api,
-    context:() => robotGeneration + ':' + csrf, requestId:() => crypto.randomUUID(),
+    context:() => robotGeneration + ':' + csrf, requestId:() => crypto.randomUUID(), changed:buttons,
   });
   window.addEventListener('blupe-robot-selected', () => steeringComposer.update());
   const originalCameraMarkup = $('liveViewer').innerHTML;
@@ -2656,17 +2671,25 @@ function bindQuickTaskDraft(prompt, quick) {
     if (model.disabled !== provider.disabled) model.disabled = provider.disabled;
     const running = $('runForm').classList.contains('runActive');
     const queued = !$('leaveQueue').hidden && !$('leaveQueue').disabled;
-    send.dataset.running = String(running);
-    const disabled = running ? (queued ? $('leaveQueue').disabled : $('stop').disabled) : $('run').disabled;
+    const steering = window.yamRuntimeSteering?.available;
+    send.dataset.running = String(running && !steering);
+    // Use one visible prompt-update entry while the owner is steering.
+    if (quickEntry.hidden !== !!steering) quickEntry.hidden = !!steering;
+    if ($('composerStop').hidden !== !steering) $('composerStop').hidden = !steering;
+    if ($('composerStop').disabled !== $('stop').disabled) $('composerStop').disabled = $('stop').disabled;
+    const disabled = steering ? $('prompt').disabled || window.yamRuntimeSteering.busy || !$('prompt').value.trim()
+      : running ? (queued ? $('leaveQueue').disabled : $('stop').disabled) : $('run').disabled;
     if (send.disabled !== disabled) send.disabled = disabled;
     if (quickRun.disabled !== disabled) quickRun.disabled = disabled;
-    const quickLabel = running ? (queued ? 'Leave queue' : 'Stop run') : 'Run';
+    const quickLabel = steering ? 'Update prompt' : running ? (queued ? 'Leave queue' : 'Stop run') : 'Run';
+    if (quickPrompt.maxLength !== $('prompt').maxLength) quickPrompt.maxLength = $('prompt').maxLength;
+    if (quickPrompt.placeholder !== $('prompt').placeholder) quickPrompt.placeholder = $('prompt').placeholder;
     if (quickRun.textContent !== quickLabel) quickRun.textContent = quickLabel;
     if (quickPrompt.disabled !== $('prompt').disabled) quickPrompt.disabled = $('prompt').disabled;
     if (quickPrompt.readOnly !== $('prompt').readOnly) quickPrompt.readOnly = $('prompt').readOnly;
-    send.setAttribute('aria-label', running ? (queued ? 'Leave queue' : 'Stop run') : 'Send task');
+    send.setAttribute('aria-label', steering ? 'Update prompt' : running ? (queued ? 'Leave queue' : 'Stop run') : 'Send task');
     send.title = send.getAttribute('aria-label');
-    const icon = running ? '■' : '↑';
+    const icon = running && !steering ? '■' : '↑';
     if (send.firstElementChild.textContent !== icon) send.firstElementChild.textContent = icon;
     const settingsDisabled = running || $('openLocalRun').disabled;
     if ($('composerSettings').disabled !== settingsDisabled) $('composerSettings').disabled = settingsDisabled;
@@ -2767,10 +2790,13 @@ function bindQuickTaskDraft(prompt, quick) {
     $('runnerName').focus();
   }
   send.addEventListener('click', () => {
-    if ($('runForm').classList.contains('runActive')) {
+    if (window.yamRuntimeSteering?.available) {
+      void window.yamRuntimeSteering.submit();
+    } else if ($('runForm').classList.contains('runActive')) {
       (!$('leaveQueue').hidden && !$('leaveQueue').disabled ? $('leaveQueue') : $('stop')).click();
     } else openRunIdentity();
   });
+  $('composerStop').addEventListener('click', () => $('stop').click());
   const prompt = $('prompt');
   function sizePrompt() { prompt.style.height = 'auto'; prompt.style.height = Math.min(120, Math.max(24, prompt.scrollHeight)) + 'px'; }
   prompt.addEventListener('input', sizePrompt);
