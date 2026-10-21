@@ -428,6 +428,7 @@ function createRunLaunchGuard() {
         const watch = document.createElement('span'); watch.className = 'pastRunWatch'; watch.textContent = '▶ Watch replay';
         const outcome = document.createElement('span'); outcome.className = 'pastRunLabel';
         outcome.textContent = run.result || 'Unknown';
+        outcome.dataset.result = run.result || 'Unknown';
         const errors = document.createElement('span'); errors.className = 'pastRunLabel';
         errors.textContent = 'Errors: ' + (run.errors || 'None recorded');
         const ending = document.createElement('span'); ending.className = 'pastRunLabel';
@@ -1330,7 +1331,7 @@ function createRunLaunchGuard() {
     let output = live?.reviewing_prompt ? 'Reviewing your prompt…' : progress ? publicUpdate + progress + (note ? '\n\nPrevious decision: ' + note : '') : note || (summary ? 'Public summary: '+summary.message : '') || (live
       ? (running ? `Waiting for ${liveModelName}’s first note…` : `No ${liveModelName} note was recorded for this run.`)
       : `${liveModelName}’s next note will appear here.`);
-    if (live?.error) output += '\n\nRun error: ' + live.error;
+    if (live?.error) output += '\n\n' + (live.error === 'Run reached time limit' ? 'Run stopped: ' : 'Run error: ') + live.error;
     if (live?.display_error) output += '\n\nPlayground error: ' + live.display_error;
     const body = $('astraStreamOutput');
     if (body.textContent !== output) {

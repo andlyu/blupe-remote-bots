@@ -93,3 +93,17 @@ test('shared updates require tool attribution, matching task and public event ty
  }
  for(const speaker of ['User','Astra']) assert.equal(c.publicModelRun({task:'Task',events:[{...event,speaker}]}).events[0].kind,'model_request');
 });
+
+
+test('decision-note fallback labels run deadlines as stopped while preserving actual errors', () => {
+ const nodes = {};
+ const ui = {liveModelName:'Dream', $:id => nodes[id] ||= {textContent:'',scrollTop:0}, astraStreamNote:()=>'', modelRunResult:()=>null};
+ vm.createContext(ui);
+ const render = source.slice(source.indexOf('  function renderAstraStream('), source.indexOf('  const ROBOT_STATUS'));
+ vm.runInContext(helper + render, ui);
+ ui.renderAstraStream({status:'timed_out',error:'Run reached time limit',events:[]});
+ assert.match(nodes.astraStreamOutput.textContent, /Run stopped: Run reached time limit/);
+ assert.doesNotMatch(nodes.astraStreamOutput.textContent, /Run error/);
+ ui.renderAstraStream({status:'failed',error:'Robot connection lost',events:[]});
+ assert.match(nodes.astraStreamOutput.textContent, /Run error: Robot connection lost/);
+});
