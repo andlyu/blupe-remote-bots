@@ -67,8 +67,8 @@ def test_timeout_with_error_takes_priority_and_history_retains_it(tmp_path):
     names.remember_result('ep_timeout', {'status':'error','error':'Session is not active'})
     import sqlite3
     with sqlite3.connect(names.path) as db:
-        assert db.execute('SELECT result,reason FROM run_results').fetchone() == ('Failure','Run reached time limit')
-    assert names.results()['ep_timeout']['errors'] == 'Run reached time limit'
+        assert db.execute('SELECT result,reason FROM run_results').fetchone() == ('Stopped','Run reached time limit')
+    assert names.results()['ep_timeout']['errors'] is None
 
 
 def test_timeout_safety_code_survives_generic_error():
@@ -80,8 +80,45 @@ def test_robot_catalog_timeout_wins_over_stale_generic_result():
     from remote_yam.past_runs import merge_run_result, run_result
     row = run_result({'outcome':'session_timeout'})
     merge_run_result(row, {'result':'Failure','result_reason':'Runner or model error','errors':'Runner or model error'})
-    assert row['result_reason'] == row['errors'] == 'Run reached time limit'
-    assert row['result'] == 'Failure'
+    assert row['result_reason'] == 'Run reached time limit'
+    assert row['errors'] is None
+    assert row['result'] == 'Stopped'
+
+
+def test_time_limit_history_is_neutral_for_new_and_legacy_records(tmp_path):
+    import sqlite3
+    from remote_yam.past_runs import RunNames, merge_run_result, run_result
+    names = RunNames(tmp_path/'names.sqlite3')
+    names.remember_result('ep_timeout', {'status':'timed_out'})
+    with sqlite3.connect(names.path) as db:
+        assert db.execute('SELECT errors,ending_reason FROM run_details').fetchone() == (None, 'Run reached time limit')
+        db.execute("UPDATE run_results SET result='Failure'")
+        db.execute("UPDATE run_details SET errors='Run reached time limit'")
+    legacy = names.results()['ep_timeout']
+    assert legacy['result'] == 'Stopped' and legacy['errors'] is None
+    for outcome in ('session_timeout', 'policy_runtime_timeout'):
+        row = run_result({'outcome':outcome})
+        assert row['result'] == 'Stopped' and row['errors'] is None
+        merge_run_result(row, {'result':'Failure', 'result_reason':'Run reached time limit', 'errors':'Run reached time limit'})
+        assert row['result'] == 'Stopped' and row['errors'] is None
+        assert row['ending_reason'] == 'Run reached time limit'
+    names.remember_result('ep_timeout', {'status':'error','error':'Session is not active'})
+    with sqlite3.connect(names.path) as db:
+        assert db.execute('SELECT result,reason FROM run_results').fetchone() == ('Stopped','Run reached time limit')
+        assert db.execute('SELECT errors FROM run_details').fetchone() == (None,)
+
+
+def test_time_limit_does_not_hide_a_specific_robot_failure(tmp_path):
+    from remote_yam.past_runs import RunNames, merge_run_result, run_result
+    message = 'within 2s: left_joint_5 residual_rad=0.23 measured_rad=0.35 target_rad=0.58; allowed_rad=0.1'
+    names = RunNames(tmp_path/'names.sqlite3')
+    names.remember_result('ep_fault', {'status':'timed_out','error':message})
+    names.remember_result('ep_fault', {'status':'timed_out'})
+    saved = names.results()['ep_fault']
+    assert saved['result'] == 'Failure'
+    assert 'Left arm joint 5' in saved['errors']
+    row = merge_run_result(run_result({'outcome':'session_timeout'}), saved)
+    assert row['result'] == 'Failure' and row['errors'] == saved['errors']
 
 
 def test_dispatch_error_reconciles_authoritative_timeout():

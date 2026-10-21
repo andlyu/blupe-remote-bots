@@ -10,6 +10,17 @@ function fixture({chat=null,live=null}={}) {
   vm.runInContext(helper,context);
   return {element, render:(state,failure) => context.renderPublicRunNotice(state,failure)};
 }
+test('time limit is a neutral stop for the runner, while a robot fault stays an error', () => {
+  const {element,render}=fixture();
+  const public_run={runner_name:'Tom',status:'timed_out',error:'Run reached time limit'};
+  render({public_run});
+  assert.equal(element.hidden,false);
+  assert.equal(element.dataset.tone,'neutral');
+  assert.equal(element.textContent,'Tom — Stopped: Run reached time limit');
+  render({public_run,robot_fault:'Joint fault'});
+  assert.equal(element.dataset.tone,'error');
+  assert.equal(element.textContent,'Robot error: Joint fault');
+});
 test('recoverable warning stays visible without claiming a failed run', () => {
   const {element,render}=fixture();
   render({public_run:{runner_name:'Fixture',status:'running',warning:'Robot server connection interrupted; retrying.'}});

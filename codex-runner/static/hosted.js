@@ -1431,12 +1431,15 @@ function createRunLaunchGuard() {
     if(identity(live) !== identity(previous) || live?.reviewing_prompt) renderCurrentConversation.errorTimes=new Map();
     const errorTimes=renderCurrentConversation.errorTimes ||= new Map();
     const events = [...(live?.events || [])];
-    for (const [speaker, reason] of [['Run error', live?.error], ['Playground error', live?.display_error]]) {
-      if (reason && !events.some(event => event.kind === 'model_error' && event.message === reason)) {
+    for (const [speaker, reason, kind] of [
+      [live?.error === 'Run reached time limit' ? 'Run stopped' : 'Run error', live?.error,
+        live?.error === 'Run reached time limit' ? 'run_notice' : 'model_error'],
+      ['Playground error', live?.display_error, 'model_error']]) {
+      if (reason && !events.some(event => event.kind === kind && event.message === reason)) {
         const key=JSON.stringify([speaker,reason]);
         const timestamp=live.ended_at || errorTimes.get(key) || events.at(-1)?.timestamp || Date.now()/1000;
         errorTimes.set(key,timestamp);
-        events.push({kind:'model_error',speaker,message:reason,timestamp});
+        events.push({kind,speaker,message:reason,timestamp});
       }
     }
     renderConversation(events, 'liveConversationMessages');
@@ -1469,12 +1472,13 @@ function createRunLaunchGuard() {
     const error = state.robot_fault || (taskError === generic ? runError || taskError : taskError || runError);
     const warning = ['preparing', 'running'].includes(run?.status) ? run?.warning : null;
     const notice = error === generic ? 'Run failed without a recorded error detail.' : error || warning;
+    const timeLimit = !state.robot_fault && notice === 'Run reached time limit';
     const element = $('publicRunError');
     element.hidden = !notice;
-    element.dataset.tone = error ? 'error' : 'warning';
+    element.dataset.tone = timeLimit ? 'neutral' : error ? 'error' : 'warning';
     element.textContent = notice ? (state.robot_fault
       ? `Robot error: ${notice}`
-      : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${error ? (error === 'Run reached time limit' ? 'Failure' : 'run error') : 'connection warning'}: ${notice}`) : '';
+      : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
     window.yamRuntimeSteering?.update(state);
@@ -1579,7 +1583,7 @@ function createRunLaunchGuard() {
   function renderConversation(events, target = 'conversationMessages') {
     if (target === 'sideConversationMessages') sideConversationEvents = events;
     const reasoning = target === 'sideConversationMessages' && $('liveConversationPanel').dataset.mode === 'reasoning';
-    const messages = events.filter(event => ['model_request', 'model_response', 'model_error', 'steering_queued', 'steering_included'].includes(event.kind) ||
+    const messages = events.filter(event => ['model_request', 'model_response', 'model_error', 'run_notice', 'steering_queued', 'steering_included'].includes(event.kind) ||
       event.kind === 'model_progress' && ['summary','status'].includes(event.progress_type || event.details?.progress_type));
     const snapshot = JSON.stringify([reasoning, liveModelName, messages]);
     if (snapshot === conversationSnapshots[target]) return;
@@ -1617,7 +1621,7 @@ function createRunLaunchGuard() {
       }
 
       const steering = event.kind.startsWith('steering_');
-      if (reasoning && !steering && event.kind !== 'model_error' && !astraStreamNote(event, true)) return null;
+      if (reasoning && !steering && !['model_error', 'run_notice'].includes(event.kind) && !astraStreamNote(event, true)) return null;
       const li = document.createElement('li'), heading = document.createElement('strong'), body = document.createElement('p');
       li.classList.add('conversationTurn');
       li.classList.add(event.kind === 'model_request' || steering ? 'conversationOutgoing' : 'conversationIncoming');
@@ -1629,7 +1633,7 @@ function createRunLaunchGuard() {
       heading.append(speakerLabel, timestamp);
       body.textContent = event.kind === 'model_request' ? event.details?.request_text || event.details?.observation || event.message : event.details?.response || event.message;
       if (freshText !== null) body.textContent = freshText;
-      if (reasoning && !steering && event.kind !== 'model_error') body.textContent = astraStreamNote(event, true);
+      if (reasoning && !steering && !['model_error', 'run_notice'].includes(event.kind)) body.textContent = astraStreamNote(event, true);
       li.append(heading);
       for (const ref of refs) {
         const marker = document.createElement('button'); marker.type = 'button';
@@ -3080,12 +3084,21 @@ function taskRunFailure(run) {
   const updates = run.task_progress?.updates || [];
   const isBlocked = update => /^Task blocked\.?$/.test(update?.happened || '');
   const blocked = [...updates].reverse().find(isBlocked)?.changed;
-  if(!run.error && !['failed','timed_out','disconnected'].includes(run.status) &&
-      !(run.status === 'stopped' && isBlocked(updates.at(-1)))) return null;
   const generic = 'The run encountered a model or runner error.';
-  const reason = (run.error && run.error !== generic ? run.error : blocked) ||
-    (run.status === 'timed_out' ? 'Run reached time limit' : 'The task ended without a recorded reason.');
-  return {label:run.status === 'timed_out' || reason === 'Run reached time limit' ? 'Task timed out' : 'Task failed',
+  const specificError = run.error && run.error !== generic &&
+    !/Run reached time limit|runtime limit|session_timeout|policy_runtime_timeout|selected duration limit|Session is not active/i.test(run.error);
+  const timedOut = !specificError && (run.status === 'timed_out' || run.error === 'Run reached time limit' ||
+    (run.events || []).some(event => event.kind === 'lifecycle' &&
+      (['session_timeout','policy_runtime_timeout'].includes(event.details?.reason) ||
+        event.details?.state === 'timed_out' || event.message === 'Session timed_out')));
+  if(!timedOut && !run.error && !['failed','disconnected'].includes(run.status) &&
+      !(run.status === 'stopped' && isBlocked(updates.at(-1)))) return null;
+  // The terminal lifecycle is stronger evidence than a stale cancellation or
+  // generic provider error. A request timeout alone is not a run deadline.
+  const reason = timedOut ? 'Run reached time limit' :
+    (run.error && run.error !== generic ? run.error : blocked) ||
+    'The task ended without a recorded reason.';
+  return {label:timedOut ? 'Task stopped' : 'Task failed',tone:timedOut ? 'neutral' : 'error',
     reason:String(reason),task:run.task || run.task_progress?.task};
 }
 
@@ -3170,7 +3183,8 @@ function aspireActivityEntries(run = {}) {
     outcome.reason,{timestamp:outcome.checked_at,tone:outcome.success === true ? 'success' : 'warning',
       localSetup:!failure && outcome.success !== true && !['queued','preparing','running'].includes(run.status) ? aspireLocalSetupUrl(run) : ''});
   if(failure) add('task-failure','Runner',failure.label,failure.task || 'Submitted task',
-    {detail:failure.reason,next:'Review the error before starting another attempt.',tone:'error',timestamp:run.ended_at,localSetup:aspireLocalSetupUrl(run)});
+    {detail:failure.reason,next:failure.tone === 'neutral' ? '' : 'Review the error before starting another attempt.',
+      tone:failure.tone,timestamp:run.ended_at,localSetup:failure.tone === 'neutral' ? '' : aspireLocalSetupUrl(run)});
   // Unknown timestamps retain source order; never invent a recorded time.
   const prompt=messages.shift();
   const sorted=messages.map((message,index)=>({...message,order:index}));
@@ -3226,7 +3240,7 @@ function aspireWorkStatus(run = {},now = Date.now()/1000,lastPollAt = now) {
     verified ? 'Complete · verified' : 'Not working';
   const writing=stage?.stage === 'offline_repair' && ['model_request','model_progress'].includes(trace.at(-1)?.kind);
   const title=needsInput ? progress.resolution.title : active ? (writing ? 'Writing repair code' : stage?.title) || ({queued:'Waiting for the robot',preparing:'Preparing the task',running:'Running the task'}[run.status]) || 'Repairing the task' :
-    verified ? 'Task complete' : progress.outcome ? 'Placement remains unverified' : taskRunFailure(run) ? 'Task failed' : 'Task stopped';
+    verified ? 'Task complete' : progress.outcome ? 'Placement remains unverified' : taskRunFailure(run)?.label || 'Task stopped';
   const revision=[...trace].reverse().find(e=>e.revision)?.revision;
   const timer=active && stage ? `${Math.floor((stage.elapsed_s || 0)+Math.max(0,now-lastPollAt))}s in this stage` : '';
   const freshness=age === null ? 'No update time recorded' : 'Last update '+aspireElapsed(age)+' ago';
@@ -3288,11 +3302,12 @@ function aspireTaskWorking(run) {
     if(box.dataset.failureKey === key) return;
     box.dataset.failureKey=key;box.replaceChildren();
     if(!failure) return;
+    box.dataset.tone=failure.tone;
     box.append(node('strong',failure.label));
     if(includeTask && failure.task) paragraph(box,failure.task,'taskFailurePrompt');
     paragraph(box,failure.reason.length > 300 ? failure.reason.slice(0,297)+'…' : failure.reason);
     if(failure.reason.length > 300) code(box,'Exact error details',failure.reason);
-    paragraph(box,'Review the error before starting another attempt.','help');
+    if(failure.tone !== 'neutral') paragraph(box,'Review the error before starting another attempt.','help');
   }
   window.yamTaskFailure = (run,state={}) => {
     const task=aspireLiveTask(run,state),failure=taskRunFailure(task);
@@ -3708,7 +3723,7 @@ function aspireTaskWorking(run) {
     const selection = live ? 'preview' : selected;
     if(selector.value !== selection) selector.value=selection;
     const currentOption = selector.options?.[0] || selector.children?.[0];
-    const optionLabel = showCurrent ? 'Submitted task · '+(failure ? (failure.label === 'Task timed out' ? 'timed out' : 'failed') : liveRun.status) : 'Prompt preview · not submitted';
+    const optionLabel = showCurrent ? 'Submitted task · '+(failure ? (failure.tone === 'neutral' ? 'stopped' : 'failed') : liveRun.status) : 'Prompt preview · not submitted';
     if(currentOption && currentOption.textContent !== optionLabel) currentOption.textContent = optionLabel;
     const anchor = showCurrent ? (liveRun?.task || progress?.task) : selected === 'preview' ? $('prompt').value.trim() || 'Enter a task below.' : catalog?.episodes?.find(item => item.id === selected)?.task;
     if(anchor && $('sidePrompt').textContent !== anchor) $('sidePrompt').textContent = anchor;

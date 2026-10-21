@@ -466,6 +466,8 @@ body.cameraExpanded{overflow:hidden}
 .aspireTaskPanel .aspireTaskLog { overscroll-behavior-y: auto; }
 
 .publicRunError[data-tone="warning"]{color:#8a5300;background:#fff8eb;border-left-color:#8a5300}
+.publicRunError[data-tone="neutral"],.taskFailureNotice[data-tone="neutral"]{color:#a34b00;background:#fff4e5;border-color:#d97706}
+.aspireActivityEntry[data-tone="neutral"] .aspireActivityTitle{color:#a34b00}
 .aspireRepairTrace p { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 
