@@ -12,3 +12,8 @@ Authoritative READMEs extracted from the installed 1.0.0 wheel metadata on Octob
 | Session reset, release and recording disable | [Client](client.md#running-a-model) |
 
 Our bridge follows the documented YAM embodiment block and EEF `solve: traj` contract. It never imports or launches the SDK robot station/motor driver. The source package's `dream_examples/yam_mujoco/dream_control.py` and `robots/yam.py` were also read locally to confirm arm order and gripper/radian conventions; they are not copied as application code.
+
+## Blockwise linear algebra
+
+Pinned private API/source contract, activation and numerical limits:
+[BLOCKWISE-GRAM.md](BLOCKWISE-GRAM.md).
