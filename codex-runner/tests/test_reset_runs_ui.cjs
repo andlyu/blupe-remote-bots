@@ -59,3 +59,19 @@ test('failed reset explains the problem, keeps drafts and permits retry without 
   assert.equal(f.state.ended,false); assert.equal(f.$('prompt').value,'kept draft');
   assert.equal(f.$('resetRuns').disabled,false);
 });
+
+test('hosted allowance refresh completes before reset success reenables Run', async () => {
+  let finish;
+  const f=fixture(async()=>({ok:true,guest_runs:{remaining:10}}));
+  f.state.applicationContext=()=>({marker:'current application'});
+  f.state.window.yamApplication={runsReset:async(result,context)=>{
+    assert.equal(result.guest_runs.remaining,10);assert.equal(context.marker,'current application');
+    await new Promise(resolve=>finish=resolve);
+  }};
+  const pending=f.click();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.$('run').disabled,true);
+  assert.equal(f.$('resetRunsStatus').textContent,'Resetting runs…');
+  finish();await pending;
+  assert.equal(f.$('run').disabled,false);
+  assert.match(f.$('resetRunsStatus').textContent,/Runs reset/);
+});
