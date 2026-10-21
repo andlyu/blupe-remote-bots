@@ -284,7 +284,8 @@ class HostedRunner:
 
     async def chat_snapshot(self, visitor):
         return {'messages':await asyncio.to_thread(self.chat_history.messages),
-                'visitor':visitor.chat_id, 'reactions':self.reactions.snapshot()}
+                'visitor':visitor.chat_id, 'reactions':self.reactions.snapshot(),
+                'server_time':time.time()}
 
     async def append_chat(self, visitor, name, text):
         await asyncio.to_thread(self.chat_history.append, visitor.chat_id, name, text)

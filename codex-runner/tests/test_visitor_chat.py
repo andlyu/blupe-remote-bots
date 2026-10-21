@@ -105,7 +105,10 @@ def test_independent_local_runners_and_hosted_visitors_share_per_robot_reactions
             a.call('/api/reactions', {'emoji':'🙂'})
         assert throttled.value.code == 429
         h.call('/api/chat', {'name':'Viewer', 'text':'Shared hello'})
-        assert a.call('/api/chat')['messages'][0]['text'] == 'Shared hello'
+        for browser in (a,b,h):
+            result = browser.call('/api/chat')
+            assert result['messages'][0]['text'] == 'Shared hello'
+            assert 0 <= result['server_time'] - result['messages'][0]['at'] < 5
         assert app_a.chat_history.messages() == []
         late = Browser(local_a)
         assert late.call('/api/chat')['reactions'] == []

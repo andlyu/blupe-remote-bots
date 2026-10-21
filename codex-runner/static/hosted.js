@@ -2345,6 +2345,7 @@ function createRunLaunchGuard() {
     if (!csrf || ended) return;
     const data = await api('/api/chat');
     window.yamReactions?.receive(data.reactions);
+    window.yamReactions?.receiveChat(data.messages, data.server_time);
     const list = $('chatMessages');
     const snapshot = JSON.stringify([data.visitor, data.messages]);
     if (snapshot === lastChatSnapshot) {
