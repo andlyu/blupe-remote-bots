@@ -556,7 +556,7 @@ test('failure reasons use terminal diagnostics and retain long exact details', a
   assert.equal(f.nodes.taskRunFailure.hidden,true,'historical blocked notes do not make a recovering run failed');
   f.poll({...run,status:'timed_out',error:'Run reached time limit'});
   const timeout=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
-  assert.match(f.allText(timeout),/Task timed out[\s\S]*Run reached time limit/);
+  assert.match(f.allText(timeout),/Task stopped[\s\S]*Run reached time limit/);
   assert.equal(f.nodes.taskRunFailure.hidden,true);
 });
 
@@ -1036,8 +1036,9 @@ test('normal and fallback runs keep their conversation visible when they time ou
         assert.equal(f.nodes.sideConversationMessages.hidden,false);
         assert.equal(f.nodes.astraStream.hidden,false);
         assert.deepEqual(Array.from(f.events().slice(0,2)),notes);
-        assert.equal(f.events().at(-1).message,error);
-        assert.equal(f.events().at(-1).speaker,'Run error');
+        assert.equal(f.events().at(-1).message,status==='timed_out' ? 'Run reached time limit' : error);
+        assert.equal(f.events().at(-1).speaker,status==='timed_out' ? 'Run stopped' : 'Run error');
+        assert.equal(f.events().at(-1).kind,status==='timed_out' ? 'run_notice' : 'model_error');
         assert.equal(f.nodes.sidePrompt.textContent,task);
       }
       assert.equal(run.events.length,2,'rendering the failure preserves recorded messages');
@@ -1047,4 +1048,46 @@ test('normal and fallback runs keep their conversation visible when they time ou
       assert.equal(f.events().length,0,'a new attempt clears the prior conversation and failure');
     }
   }
+});
+
+test('authoritative deadlines replace generic errors in the task conversation', async () => {
+  const generic='The run encountered a model or runner error.';
+  for(const [i, evidence] of [
+    {status:'timed_out'},
+    {status:'stopped',events:[{kind:'lifecycle',details:{reason:'session_timeout'}}]},
+    {status:'stopped',events:[{kind:'lifecycle',details:{state:'timed_out'}}]},
+    {status:'stopped',events:[{kind:'lifecycle',message:'Session timed_out'}]},
+  ].entries()) {
+    const f=await disclosureFixture();
+    f.poll({attempt_id:'deadline-'+i,task:'Red-block transfer',error:generic,
+      task_progress:{updates:[]},...evidence});
+    const failure=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
+    assert.match(f.allText(failure),/Task stopped[\s\S]*Run reached time limit/);
+    assert.doesNotMatch(f.allText(failure),/model or runner error|Review the error|Task failed/);
+    assert.equal(failure.dataset.tone,'neutral');
+    assert.equal(context.aspireWorkStatus({task_progress:{updates:[]},...evidence},10,10).title,'Task stopped');
+  }
+});
+
+test('request timeouts and manual stops do not become run deadlines', async () => {
+  const f=await disclosureFixture();
+  for(const [i,event] of [
+    {kind:'camera_retry',details:{cause:'TimeoutError'}},
+    {kind:'server_contact_issue',details:{cause_type:'TimeoutError'}},
+    {kind:'model_error',message:'Model request timed out'},
+    {kind:'lifecycle',details:{state:'stopped',reason:'user_requested'}},
+  ].entries()) {
+    f.poll({attempt_id:'request-timeout-'+i,task:'Red-block transfer',status:'stopped',
+      error:'Camera request timed out',events:[event],task_progress:{updates:[]}});
+    const failure=f.work.descendants().find(node=>node.dataset.messageId==='task-failure');
+    assert.match(f.allText(failure),/Task failed[\s\S]*Camera request timed out/);
+    assert.doesNotMatch(f.allText(failure),/Task stopped|Run reached time limit/);
+  }
+});
+
+test('specific robot failure still wins over a time-limit status', () => {
+  const notice=context.taskRunFailure({status:'timed_out',task:'Transfer the block',error:'Left arm joint 5 failed to reach its target'});
+  assert.equal(notice.label,'Task failed');
+  assert.equal(notice.tone,'error');
+  assert.match(notice.reason,/Left arm joint 5/);
 });

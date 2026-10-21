@@ -7,13 +7,13 @@ from pathlib import Path
 
 class PastRunsTests(unittest.TestCase):
     def test_results_use_recorded_outcomes_and_never_guess_legacy_success(self):
-        for outcome, expected in [('policy_complete', 'Success'), ('session_timeout', 'Failure'),
+        for outcome, expected in [('policy_complete', 'Success'), ('session_timeout', 'Stopped'), ('policy_runtime_timeout', 'Stopped'),
                                   ('physical_execution_failure', 'Failure'), ('user_requested', 'Stopped'),
                                   ('session_api_stop', 'Unknown'), (None, 'Unknown')]:
             self.assertEqual(run_result({'outcome': outcome})['result'], expected)
         catalog = PastRuns(lambda _: json.dumps({'outcome': 'session_timeout'}))
         _, detail = catalog._detail({'episode_id': 'ep_test'})
-        self.assertEqual(detail['result'], 'Failure')
+        self.assertEqual(detail['result'], 'Stopped')
         self.assertIn('time limit', detail['result_reason'])
 
     def test_zero_video_duration_is_distinct_from_missing_metadata(self):

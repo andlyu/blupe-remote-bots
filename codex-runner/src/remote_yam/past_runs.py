@@ -33,8 +33,20 @@ def merge_run_result(row, stored):
     if diagnostic and row.get('result') == 'Failure' and not timed_out:
         row['result_reason'] = diagnostic
     if timed_out and row.get('result_reason') in {'Runner or model error', 'Robot safety check stopped the run', 'Run reached time limit'}:
-        row.update(result='Failure', result_reason='Run reached time limit', errors='Run reached time limit')
+        row.update(result='Stopped', result_reason='Run reached time limit', errors=None)
         if row.get('ending_reason') in {None, 'Runner or model error', 'Robot safety check stopped the run'}:
+            row['ending_reason'] = 'Run reached time limit'
+    return normalize_time_limit_result(row)
+
+
+def normalize_time_limit_result(row):
+    """Read old timeout records as normal stops without rewriting the archive."""
+    if row.get('result_reason') == 'Run reached time limit':
+        row['result'] = 'Stopped'
+        legacy_reasons = {'Run reached time limit', 'Runner or model error', 'Robot safety check stopped the run'}
+        if row.get('errors') in legacy_reasons:
+            row['errors'] = None
+        if row.get('ending_reason') in legacy_reasons or not row.get('ending_reason'):
             row['ending_reason'] = 'Run reached time limit'
     return row
 
@@ -44,8 +56,8 @@ def run_result(meta):
     outcomes = {
         'policy_complete': ('Success', 'Runner reported task complete'),
         'user_requested': ('Stopped', 'Run stopped; no specific result recorded'),
-        'session_timeout': ('Failure', 'Run reached time limit'),
-        'policy_runtime_timeout': ('Failure', 'Run reached time limit'),
+        'session_timeout': ('Stopped', 'Run reached time limit'),
+        'policy_runtime_timeout': ('Stopped', 'Run reached time limit'),
         'lease_expired': ('Failure', 'Runner connection expired'),
         'physical_execution_failure': ('Failure', 'Robot execution failed'),
         'runner_failed': ('Failure', 'Runner or model error'),
@@ -275,17 +287,13 @@ class RunNames:
             result, reason = 'Failure', specific
             errors = reason
         elif run_timed_out(state):
-            result, reason = 'Failure', 'Run reached time limit'
-            errors = reason
+            result, reason = 'Stopped', 'Run reached time limit'
         elif state.get('safety_error'):
             result, reason = 'Failure', 'Robot safety check stopped the run'
             errors = reason
         elif state.get('error'):
             from .run_errors import public_run_error
             result, reason = 'Failure', public_run_error(state)
-            errors = reason
-        elif state.get('status') == 'timed_out':
-            result, reason = 'Failure', 'Run reached time limit'
             errors = reason
         elif ending:
             result = 'Failure' if ending[0] == 'give_up' else 'Success'
@@ -322,15 +330,17 @@ class RunNames:
                 previous_error = db.execute('SELECT errors FROM run_details WHERE episode_id=?', (episode_id,)).fetchone()
                 if previous_error and previous_error[0] and (re.match(r'(Left|Right) arm joint [0-5] ', previous_error[0]) or re.fullmatch(r'ValueError: gripper delta limit at waypoint [0-9]{1,6}', previous_error[0])):
                     result, reason, errors = 'Failure', previous_error[0], previous_error[0]
-            if not ending and not errors:
+            if not ending and not errors and reason != 'Run reached time limit':
                 previous = db.execute('SELECT r.result, r.reason FROM run_results r JOIN run_details d USING (episode_id) WHERE r.episode_id=? AND d.ending_reason IS NOT NULL', (episode_id,)).fetchone()
                 if previous:
                     result, reason = previous
             previous = db.execute('SELECT reason FROM run_results WHERE episode_id=?', (episode_id,)).fetchone()
             if previous and previous[0] == 'Run reached time limit' and not specific:
-                result, reason, errors = 'Failure', 'Run reached time limit', 'Run reached time limit'
+                result, reason, errors = 'Stopped', 'Run reached time limit', None
             db.execute('INSERT INTO run_details VALUES (?, ?, ?) ON CONFLICT(episode_id) DO UPDATE SET errors=COALESCE(excluded.errors,errors), ending_reason=COALESCE(excluded.ending_reason,ending_reason)',
                        (episode_id, errors, ending[1] if ending else None))
+            if reason == 'Run reached time limit':
+                db.execute('UPDATE run_details SET errors=NULL, ending_reason=? WHERE episode_id=?', (reason, episode_id))
             db.execute('INSERT INTO run_results VALUES (?, ?, ?) ON CONFLICT(episode_id) DO UPDATE SET result=excluded.result, reason=excluded.reason WHERE result != excluded.result OR reason != excluded.reason', (episode_id, result, reason))
 
     def results(self):
@@ -356,7 +366,7 @@ class RunNames:
                 for eid, metrics in db.execute('SELECT episode_id, metrics FROM run_totals'):
                     if eid in result:
                         result[eid]['run_metrics'] = json.loads(metrics)
-            return result
+            return {eid: normalize_time_limit_result(row) for eid, row in result.items()}
 
 
     def names(self):
