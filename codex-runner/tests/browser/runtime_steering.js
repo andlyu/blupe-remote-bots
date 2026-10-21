@@ -43,8 +43,8 @@
   const check=(condition,label)=>{checks.push({pass:!!condition,label});if(!condition)throw Error(label);};
   const owner=()=>({...base,status:'running',attempt_id:'fixture-owner',public_run:run,
     steering:{supported:true,available:true,messages:[]}});
-  const preview=new URLSearchParams(location.search).has('preview');
-  if(preview) state=owner();
+  const preview=new URLSearchParams(location.search).get('preview');
+  if(preview && preview!=='idle') state=owner();
   async function verify() {
     const report=document.createElement('pre');report.id='steeringReport';
     $('liveConversationPanel').append(report);
@@ -53,9 +53,11 @@
       $('prompt').value='Original task draft';
       check($('steeringHelp').hidden && !window.yamRuntimeSteering.available,'Spectator cannot steer a public run');
       check(!$('prompt').disabled,'Spectator retains the next-task composer');
+      check($('quickTaskEntry').getBoundingClientRect().height>=44,'Idle camera shortcut stays readable in a small camera grid');
       check(!$('steeringForm') && !$('steeringPrompt'),'No separate intervention input');
       state=owner();await wait(()=>!$('steeringHelp').hidden && !$('prompt').disabled);
       check($('prompt').value==='' && $('prompt').maxLength===2000,'Main composer switches to an empty prompt update');
+      check($('quickTaskEntry').getClientRects().length===0,'Running intervention has no duplicate camera entry');
       check($('composerSend').getAttribute('aria-label')==='Update prompt','Main send button clearly updates the running task');
       check(!$('composerStop').disabled && $('composerStop').getClientRects().length>0,'Separate Stop is visible beside the main send control');
       $('prompt').value='Use the right arm instead; lift before moving sideways.';
@@ -79,6 +81,7 @@
       state={...owner(),steering:{supported:false,available:false,messages:[]}};
       await wait(()=>$('steeringDelivery').textContent.includes('unavailable'));
       check($('prompt').disabled,'Unsupported policy explains disabled steering');
+      check($('quickTaskEntry').getClientRects().length>0,'Unsupported runs retain the existing camera stop shortcut');
       state={...base,public_run:run};await wait(()=>$('steeringHelp').hidden && !$('prompt').disabled);
       check($('steeringHelp').hidden,'Returning to spectator hides intervention guidance');
       $('chatName').value='Fixture visitor';$('chatText').value='Hello from a spectator';
@@ -86,9 +89,9 @@
       check(requests.filter(row=>row.path==='/api/steer').length===1,'Social messages stay on the ordinary chat endpoint');
       state=owner();state.steering.messages=[{id:1,text:sent.text,state:'included'}];
       await wait(()=>!$('steeringHelp').hidden && !$('prompt').disabled);
-      $('quickPrompt').value='Keep the block upright';$('quickPrompt').dispatchEvent(new Event('input',{bubbles:true}));
-      await wait(()=>!$('quickRun').disabled);
-      $('quickPrompt').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      $('prompt').value='Keep the block upright';$('prompt').dispatchEvent(new Event('input',{bubbles:true}));
+      await wait(()=>!$('composerSend').disabled);
+      $('prompt').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
       await wait(()=>requests.filter(row=>row.path==='/api/steer').length===2);
       check(!requests.some(row=>['/api/run','/api/stop'].includes(row.path)),'Prompt submission neither restarts nor stops the run');
       $('composerStop').click();await wait(()=>requests.some(row=>row.path==='/api/stop'));

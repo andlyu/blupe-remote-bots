@@ -2673,6 +2673,8 @@ function bindQuickTaskDraft(prompt, quick) {
     const queued = !$('leaveQueue').hidden && !$('leaveQueue').disabled;
     const steering = window.yamRuntimeSteering?.available;
     send.dataset.running = String(running && !steering);
+    // Use one visible prompt-update entry while the owner is steering.
+    if (quickEntry.hidden !== !!steering) quickEntry.hidden = !!steering;
     if ($('composerStop').hidden !== !steering) $('composerStop').hidden = !steering;
     if ($('composerStop').disabled !== $('stop').disabled) $('composerStop').disabled = $('stop').disabled;
     const disabled = steering ? $('prompt').disabled || window.yamRuntimeSteering.busy || !$('prompt').value.trim()
