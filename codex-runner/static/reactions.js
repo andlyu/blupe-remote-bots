@@ -1,13 +1,15 @@
-/* Ephemeral screen reactions. Delivery uses the visitor chat poll, never its log. */
+/* Ephemeral reactions and chat popups, delivered by the shared visitor chat poll. */
 function createPlaygroundReactions(document, schedule = setTimeout, cancel = clearTimeout) {
   const dock = document.getElementById('reactionDock');
   if (!dock) return null;
   const stage = document.getElementById('reactionStage');
+  const chatStage = document.getElementById('chatPopupStage');
   const status = document.getElementById('reactionStatus');
   const buttons = Array.from(dock.querySelectorAll('[data-reaction]'));
   const labels = new Map(buttons.map(button => [button.dataset.reaction, button.dataset.label]));
   const seen = new Set(), timers = new Set();
   let send, available = false, busy = false, baseline = 0, generation = 0;
+  let chatCursor = null;
   function update() { buttons.forEach(button => { button.disabled = !available || busy; }); }
   function later(fn, ms) {
     const timer = schedule(() => { timers.delete(timer); fn(); }, ms);
@@ -33,6 +35,26 @@ function createPlaygroundReactions(document, schedule = setTimeout, cancel = cle
     // At most 128 live events can exist on the server.
     while (seen.size > 256) seen.delete(seen.values().next().value);
   }
+  function receiveChat(messages = [], serverTime = Date.now() / 1000) {
+    const previous = chatCursor;
+    for (const message of messages) {
+      if (!Number.isSafeInteger(message.id) || message.id <= (chatCursor ?? 0)) continue;
+      chatCursor = message.id;
+      // The first snapshot establishes history. Only fresh messages received
+      // while watching appear as popups; reconnecting never replays the log.
+      const age = serverTime - message.at;
+      if (previous === null || document.hidden || !chatStage ||
+          !Number.isFinite(age) || age < 0 || age > 5) continue;
+      const popup = document.createElement('div');
+      popup.className = 'chatPopup';
+      const name = document.createElement('strong'), text = document.createElement('span');
+      name.textContent = message.name; text.textContent = message.text;
+      popup.append(name, text); chatStage.append(popup);
+      while (chatStage.children.length > 3) chatStage.firstElementChild.remove();
+      later(() => popup.remove(), 5000);
+    }
+    chatCursor ??= 0;
+  }
   buttons.forEach(button => button.addEventListener('click', async () => {
     if (!available || busy || !send) return;
     const version = generation;
@@ -51,6 +73,7 @@ function createPlaygroundReactions(document, schedule = setTimeout, cancel = cle
   }));
   document.addEventListener('visibilitychange', () => {
     stage.replaceChildren();
+    chatStage?.replaceChildren(); chatCursor = null;
     status.textContent = '';
   });
   return {
@@ -58,10 +81,12 @@ function createPlaygroundReactions(document, schedule = setTimeout, cancel = cle
     setAvailable(value) { available = value; update(); },
     reset(cursor = 0) {
       generation++; baseline = cursor; seen.clear(); busy = false;
+      chatCursor = null; chatStage?.replaceChildren();
       timers.forEach(cancel); timers.clear();
       stage.replaceChildren(); status.textContent = ''; status.classList.remove('reactionError'); update();
     },
     receive,
+    receiveChat,
   };
 }
 if (typeof module !== 'undefined') module.exports = {createPlaygroundReactions};

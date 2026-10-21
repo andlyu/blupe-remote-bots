@@ -6,18 +6,18 @@ function harness() {
     return {children:[],textContent:'',dataset:{},listeners:{},
       classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),contains:x=>classes.has(x)},
       setAttribute(){},addEventListener(name,fn){this.listeners[name]=fn},
-      append(child){child.parent=this;this.children.push(child)},
+      append(...children){for(const child of children){child.parent=this;this.children.push(child)}},
       replaceChildren(){this.children=[]},
       remove(){this.parent.children=this.parent.children.filter(c=>c!==this)},
       get firstElementChild(){return this.children[0]}};
   }
   const buttons = ['🙂','😂','😠','😢'].map((emoji,i)=>Object.assign(element(),{dataset:{reaction:emoji,label:['Smile','Laugh','Angry','Cry'][i]}}));
-  const dock=element(), stage=element(), status=element();
+  const dock=element(), stage=element(), chatStage=element(), status=element(), listeners={};
   dock.querySelectorAll=()=>buttons;
-  const document={hidden:false,createElement:element,addEventListener(){},getElementById:id=>({reactionDock:dock,reactionStage:stage,reactionStatus:status}[id])};
+  const document={hidden:false,createElement:element,addEventListener(name,fn){listeners[name]=fn},getElementById:id=>({reactionDock:dock,reactionStage:stage,chatPopupStage:chatStage,reactionStatus:status}[id])};
   const timers=new Map();let serial=0;
   const ui=createPlaygroundReactions(document,(fn,ms)=>{timers.set(++serial,{fn,ms});return serial},id=>timers.delete(id));
-  return {ui,buttons,stage,status,document,timers,expire(ms){for(const [id,t] of timers) if(t.ms<=ms){timers.delete(id);t.fn()}}};
+  return {ui,buttons,stage,chatStage,status,document,listeners,timers,expire(ms){for(const [id,t] of timers) if(t.ms<=ms){timers.delete(id);t.fn()}}};
 }
 const reaction=(id=1,emoji='😂',remaining_ms=5000)=>({id,emoji,remaining_ms});
 test('sender and another viewer display the same event once, outside chat, then remove it',async()=>{
@@ -56,4 +56,43 @@ test('switching rooms ignores an in-flight send from the previous room',async()=
   const click=h.buttons[0].listeners.click();h.ui.reset(0);
   finish({reaction:reaction()});await click;
   assert.equal(h.stage.children.length,0);assert.equal(h.timers.size,0);
+});
+const chat=(id=1,at=100)=>({id,at,name:'Sam',text:'Hello everyone!'});
+test('fresh chat appears once for sender and viewers, and disappears after five seconds',()=>{
+  const a=harness(), b=harness();
+  for(const h of [a,b]){
+    h.ui.receiveChat([],100);
+    h.ui.receiveChat([chat()],101);
+    h.ui.receiveChat([chat()],102);
+    assert.equal(h.chatStage.children.length,1);
+    assert.equal(h.chatStage.children[0].children[0].textContent,'Sam');
+    assert.equal(h.chatStage.children[0].children[1].textContent,'Hello everyone!');
+    h.expire(4999);assert.equal(h.chatStage.children.length,1);
+    h.expire(5000);assert.equal(h.chatStage.children.length,0);
+    h.ui.receiveChat([chat()],104);assert.equal(h.chatStage.children.length,0);
+  }
+});
+test('chat history, outages, background tabs and room changes never replay old popups',()=>{
+  const h=harness();
+  h.ui.receiveChat([chat()],101);assert.equal(h.chatStage.children.length,0);
+  h.ui.receiveChat([chat(),chat(2,101)],110);assert.equal(h.chatStage.children.length,0);
+  h.ui.receiveChat([chat(3,110)],110);assert.equal(h.chatStage.children.length,1);
+  h.document.hidden=true;h.listeners.visibilitychange();assert.equal(h.chatStage.children.length,0);
+  h.ui.receiveChat([chat(3,110),chat(4,111)],111);
+  h.document.hidden=false;h.listeners.visibilitychange();
+  h.ui.receiveChat([chat(4,111)],112);assert.equal(h.chatStage.children.length,0);
+  h.ui.receiveChat([chat(4,111),chat(5,112)],113);assert.equal(h.chatStage.children.length,1);
+  h.ui.reset();assert.equal(h.chatStage.children.length,0);assert.equal(h.timers.size,0);
+  h.ui.receiveChat([chat(1,112)],113);assert.equal(h.chatStage.children.length,0);
+});
+test('chat uses server time, treats markup as text, and bounds bursts independently of emoji',()=>{
+  const h=harness();h.ui.receiveChat([],100);
+  h.ui.receiveChat([{...chat(),name:'<img onerror=alert(1)>',text:'<script>alert(1)</script>'}],101);
+  assert.equal(h.chatStage.children[0].children[0].textContent,'<img onerror=alert(1)>');
+  assert.equal(h.chatStage.children[0].children[1].textContent,'<script>alert(1)</script>');
+  h.ui.receiveChat(Array.from({length:10},(_,i)=>chat(i+2,101)),102);
+  assert.equal(h.chatStage.children.length,3);
+  h.ui.receive([reaction()]);assert.equal(h.stage.children.length,1);
+  h.expire(2400);assert.equal(h.stage.children.length,0);assert.equal(h.chatStage.children.length,3);
+  h.expire(5000);assert.equal(h.chatStage.children.length,0);
 });
