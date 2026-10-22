@@ -1,11 +1,11 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
 const src=fs.readFileSync(process.env.YAM_TEST_HOSTED_JS || require('node:path').join(__dirname,'../static/hosted.js'),'utf8');
 const camera=src.slice(src.indexOf('  function camera(image)'),src.indexOf('  async function poll()',src.indexOf('  function camera(image)')));
-function harness(role='observer', monitored=false, streamPath, native=false){
+function harness(role='observer', monitored=false, streamPath, native=false, local=false){
  let health;
  let now=0, video, readerOptions, destroyed=0, closed=0;const intervals=[],timers=new Map(),visibility={};let id=0;
  const label={textContent:''};
- const context={$:()=>null,csrf:null,synchronizedPanels:()=>{},ended:false,performance:{now:()=>now},location:{href:'https://test.invalid/'},URL,selectedRobot:'yam-1',
+ const context={$:()=>null,csrf:null,synchronizedPanels:()=>{},ended:false,performance:{now:()=>now},location:{href:local?'http://127.0.0.1:8792/':'https://test.invalid/',hostname:local?'127.0.0.1':'test.invalid'},URL,selectedRobot:'yam-1',
  setTimeout:f=>{timers.set(++id,f);return id},clearTimeout:i=>timers.delete(i),setInterval:f=>intervals.push(f),clearInterval:()=>{},
  fetch:async()=>{throw Error('WebRTC must not request HLS health')},AbortSignal,
  document:{hidden:false,addEventListener:(n,f)=>visibility[n]=f,createElement:()=>video={currentTime:0,seekable:{length:0},readyState:0,paused:true,events:{},dataset:{},setAttribute(){},removeAttribute(){},load(){},pause(){this.paused=true},play(){this.paused=false;return Promise.resolve()},addEventListener(n,f){this.events[n]=f},getAttribute(){return null},canPlayType(){return 'probably'}}},
@@ -32,6 +32,15 @@ function harness(role='observer', monitored=false, streamPath, native=false){
  const robo=harness('synchronized',false,'robo-house');
  assert.equal(robo.reader,undefined,'Robo-house avoids the stalling audio WebRTC relay');
  assert.equal(robo.video.dataset.transport,'hls');assert.equal(robo.video.hls.url,'/robo-house/index.m3u8');
+ assert.equal(robo.video.hls.config.liveSyncMode,'buffered','Robo-house catch-up must not seek beyond downloaded video');
+ assert.equal(robo.video.hls.config.liveSyncDuration,1);
+ assert.equal(robo.video.hls.config.liveMaxLatencyDuration,2);
+ assert.equal(robo.video.hls.config.lowLatencyMode,true,'Hosted playback retains low-latency parts');
+ for (const path of ['robo-house','synchronized-hd']) {
+  const proxied=harness('synchronized',false,path,false,true);
+  assert.equal(proxied.video.hls.config.lowLatencyMode,false,'Local proxy uses complete segments to avoid a backlog of small parts');
+  assert.equal(proxied.video.hls.config.liveSyncMode,'buffered');
+ }
  const yam=harness('synchronized',false,'synchronized-hd');
  assert.equal(yam.reader,undefined,'YAM HD must start directly without waiting for a WebRTC handshake or timeout');
  assert.equal(yam.video.dataset.transport,'hls');assert.equal(yam.video.hls.url,'/synchronized-hd/index.m3u8');

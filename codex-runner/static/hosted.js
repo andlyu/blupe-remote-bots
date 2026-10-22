@@ -2067,8 +2067,13 @@ function createRunLaunchGuard() {
       transport = video.dataset.transport = 'hls';
       const url = cameraName === 'synchronized' ? `/${streamPath}/index.m3u8` : `/live-video/hls/${cameraName}/index.m3u8`;
       if (window.Hls?.isSupported()) {
-        hls = new Hls({enableWorker:false, lowLatencyMode:true, maxBufferLength:4,
-          liveSyncMode:streamPath === 'synchronized-hd' ? 'buffered' : 'edge',
+        // The local proxy fetches each response in full. Use complete segments
+        // rather than quarter-second parts that arrive slower than real time.
+        const localComposite = cameraName === 'synchronized' &&
+          ['127.0.0.1', 'localhost'].includes(location.hostname) &&
+          ['synchronized-hd', 'robo-house'].includes(streamPath);
+        hls = new Hls({enableWorker:false, lowLatencyMode:!localComposite, maxBufferLength:4,
+          liveSyncMode:['synchronized-hd', 'robo-house'].includes(streamPath) ? 'buffered' : 'edge',
           backBufferLength:0, liveSyncDuration:liveTarget, liveMaxLatencyDuration:maxLiveDelay,
           liveSyncOnStallIncrease:0, maxLiveSyncPlaybackRate:1.05});
         hls.on(Hls.Events.ERROR, (_, data) => {
