@@ -329,6 +329,7 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
+  let historyModel = '';
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
@@ -394,10 +395,21 @@ function createRunLaunchGuard() {
     loading = true; $('morePastRuns').disabled = $('refreshPastRuns').disabled = true;
     $('pastRunsStatus').textContent = 'Loading past runs…';
     try {
-      const response = await fetch(`/api/past-runs?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
+      const modelQuery = historyModel ? `&model=${encodeURIComponent(historyModel)}` : '';
+      const response = await fetch(`/api/past-runs?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
       if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
       const data = await response.json();
       if (generation !== historyGeneration) return;
+      if (Array.isArray(data.models) && $('pastRunsModel')) {
+        const choices = ['', ...data.models];
+        if (historyModel && !choices.includes(historyModel)) choices.push(historyModel);
+        $('pastRunsModel').replaceChildren(...choices.map(model => {
+          const option = document.createElement('option'); option.value = model;
+          option.textContent = model === '__unrecorded__' ? 'Model not recorded' : model || 'All models';
+          return option;
+        }));
+        $('pastRunsModel').value = historyModel;
+      }
       if (reset) { stopPreview(); previewViews.splice(0).forEach(dispose => dispose()); $('pastRunsList').replaceChildren(); }
       for (const run of data.runs) {
         const li = document.createElement('li'), button = document.createElement('button');
@@ -424,6 +436,7 @@ function createRunLaunchGuard() {
         const title = document.createElement('span'); title.className = 'pastRunLabel';
         const robotName = {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods SO101', 'robot-abecb4cd868ab24b':'SO101'}[run.robot_id || 'yam-1'] || run.robot_id;
         title.textContent = `${robotName} · ${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : '#'+run.episode_index} · ${new Date(run.started_at*1000).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
+        if (run.model) title.textContent += ` · ${run.model}`;
         const prompt = document.createElement('span'); prompt.className = 'pastRunPrompt'; prompt.textContent = run.prompt;
         const watch = document.createElement('span'); watch.className = 'pastRunWatch'; watch.textContent = '▶ Watch replay';
         const outcome = document.createElement('span'); outcome.className = 'pastRunLabel';
@@ -472,13 +485,24 @@ function createRunLaunchGuard() {
       }
       next = data.next_offset;
       $('morePastRuns').hidden = next === null;
-      $('pastRunsStatus').textContent = data.stale ? 'Showing saved results; the archive is temporarily unavailable.' : $('pastRunsList').children.length ? '' : 'No published runs yet.';
+      const hasRuns = $('pastRunsList').children.length > 0;
+      const summary = historyModel
+        ? hasRuns ? `${data.total ?? $('pastRunsList').children.length} runs · newest first.` : 'No published runs for this model. Choose another model or All models.'
+        : hasRuns ? '' : 'No published runs yet.';
+      $('pastRunsStatus').textContent = summary + (data.stale ? ' Showing saved results; the archive is temporarily unavailable.' : '');
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
   window.yamReplayHistory = {openRun, refresh: () => load(true)};
   $('refreshPastRuns').addEventListener('click', () => load(true));
   $('morePastRuns').addEventListener('click', () => load());
+  $('pastRunsModel')?.addEventListener('change', () => {
+    historyModel = $('pastRunsModel').value;
+    historyGeneration++; loading = false; next = 0;
+    stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
+    $('pastRunsList').replaceChildren(); $('morePastRuns').hidden = true;
+    load(true);
+  });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
   window.addEventListener('blupe-robot-selected', event => {
     stopPreview();
