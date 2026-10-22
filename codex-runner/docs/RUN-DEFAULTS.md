@@ -57,3 +57,7 @@ References checked September 28, 2026:
 - https://developers.openai.com/api/docs/guides/fast-mode
 - https://code.claude.com/docs/en/fast-mode
 - https://platform.claude.com/docs/en/build-with-claude/fast-mode
+
+Dream-1 beta accepts run times from 1 through 10 minutes, with a 2-minute default.
+Dream-1 Flash retains its 1–2 minute range and 2-minute default. The selected
+duration is passed to both the queue and the local cancellation deadline.

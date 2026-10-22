@@ -246,7 +246,7 @@ class HostedRunner:
                         robot_id=self.robot_id)
                 self.extra_providers[name] = factory
                 self.dream_providers[name] = {'label': label, 'model': checkpoint,
-                    'default_run_duration_s': 120, 'max_run_duration_s': 120,
+                    'default_run_duration_s': 120, 'max_run_duration_s': 600 if name == 'dream' else 120,
                     'motion_cap': {'default_step_deg': 20, 'gateway_step_deg': gateway_step},
                     'help': 'Dream-1 follows your instruction using the overhead and wrist cameras. Runs until the time limit or Stop.'}
         self.observation = None
@@ -894,8 +894,9 @@ class HostedRunner:
                 raise RequestError(400, "API depth must be true or false")
             if use_api_depth and not (name == 'codex' and self.local_codex and self.api_depth_provider_factory):
                 raise RequestError(400, "API depth requires a configured local Astra runner")
-            maximum_duration = 120 if name in ('dream', 'dream_flash') else 600
-            duration = payload.get("run_duration_s", min(300, maximum_duration))
+            maximum_duration = 120 if name == 'dream_flash' else 600
+            default_duration = 120 if name in ('dream', 'dream_flash') else 300
+            duration = payload.get("run_duration_s", default_duration)
             if type(duration) is not int or not 60 <= duration <= maximum_duration:
                 raise RequestError(400, f"Choose a run duration from 1 to {maximum_duration // 60} minutes")
             runner_name = payload.get('runner_name', 'Anonymous')
