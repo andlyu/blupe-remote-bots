@@ -1,26 +1,9 @@
 import json
-from pathlib import Path
-import tempfile
 import unittest
-from remote_yam.submission_log import SubmissionLog
-from remote_yam.run_history import history_ids
 from remote_yam.past_runs import PastRuns
 
 
 class HistoryTests(unittest.TestCase):
-    def test_email_resolves_older_episodes_and_combines_browser_ids(self):
-        with tempfile.TemporaryDirectory() as root:
-            journal = SubmissionLog(Path(root)/'journal.sqlite3')
-            for submission, email, eid in [('one','Person@Example.com','ep_older'), ('two','other@example.com','ep_other')]:
-                journal.record(submission,'submitted',{'fields':{'email':email, 'api_key':'never-return'}})
-                journal.record(submission,'lifecycle',{'episode_id':eid}, 'session')
-            found = history_ids(journal.path,' person@example.com ', ['ep_browser'])
-            self.assertEqual(found, {'ep_older','ep_browser'})
-            self.assertEqual(history_ids(journal.path,'missing@example.com', []),set())
-            self.assertEqual(history_ids(journal.path,'', ['ep_browser']), {'ep_browser'})
-            with self.assertRaises(ValueError): history_ids(journal.path,'bad', [])
-            with self.assertRaises(ValueError): history_ids(journal.path,'', ['../private'])
-
     def test_filter_runs_before_pagination_and_preserve_new_flow_playback(self):
         def read(path):
             if path == 'meta/blupe_viewing.jsonl':

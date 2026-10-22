@@ -459,3 +459,8 @@ runs without an identity. Choices come from archive metadata and the local run
 journal. Only episode/model IDs are projected from that private journal.
 `GET /api/past-runs?model=...&robot_id=...&offset=0` returns the filtered `total`,
 `next_offset`, and available `models` for the robot.
+
+**Your runs** lists only runs owned by your current browser session. Reloads retain
+that session while it is active; a new session starts with empty personal history.
+Email lookup and persistent browser history are not used. `/api/my-runs` accepts
+only pagination; the server selects the session-owned episode IDs.

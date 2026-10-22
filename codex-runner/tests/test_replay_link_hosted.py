@@ -56,8 +56,8 @@ class ReplayLinkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([row.get('replay_speed') for row in body['runs']],[2,2,10])
         self.assertNotIn('never-export',json.dumps(body));self.assertNotIn('private',json.dumps(body))
         browser=await test_hosted.HostedTests.session(self)
-        code,body,_=await test_hosted.HostedTests.call(self,'/api/my-runs',method='POST',
-            payload={'episode_ids':[row['episode_id'] for row in rows]},**browser)
+        next(iter(self.app.visitors.values())).episode_ids.update(row['episode_id'] for row in rows)
+        code,body,_=await test_hosted.HostedTests.call(self,'/api/my-runs',method='POST',**browser)
         self.assertEqual(code,200)
         self.assertEqual([row.get('replay_speed') for row in body['runs']],[2,2,10])
 

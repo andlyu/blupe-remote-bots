@@ -14,7 +14,7 @@ function setup() {
   const window={addEventListener(name,fn){events[name]=fn},history:{replaceState(){}},yamReplayHistory:{openRun(run){window.yamReplayReview.ready();opened.push(run)},refresh(){}}};
   vm.runInNewContext(source,{document:{getElementById:id=>nodes.get(id),createElement:element},window,
     renderRunMetrics(node,metrics){node.textContent=JSON.stringify(metrics);summaries.push(metrics)},renderStepMetricsChart(node,timings){charts.push(timings)},
-    localStorage:{getItem:k=>stored[k]||null,setItem:(k,v)=>stored[k]=v},location:{search:'',href:'https://robot.example/'},URL,URLSearchParams,Date,
+    localStorage:{getItem(){throw Error('History must not read durable storage')},setItem(){throw Error('History must not write durable storage')}},location:{search:'',href:'https://robot.example/'},URL,URLSearchParams,Date,
     setTimeout(fn){timers.set(++timerId,fn);return timerId},clearTimeout:id=>timers.delete(id),
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))}});
   const flush=()=>new Promise(setImmediate);
@@ -44,15 +44,26 @@ test('closing or switching robot prevents a late response reopening the replay',
     assert.equal(c.opened.length,0);assert.equal(c.timers.size,0);
   }
 });
-test('email search uses a CSRF-protected body and merges public browser identifiers',async()=>{
-  const c=setup();c.state('running');c.nodes.get('runHistoryEmail').value='person@example.com';
-  c.nodes.get('runHistorySearch').emit('submit',{preventDefault(){}});
-  const request=c.requests.at(-1), body=JSON.parse(request.options.body);
-  assert.equal(request.url,'/api/my-runs');assert.equal(request.options.method,'POST');
-  assert.equal(body.email,'person@example.com');assert.deepEqual(body.episode_ids,['ep_own']);
+test('personal history sends only pagination and the current session token',async()=>{
+  const c=setup();c.state('running');
+  const request=c.requests.find(r=>r.url==='/api/my-runs'), body=JSON.parse(request.options.body);
+  assert.equal(request.options.method,'POST');assert.deepEqual(body,{offset:0});
   assert.equal(request.options.headers['X-YAM-Runner-Token'],'csrf-token');
-  c.answer(request,[{episode_id:'ep_old',prompt:'Earlier run',video_url:'https://example/video'}]);await c.flush();
+  c.answer(request,[{episode_id:'ep_own',prompt:'Current run',video_url:'https://example/video'}]);await c.flush();
   assert.equal(c.nodes.get('myRunsList').children.length,1);
+  assert.equal(c.nodes.get('myRunsStatus').textContent,'Showing runs from your current session.');
+  assert.doesNotMatch(source,/runHistoryEmail|runHistorySearch|localStorage|sessionStorage/);
+});
+test('a new session clears old personal rows and ignores stale responses',async()=>{
+  const c=setup();c.state('running');
+  const old=c.requests.find(r=>r.url==='/api/my-runs');
+  c.window.yamReplayReview.observe({status:'idle'},'yam-1','new-session-token');
+  const current=c.requests.at(-1);
+  assert.equal(current.options.headers['X-YAM-Runner-Token'],'new-session-token');
+  c.answer(current);await c.flush();
+  c.answer(old,[{episode_id:'ep_old',prompt:'Old session'}]);await c.flush();
+  assert.equal(c.nodes.get('myRunsList').children.length,0);
+  assert.equal(c.nodes.get('myRunsStatus').textContent,'No runs in this session yet.');
 });
 
 test('summary and charts appear immediately and update while only the video is processing',async()=>{
