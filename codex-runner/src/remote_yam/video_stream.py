@@ -4,11 +4,17 @@ import os
 import re
 
 
+DEFAULT_STREAMS = {
+    'yam-1': {'path': 'synchronized-hd', 'cameras': ['top', 'observer', 'left', 'right']},
+    'robot-ba8413962083809c': {'path': 'robo-house', 'cameras': ['top', 'left', 'right', 'observer']},
+}
+
+
 def video_stream(robot_id):
     streams = json.loads(os.environ.get('YAM_VIDEO_STREAMS', '{}'))
     if not isinstance(streams, dict):
         raise ValueError('YAM_VIDEO_STREAMS must map robot IDs to streams')
-    value = streams.get(robot_id, {'path':'synchronized-hd', 'cameras':['top','observer','left','right']} if robot_id == 'yam-1' else None)
+    value = streams.get(robot_id, DEFAULT_STREAMS.get(robot_id))
     if value is None:
         return None
     if not isinstance(value, dict):

@@ -58,5 +58,5 @@ def fleet(runner_type, options, robots=None):
         apps[rid] = runner_type(**settings)
     for app in apps.values():
         app._fleet_apps = apps
-    default = 'yam-1' if 'yam-1' in apps else catalog[0]['id']
+    default = next((rid for rid in ('robot-ba8413962083809c', 'yam-1') if rid in apps), catalog[0]['id'])
     return MultiRobotPlayground(apps, default)

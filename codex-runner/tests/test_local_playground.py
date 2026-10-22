@@ -357,6 +357,25 @@ class LocalPlaygroundTests(unittest.IsolatedAsyncioTestCase):
             shutil.rmtree(app.root, ignore_errors=True)
             self.app = previous
 
+    async def test_robohouse_default_view_does_not_add_observer_to_model_inputs(self):
+        rid = 'robot-ba8413962083809c'
+        with patch.dict('os.environ', {'YAM_VIDEO_STREAMS': '{}'}):
+            app = LocalPlayground(public_origin='http://127.0.0.1:8791',
+                robot_id=rid, session_api=None, camera_origin='http://127.0.0.1:8089',
+                camera_names=('top', 'left', 'right'), development=True, api_factory=MockSessionAPI)
+        previous, self.app = self.app, app
+        try:
+            code, body = await self.call('/api/session', {})
+            self.assertEqual(code, 200)
+            self.assertEqual(body['video_stream'], {'path': 'robo-house',
+                'cameras': ['top', 'left', 'right', 'observer']})
+            self.assertEqual(body['model_cameras'], ['top', 'left', 'right'])
+        finally:
+            for visitor in app.visitors.values():
+                await asyncio.to_thread(visitor.close)
+            shutil.rmtree(app.root, ignore_errors=True)
+            self.app = previous
+
     async def test_other_robot_stream_is_proxied_without_browser_credentials(self):
         from unittest.mock import MagicMock
         self.app._fleet_apps = {'yam-1': self.app, 'robo': SimpleNamespace(video_stream={'path':'robo-house','cameras':['top','left','right']})}

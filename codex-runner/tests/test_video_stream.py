@@ -4,6 +4,18 @@ from unittest.mock import patch
 from remote_yam.video_stream import video_stream
 
 class VideoConfigTests(unittest.TestCase):
+    def test_robohouse_default_has_the_verified_four_view_slot_order(self):
+        with patch.dict('os.environ', {'YAM_VIDEO_STREAMS': '{}'}):
+            self.assertEqual(video_stream('robot-ba8413962083809c'), {
+                'path': 'robo-house', 'cameras': ['top', 'left', 'right', 'observer']})
+
+    def test_robohouse_explicit_legacy_layout_and_disabled_stream_are_preserved(self):
+        robot = 'robot-ba8413962083809c'
+        legacy = {'path': 'robo-house', 'cameras': ['top', 'left', 'right']}
+        for value in [legacy, None]:
+            with patch.dict('os.environ', {'YAM_VIDEO_STREAMS': json.dumps({robot: value})}):
+                self.assertEqual(video_stream(robot), value)
+
     def test_defaults_and_independent_robot_override(self):
         with patch.dict('os.environ', {'YAM_VIDEO_STREAMS': json.dumps({'robo': {'path':'robo-house','cameras':['top','left','right']}})}):
             self.assertEqual(video_stream('yam-1')['path'], 'synchronized-hd')
