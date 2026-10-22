@@ -111,6 +111,7 @@ class Visitor:
     runner_task: str = ""
     runner_name: str = "Anonymous"
     runner_session_id: str | None = None
+    episode_ids: set[str] = field(default_factory=set)
     launches: int = 0
     saved_keys: dict[str, str] = field(default_factory=dict, repr=False)
     subscription_prompts: dict[str, str] = field(default_factory=dict)
@@ -122,6 +123,7 @@ class Visitor:
         with self.lock:
             self.retired = True
             self.saved_keys.clear()
+            self.episode_ids.clear()
             self.visitor_chat = None
             self.controller.forget_key()
             self.controller.disconnect("web_session_ended")
@@ -307,7 +309,8 @@ class HostedRunner:
     def remember_runner(self, visitor):
         state = visitor.controller.status()
         eid = state.get('episode_id')
-        if eid and state.get('session_id') == visitor.runner_session_id:
+        if eid and visitor.runner_session_id and state.get('session_id') == visitor.runner_session_id:
+            visitor.episode_ids.add(eid)
             try:
                 self.run_names.remember_metadata(eid, self.robot_id, visitor.runner_task, state.get("run_started_at"), state.get("run_configuration"))
                 self.run_names.remember_result(eid, state)
@@ -585,16 +588,17 @@ class HostedRunner:
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
             if path == "/api/my-runs":
-                from remote_yam.run_history import history_ids
                 try:
-                    ids = await asyncio.to_thread(history_ids, self.submission_log.path,
-                                                  payload.get('email', ''), payload.get('episode_ids', []))
+                    if 'email' in payload or 'episode_ids' in payload:
+                        raise ValueError('Run history is limited to your current session')
                     offset = payload.get('offset', 0)
                     if type(offset) is not int or not 0 <= offset <= 100000:
                         raise ValueError('Invalid history page')
                 except ValueError as exc:
                     raise RequestError(400, str(exc)) from None
                 try:
+                    await asyncio.to_thread(self.remember_runner, visitor)
+                    ids = visitor.episode_ids.copy()
                     result = await asyncio.to_thread(self.past_runs.page, offset, episode_ids=ids, robot_id=self.robot_id)
                     names = await asyncio.to_thread(self.run_names.names)
                     outcomes = await asyncio.to_thread(self.run_names.results)

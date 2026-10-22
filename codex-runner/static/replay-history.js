@@ -3,11 +3,9 @@
   'use strict';
   const $ = id => document.getElementById(id);
   if (!$('myRunsList')) return;
-  const storageKey = 'yam-replay-history-v1';
   const validId = value => typeof value === 'string' && /^ep_[A-Za-z0-9_-]{1,100}$/.test(value);
   let saved = [];
-  try { saved = JSON.parse(localStorage.getItem(storageKey) || '[]').filter(row => validId(row.episode_id)).slice(0, 100); } catch (_) {}
-  let robot = null, token = '', generation = 0, searchVersion = 0, email = '', next = null;
+  let robot = null, token = '', historyToken = '', generation = 0, searchVersion = 0, next = null;
   let pending = null, timer = null, lastMineAt = 0;
   const processingRuns = new Set();
   const activeSessions = new Set(), completedSessions = new Set();
@@ -27,9 +25,6 @@
   const query = new URLSearchParams(location.search);
   let linkedOpened = false;
   const terminal = new Set(['stopped', 'completed', 'failed', 'error', 'timed_out', 'cancelled', 'ended', 'safety_aborted', 'disconnected']);
-  function persist() {
-    try { localStorage.setItem(storageKey, JSON.stringify(saved.slice(0, 100))); } catch (_) {}
-  }
   function ready() {
     window.yamReplayEmail?.setRun(null);
     pending = null;
@@ -41,7 +36,6 @@
     if (!validId(state.episode_id)) return;
     const row = {episode_id: state.episode_id, robot_id: robot, prompt: state.task || state.prompt || $('prompt')?.value || 'Your latest run', started_at: state.run_started_at || Date.now() / 1000};
     saved = [row, ...saved.filter(item => item.episode_id !== row.episode_id)].slice(0, 100);
-    persist();
   }
   function card(run) {
     const li = document.createElement('li'), button = document.createElement('button');
@@ -62,8 +56,8 @@
     try {
       const response = await fetch('/api/my-runs', {method: 'POST', credentials: 'same-origin', cache: 'no-store',
         headers: {'Content-Type': 'application/json', 'X-YAM-Runner-Token': token, 'X-Blupe-Robot': robot},
-        body: JSON.stringify({email, episode_ids: saved.map(row => row.episode_id), offset})});
-      if (!response.ok) throw new Error('Could not load your runs. Try searching again.');
+        body: JSON.stringify({offset})});
+      if (!response.ok) throw new Error('Could not load your runs. Select Refresh to retry.');
       const data = await response.json();
       if (scope !== generation || version !== searchVersion) return;
       if (!offset) $('myRunsList').replaceChildren();
@@ -80,8 +74,7 @@
       for (const row of rows) $('myRunsList').append(card(row));
       next = data.next_offset; $('moreMyRuns').hidden = next == null;
       $('myRunsStatus').textContent = $('myRunsList').children.length
-        ? (email ? 'Showing runs from this browser and the searched email.' : 'Showing runs from this browser.')
-        : (email ? 'No published runs found for this browser or email.' : 'No runs from this browser yet. Search an email to find earlier runs.');
+        ? 'Showing runs from your current session.' : 'No runs in this session yet.';
     } catch (error) {
       if (scope === generation && version === searchVersion) $('myRunsStatus').textContent = error.message;
     }
@@ -141,6 +134,11 @@
     if (pending === request && dialog.open) timer = setTimeout(() => poll(request), 5000);
   }
   function observe(state, selectedRobot, csrf) {
+    if (historyToken && historyToken !== csrf) {
+      ready(); saved = []; processingRuns.clear(); activeSessions.clear(); completedSessions.clear();
+      searchVersion++; $('myRunsList').replaceChildren(); delete $('myRunsList').dataset.loaded;
+    }
+    historyToken = csrf;
     token = csrf;
     if (!robot) robot = selectedRobot;
     if (robot !== selectedRobot) return;
@@ -150,8 +148,6 @@
     }
     if (sid && activeSessions.has(sid) && terminal.has(state.status) && validId(state.episode_id) && !completedSessions.has(sid)) {
       completedSessions.add(sid); remember(state); processingRuns.add(state.episode_id);
-      const enteredEmail = $('email')?.value.trim();
-      if (enteredEmail) { email = enteredEmail; $('runHistoryEmail').value = email; $('clearRunHistoryEmail').hidden = false; }
       openEpisode(state.episode_id, {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
         run_metrics:state.run_metrics, step_timings:state.step_timings}); loadMine();
     }
@@ -160,13 +156,6 @@
   }
   window.yamReplayReview = {observe, openEpisode, ready};
   dialog.addEventListener('close', ready);
-  $('runHistorySearch').addEventListener('submit', event => {
-    event.preventDefault(); email = $('runHistoryEmail').value.trim();
-    $('clearRunHistoryEmail').hidden = !email; loadMine();
-  });
-  $('clearRunHistoryEmail').addEventListener('click', () => {
-    email = ''; $('runHistoryEmail').value = ''; $('clearRunHistoryEmail').hidden = true; loadMine();
-  });
   $('moreMyRuns').addEventListener('click', () => { if (next != null) loadMine(next); });
   $('refreshPastRuns').addEventListener('click', () => loadMine());
   window.addEventListener('blupe-robot-selected', event => {
