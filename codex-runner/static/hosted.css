@@ -1040,3 +1040,39 @@ body.cameraExpanded{overflow:hidden}
 
 /* Replay receipt V0: visible actions and an honest indeterminate render state. */
 .runHistorySearch{margin:20px 0}.runHistorySearch label{display:block;margin-bottom:8px}.runHistorySearch>div{display:flex;gap:10px;flex-wrap:wrap}.runHistorySearch input{flex:1;min-width:200px}.personalRunList{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding:0;list-style:none}.personalRunCard{width:100%;height:100%;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:18px;border:1px solid currentColor;border-radius:14px;cursor:pointer}.pastRunWatch{display:inline-flex;align-items:center;gap:8px;background:#e9f8c6;color:#183510;padding:8px 12px;border-radius:999px;font-size:14px;font-weight:700}.pastRunCard:hover,.pastRunCard:focus-visible{outline:2px solid #567d26;outline-offset:3px}.replayProcessing{padding:40px 20px;text-align:center;background:#f3f5ef;border-radius:16px;color:#26351d}.replayProcessing[hidden]{display:none}.replayProcessing progress{width:min(360px,100%);accent-color:#567d26}#past-runs>h2{margin-top:30px}
+/* BEGIN observer enhancement preview v1 */
+
+    .observerEnhancement{cursor:default;padding:10px 12px;background:var(--paper,#f5f7f4);color:var(--ink,#203128);font-size:13px;line-height:1.5}
+    .observerEnhancement .enhancementHeading{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .observerEnhancement button{min-height:44px;padding:5px 11px;font-size:13px;border-radius:6px}
+    .observerEnhancement .enhancementChoices{display:flex;gap:5px;margin:7px 0}
+    .observerEnhancement button[aria-pressed=true]{background:#245b42;color:#fff}
+    .observerEnhancement label{display:flex;align-items:center;gap:10px;min-height:44px;margin:0}
+    .observerEnhancement input[type=range]{flex:1;min-width:80px;margin:0;accent-color:#245b42;height:44px;touch-action:pan-y}
+    .observerEnhancement .enhancementNote{margin:4px 0 0;font-size:11px;color:var(--muted,#52645a)}
+    .observerEnhancedCanvas{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;pointer-events:none}
+    .observerEnhancedCanvas[hidden],.observerCompareLine[hidden],.observerCompareLabel[hidden]{display:none!important}
+    .observerCompareLine{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 3px #000;pointer-events:none}
+    .observerCompareLabel{position:absolute;top:8px;padding:3px 7px;border-radius:4px;background:#102018bd;color:#fff;font:12px/1.5 system-ui;pointer-events:none}
+    .observerCompareLabel.before{left:8px}.observerCompareLabel.after{right:8px}
+    .syncTile:fullscreen .observerEnhancement,.cameraDialog .observerEnhancement{background:#15251d;color:white}
+    .syncTile:fullscreen .observerEnhancement .enhancementNote,.cameraDialog .observerEnhancement .enhancementNote{color:#b9cec0}
+    @media(max-width:740px){.observerEnhancement{padding:8px 10px}.observerEnhancement .enhancementChoices{margin:3px 0}.observerEnhancement button{flex:1}}
+
+    .observerEnhancementPreview .watchLayout>.watchVisuals{grid-template-rows:minmax(0,1fr) auto auto auto}
+    .playgroundConsole #liveViewer .observerEnhancedPanel canvas[data-sync-tile]{height:100%;object-fit:contain;transform:none}
+    .playgroundConsole #liveViewer .observerEnhancedPanel .observerEnhancedCanvas{transform:none}
+    .observerEnhancedPanel:fullscreen,.cameraDialog .observerEnhancedPanel{display:flex!important;flex-direction:column;height:100dvh!important;max-height:100dvh}
+    .observerEnhancedPanel:fullscreen .syncTilePicture,.cameraDialog .observerEnhancedPanel .syncTilePicture{flex:1;min-height:0;height:auto!important}
+    .observerEnhancedPanel:fullscreen canvas[data-sync-tile],.cameraDialog .observerEnhancedPanel canvas[data-sync-tile]{height:100%!important;object-fit:contain;transform:none}
+    .observerEnhancedPanel:fullscreen .observerEnhancement,.cameraDialog .observerEnhancedPanel .observerEnhancement{flex:none}
+    .cameraDialog>.observerEnhancedPanel{flex:1!important;height:auto!important;min-height:0}
+    .cameraDialog .observerEnhancement button,.observerEnhancedPanel:fullscreen .observerEnhancement button{color:white;border-color:#829b8b}
+    .cameraDialog .observerCompareLabel.after{right:90px}
+    .observerEnhancedPanel .expandCamera{opacity:1!important}
+    .observerEnhancement select{width:auto;max-width:100px;min-height:44px;padding:4px 8px;font-size:13px;margin:0}
+    .observerEnhancement .enhancementHeading{flex-wrap:nowrap}
+    .observerEnhancement .enhancementHeading strong{font-size:12px;flex:1}
+    .observerEnhancement .enhancementHeading button{flex:none}
+    @media(max-height:500px){.cameraDialog .observerEnhancement .enhancementChoices,.cameraDialog .observerEnhancement .enhancementNote{display:none}.cameraDialog .observerEnhancement{padding:4px 10px}}
+/* END observer enhancement preview v1 */

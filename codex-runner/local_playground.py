@@ -1,6 +1,7 @@
 """The shared playground UI and queue backend, served on localhost with Codex."""
 import asyncio
 import os
+import re
 import threading
 from urllib import request, error
 from urllib.parse import urlsplit, parse_qs
@@ -252,14 +253,15 @@ class LocalPlayground(HostedRunner):
         prefixes = tuple('/' + stream['path'] + '/' for stream in streams if stream)
         media = path.startswith(('/synchronized/', '/live-video/')) or bool(prefixes and path.startswith(prefixes))
         public_history = path == '/api/past-runs'
-        if not media and not public_history:
+        quick_replay = bool(re.fullmatch(r'/api/quick-replays/ep_[A-Za-z0-9_-]{1,100}/[0-9a-f]{64}\.mp4', path))
+        if not media and not public_history and not quick_replay:
             return await super().http(scope, receive, send)
         headers = {k.decode().lower(): v.decode() for k, v in scope.get('headers', [])}
         if headers.get('host') != self.authority:
             raise RequestError(421, 'Unrecognized website host')
         if '..' in path or '%' in path or '\\' in path or method not in ('GET', 'OPTIONS', 'POST', 'PATCH', 'DELETE'):
             raise RequestError(404, 'Unknown viewer route')
-        if method != 'GET' and (public_history or '/whep' not in path or headers.get('origin') != self.origin):
+        if method != 'GET' and (public_history or quick_replay or '/whep' not in path or headers.get('origin') != self.origin):
             raise RequestError(403, 'Viewer request must come from this runner')
         body = bytearray()
         if method in ('POST', 'PATCH'):
@@ -278,6 +280,8 @@ class LocalPlayground(HostedRunner):
             query = urlencode([(k,v) for k,v in parse_qsl(query) if k != 'robot_id'] + [('robot_id', self.robot_id)])
         url = PLAYGROUND + path + ('?' + query if query else '')
         forwarded = {key: value for key, value in headers.items() if key in ('content-type', 'if-match')}
+        if quick_replay and 'range' in headers:
+            forwarded['Range'] = headers['range']
         forwarded['Origin'] = PLAYGROUND
 
         def fetch():
@@ -288,11 +292,12 @@ class LocalPlayground(HostedRunner):
             except error.HTTPError as exc:
                 response = exc
             with response:
-                data = response.read(8_000_001)
-                if len(data) > 8_000_000:
+                limit = 16 * 1024 * 1024 if quick_replay else 8_000_000
+                data = response.read(limit + 1)
+                if len(data) > limit:
                     raise ValueError('Viewer response too large')
                 extra = []
-                for key in ('Location', 'ETag', 'Accept-Patch', 'Link'):
+                for key in ('Location', 'ETag', 'Accept-Patch', 'Link', 'Accept-Ranges', 'Content-Range'):
                     value = response.headers.get(key)
                     if value:
                         if key == 'Location' and value.startswith(PLAYGROUND + '/'):
