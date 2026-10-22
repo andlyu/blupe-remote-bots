@@ -14,7 +14,7 @@ function page(initial='5') {
   const context=vm.createContext({$,window:{},selectedRobot:'fixture',setupProvider:null,aspireRunAvailable:false,
     localStorage:{getItem(){return null}},aspireRetryLimit(){return 1},updateRunLabel(){},updateSavedKey(){},
     configuredProviders:{reset_bin:{model:'reset',task:'Reset bin',label:'Reset bin',default_run_duration_s:600},
-      dream:{model:'dreamlabs/dream-1-beta',default_run_duration_s:120,max_run_duration_s:120},
+      dream:{model:'dreamlabs/dream-1-beta',default_run_duration_s:120,max_run_duration_s:600},
       dream_flash:{model:'dreamlabs/dream-1-flash',default_run_duration_s:120,max_run_duration_s:120},
       other_policy:{model:'other',task:'Other task',label:'Other policy'}}});
   const create=vm.runInContext('(function createProviderRunDuration(input){'+durationSource+')',context);
@@ -50,13 +50,22 @@ test('a browser-restored nondefault duration remains an explicit choice',()=>{
   p.select('reset_bin');assert.equal(p.requestSeconds(),240);
 });
 
-test('both Dream providers cap restored and refreshed choices at two minutes without changing other providers',()=>{
-  const p=page('8');p.select('openai');assert.equal(p.requestSeconds(),480);
-  for(const provider of ['dream','dream_flash']) {
-    p.select(provider);assert.equal(p.requestSeconds(),120);assert.equal(p.maximum(),'2');
-    p.edit(1);p.select(provider);assert.equal(p.requestSeconds(),60);
-    p.edit(9);p.select(provider);assert.equal(p.requestSeconds(),120);
-    p.select('openai');assert.equal(p.requestSeconds(),480);assert.equal(p.maximum(),'10');
+test('Dream beta accepts every minute through ten and retains its two-minute default',()=>{
+  const p=page();p.select('dream');assert.equal(p.minutes(),'2');assert.equal(p.maximum(),'10');
+  for(let minutes=1;minutes<=10;minutes++) {
+    p.edit(minutes);p.select('dream');assert.equal(p.requestSeconds(),minutes*60);
   }
-  const restored=page('10');restored.select('dream');assert.equal(restored.requestSeconds(),120);
+  p.edit(11);p.select('dream');assert.equal(p.requestSeconds(),600);
+  const restored=page('10');restored.select('dream');assert.equal(restored.requestSeconds(),600);
+});
+
+test('Dream Flash retains its two-minute cap and provider choices stay independent',()=>{
+  const p=page('8');p.select('openai');assert.equal(p.requestSeconds(),480);
+  p.select('dream');assert.equal(p.requestSeconds(),120);p.edit(10);
+  p.select('dream_flash');assert.equal(p.requestSeconds(),120);assert.equal(p.maximum(),'2');
+  p.edit(1);p.select('dream_flash');assert.equal(p.requestSeconds(),60);
+  p.edit(9);p.select('dream_flash');assert.equal(p.requestSeconds(),120);
+  p.select('dream');assert.equal(p.requestSeconds(),600);assert.equal(p.maximum(),'10');
+  p.select('openai');assert.equal(p.requestSeconds(),480);assert.equal(p.maximum(),'10');
+  const restored=page('10');restored.select('dream_flash');assert.equal(restored.requestSeconds(),120);
 });

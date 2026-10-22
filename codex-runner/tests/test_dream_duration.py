@@ -12,7 +12,7 @@ from remote_yam.session import MockSessionAPI
 
 @pytest.mark.parametrize('robot_id',['yam-1','robot-ba8413962083809c'])
 @pytest.mark.parametrize('provider',list(MODELS))
-@pytest.mark.parametrize('seconds',[None,60,119,120,121,300,600,True,120.0])
+@pytest.mark.parametrize('seconds',[None,0,59,60,119,120,121,300,599,600,601,True,120.0])
 def test_dream_duration_boundary_before_queue_and_local_deadline(tmp_path,robot_id,provider,seconds):
     credentials=tmp_path/'credentials';credentials.write_text('synthetic only')
     api=MockSessionAPI(auto_activate=False)
@@ -22,7 +22,9 @@ def test_dream_duration_boundary_before_queue_and_local_deadline(tmp_path,robot_
     app.extra_providers[provider]=lambda *args:policy
     try:
         metadata=app.dream_providers[provider]
-        assert metadata['default_run_duration_s']==metadata['max_run_duration_s']==120
+        maximum = 600 if provider == 'dream' else 120
+        assert metadata['default_run_duration_s']==120
+        assert metadata['max_run_duration_s']==maximum
         harness=type('Harness',(),{'app':app})()
         code,session,headers=asyncio.run(test_hosted.HostedTests.call(harness,'/api/session',method='POST'))
         browser=dict(cookie=headers[b'set-cookie'].decode().split(';',1)[0],csrf=session['csrf'])
@@ -30,8 +32,8 @@ def test_dream_duration_boundary_before_queue_and_local_deadline(tmp_path,robot_
         if seconds is not None:payload['run_duration_s']=seconds
         code,result,_=asyncio.run(test_hosted.HostedTests.call(harness,'/api/run',method='POST',payload=payload,**browser))
         visitor=next(iter(app.visitors.values()))
-        if seconds is not None and (type(seconds) is not int or seconds>120):
-            assert code==400 and '1 to 2 minutes' in result['error']
+        if seconds is not None and (type(seconds) is not int or not 60 <= seconds <= maximum):
+            assert code==400 and f'1 to {maximum // 60} minutes' in result['error']
             assert not api.create_requests and visitor.launches==0
         else:
             expected=120 if seconds is None else seconds
