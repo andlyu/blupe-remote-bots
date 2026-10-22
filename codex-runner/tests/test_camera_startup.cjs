@@ -158,6 +158,16 @@ test('Robo-house observer uses the fourth quadrant without relabeling its origin
   assert(h.tiles.every(tile=>tile.dataset.presentedFrame==='1'));
 });
 
+test('Robo-house HD atlas maps observer and all three detail roles independently of tile order', () => {
+  const h=harness({ready:true,hd:true,roles:['top','left','right','observer'],snapshots:['top','left','right']});
+  const crop=role=>Array.from(h.draws.find(draw=>draw.role===role).args.slice(1));
+  assert.deepEqual(crop('observer'),[0,0,1920,1080,0,0,1920,1080]);
+  assert.deepEqual(crop('left'),[1920,0,640,360,0,0,640,360]);
+  assert.deepEqual(crop('top'),[1920,360,640,360,0,0,640,360]);
+  assert.deepEqual(crop('right'),[1920,720,640,360,0,0,640,360]);
+  assert(h.tiles.every(tile=>tile.dataset.presentedFrame==='1'));
+});
+
 test('video-only observer never requests an unadvertised JPEG from another robot', () => {
   const h=harness({roles:['top','left','right','observer'],snapshots:['top','left','right']});
   assert.equal(h.images.length,3);

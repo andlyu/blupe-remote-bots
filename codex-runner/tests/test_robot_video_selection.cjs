@@ -27,13 +27,14 @@ test('RoboHouse selects its continuous stream with three correctly labeled camer
   assert.equal(tiles[1].button['aria-label'],'Expand left camera');
 });
 
-test('YAM-1 is the default viewer, while explicit robot choices retain priority', () => {
+test('Robo-house is the default viewer, while explicit robot choices retain priority', () => {
   const a=source.indexOf("      if (!window.yamApplication?.defaultRobot && !new URLSearchParams(location.search).get('robot_id'))");
   const b=source.indexOf('      selector.replaceChildren',a);
   assert(a>=0 && b>a);
-  for (const [query,appDefault,expected] of [['',undefined,'yam-1'],['?robot_id=robo',undefined,'robo'],['','robo','robo']]) {
+  const house = 'robot-ba8413962083809c';
+  for (const [query,appDefault,expected] of [['',undefined,house],['?robot_id=yam-1',undefined,'yam-1'],['','yam-1','yam-1']]) {
     const ctx={window:{yamApplication:{defaultRobot:appDefault}},location:{search:query},URLSearchParams,
-      selectedRobot:'robo',robotCatalog:{robots:[{id:'robo',connected:true},{id:'yam-1',connected:true}]}};
+      selectedRobot:query || appDefault ? 'yam-1' : house,robotCatalog:{robots:[{id:house,connected:true},{id:'yam-1',connected:true}]}};
     vm.runInNewContext(source.slice(a,b),ctx);assert.equal(ctx.selectedRobot,expected);
   }
 });
@@ -62,6 +63,8 @@ test('Robo-house observer selects the same four-view layout and expansion contro
   assert.equal(tiles[3].figure.removed,false);
   assert.equal(tiles[3].dataset.cameraRole,'observer');
   assert.equal(tiles[3].button['aria-label'],'Expand observer camera');
+  assert.equal(tiles[1].caption.firstChild.textContent,'Left wrist ');
+  assert.equal(tiles[2].caption.firstChild.textContent,'Right wrist ');
   assert.equal(notice.hidden,false);
   assert.equal(tiles[1].button['aria-label'],'Expand left camera');
 });

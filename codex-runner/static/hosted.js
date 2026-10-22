@@ -540,7 +540,7 @@ function createRunLaunchGuard() {
   let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
   const resolveViewerStream = createViewerStreamResolver();
-  let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'yam-1', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
+  let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'robot-ba8413962083809c', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
   let ownRunLive = false, conversationSharingAllowed = true;
   let grootModel = 'groot-reviewed-step10000';
   let csrf = '', ended = false, submitting = false, active = false, lastHistory = 0, contactRequested = false;
@@ -2195,7 +2195,7 @@ function createRunLaunchGuard() {
     const topWithGrippers = selectedRobot === 'robot-ba8413962083809c'
       && roles.length === 3 && ['top', 'left', 'right'].every(role => roles.includes(role));
     $('liveViewer').dataset.layout = roles.includes('observer') && roles.length === 4 ? 'observer-focus' : topWithGrippers ? 'top-with-grippers' : names.length === 1 ? 'single' : 'multi';
-    const cameraLabel = role => topWithGrippers && role !== 'top'
+    const cameraLabel = role => selectedRobot === 'robot-ba8413962083809c' && ['left', 'right'].includes(role)
       ? `${role[0].toUpperCase() + role.slice(1)} wrist` : role[0].toUpperCase() + role.slice(1);
     if (camerasDisconnected) {
       $('liveViewer').querySelectorAll('figure, video, canvas').forEach(node => node.remove());
@@ -2290,7 +2290,7 @@ function createRunLaunchGuard() {
       }
       if (!robotCatalog.default_order) robotCatalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
       if (!window.yamApplication?.defaultRobot && !new URLSearchParams(location.search).get('robot_id')) {
-        selectedRobot = (!robotCatalog.default_order && robotCatalog.robots.find(robot => robot.id === 'yam-1' && robot.connected === true)?.id)
+        selectedRobot = (!robotCatalog.default_order && robotCatalog.robots.find(robot => robot.id === 'robot-ba8413962083809c')?.id)
           || robotCatalog.robots.find(robot => robot.connected === true)?.id
           || (robotCatalog.default_order ? robotCatalog.robots[0]?.id : '') || selectedRobot;
       }

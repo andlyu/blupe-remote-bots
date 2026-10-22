@@ -11,7 +11,7 @@ const refreshAvailability = source.slice(source.indexOf('  async function refres
   source.indexOf('  setInterval(refreshRobotAvailability'));
 const roboHouse = 'robot-ba8413962083809c';
 
-async function load({yamConnected = false, houseConnected = true, query = '', defaultRobot} = {}) {
+async function load({yamConnected = false, houseConnected = true, includeHouse = true, query = '', defaultRobot} = {}) {
   const nodes = new Map();
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, {
@@ -25,6 +25,7 @@ async function load({yamConnected = false, houseConnected = true, query = '', de
     {id: roboHouse, name: 'Robo-house YAM', connected: houseConnected},
     {id: 'yam-1', name: 'YAM1', connected: yamConnected}
   ]};
+  if (!includeHouse) catalog.robots = catalog.robots.filter(robot => robot.id !== roboHouse);
   const location = {search: query, href: 'https://example.test/' + query};
   const events = [], cameraUpdates = [];
   let sessionsStarted = 0;
@@ -51,16 +52,18 @@ test('default chooses connected Robo-house when YAM1 is disconnected', async () 
   assert.deepEqual(state.events, [roboHouse]);
 });
 
-test('connected YAM1 takes priority over the first connected robot', async () => {
+test('Robo-house remains the default when both YAM rigs are connected', async () => {
   const state = await load({yamConnected: true});
-  assert.equal(state.selected(), 'yam-1');
-  assert.equal(state.selector.value, 'yam-1');
+  assert.equal(state.selected(), roboHouse);
+  assert.equal(state.selector.value, roboHouse);
 });
 
-test('YAM1 preference requires confirmed boolean connectivity', async () => {
-  for (const yamConnected of [null, 'true']) {
-    assert.equal((await load({yamConnected})).selected(), roboHouse);
-  }
+test('an offline Robo-house default does not silently switch to the other arms', async () => {
+  assert.equal((await load({yamConnected:true, houseConnected:false})).selected(), roboHouse);
+});
+
+test('installations without Robo-house retain their available robot', async () => {
+  assert.equal((await load({yamConnected:true, includeHouse:false})).selected(), 'yam-1');
 });
 
 test('explicit robot_id retains a disconnected selection', async () => {
@@ -81,9 +84,9 @@ test('missing dedicated-page robot keeps the existing unavailable behavior', asy
   assert.equal(state.nodes.get('robotSelectorStatus').textContent, 'Robot list unavailable');
 });
 
-test('all-offline catalog retains the existing selected-robot fallback', async () => {
+test('all-offline catalog retains the Robo-house default', async () => {
   const state = await load({houseConnected: false});
-  assert.equal(state.selected(), 'yam-1');
+  assert.equal(state.selected(), roboHouse);
 });
 
 test('manual choice and ongoing session survive availability refresh', async () => {

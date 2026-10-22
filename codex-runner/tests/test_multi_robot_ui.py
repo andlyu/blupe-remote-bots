@@ -9,6 +9,29 @@ from remote_yam.ik import IKSolver, IKCommand, ArmIKCommand, parse_observation
 from remote_yam.model_trajectory import build_model_trajectory
 
 class MultiRobotTests(unittest.IsolatedAsyncioTestCase):
+    async def test_robohouse_is_the_default_route_without_changing_model_camera_roles(self):
+        import shutil
+        robot = 'robot-ba8413962083809c'
+        app = fleet(HostedRunner, dict(public_origin='https://test.example',
+            session_api='https://api.example', camera_origin='https://api.example',
+            api_factory=MockSessionAPI), [
+                {'id': 'yam-1', 'name': 'YAM'},
+                {'id': robot, 'name': 'Robo-house YAM', 'cameras': ['top', 'left', 'right']}])
+        events = []
+        async def receive():
+            return {'type': 'http.request', 'body': b''}
+        async def send(event):
+            events.append(event)
+        try:
+            await app({'type': 'http', 'method': 'GET', 'path': '/api/robots',
+                'query_string': b'', 'headers': [(b'host', b'test.example')]}, receive, send)
+            self.assertEqual(events[0]['status'], 200)
+            self.assertEqual(json.loads(events[1]['body'])['selected'], robot)
+            self.assertEqual(app.apps[robot].policy_camera_names, ('top', 'left', 'right'))
+        finally:
+            for runner in app.apps.values():
+                shutil.rmtree(runner.root, ignore_errors=True)
+
     async def test_sessions_and_status_are_isolated_and_switchable(self):
         app=fleet(HostedRunner,dict(public_origin='https://test.example',session_api='https://api.example',camera_origin='https://api.example',api_factory=lambda:MockSessionAPI(auto_activate=False)),[
             {'id':'yam-1','name':'YAM'}, {'id':'so101','name':'SO101','cameras':['front'],'joint_counts':[5,0], 'policy_cameras':['front']},
