@@ -364,7 +364,7 @@ function createRunLaunchGuard() {
     speedButton.hidden = run.original_available === false;
     speedButton.dataset.live = String(live);
     speedButton.textContent = live ? `${playbackSource(run, false).speed}× speed` : 'Live speed';
-    const cameras = live ? 'Top, left and right cameras' : run.camera_order.includes('observer') ? 'Top, side, left and right cameras' : 'Three cameras · side view was not recorded';
+    const cameras = !live && run.camera_order.length === 1 ? 'Main camera · quick preview' : live ? 'Top, left and right cameras' : run.camera_order.includes('observer') ? 'Top, side, left and right cameras' : 'Three cameras · side view was not recorded';
     $('pastRunDetails').textContent = (live ? 'Live speed · 1× · all pauses retained' : run.compressed ? `${playbackSource(run, false).speed}× speed · idle pauses removed` : `${playbackSource(run, false).speed}× playback · original recording, pauses retained`) + ' · ' + cameras + ' · ' + (run.result || 'Unknown') + ': ' + ((run.result === 'Failure' && run.errors) || run.result_reason || 'Result was not recorded');
     $('pastRunError').textContent = '';
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
@@ -582,23 +582,30 @@ function createRunLaunchGuard() {
     if (data !== undefined) { headers['Content-Type'] = 'application/json'; headers['X-YAM-Runner-Token'] = csrf; }
     const response = await fetch(path, {method: data === undefined ? 'GET' : 'POST', headers,
       body: data === undefined ? undefined : JSON.stringify(data), credentials: 'same-origin', cache: 'no-store'});
-    const result = await response.json();
+    let result;
+    try { result = await response.json(); }
+    catch (_) { /* Maintenance and proxy errors can have plain-text or HTML bodies. */ }
+    const validResult = !!result && typeof result === 'object' && !Array.isArray(result);
     if (generation !== robotGeneration ||
         (!['/api/session', '/api/robots'].includes(path) && sessionToken !== csrf)) {
       throw Object.assign(new Error('Robot session changed'), {stale:true});
     }
     if ((path === '/api/run' && launchVersion !== runLaunchGuard.version) ||
         (path === '/api/status' && (launchVersion !== runLaunchGuard.version ||
-          (response.ok && !runLaunchGuard.allows(launchVersion, result))))) {
+          (response.ok && validResult && !runLaunchGuard.allows(launchVersion, result))))) {
       throw Object.assign(new Error('Run attempt changed'), {stale:true});
     }
     if (!response.ok) {
       if (response.status === 401 && path !== '/api/chat') { ended = true; buttons(); $('apiKey').value = ''; }
-      const error = new Error(result.error || 'Request failed');
-      error.subscriptionSetup = result.subscription_setup;
-      error.paymentConfirmed = result.payment_confirmed === true;
+      const fallback = [502, 503, 504].includes(response.status)
+        ? `Playground is temporarily unavailable (HTTP ${response.status}). Please try again shortly.`
+        : `Request failed (HTTP ${response.status}).`;
+      const error = new Error(validResult && typeof result.error === 'string' && result.error || fallback);
+      error.subscriptionSetup = validResult ? result.subscription_setup : undefined;
+      error.paymentConfirmed = validResult && result.payment_confirmed === true;
       throw error;
     }
+    if (!validResult) throw new Error('Playground returned an invalid response. Check the current run before trying again.');
     if (result.replay_email) window.yamReplayEmail?.configure(result.replay_email, csrf);
     return path === '/api/status' ? runLaunchGuard.project(result) : result;
   }
@@ -1850,8 +1857,8 @@ function createRunLaunchGuard() {
     const contexts = tiles.map(tile => tile.getContext('2d', {alpha:false}));
     const labels = [...document.querySelectorAll('[data-sync-status]')];
     const stopExpanding = cameraExpansion(video, tiles);
-    let callback, lastMediaTime = -1, stopped = false, frame = 0;
-    const stopSnapshots = [];
+    let callback, lastMediaTime = -1, lastPaint = -Infinity, stopped = false, frame = 0;
+    const stopSnapshots = [], startupStarted = performance.now();
     const latency = document.querySelector?.('#streamLatency'), latencySamples = [];
     function measureLatency(hd) {
       if (!latency || !hd || typeof context.getImageData !== 'function') return;
@@ -1912,10 +1919,17 @@ function createRunLaunchGuard() {
           + '?robot_id=' + encodeURIComponent(snapshotRobot) + '&t=' + Date.now();
       });
     }
-    function paint() {
+    function paint(now = performance.now()) {
       if (stopped) return;
+      if (video.readyState >= 2 && !video.paused && video.currentTime !== lastMediaTime) {
+        video.yamHealth?.presented?.(undefined, true);
+      }
       const stale = video.yamHealth?.stale() === true;
-      if (!document.hidden && !stale && video.readyState >= 2 && (frame === 0 || (!video.paused && video.currentTime !== lastMediaTime))) {
+      // Sample the current frame at at most 8 fps; never queue canvas work.
+      // Keep drawing an occluded source even when its health says stalled:
+      // Chrome may decode it only when drawImage consumes the video texture.
+      if (!document.hidden && video.readyState >= 2 &&
+          (frame === 0 || (!video.paused && video.currentTime !== lastMediaTime && now - lastPaint >= 125))) {
         // Snapshot ONCE, then crop all panels from that immutable canvas frame.
         // MDN drawImage nine-argument contract: docs/refs/canvas.
         const hd = video.videoWidth === 2560 && video.videoHeight === 1080;
@@ -1935,8 +1949,12 @@ function createRunLaunchGuard() {
           contexts[i].drawImage(atlas, ...rect, 0, 0, rect[2], rect[3]);
           tile.dataset.presentedFrame = String(frame);
           tile.dataset.frameSource = 'video';
+          if (frame === 1) tile.dataset.firstVideoFrameMs = String(Math.round(performance.now() - startupStarted));
         });
         lastMediaTime = video.currentTime;
+        // Carry the fractional refresh interval forward instead of rounding
+        // every 125ms frame to 133ms on a 60Hz display (which drops 1 in 16).
+        lastPaint = Number.isFinite(lastPaint) ? now - ((now - lastPaint) % 125) : now;
       }
       labels.forEach((label, i) => {
         const status = stale ? 'Stream stalled' : sourceLabel.textContent;
@@ -1959,18 +1977,31 @@ function createRunLaunchGuard() {
     const label = image.parentElement.querySelector('figcaption span');
     const cameraName = image.dataset.camera, video = document.createElement('video');
     const streamPath = image.dataset.streamPath || cameraName;
+    // Public spectator video does not share the authenticated control session's lifetime.
+    const sessionEnded = () => ended && !['robo-house', 'synchronized-hd'].includes(streamPath);
+    // Reserve YAM's upstream capture/SRT time inside the two-second total budget.
+    const liveTarget = streamPath === 'synchronized-hd' ? .5 : 1;
+    const maxLiveDelay = streamPath === 'synchronized-hd' ? 1 : 2;
     video.muted = true; video.autoplay = true; video.playsInline = true; video.controls = true;
     video.setAttribute('aria-label', image.alt); image.replaceWith(video);
     video.dataset.camera = cameraName;
     video.dataset.streamPath = streamPath;
+    const cameraRobot = selectedRobot;
+    let hlsAudioAvailable = false;
+    const updateAudio = () => {
+      if (cameraName === 'synchronized') window.yamRobotAudio?.attach(video, cameraRobot, streamPath,
+        video.srcObject ? video.srcObject.getAudioTracks?.().length > 0 : hlsAudioAvailable || Boolean(video.audioTracks?.length));
+    };
+    window.addEventListener('blupe-audio-configured', updateAudio);
     if (cameraName === 'synchronized') { video.controls = false; synchronizedPanels(video, label); }
     let hls = null, reader = null, retry, rtcTimeout, generation = 0, lastTime = -1, lastAdvance = 0;
     let disposed = false;
-    video.yamStop = () => { disposed = true; video.yamHealth?.close(); video.yamStopPainting?.(); cleanup(); };
+    video.yamStop = () => { disposed = true; window.removeEventListener?.('blupe-audio-configured', updateAudio); video.yamHealth?.close(); video.yamStopPainting?.(); cleanup(); };
     let transport = 'hls', attemptStarted = 0;
+    video.yamPlaybackDelay = () => Number.isFinite(hls?.latency) ? hls.latency * 1000 : null;
     if (cameraName === 'synchronized' && window.YamStreamHealth) {
       video.yamHealth = new window.YamStreamHealth(video, {
-        badge: $('streamHealth'), detail: $('streamHealthDetail'), recover: () => recoverStream(),
+        badge: $('streamHealth'), detail: $('streamHealthDetail'), recover: data => recoverStream(data),
         report: data => { if (csrf && !ended) api('/api/stream-health', data).catch(() => {}); }
       });
     }
@@ -1978,26 +2009,44 @@ function createRunLaunchGuard() {
       generation++; clearTimeout(retry); clearTimeout(rtcTimeout); retry = null;
       if (reader) { reader.close(); reader = null; }
       if (hls) { hls.destroy(); hls = null; }
+      window.yamRobotAudio?.detach(video); hlsAudioAvailable = false;
+      video.onloadedmetadata = video.onprogress = null;
+      video.yamHealth?.reset?.();
       video.pause(); video.srcObject = null; video.removeAttribute('src'); video.load(); lastTime = -1;
     }
-    function recoverStream() {
-      if (disposed || ended || document.hidden || retry) return;
+    function catchUp() {
+      if (transport !== 'hls' || !video.seekable.length) return false;
+      const i = video.seekable.length - 1, edge = video.seekable.end(i);
+      const target = Math.max(video.seekable.start(i), edge - liveTarget);
+      if (target <= video.currentTime + .1) return false;
+      video.currentTime = target;
+      return true;
+    }
+    function recoverStream(data) {
+      if (disposed || sessionEnded() || document.hidden || retry) return;
+      // Missing presentation callbacks alone must not tear down active playback.
+      // Keep the stale warning, and reconnect only when the media clock also stops.
+      if (data?.state === 'stalled' && video.readyState >= 2 && !video.paused &&
+          performance.now() - lastAdvance < 3000) return;
+      if (data?.state === 'behind') return; // hls.js owns catch-up; avoid competing periodic seeks.
       // Give each transport a full startup window; health remains visibly stalled.
       if (performance.now() - attemptStarted < (transport === 'hls' ? 20000 : 8000)) return;
       if (transport === 'webrtc') connect(true); else offline();
     }
     function offline() {
       if (retry) return;
-      cleanup(); label.textContent = ended ? 'Session ended' : 'Reconnecting';
-      if (!disposed && !ended && !document.hidden) retry = setTimeout(connect, 5000);
+      cleanup(); label.textContent = sessionEnded() ? 'Session ended' : 'Reconnecting';
+      if (!disposed && !sessionEnded() && !document.hidden) retry = setTimeout(connect, 5000);
     }
     function connect(fallback = false) {
-      cleanup(); if (disposed || ended || document.hidden) return;
+      cleanup(); if (disposed || sessionEnded() || document.hidden) return;
       const attempt = generation;
       label.textContent = 'Loading video'; lastAdvance = attemptStarted = performance.now();
-      if (['observer', 'synchronized'].includes(cameraName) && !fallback && window.MediaMTXWebRTCReader && window.RTCPeerConnection) {
+      // These continuous LL-HLS feeds have one-second keyframes. Start them
+      // immediately instead of waiting for WebRTC negotiation or its timeout.
+      if (!['robo-house', 'synchronized-hd'].includes(streamPath) && ['observer', 'synchronized'].includes(cameraName) && !fallback && window.MediaMTXWebRTCReader && window.RTCPeerConnection) {
         transport = video.dataset.transport = 'webrtc';
-        const useFallback = () => { if (attempt === generation && !ended && !document.hidden) connect(true); };
+        const useFallback = error => { if (attempt === generation && !sessionEnded() && !document.hidden) { video.dataset.connectionError = String(error || 'WebRTC startup timed out').slice(0,160); connect(true); } };
         rtcTimeout = setTimeout(useFallback, 8000);
         try {
           // Pinned MediaMTX v1.21.0 reader; same-origin WHEP proxy exposes read only.
@@ -2005,8 +2054,11 @@ function createRunLaunchGuard() {
             onError: useFallback,
             onTrack: event => {
               if (attempt !== generation) return;
-              video.srcObject = event.streams[0];
+              // Audio and video fire separate track events for the same stream.
+              // Reassigning srcObject aborts the pending audible play() attempt.
+              if (video.srcObject !== event.streams[0]) video.srcObject = event.streams[0];
               video.play().catch(() => { if (attempt === generation) label.textContent = 'Press play'; });
+              updateAudio();
             }
           });
         } catch { useFallback(); }
@@ -2015,37 +2067,45 @@ function createRunLaunchGuard() {
       transport = video.dataset.transport = 'hls';
       const url = cameraName === 'synchronized' ? `/${streamPath}/index.m3u8` : `/live-video/hls/${cameraName}/index.m3u8`;
       if (window.Hls?.isSupported()) {
-        hls = new Hls({enableWorker:false, lowLatencyMode:false, maxBufferLength:30,
-          backBufferLength:10, liveSyncDurationCount:4, liveMaxLatencyDurationCount:6,
-          liveSyncOnStallIncrease:0, maxLiveSyncPlaybackRate:1.1});
-        hls.on(Hls.Events.ERROR, (_, data) => { if (attempt === generation && data.fatal) offline(); });
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (attempt === generation) video.play().catch(() => { label.textContent = 'Press play'; });
+        hls = new Hls({enableWorker:false, lowLatencyMode:true, maxBufferLength:4,
+          liveSyncMode:streamPath === 'synchronized-hd' ? 'buffered' : 'edge',
+          backBufferLength:0, liveSyncDuration:liveTarget, liveMaxLatencyDuration:maxLiveDelay,
+          liveSyncOnStallIncrease:0, maxLiveSyncPlaybackRate:1.05});
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (attempt !== generation) return;
+          video.dataset.playbackError = JSON.stringify({type:data.type, details:data.details, fatal:data.fatal, at:Date.now()});
+          if (data.fatal) offline();
+        });
+        hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+          if (attempt !== generation) return;
+          video.play().catch(() => { label.textContent = 'Press play'; });
+          hlsAudioAvailable = Boolean(hls.audioTracks?.length || data?.levels?.some(level => level.audioCodec));
+          updateAudio();
         });
         hls.loadSource(url); hls.attachMedia(video);
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native HLS (Safari): target eight seconds behind the available edge.
-        const catchUp = () => {
+        // Native HLS uses the same seconds-based budget as hls.js.
+        const catchUpNative = () => {
           if (attempt !== generation || !video.seekable.length) return;
           const i = video.seekable.length - 1, edge = video.seekable.end(i);
-          if (video.currentTime === 0 || edge - video.currentTime > 12) {
-            video.currentTime = Math.max(video.seekable.start(i), edge - 8);
+          if (video.currentTime === 0 || edge - video.currentTime > maxLiveDelay) {
+            catchUp();
           }
         };
-        video.onloadedmetadata = catchUp; video.onprogress = catchUp;
+        video.onloadedmetadata = () => { catchUpNative(); updateAudio(); }; video.onprogress = catchUpNative;
         video.src = url; video.play().catch(() => { label.textContent = 'Press play'; });
       } else { label.textContent = 'Video unsupported'; }
     }
     video.addEventListener('timeupdate', () => {
-      if (ended || video.paused || video.readyState < 2 || video.currentTime <= 0 || video.currentTime === lastTime) return;
+      if (sessionEnded() || video.paused || video.readyState < 2 || video.currentTime <= 0 || video.currentTime === lastTime) return;
       clearTimeout(rtcTimeout);
       lastTime = video.currentTime; lastAdvance = performance.now(); label.textContent = transport === 'webrtc' ? (cameraName === 'synchronized' ? 'Live · synchronized' : 'Live') : 'Live · delayed';
       window.yamAnalytics?.playback(cameraName);
     });
-    video.addEventListener('waiting', () => { if (!ended) label.textContent = 'Buffering'; });
-    video.addEventListener('error', () => { if (video.getAttribute('src') && !ended) offline(); });
+    video.addEventListener('waiting', () => { if (!sessionEnded()) label.textContent = 'Buffering'; });
+    video.addEventListener('error', () => { if (video.getAttribute('src') && !sessionEnded()) offline(); });
     const watchdog = setInterval(async () => {
-      if (ended) { cleanup(); label.textContent = 'Session ended'; clearInterval(watchdog); return; }
+      if (sessionEnded()) { cleanup(); label.textContent = 'Session ended'; clearInterval(watchdog); return; }
       if (document.hidden || retry) return;
       if (video.yamHealth) return; // Frame monitor owns synchronized-stream recovery.
       if (transport === 'webrtc') {
@@ -2208,7 +2268,7 @@ function createRunLaunchGuard() {
       const catalog = await api('/api/robots');
       robotCatalog = catalog;
       const selector = $('robotSelector');
-      catalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
+      if (!catalog.default_order) catalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
       for (const robot of catalog.robots) {
         const option = [...selector.options].find(option => option.value === robot.id);
         if (option) selector.append(option);
@@ -2228,10 +2288,11 @@ function createRunLaunchGuard() {
         if (window.yamApplication?.defaultRobot) throw new Error('Selected robot unavailable');
         selectedRobot = robotCatalog.selected || robotCatalog.robots[0]?.id || '';
       }
-      robotCatalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
+      if (!robotCatalog.default_order) robotCatalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
       if (!window.yamApplication?.defaultRobot && !new URLSearchParams(location.search).get('robot_id')) {
-        selectedRobot = robotCatalog.robots.find(robot => robot.id === 'yam-1' && robot.connected === true)?.id
-          || robotCatalog.robots.find(robot => robot.connected === true)?.id || selectedRobot;
+        selectedRobot = (!robotCatalog.default_order && robotCatalog.robots.find(robot => robot.id === 'yam-1' && robot.connected === true)?.id)
+          || robotCatalog.robots.find(robot => robot.connected === true)?.id
+          || (robotCatalog.default_order ? robotCatalog.robots[0]?.id : '') || selectedRobot;
       }
       selector.replaceChildren(...robotCatalog.robots.map(robot =>
         Object.assign(document.createElement('option'), {value: robot.id, textContent: robot.id === 'robot-abecb4cd868ab24b' ? 'SO101' : robot.name})));
@@ -3869,3 +3930,232 @@ function aspireTaskWorking(run) {
   window.addEventListener('blupe-robot-selected',() => {draftPreview=localAspire;liveRun = liveState = pendingAttempt = null;selected = 'preview';renderFailure($('taskRunFailure'),null);loadCatalog();});
   panel.hidden = selectorBox.hidden = true;loadCatalog();
 })();
+
+// BEGIN observer enhancement preview v1
+// This viewing-only experiment uses the already decoded observer frame.
+// RCAS shader adapted from https://github.com/GPUOpen-Effects/FidelityFX-FSR
+/*
+Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+(() => {
+  if (new URLSearchParams(location.search).get('observer_enhance') !== '1') return;
+  document.documentElement.classList.add('observerEnhancementPreview');
+  const vertex = `#version 300 es
+    in vec2 position; out vec2 uv;
+    void main(){ uv=(position+1.0)*0.5; gl_Position=vec4(position,0.0,1.0); }`;
+  const fragment = `#version 300 es
+    precision highp float;
+    uniform sampler2D image; uniform vec2 pixel; uniform float amount; uniform float divider;
+    in vec2 uv; out vec4 color;
+    float luma(vec3 p){return dot(p,vec3(0.5,1.0,0.5));}
+    void main(){
+      vec3 e=texture(image,uv).rgb;
+      if(uv.x<divider || amount==0.0){color=vec4(e,1.0);return;}
+      vec3 b=texture(image,uv+vec2(0.0,pixel.y)).rgb;
+      vec3 d=texture(image,uv-vec2(pixel.x,0.0)).rgb;
+      vec3 f=texture(image,uv+vec2(pixel.x,0.0)).rgb;
+      vec3 h=texture(image,uv-vec2(0.0,pixel.y)).rgb;
+      vec3 lo=min(min(b,d),min(f,h)), hi=max(max(b,d),max(f,h));
+      vec3 hitMin=min(lo,e)/max(4.0*hi,vec3(0.0001));
+      vec3 hitMax=(vec3(1.0)-max(hi,e))/min(4.0*lo-4.0,vec3(-0.0001));
+      vec3 limiter=max(-hitMin,hitMax);
+      float lobe=max(-0.1875,min(max(max(limiter.r,limiter.g),limiter.b),0.0))*amount;
+      float bl=luma(b),dl=luma(d),el=luma(e),fl=luma(f),hl=luma(h);
+      float span=max(max(max(bl,dl),max(fl,hl)),el)-min(min(min(bl,dl),min(fl,hl)),el);
+      float noise=clamp(abs((bl+dl+fl+hl)*0.25-el)/max(span,0.0001),0.0,1.0);
+      lobe*=1.0-0.5*noise;
+      color=vec4(clamp((e+lobe*(b+d+f+h))/(1.0+4.0*lobe),0.0,1.0),1.0);
+    }`;
+  let active = null, disposed = false, preference = new URLSearchParams(location.search).get('enhancement_engine')==='cpu'?'cpu':'auto';
+  let settings={split:50,strength:65,enabled:true};
+  function enhance(source) {
+    const panel = source.closest('figure'), picture = source.parentElement;
+    const output = document.createElement('canvas');
+    output.className = 'observerEnhancedCanvas';
+    output.setAttribute('aria-hidden','true');
+    const line = document.createElement('div'); line.className = 'observerCompareLine';
+    const before = document.createElement('span'); before.className = 'observerCompareLabel before'; before.textContent='Before';
+    const after = document.createElement('span'); after.className = 'observerCompareLabel after'; after.textContent='After';
+    const controls = document.createElement('div'); controls.className='observerEnhancement';
+    controls.innerHTML = `<div class="enhancementHeading"><strong>Observer clarity · preview</strong><select aria-label="Enhancement processing"><option value="auto">Auto</option><option value="cpu">CPU</option></select><button type="button" data-enhancement-toggle aria-label="Enable observer enhancement" aria-pressed="true">On</button></div>
+      <div class="enhancementChoices" role="group" aria-label="Image comparison"><button type="button" data-compare="100" aria-pressed="false">Before</button><button type="button" data-compare="50" aria-pressed="true">Compare</button><button type="button" data-compare="0" aria-pressed="false">After</button></div>
+      <label>Before / after<input type="range" min="0" max="100" value="50" aria-label="Before and after divider"><output>50%</output></label>
+      <label>Strength<input type="range" min="0" max="100" value="65" aria-label="Enhancement strength"><output>65%</output></label>
+      <p class="enhancementNote">Same live frame on both sides. Sharpening improves clarity; camera resolution stays the same.</p>`;
+    // Existing camera expansion handles figure clicks. Controls must remain usable
+    // without opening/closing fullscreen or the phone camera dialog.
+    controls.addEventListener('click',event=>event.stopPropagation());
+    controls.addEventListener('keydown',event=>event.stopPropagation());
+    picture.append(output,line,before,after); panel.classList.add('observerEnhancedPanel');
+    const home = panel.closest('.videoPanel') || panel.parentElement;
+    function relocate(){
+      if(panel.matches(':fullscreen') || panel.closest('.cameraDialog')){
+        if(controls.parentElement!==panel)panel.append(controls);
+      }else if(controls.previousElementSibling!==home)home.after(controls);
+    }
+    document.addEventListener('fullscreenchange',relocate);relocate();
+    const [split, strength] = controls.querySelectorAll('input');
+    const toggle = controls.querySelector('[data-enhancement-toggle]'),mode=controls.querySelector('select');
+    mode.value=preference;split.value=settings.split;strength.value=settings.strength;
+    mode.addEventListener('change',()=>{
+      preference=mode.value;settings={split:split.value,strength:strength.value,enabled};
+      active?.stop();active=enhance(source);
+    });
+    let enabled=settings.enabled, stopped=false, pending=0, lastFrame='', submitted=0, program, texture, buffer;
+    let gl, fallback, base, baseContext, worker, scratch, scratchContext, busy=false, lastStrength=-1, lastSize='', outputWidth=0, outputHeight=0;
+    const costs=[], stats={engine:'',frames:0,sourceWidth:0,sourceHeight:0,width:0,height:0,cpuSubmitMs:0};
+    const publishStats=()=>{canvas.dataset.enhancementStats=JSON.stringify(stats);};
+    try {
+      if(preference==='cpu')throw Error('CPU selected');
+      gl=output.getContext('webgl2',{alpha:false,antialias:false,depth:false,stencil:false,powerPreference:'low-power',preserveDrawingBuffer:false});
+      if (!gl) throw Error('WebGL unavailable');
+      const compile=(kind,code)=>{
+        const shader=gl.createShader(kind); gl.shaderSource(shader,code); gl.compileShader(shader);
+        if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){const reason=gl.getShaderInfoLog(shader);gl.deleteShader(shader);throw Error(reason);}
+        return shader;
+      };
+      program=gl.createProgram();
+      const vs=compile(gl.VERTEX_SHADER,vertex),fs=compile(gl.FRAGMENT_SHADER,fragment);
+      gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
+      gl.deleteShader(vs);gl.deleteShader(fs);
+      if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+      gl.useProgram(program);
+      buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      const position=gl.getAttribLocation(program,'position');
+      gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+      texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+      stats.engine='webgl2-rcas';
+    } catch {
+      if(gl){gl.deleteProgram(program);gl.deleteTexture(texture);gl.deleteBuffer(buffer);gl.getExtension('WEBGL_lose_context')?.loseContext();}
+      gl=null;
+      const replacement=document.createElement('canvas');replacement.className=output.className;
+      replacement.setAttribute('aria-hidden','true');output.replaceWith(replacement);
+      fallback=replacement.getContext('2d',{alpha:false});
+      base=document.createElement('canvas');base.className=output.className;base.setAttribute('aria-hidden','true');replacement.before(base);
+      baseContext=base.getContext('2d',{alpha:false});
+      scratch=document.createElement('canvas');scratchContext=scratch.getContext('2d',{alpha:false,willReadFrequently:true});
+      worker=new Worker('/static/observer-enhancement-worker.js?v=1');
+      worker.onerror=()=>{enabled=false;toggle.textContent='Unavailable';toggle.disabled=true;visibility();};
+      worker.onmessage=({data})=>{
+        busy=false;if(stopped)return;
+        if(enabled&&source.isConnected&&source.dataset.frameSource==='video'){
+          fallback.putImageData(new ImageData(data.enhanced,data.width,data.height),0,0);
+          baseContext.putImageData(new ImageData(data.original,data.width,data.height),0,0);
+          lastFrame=data.sourceFrame;lastStrength=data.strength;submitted++;
+          Object.assign(stats,{frames:submitted,sourceFrame:lastFrame,sourceWidth:source.width,sourceHeight:source.height,width:data.width,height:data.height,workerMs:Math.round(data.workerMs*100)/100,processingWallMs:Math.round((performance.now()-data.started)*100)/100});
+          publishStats();visibility();
+        }
+        if(source.dataset.presentedFrame!==lastFrame||Number(strength.value)/100!==lastStrength)request();
+      };
+      stats.engine='cpu-worker-rcas';
+    }
+    const canvas=gl?output:fallback.canvas;
+    function size() {
+      const bounds=source.getBoundingClientRect();
+      // Phone previews are bounded by display pixels, native dimensions and DPR2.
+      // No synthetic 4K buffers for a small phone tile. Match object-fit:contain.
+      const scale=Math.min(bounds.width/source.width,bounds.height/source.height);
+      const dpr=Math.min(window.devicePixelRatio||1,2);
+      outputWidth=Math.max(1,Math.min(source.width,Math.round(source.width*scale*dpr)));
+      outputHeight=Math.max(1,Math.round(outputWidth*source.height/source.width));
+      const key=outputWidth+'x'+outputHeight;
+      if(key!==lastSize){canvas.width=outputWidth;canvas.height=outputHeight;if(base){base.width=outputWidth;base.height=outputHeight;scratch.width=outputWidth;scratch.height=outputHeight;}lastSize=key;}
+    }
+    function visibility() {
+      const visible=enabled&&source.dataset.frameSource==='video'&&submitted>0;
+      canvas.hidden=!visible;line.hidden=before.hidden=after.hidden=!visible;
+      if(base)base.hidden=!visible;
+      if(!visible)return;
+      const fraction=Number(split.value)/100;
+      line.style.left=split.value+'%';line.hidden=fraction===0||fraction===1;
+      before.hidden=fraction===0;after.hidden=fraction===1;
+      if(!gl)canvas.style.clipPath='inset(0 0 0 '+split.value+'%)';
+    }
+    function draw() {
+      pending=0;
+      if(stopped||document.hidden||!enabled||!source.isConnected||source.dataset.frameSource!=='video') {visibility();return;}
+      if(worker&&busy)return;
+      const started=performance.now();size();
+      try {
+        if(gl){
+          gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);
+          if(lastFrame!==source.dataset.presentedFrame){
+            gl.bindTexture(gl.TEXTURE_2D,texture);
+            gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);
+          }
+          gl.uniform2f(gl.getUniformLocation(program,'pixel'),1/canvas.width,1/canvas.height);
+          gl.uniform1f(gl.getUniformLocation(program,'amount'),Number(strength.value)/100);
+          gl.uniform1f(gl.getUniformLocation(program,'divider'),Number(split.value)/100);
+          gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+        }else{
+          if(lastFrame===source.dataset.presentedFrame&&lastStrength===Number(strength.value)/100){visibility();return;}
+          scratchContext.imageSmoothingEnabled=true;scratchContext.imageSmoothingQuality='high';
+          scratchContext.drawImage(source,0,0,canvas.width,canvas.height);
+          const original=scratchContext.getImageData(0,0,canvas.width,canvas.height).data;
+          busy=true;
+          worker.postMessage({original,width:canvas.width,height:canvas.height,strength:Number(strength.value)/100,sourceFrame:source.dataset.presentedFrame,started},[original.buffer]);
+          stats.cpuSubmitMs=Math.round((performance.now()-started)*100)/100;
+          return;
+        }
+        lastFrame=source.dataset.presentedFrame;submitted++;
+        costs.push(performance.now()-started);if(costs.length>120)costs.shift();
+        Object.assign(stats,{frames:submitted,sourceFrame:lastFrame,sourceWidth:source.width,sourceHeight:source.height,width:canvas.width,height:canvas.height,cpuSubmitMs:Math.round(costs.reduce((a,b)=>a+b,0)/costs.length*100)/100});
+        publishStats();visibility();
+      }catch{
+        enabled=false;toggle.textContent='Enhancement unavailable';toggle.disabled=true;visibility();
+      }
+    }
+    function request(){if(!pending&&!stopped)pending=requestAnimationFrame(draw);}
+    const frames=new MutationObserver(request);
+    frames.observe(source,{attributes:true,attributeFilter:['data-presented-frame','data-frame-source','width','height']});
+    const resized=new ResizeObserver(request);resized.observe(source);
+    const update=()=>{
+      split.parentElement.querySelector('output').value=split.value+'%';
+      strength.parentElement.querySelector('output').value=strength.value+'%';
+      controls.querySelectorAll('[data-compare]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.compare===split.value)));
+      visibility();request();
+    };
+    split.addEventListener('input',update);strength.addEventListener('input',update);
+    controls.querySelectorAll('[data-compare]').forEach(button=>button.addEventListener('click',()=>{split.value=button.dataset.compare;update();}));
+    toggle.addEventListener('click',()=>{enabled=!enabled;toggle.setAttribute('aria-pressed',String(enabled));toggle.textContent=enabled?'On':'Off';visibility();request();});
+    canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();enabled=false;toggle.disabled=true;toggle.textContent='Enhancement unavailable';visibility();});
+    document.addEventListener('visibilitychange',request);
+    toggle.setAttribute('aria-pressed',String(enabled));toggle.textContent=enabled?'On':'Off';update();
+    return {source,relocate,stop(){
+      stopped=true;cancelAnimationFrame(pending);frames.disconnect();resized.disconnect();document.removeEventListener('visibilitychange',request);
+      document.removeEventListener('fullscreenchange',relocate);panel.classList.remove('observerEnhancedPanel');
+      canvas.remove();base?.remove();line.remove();before.remove();after.remove();controls.remove();worker?.terminate();
+      if(gl){gl.deleteTexture(texture);gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.getExtension('WEBGL_lose_context')?.loseContext();}
+    }};
+  }
+  function connect() {
+    if(disposed)return;
+    const source=document.querySelector('canvas[data-sync-tile][data-camera-role="observer"]');
+    if(active?.source===source){active?.relocate();return;}
+    active?.stop();active=null;
+    if(source)active=enhance(source);
+  }
+  const cameras=new MutationObserver(connect);
+  cameras.observe(document.body,{subtree:true,childList:true});connect();
+  window.addEventListener('pagehide',()=>{disposed=true;cameras.disconnect();active?.stop();document.documentElement.classList.remove('observerEnhancementPreview');},{once:true});
+})();
+// END observer enhancement preview v1

@@ -8,7 +8,7 @@ const panels = source.slice(source.indexOf('  function synchronizedPanels('), so
 
 function harness({ready = false, hd = false, marker = null, roles = ['top','observer','left','right'], snapshots = roles} = {}) {
   const draws = [], images = [], timers = new Map(), labels = [];
-  let callback, id = 0;
+  let callback, id = 0, now = 0;
   const tiles = roles.map(role => ({
     dataset: {cameraRole: role}, addEventListener() {},
     getContext: () => ({drawImage: (...args) => draws.push({role, args})}),
@@ -28,6 +28,7 @@ function harness({ready = false, hd = false, marker = null, roles = ['top','obse
     },
   })};
   const context = {
+    performance: {now: () => now},
     cameraExpansion: () => () => {},
     cameraNames:snapshots, selectedRobot: 'yam-1', Date: marker ? {now:()=>1791614135000} : Date, encodeURIComponent, video,
     label: {textContent: 'Loading video'},
@@ -47,7 +48,7 @@ function harness({ready = false, hd = false, marker = null, roles = ['top','obse
     },
   };
   vm.runInNewContext(panels + '\nsynchronizedPanels(video, label);', context);
-  return {context, video, atlas, tiles, labels, images, draws, timers, latency, paint() {callback?.();}};
+  return {context, video, atlas, tiles, labels, images, draws, timers, latency, paint(elapsed = 125) {now += elapsed; callback?.(now);}};
 }
 
 test('real snapshots fill the panels before video connects and remain clearly labeled', async () => {
@@ -161,4 +162,38 @@ test('video-only observer never requests an unadvertised JPEG from another robot
   const h=harness({roles:['top','left','right','observer'],snapshots:['top','left','right']});
   assert.equal(h.images.length,3);
   assert(h.images.every(image=>!image.src.includes('/observer')));
+});
+
+test('canvas samples latest frames at 8 fps without queuing intermediate frames', () => {
+  const h = harness({ready: true});
+  h.video.paused = false;
+  h.video.currentTime = .02; h.paint(20);
+  assert.equal(h.draws.length, 5);
+  h.video.currentTime = .1; h.paint(80);
+  assert.equal(h.draws.length, 5);
+  h.video.currentTime = .2; h.paint(25);
+  assert.equal(h.draws.length, 10);
+  assert.equal(h.tiles[0].dataset.presentedFrame, '2');
+  h.video.currentTime = 3; h.paint(2800);
+  assert.equal(h.draws.length, 15, 'a slow tab draws only the latest frame once');
+});
+
+test('stalled health cannot freeze the canvas that drives an occluded video decoder', () => {
+  const h = harness({ready: true});
+  h.video.yamHealth = {stale: () => true};
+  h.video.getVideoPlaybackQuality = () => ({totalVideoFrames: 1, droppedVideoFrames: 0});
+  h.video.paused = false; h.video.currentTime = 3; h.paint();
+  assert.equal(h.draws.length, 10, 'continue consuming the video texture so decoding can recover');
+  assert(h.tiles.every(tile => tile.dataset.presentedFrame === '2'));
+  assert(h.labels.every(label => label.textContent === 'Stream stalled'));
+});
+
+
+test('8 fps presentation does not drift down when display refreshes miss exact deadlines', () => {
+  const h = harness({ready: true}); h.video.paused = false;
+  for (let tick = 1; tick <= 60; tick++) {
+    h.video.currentTime = tick * .017;
+    h.paint(17);
+  }
+  assert.equal(h.tiles[0].dataset.presentedFrame, '9', 'initial frame plus eight updates per second');
 });
