@@ -251,7 +251,8 @@ class HostedRunner:
         self.queue = None
         self.operator_auto_queue = None
         from remote_yam.past_runs import PastRuns
-        self.past_runs = PastRuns(robot_id=None)
+        from remote_yam.run_history import run_models
+        self.past_runs = PastRuns(robot_id=None, model_reader=lambda: run_models(self.submission_log.path))
         self.task = None
         self.cleanups = set()
         self.frame_cache = {}
@@ -497,6 +498,9 @@ class HostedRunner:
                     raise ValueError()
             except (ValueError, UnicodeError):
                 raise RequestError(400, 'Invalid page') from None
+            model = query.get('model', [''])[0].strip()
+            if len(model) > 128 or any(ord(c) < 32 for c in model):
+                raise RequestError(400, 'Invalid model filter')
             try:
                 if episode_id is not None:
                     row = await asyncio.to_thread(self.past_runs.get, episode_id)
@@ -504,7 +508,12 @@ class HostedRunner:
                         row = await asyncio.to_thread(self.run_names.pending, episode_id, self.robot_id)
                     result = {'runs': [row] if row else [], 'next_offset': None, 'stale': False}
                 else:
-                    result = await asyncio.to_thread(self.past_runs.page, offset)
+                    filters = {}
+                    if query.get('robot_id'):
+                        filters['robot_id'] = query['robot_id'][0]
+                    if model:
+                        filters['model'] = model
+                    result = await asyncio.to_thread(self.past_runs.page, offset, **filters)
                 names = await asyncio.to_thread(self.run_names.names)
                 outcomes = await asyncio.to_thread(self.run_names.results)
                 replay_speeds = await asyncio.to_thread(self.run_names.replay_speeds)

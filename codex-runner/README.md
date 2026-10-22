@@ -449,3 +449,13 @@ reset implementation, selector setup and Run/status/Stop clients, see
 [Environment resets](docs/resets.md). Station recordings, calibration, goals and
 credentials remain deployment configuration. Availability is advertised by the
 configured runner; no public `/v1/reset` endpoint is implied.
+
+### Filter All runs by model
+
+The **Model** dropdown filters the entire published catalog by recorded model ID,
+including older pages, for the selected robot. IDs match exactly so checkpoints
+stay separate. **All models** clears the filter; **Model not recorded** contains
+runs without an identity. Choices come from archive metadata and the local run
+journal. Only episode/model IDs are projected from that private journal.
+`GET /api/past-runs?model=...&robot_id=...&offset=0` returns the filtered `total`,
+`next_offset`, and available `models` for the robot.

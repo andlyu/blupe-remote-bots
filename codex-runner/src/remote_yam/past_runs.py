@@ -9,6 +9,8 @@ import threading
 import time
 from urllib.request import urlopen
 
+from .run_history import recorded_model
+
 BASE = 'https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/'
 
 
@@ -387,9 +389,10 @@ def fetch(path):
 
 
 class PastRuns:
-    def __init__(self, reader=fetch, *, robot_id="yam-1"):
+    def __init__(self, reader=fetch, *, robot_id="yam-1", model_reader=None):
         self.robot_id = robot_id
         self.reader = reader
+        self.model_reader = model_reader
         self.lock = threading.Lock()
         self.rows = None
         self.updated = 0
@@ -402,7 +405,7 @@ class PastRuns:
         rows = self.page(episode_id=episode_id)['runs']
         return rows[0] if rows else None
 
-    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None):
+    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None, model=''):
         with self.lock:
             stale = False
             if self.rows is None or time.monotonic() - self.updated > 60:
@@ -429,6 +432,7 @@ class PastRuns:
                             rows.append({'episode_id':eid, 'episode_index':None,
                                          'started_at':item['started_at'], 'prompt':item.get('task') or 'Task unavailable',
                                          'original_available':item.get('original_available', False),
+                                         'model':item.get('model'),
                                          'robot_id':item.get('robot_id', 'yam-1')})
                     for row in sources:
                         if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', row.get('episode_id', '')):
@@ -440,6 +444,7 @@ class PastRuns:
                         prompts = tasks.get(row['episode_index'], [])
                         rows.append({'episode_id': row['episode_id'], 'episode_index': row['episode_index'],
                                      'robot_id':row.get('robot_id', 'yam-1'),
+                                     'model':row.get('model') or viewing.get(row['episode_id'], {}).get('model'),
                                      'started_at': row['recorded_at'], 'prompt': '\n'.join(prompts) or 'Task unavailable'})
                     # Explicitly excluded by the operator, including incomplete recordings.
                     rows = [r for r in rows if (self.robot_id is None or r['robot_id'] == self.robot_id) and ' '.join(r['prompt'].split()).casefold().rstrip('.') != 'raise and lower both arms for three cycles']
@@ -451,6 +456,14 @@ class PastRuns:
                     stale = True
             available = [r for r in self.rows if (episode_ids is None or r['episode_id'] in episode_ids)
                          and (robot_id is None or r['robot_id'] == robot_id)]
+            recorded_models = self.model_reader() if self.model_reader else {}
+            available = [dict(r, model=recorded_model(recorded_models.get(r['episode_id'])) or recorded_model(r.get('model')))
+                         for r in available]
+            models = sorted({r['model'] for r in available if r['model']}, key=str.casefold)
+            if any(r['model'] is None for r in available):
+                models.append('__unrecorded__')
+            if model:
+                available = [r for r in available if (r['model'] or '__unrecorded__') == model]
             selected = ([r for r in available if r['episode_id'] == episode_id]
                         if episode_id is not None else available[offset:offset+12])
             now = time.monotonic()
@@ -464,7 +477,7 @@ class PastRuns:
                 self.details = {k: v for k, v in self.details.items() if k in wanted}
             result = [dict(r, **self.details[r['episode_id']][1]) for r in selected]
             return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
-                    'stale': stale}
+                    'stale': stale, 'total': len(available), 'models': models}
 
     def _detail(self, row):
         eid = row['episode_id']
