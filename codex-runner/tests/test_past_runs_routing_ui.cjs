@@ -17,7 +17,7 @@ test('hover previews are muted, exclusive, and stop on exit, modal open, or robo
     getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element};
   const run = {episode_index:1, prompt:'Move block', camera_order:[], started_at:0,
     video_url:'https://example.com/previews/run.mp4', compressed:true};
-  vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},encodeURIComponent,
+  vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},URLSearchParams,encodeURIComponent,
     fetch:async()=>({ok:true,json:async()=>({runs:[run,{...run,compressed:false},{...run,replay_speed:2,preview_speed:10}],next_offset:null})})});
   listeners['blupe-robot-selected']({detail:'yam-1'});
   await new Promise(setImmediate);
@@ -47,7 +47,7 @@ test('history waits for robot selection and ignores a previous robot response', 
   const nodes = new Map(), listeners = {}, requests = [];
   const element = () => ({style:{},appendChild(){},addEventListener(){},after(){},replaceChildren(){},removeAttribute(){},dataset:{},open:false});
   const document = {addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element};
-  vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},encodeURIComponent,
+  vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},URLSearchParams,encodeURIComponent,
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))}});
   assert.equal(requests.length,0);
   listeners['blupe-robot-selected']({detail:'robot-3652c537a175cbae'});
