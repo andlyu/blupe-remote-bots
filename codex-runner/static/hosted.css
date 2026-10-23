@@ -1076,3 +1076,5 @@ body.cameraExpanded{overflow:hidden}
     .observerEnhancement .enhancementHeading button{flex:none}
     @media(max-height:500px){.cameraDialog .observerEnhancement .enhancementChoices,.cameraDialog .observerEnhancement .enhancementNote{display:none}.cameraDialog .observerEnhancement{padding:4px 10px}}
 /* END observer enhancement preview v1 */
+
+.pastRunMatch { margin: 8px 0; overflow-wrap: anywhere; }

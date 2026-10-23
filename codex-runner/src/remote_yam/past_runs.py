@@ -405,7 +405,7 @@ class PastRuns:
         rows = self.page(episode_id=episode_id)['runs']
         return rows[0] if rows else None
 
-    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None, model=''):
+    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None, model='', query=''):
         with self.lock:
             stale = False
             if self.rows is None or time.monotonic() - self.updated > 60:
@@ -464,6 +464,9 @@ class PastRuns:
                 models.append('__unrecorded__')
             if model:
                 available = [r for r in available if (r['model'] or '__unrecorded__') == model]
+            if query.strip() and episode_id is None:
+                from .run_search import rank_runs
+                available = rank_runs(available, query)
             selected = ([r for r in available if r['episode_id'] == episode_id]
                         if episode_id is not None else available[offset:offset+12])
             now = time.monotonic()
