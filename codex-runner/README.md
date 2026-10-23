@@ -452,6 +452,17 @@ configured runner; no public `/v1/reset` endpoint is implied.
 
 ### Filter All runs by model
 
+Under **All runs**, **Search videos by task** finds recordings across the full
+published catalog, including older pages. Try `apple` or `put pens in a cup`.
+Search matches task prompts, including related terms and singular/plural forms;
+replays show what actually happened. Matches rank by task coverage, exact words,
+and then recency, with related and partial matches explained on each card.
+Model and robot filters also apply. Clear search restores newest-first browsing.
+Open `/?q=apple#past-runs` to start with an apple search. The public API accepts
+`GET /api/past-runs?q=apple&offset=0` (up to 300 characters), returning `total`,
+`next_offset`, and a `search_match` explanation for each result. Search makes no
+model calls and does not analyze video pixels.
+
 The **Model** dropdown filters the entire published catalog by recorded model ID,
 including older pages, for the selected robot. IDs match exactly so checkpoints
 stay separate. **All models** clears the filter; **Model not recorded** contains

@@ -330,6 +330,9 @@ function createRunLaunchGuard() {
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
   let historyModel = '';
+  let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
+  if ($('pastRunsQuery')) $('pastRunsQuery').value = historySearch;
+  if ($('clearPastRunsSearch')) $('clearPastRunsSearch').hidden = !historySearch;
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
@@ -395,8 +398,9 @@ function createRunLaunchGuard() {
     loading = true; $('morePastRuns').disabled = $('refreshPastRuns').disabled = true;
     $('pastRunsStatus').textContent = 'Loading past runs…';
     try {
+      const searchQuery = historySearch ? `&q=${encodeURIComponent(historySearch)}` : '';
       const modelQuery = historyModel ? `&model=${encodeURIComponent(historyModel)}` : '';
-      const response = await fetch(`/api/past-runs?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
+      const response = await fetch(`/api/past-runs?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
       if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
       const data = await response.json();
       if (generation !== historyGeneration) return;
@@ -460,6 +464,14 @@ function createRunLaunchGuard() {
         reasonDetails.append(reasonSummary, ending);
         if (run.errors) reasonDetails.append(errors);
         button.append(title, prompt, video, watch); button.addEventListener('click', () => openRun(run)); li.append(button); window.yamAspireLineage?.history(li, run);
+        if (run.search_match) {
+          const match = document.createElement('p'); match.className = 'pastRunMatch help';
+          const reasons = [];
+          if (run.search_match.exact.length) reasons.push('Matched: ' + run.search_match.exact.join(', '));
+          if (run.search_match.related.length) reasons.push('Related: ' + run.search_match.related.map(pair => `${pair.query} → ${pair.match}`).join(', '));
+          if (run.search_match.partial) reasons.push('Partial task match');
+          match.textContent = reasons.join(' · '); li.append(match);
+        }
         const disposeView = window.yamRecordingView?.(video, run.camera_order, run.video_layout);
         if (disposeView) previewViews.push(disposeView);
         const liveButton = document.createElement('button');
@@ -486,7 +498,9 @@ function createRunLaunchGuard() {
       next = data.next_offset;
       $('morePastRuns').hidden = next === null;
       const hasRuns = $('pastRunsList').children.length > 0;
-      const summary = historyModel
+      const summary = historySearch
+        ? hasRuns ? `${data.total ?? $('pastRunsList').children.length} matching videos · closest task prompts first.` : 'No matching videos. Try an object, such as apple or cup, or a shorter task.'
+        : historyModel
         ? hasRuns ? `${data.total ?? $('pastRunsList').children.length} runs · newest first.` : 'No published runs for this model. Choose another model or All models.'
         : hasRuns ? '' : 'No published runs yet.';
       $('pastRunsStatus').textContent = summary + (data.stale ? ' Showing saved results; the archive is temporarily unavailable.' : '');
@@ -496,12 +510,26 @@ function createRunLaunchGuard() {
   window.yamReplayHistory = {openRun, refresh: () => load(true)};
   $('refreshPastRuns').addEventListener('click', () => load(true));
   $('morePastRuns').addEventListener('click', () => load());
-  $('pastRunsModel')?.addEventListener('change', () => {
-    historyModel = $('pastRunsModel').value;
+  function searchPastRuns(query) {
+    historySearch = query.trim();
     historyGeneration++; loading = false; next = 0;
     stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
     $('pastRunsList').replaceChildren(); $('morePastRuns').hidden = true;
+    $('clearPastRunsSearch').hidden = !historySearch;
     load(true);
+  }
+  $('pastRunsSearch')?.addEventListener('submit', event => {
+    event.preventDefault(); searchPastRuns($('pastRunsQuery').value);
+  });
+  $('clearPastRunsSearch')?.addEventListener('click', () => {
+    $('pastRunsQuery').value = ''; searchPastRuns(''); $('pastRunsQuery').focus();
+  });
+  $('pastRunsQuery')?.addEventListener('search', () => {
+    if (!$('pastRunsQuery').value) searchPastRuns('');
+  });
+  $('pastRunsModel')?.addEventListener('change', () => {
+    historyModel = $('pastRunsModel').value;
+    searchPastRuns(historySearch);
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
   window.addEventListener('blupe-robot-selected', event => {

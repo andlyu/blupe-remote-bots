@@ -284,6 +284,11 @@
           <label for="pastRunsModel">Model</label>
           <select id="pastRunsModel"><option value="">All models</option></select>
         </div>
+        <form id="pastRunsSearch" class="runHistorySearch" role="search" aria-label="Past attempts">
+          <label for="pastRunsQuery">Search videos by task</label>
+          <div><input id="pastRunsQuery" type="search" maxlength="300" placeholder="apple, stack blocks, put pens in a cup" aria-describedby="pastRunsSearchHelp"><button type="submit">Search</button><button id="clearPastRunsSearch" type="button" hidden>Clear search</button></div>
+          <p id="pastRunsSearchHelp" class="help">Find recordings by their task prompt, such as apple or put pens into a cup. Related objects and partial tasks may match. Watch a replay to see what happened.</p>
+        </form>
         <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
         <p id="pastRunsStatus" class="help" role="status">Loading past runs…</p>
         <ol id="pastRunsList"></ol>

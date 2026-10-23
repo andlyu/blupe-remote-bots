@@ -501,6 +501,10 @@ class HostedRunner:
                     raise ValueError()
             except (ValueError, UnicodeError):
                 raise RequestError(400, 'Invalid page') from None
+            search = query.get('q', [''])[0].strip()
+            from remote_yam.run_search import MAX_QUERY_LENGTH
+            if len(search) > MAX_QUERY_LENGTH:
+                raise RequestError(400, f'Search must be {MAX_QUERY_LENGTH} characters or fewer')
             model = query.get('model', [''])[0].strip()
             if len(model) > 128 or any(ord(c) < 32 for c in model):
                 raise RequestError(400, 'Invalid model filter')
@@ -511,7 +515,7 @@ class HostedRunner:
                         row = await asyncio.to_thread(self.run_names.pending, episode_id, self.robot_id)
                     result = {'runs': [row] if row else [], 'next_offset': None, 'stale': False}
                 else:
-                    filters = {}
+                    filters = {'query': search} if search else {}
                     if query.get('robot_id'):
                         filters['robot_id'] = query['robot_id'][0]
                     if model:
