@@ -11,7 +11,7 @@ import subprocess
 import threading
 import time
 
-from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
+from .session import command_budget, MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
 from .latency_spans import journal_span
 
 MODELS = {'dream': ('dreamlabs/dream-1-beta', 'Dream-1 beta'),
@@ -34,13 +34,13 @@ class DreamObservationError(ValueError):
         self.field, self.retryable = field, retryable
 
 
-def motion_limited_waypoints(points, observation, max_step_deg):
+def motion_limited_waypoints(points, observation, max_step_deg, *, max_commands=MAX_COMMANDS):
     """Retain every paired target; add 100 ms steps instead of clipping the path."""
     state_input(observation, '')
     previous = [*observation['left_joints_deg'], observation['left_gripper'],
                 *observation['right_joints_deg'], observation['right_gripper']]
     first_step_id = points[0]['step_id']
-    capacity = min(MAX_WAYPOINTS_PER_PACKET, MAX_COMMANDS - first_step_id)
+    capacity = min(MAX_WAYPOINTS_PER_PACKET, max_commands - first_step_id)
     result = []
     for point in points:
         target = [*point['left_joints_deg'], point['left_gripper'],
@@ -81,7 +81,7 @@ def state_input(observation, prompt):
     return result
 
 
-def action_waypoints(action, first_step_id):
+def action_waypoints(action, first_step_id, *, max_commands=MAX_COMMANDS):
     """20 Hz endpoint sampling at 10 Hz preserves the predicted duration."""
     chunks = [action.get(key) for key in ('q_l_chunk', 'q_r_chunk')]
     if (any(not isinstance(rows, list) or not rows or len(rows) % 2 for rows in chunks)
@@ -89,7 +89,7 @@ def action_waypoints(action, first_step_id):
         raise ValueError('Dream returned mismatched or incomplete joint chunks')
     count = len(chunks[0]) // 2
     if (type(first_step_id) is not int or first_step_id < 0 or count > MAX_WAYPOINTS_PER_PACKET
-            or first_step_id + count > MAX_COMMANDS):
+            or first_step_id + count > max_commands):
         raise ValueError('Dream chunk exceeds the session waypoint budget')
     for rows in chunks:
         if any(not isinstance(row, list) or len(row) != 7
@@ -177,6 +177,7 @@ class DreamAdapter:
         if provider not in MODELS or model != MODELS[provider][0]:
             raise ValueError('Unknown Dream checkpoint')
         self.provider_name, self.model = provider, model
+        self._max_commands = MAX_COMMANDS
         self.credentials, self.python, self.directory = credentials, python, directory
         self.camera_source, self.observation_source, self.robot_id = camera_source, observation_source, robot_id
         self.worker_factory = worker_factory
@@ -214,6 +215,9 @@ class DreamAdapter:
     def _interaction(self, kind, message, **details):
         if self.interaction_sink:
             self.interaction_sink(kind, message, **details)
+
+    def configure_run_duration(self, seconds):
+        self._max_commands = command_budget(self.provider_name, seconds)
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, cadence_hz=10,
@@ -612,12 +616,12 @@ class DreamAdapter:
                     began = time.monotonic()
                     continue
                 result = reply['result']
-                nominal = action_waypoints(result['action'], first_step_id)
+                nominal = action_waypoints(result['action'], first_step_id, max_commands=self._max_commands)
                 measured = latest['observation']
                 baseline = {side+'_joints_deg': [math.degrees(value) for value in measured['state.'+side+'_arm']]
                             for side in ('left', 'right')}
                 baseline.update({side+'_gripper': measured['state.'+side+'_gripper'][0] for side in ('left','right')})
-                points = motion_limited_waypoints(nominal, baseline, self.effective_joint_step_deg)
+                points = motion_limited_waypoints(nominal, baseline, self.effective_joint_step_deg, max_commands=self._max_commands)
                 self._pending_commanded = {
                     key: [math.radians(value) for value in points[-1][side + '_joints_deg']]
                          + [points[-1][side + '_gripper']]

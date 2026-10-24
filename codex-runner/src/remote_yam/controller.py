@@ -17,7 +17,7 @@ from .feedback import feedback_decision, feedback_fields
 from .providers import PolicyComplete, ProviderAdapter
 from .interactions import InteractionLog
 from .latency_spans import journal_span
-from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET, SCHEMA_VERSION, TERMINAL_STATES, SessionAPI, SessionAPIError, SessionEventStream
+from .session import command_budget, MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET, SCHEMA_VERSION, TERMINAL_STATES, SessionAPI, SessionAPIError, SessionEventStream
 
 
 FEEDBACK_WAIT_S = 5.0
@@ -77,6 +77,7 @@ class RunnerController(HomeSceneStartup):
         self._operator_requested = False
         self._error: str | None = None
         self._deadline_cancelled_session: str | None = None
+        self._command_limit = MAX_COMMANDS
         self._safety_error: dict[str, Any] | None = None
         self._run_events: list[dict[str, Any]] = []
         self._submitted_step_ids: list[int] = []
@@ -135,6 +136,10 @@ class RunnerController(HomeSceneStartup):
         admission = getattr(provider, 'validate_session_admission', None)
         if callable(admission):
             admission(self._session_api)
+        self._command_limit = command_budget(getattr(provider, 'provider_name', ''), run_duration_s)
+        configure_duration = getattr(provider, 'configure_run_duration', None)
+        if getattr(provider, 'provider_name', '') in ('dream', 'dream_flash') and callable(configure_duration):
+            configure_duration(run_duration_s)
         duration_options = {}
         if run_duration_s != 300:
             duration_options['run_duration_s'] = run_duration_s
@@ -948,8 +953,8 @@ class RunnerController(HomeSceneStartup):
             self._note_latency("command_settle", (time.monotonic() - submitted_at) * 1000.0)
         if provider is None or session_id is None or not episode_id or not lease_id:
             raise RuntimeError("Observation is missing runner lease context")
-        if step_id >= MAX_COMMANDS:
-            raise RuntimeError(f"Session command limit of {MAX_COMMANDS} reached")
+        if step_id >= self._command_limit:
+            raise RuntimeError(f"Session command limit of {self._command_limit} reached")
         readiness = getattr(provider, 'wait_ready', None)
         timing_sink = self._interactions.add if getattr(provider, 'provider_name', '') in {'dream', 'dream_flash'} else None
         if timing_sink and step_id == 0:
@@ -1330,7 +1335,7 @@ class RunnerController(HomeSceneStartup):
         if not isinstance(waypoints, list) or not 1 <= len(waypoints) <= MAX_WAYPOINTS_PER_PACKET:
             raise RuntimeError(f"Trajectory provider must return 1..{MAX_WAYPOINTS_PER_PACKET} waypoints")
         expected_steps = list(range(first_step_id, first_step_id + len(waypoints)))
-        if expected_steps[-1] >= MAX_COMMANDS:
+        if expected_steps[-1] >= self._command_limit:
             raise RuntimeError("Trajectory exceeds the session command limit")
         allowed = {"step_id", "left_joints_deg", "right_joints_deg", "left_gripper", "right_gripper"}
         required = {"step_id", "left_joints_deg", "right_joints_deg"}

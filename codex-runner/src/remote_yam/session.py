@@ -17,6 +17,16 @@ from urllib import error, parse, request
 SCHEMA_VERSION = 1
 MAX_COMMANDS = 3000  # Total accepted waypoints in one policy session.
 MAX_WAYPOINTS_PER_PACKET = 300
+MAX_DREAM_COMMANDS = 1200 * 10 + MAX_WAYPOINTS_PER_PACKET
+
+
+def command_budget(provider="", run_duration_s=300):
+    # One in-flight packet may extend past the selected deadline. Keep the
+    # deadline authoritative while bounding all accepted Dream waypoints.
+    if provider in ('dream', 'dream_flash') and type(run_duration_s) is int and 600 < run_duration_s <= 1200:
+        return run_duration_s * 10 + MAX_WAYPOINTS_PER_PACKET
+    return MAX_COMMANDS
+
 TERMINAL_STATES = frozenset(
     {"resetting", "stopped", "timed_out", "disconnected", "safety_aborted"}
 )
@@ -469,6 +479,7 @@ class MockSessionAPI:
                 "status": "queued",
                 "position": 1,
                 "next_command_step": 0,
+                "max_commands": command_budget(provider, run_duration_s),
                 "next_observation": 0,
                 "events": queue.Queue(),
                 "receipts": {},
@@ -594,7 +605,7 @@ class MockSessionAPI:
                 duplicate = deepcopy(receipt)
                 duplicate["duplicate"] = True
                 return duplicate
-            if step_id >= MAX_COMMANDS:
+            if step_id >= record["max_commands"]:
                 raise SessionAPIError("Command limit reached", code="command_limit", status=409)
             if step_id != record["next_command_step"]:
                 raise SessionAPIError("Command step is out of order", code="step_out_of_order", status=409)
@@ -672,7 +683,7 @@ class MockSessionAPI:
                 raise SessionAPIError(
                     "Trajectory step is out of order", code="step_out_of_order", status=409
                 )
-            if last_step >= MAX_COMMANDS:
+            if last_step >= record["max_commands"]:
                 raise SessionAPIError("Command limit reached", code="command_limit", status=409)
             dispatched_at = time.time()
             receipt = {
