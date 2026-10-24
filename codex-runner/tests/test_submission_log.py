@@ -50,3 +50,16 @@ def test_mock_creation_keeps_contact_fields_out_of_public_state():
     created = api.create_session('Stack blocks', runner_name='Alex', email='alex@example.com')
     assert api.create_requests[0]['email'] == 'alex@example.com'
     assert 'alex@example.com' not in str([created, api.get_queue_snapshot(), api.get_session(created['session_id'])])
+
+
+def test_extended_dream_provider_reaches_real_http_request_without_changing_identity(tmp_path):
+    from unittest.mock import Mock
+    from remote_yam.session import HttpSessionAPI
+    transport=HttpSessionAPI('https://api.example.test',websocket_factory=Mock())
+    transport._request=Mock(return_value={'session_id':'s1','session_capability':'capability'})
+    api=LoggedSessionAPI(transport,SubmissionLog(tmp_path/'queue.db'))
+    for provider in ('dream','dream_flash'):
+        api.setup({'runner_name':'Fixture','provider':provider})
+        api.create_session('Synthetic duration fixture',1200,provider=provider)
+        assert transport._request.call_args.args[2]==dict(schema_version=1,robot_id='yam-1',
+            prompt='Synthetic duration fixture',run_duration_s=1200,provider=provider,runner_name='Fixture')

@@ -135,7 +135,14 @@ class RunnerController(HomeSceneStartup):
         admission = getattr(provider, 'validate_session_admission', None)
         if callable(admission):
             admission(self._session_api)
-        created = self._session_api.create_session(prompt) if run_duration_s == 300 else self._session_api.create_session(prompt, run_duration_s=run_duration_s)
+        duration_options = {}
+        if run_duration_s != 300:
+            duration_options['run_duration_s'] = run_duration_s
+        # Extended Dream runs carry their provider through admission and the
+        # native deadline validator. Shorter runs retain the existing wire shape.
+        if run_duration_s > 600 and getattr(provider, 'provider_name', None) in ('dream', 'dream_flash'):
+            duration_options['provider'] = provider.provider_name
+        created = self._session_api.create_session(prompt, **duration_options)
         session_id = str(created["session_id"])
         if prepared and (self._stop_event.is_set() or self._provider is not provider):
             self._session_api.stop_session(session_id, reason='preparation_cancelled')
