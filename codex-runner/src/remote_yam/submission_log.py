@@ -59,10 +59,13 @@ class LoggedSessionAPI:
         except Exception as exc:
             print('[queue-log-error] '+type(exc).__name__, flush=True)
 
-    def create_session(self, prompt, run_duration_s=300):
+    def create_session(self, prompt, run_duration_s=300, *, provider=""):
         self.note('queue_request', {'prompt': prompt, 'run_duration_s': run_duration_s})
+        options = dict(self.queue_identity)
+        if provider:
+            options['provider'] = provider
         try:
-            result = self.api.create_session(prompt, run_duration_s=run_duration_s, **self.queue_identity)
+            result = self.api.create_session(prompt, run_duration_s=run_duration_s, **options)
         except Exception as exc:
             self.note('queue_request_failed', {'error_type': type(exc).__name__})
             raise

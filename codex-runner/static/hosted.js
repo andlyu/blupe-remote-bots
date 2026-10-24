@@ -28,7 +28,7 @@ function createProviderRunDuration(input) {
   input.addEventListener('change', remember);
   return {
     select(key, seconds = 300, maximum = 600) {
-      const maxMinutes = Number.isInteger(maximum) && maximum >= 60 && maximum <= 600 ? maximum / 60 : 10;
+      const maxMinutes = Number.isInteger(maximum) && maximum >= 60 && maximum <= 1200 ? maximum / 60 : 10;
       input.max = String(maxMinutes);
       if (selected === key) {
         if (Number(input.value) > maxMinutes) input.value = String(maxMinutes);
