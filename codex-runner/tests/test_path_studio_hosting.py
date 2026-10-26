@@ -27,7 +27,8 @@ class HostingTests(unittest.TestCase):
         self.service.calls = []
         self.password = 'test-password-at-least-24-characters'
         self.server = studio.create_server(0, self.service, public_origin='https://draw.example.test',
-                                           username='Andrew', password=self.password)
+                                           username='Andrew', password=self.password, base_path='/path-studio/',
+                                           origin_mounts={'https://neutral.example.test':'/'})
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
@@ -65,6 +66,29 @@ class HostingTests(unittest.TestCase):
     def test_health_check_exposes_no_session_or_identity(self):
         with self.fetch('/healthz') as response:
             self.assertEqual(json.load(response), {'status':'ok'})
+
+    def test_neutral_origin_keeps_its_own_cookie_mount_and_csrf_origin(self):
+        class NoRedirect(request.HTTPRedirectHandler):
+            def redirect_request(self, *args, **kwargs):
+                return None
+        body=parse.urlencode({'username':'Andrew','password':self.password}).encode()
+        headers={'Host':'neutral.example.test','Origin':'https://neutral.example.test',
+                 'Content-Type':'application/x-www-form-urlencoded'}
+        with self.assertRaises(error.HTTPError) as caught:
+            request.build_opener(NoRedirect()).open(request.Request(self.base+'/login',body,headers))
+        self.assertEqual(caught.exception.code,303)
+        self.assertEqual(caught.exception.headers['Location'],'/')
+        cookie=caught.exception.headers['Set-Cookie']
+        self.assertIn('; Path=/;',cookie)
+        controls={'Host':'neutral.example.test','Origin':'https://neutral.example.test',
+                  'Cookie':cookie.split(';')[0],'Content-Type':'application/json',
+                  'X-Path-Studio-Token':self.server.csrf_token}
+        with self.fetch('/api/path-studio/simulate',controls,b'{}') as response:
+            self.assertTrue(json.load(response)['verified'])
+        with self.assertRaises(error.HTTPError) as caught:
+            self.fetch('/api/path-studio/simulate',{**controls,'Origin':'https://draw.example.test'},b'{}')
+        self.assertEqual(caught.exception.code,403)
+        self.assertEqual(self.service.calls,[{}])
 
     def test_login_uses_private_cookie_and_rejects_cross_site_forms(self):
         class NoRedirect(request.HTTPRedirectHandler):

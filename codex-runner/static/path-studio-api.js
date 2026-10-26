@@ -33,7 +33,7 @@ export function connectHardware(hooks) {
     $('simulationPanel').hidden=isReal();
     observer.show(station());$('observerStation').textContent=$('stationSelector').selectedOptions[0].textContent+' · live station camera';
     $('sceneViewLabel').textContent=isReal()?'3D robot view':'Simulation';$('cameraDetails').hidden=!isReal();
-    $('drawPrompt').textContent=isReal()?'Create path':'Verify & draw';$('footerMode').textContent=isReal()?'BluPe API':'Verified simulation';
+    $('drawPrompt').textContent=isReal()?'Create path':'Verify & draw';$('footerMode').textContent=isReal()?'Robot API':'Verified simulation';
     $('promptHint').textContent=isReal()?'Selected grippers close before the arms approach your drawing.':'Uses the real planner, calibrated spacing and swept CAD checks.';
     if(!isReal())return;
     const running=active(),run=state?.run;
@@ -49,8 +49,8 @@ export function connectHardware(hooks) {
     if(!isReal())return;
     const obs=state?.observation,run=state?.run,valid=fresh();
     const reason=obs?.safety?.reason?.replaceAll('_',' ');
-    $('apiState').textContent=!obs?'Connecting to BluPe…':!valid?'Station feedback unavailable':obs.mode==='DISABLED'?'Hardware disabled':`${obs.mode||'Connected'} · ${obs.settled?'settled':'moving'}`;
-    $('apiDetail').textContent=state?.error||(!valid&&obs?'Measurements are stale. Waiting for fresh API feedback.':reason?`${reason}. Queued runs wait for station readiness.`:'Station measurements arrive through the BluPe API.');
+    $('apiState').textContent=!obs?'Connecting to the robot…':!valid?'Station feedback unavailable':obs.mode==='DISABLED'?'Hardware disabled':`${obs.mode||'Connected'} · ${obs.settled?'settled':'moving'}`;
+    $('apiDetail').textContent=state?.error||(!valid&&obs?'Measurements are stale. Waiting for fresh API feedback.':reason?`${reason}. Queued runs wait for station readiness.`:'Station measurements arrive through the Robot API.');
     $('apiQueue').textContent=`Queue · ${state?.queue?.waiting??'—'} waiting`;
     $('apiAge').textContent=obs?`Feedback · ${Math.max(0,Date.now()/1000-obs.observed_at).toFixed(1)} s ago`:'Feedback —';
     $('connectionBadge').textContent=valid?'API connected':'API reconnecting';
@@ -70,7 +70,7 @@ export function connectHardware(hooks) {
       hooks.setStatus(complete?'Drawing complete':phase==='settling_pose'&&run.status==='running'?'Settling at the alignment target':phase==='closing_grippers'&&run.status==='running'?'Closing drawing grippers':run.status==='running'&&phaseLabel?phaseLabel:labels[run.status]||run.status,run.error||run.feedback_warning||run.stop_error||(complete?`Drawing confirmed · maximum endpoint error ${(1000*run.progress.max_tcp_error_m).toFixed(2)} mm`:run.status==='queued'?'Waiting for the API to grant this station.':`Confirmed samples · ${run.progress?.confirmed_samples||0} / ${run.progress?.total_samples||'—'}`));
       if(run.stop_error)hooks.setMessage(run.stop_error,true);
       else if(run.error)hooks.setMessage(run.error,true);
-      else if(complete)hooks.setMessage('Drawing completed through the BluPe API.');
+      else if(complete)hooks.setMessage('Drawing completed through the Robot API.');
     } else {$('geometryStatus').textContent='Gripper plan · forward and level, right wrist 90°';hooks.setStatus(valid?'Ready to queue a drawing':'Connecting to the station',valid?'Create a path, then press Run on real arms.':'Reading live feedback and calibration from the API.');}
     renderControls();
   }

@@ -38,6 +38,9 @@ class Handler(BaseHTTPRequestHandler):
     def _host_ok(self):
         return self.headers.get('Host') in self.server.allowed_hosts
 
+    def _site(self):
+        return self.server.host_sites.get(self.headers.get('Host'), (None, self.server.base_path))
+
     def _authenticated(self):
         if self.server.auth_header is None:
             return True
@@ -55,8 +58,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _login_page(self, failed=False):
         page = '''<!doctype html><html lang="en"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in | BluPe Path Studio</title>
-<link rel="stylesheet" href="./path-studio-login.css"><main><p class="brand">BluPe</p>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in | Path Studio</title>
+<link rel="stylesheet" href="./path-studio-login.css"><main><p class="brand">Path Studio</p>
 <h1>Sign in to Path Studio</h1><p>Preview a drawing, watch the observer and control your run.</p>
 LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="username" autocomplete="username" required></label>
 <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
@@ -68,7 +71,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
 
     def _login(self):
         if (not self._host_ok() or not self.server.public_origin
-                or self.headers.get('Origin') != self.server.public_origin
+                or self.headers.get('Origin') != self._site()[0]
                 or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
             self._respond(403, dict(error='Sign in from the configured Path Studio address'))
             return
@@ -85,8 +88,9 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             self._login_page(failed=True)
             return
         self.send_response(303)
-        self.send_header('Location', self.server.base_path)
-        self.send_header('Set-Cookie', f'path_studio_owner={self.server.owner_cookie}; Path={self.server.base_path}; Secure; HttpOnly; SameSite=Strict; Max-Age=86400')
+        mount = self._site()[1]
+        self.send_header('Location', mount)
+        self.send_header('Set-Cookie', f'path_studio_owner={self.server.owner_cookie}; Path={mount}; Secure; HttpOnly; SameSite=Strict; Max-Age=86400')
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Content-Length', '0')
         self.end_headers()
@@ -136,7 +140,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             except ValueError as exc:
                 self._respond(400, dict(error=str(exc)))
             except Exception:
-                self._respond(502, dict(error='BluPe API unavailable. Retry in a moment.'))
+                self._respond(502, dict(error='Robot API unavailable. Retry in a moment.'))
             return
         name = "path-studio.html" if path == "/" else path.removeprefix("/")
         if name not in ASSETS:
@@ -152,7 +156,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         if not self._authenticated():
             return
         origin = self.headers.get('Origin')
-        expected = self.server.public_origin or f'http://{self.headers.get("Host")}'
+        expected = self._site()[0] or f'http://{self.headers.get("Host")}'
         if (not self._host_ok() or (origin is not None and origin != expected)
                 or self.headers.get('Sec-Fetch-Site') == 'cross-site'
                 or not secrets.compare_digest(self.headers.get('X-Path-Studio-Token', ''), self.server.csrf_token)):
@@ -180,7 +184,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             self._respond(502, dict(error='API request failed. Check the run status and retry Stop if needed.'))
 
 
-def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, username=None, password=None, base_path='/'):
+def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, username=None, password=None, base_path='/', origin_mounts=None):
     if not base_path.startswith('/') or not base_path.endswith('/') or any(c not in '/-_' and not c.isalnum() for c in base_path):
         raise ValueError('Base path must be a plain absolute directory path')
     if public_origin:
@@ -193,10 +197,27 @@ def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, u
             raise ValueError('Hosted Path Studio requires a username and a password of at least 24 characters')
     elif bind not in ('127.0.0.1', 'localhost') or username or password:
         raise ValueError('Public binding requires an HTTPS origin and owner authentication')
+    sites = {urlsplit(public_origin).netloc: (public_origin, base_path)} if public_origin else {}
+    if origin_mounts and not public_origin:
+        raise ValueError('Additional origins require authenticated hosting')
+    if origin_mounts is not None and not isinstance(origin_mounts, dict):
+        raise ValueError('Additional origins must map HTTPS origins to mount paths')
+    for origin, mount in (origin_mounts or {}).items():
+        parsed = urlsplit(origin)
+        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
+                or parsed.path not in ('', '/') or parsed.query or parsed.fragment):
+            raise ValueError('Additional origins must use HTTPS without a path')
+        if (not isinstance(mount,str) or not mount.startswith('/') or not mount.endswith('/')
+                or any(c not in '/-_' and not c.isalnum() for c in mount)):
+            raise ValueError('Additional origin mounts must be plain absolute directories')
+        if parsed.netloc in sites:
+            raise ValueError('Each origin host must have one explicit mount')
+        sites[parsed.netloc] = (origin.rstrip('/'), mount)
     server = ThreadingHTTPServer((bind, port), Handler)
     server.daemon_threads = True
-    server.allowed_hosts = ({urlsplit(public_origin).netloc} if public_origin else
+    server.allowed_hosts = (set(sites) if public_origin else
                             {f'127.0.0.1:{server.server_port}', f'localhost:{server.server_port}'})
+    server.host_sites = sites
     server.public_origin = public_origin
     server.base_path = base_path
     server.owner_cookie = secrets.token_urlsafe(32)
@@ -216,7 +237,8 @@ def main():
     server = create_server(args.port, service, bind=args.bind,
         public_origin=os.environ.get('PATH_STUDIO_PUBLIC_ORIGIN'),
         username=os.environ.get('PATH_STUDIO_USERNAME'), password=os.environ.get('PATH_STUDIO_PASSWORD'),
-        base_path=os.environ.get('PATH_STUDIO_BASE_PATH', '/'))
+        base_path=os.environ.get('PATH_STUDIO_BASE_PATH', '/'),
+        origin_mounts=json.loads(os.environ.get('PATH_STUDIO_ADDITIONAL_ORIGINS', '{}')))
     print(f"Path Studio: {server.public_origin or f'http://127.0.0.1:{args.port}'}/", flush=True)
     print('Preview + BluPe API. Run on real arms explicitly joins the hardware queue.', flush=True)
     try:

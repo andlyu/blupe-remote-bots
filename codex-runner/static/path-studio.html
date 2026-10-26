@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Draw a path in 3D and use simulated YAM arms or the real BluPe API.">
-  <title>BluPe · Path Studio</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c6f432'/%3E%3Cpath d='M9 9v14h7a4 4 0 000-8h-3V9z' fill='%2313221c'/%3E%3C/svg%3E">
+  <meta name="description" content="Draw a path in 3D and use simulated YAM arms or the real robot API.">
+  <title>Path Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c6f432'/%3E%3Cpath d='M8 23V9l8 7 8-7v14' fill='none' stroke='%2313221c' stroke-width='3'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./path-studio.css">
   <script src="./path-studio-yam-model.js" defer></script>
   <script src="./path-studio-core.js" defer></script>
@@ -13,7 +13,7 @@
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="./path-studio.html" aria-label="BluPe Path Studio"><span class="brand-mark">b.</span><strong>BluPe</strong><span class="brand-divider"></span><span>Path Studio</span></a>
+    <a class="brand" href="./path-studio.html" aria-label="Path Studio"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 18V6l7 6 7-6v12"/></svg></span><strong>Path Studio</strong></a>
     <div class="header-right"><select id="stationSelector" aria-label="Robot station"><option value="robohouse">Robo-house</option><option value="yam-1">YAM1</option></select><select id="connectionMode" aria-label="Motion destination"><option value="real" selected>Real arms · API</option><option value="preview">Simulation · real constraints</option></select><span id="connectionBadge" class="sim-badge"><i></i>Connecting</span><button id="helpButton" class="icon-button" aria-label="How to use Path Studio">?</button></div>
   </header>
   <main class="workspace observer-workspace">
@@ -39,7 +39,7 @@
     </section>
     <aside class="sidebar">
       <section id="apiPanel" class="section api-panel" aria-label="Live robot status">
-        <h2 id="apiState">Connecting to BluPe…</h2><p id="apiDetail" role="status">Reading station measurements.</p>
+        <h2 id="apiState">Connecting to the robot…</h2><p id="apiDetail" role="status">Reading station measurements.</p>
         <div class="api-facts"><span id="apiQueue">Queue —</span><span id="apiAge">Feedback —</span></div>
         <p id="queueIdentitySummary" class="field-hint">Queue identity · loading</p>
         <p id="geometryStatus" class="field-hint">Gripper plan · forward and level, right wrist 90°</p>
@@ -76,7 +76,7 @@
         <p class="field-hint">Coordinates in mm · shared YAM frame</p>
       </section>
       <section class="section file-section"><button id="importButton" class="quiet">↥ Import JSON</button><button id="exportButton" class="quiet">↧ Export JSON</button><input id="fileInput" type="file" accept=".json,application/json" hidden></section>
-      <div class="sidebar-footer"><span class="small-dot"></span>Bimanual YAM · 12 axes<span id="footerMode">BluPe API</span></div>
+      <div class="sidebar-footer"><span class="small-dot"></span>Bimanual YAM · 12 axes<span id="footerMode">Robot API</span></div>
     </aside>
     </div>
   </main>

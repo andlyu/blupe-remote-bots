@@ -184,3 +184,12 @@ owner cookie and sign-in redirect, and strip that prefix before forwarding to th
 service. Assets, JSON requests and observer streams resolve within the same
 mount, including the owner's browser authentication scope. Configure the public
 origin without the path (`https://playground.blupe.io` for that deployment).
+
+Additional neutral origins can share the same owner/controller process. Set
+`PATH_STUDIO_ADDITIONAL_ORIGINS` to a JSON object mapping each exact HTTPS origin
+to its cookie/redirect mount, for example `{"https://example.cloudfront.net":"/"}`.
+The proxy forwards that configured host for its own scoped origin route. Login
+and API POSTs require the origin corresponding to the requested host; allowing
+a second host does not permit cross-host form submissions or share browser cookies.
+The interface uses neutral Path Studio branding; transport schemas and model
+provenance remain compatible with existing exports.
