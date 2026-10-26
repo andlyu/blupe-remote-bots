@@ -1,5 +1,12 @@
 # Run the BluPe playground locally
 
+For the 3D Path Studio, see [setup and usage](codex-runner/docs/path-studio.md),
+then run `./run-path-studio.sh --port 8916` and open http://127.0.0.1:8916.
+Draw a spatial polyline or prompt a heart. Choose Simulation or real BluPe arms
+through the Session API, with live camera/joint feedback, queue access and Stop.
+The model uses controller URDFs and original STL meshes. Real mode uses live
+station calibration. Simulation uses the same planner and API spacing as real execution (currently Robo-house 62 cm and YAM1 50 cm).
+
 On macOS or Linux, install Git and Python 3.10 or newer, then run:
 
 ```bash

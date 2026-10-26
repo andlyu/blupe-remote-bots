@@ -152,8 +152,19 @@ class RunnerController(HomeSceneStartup):
         if prepared and (self._stop_event.is_set() or self._provider is not provider):
             self._session_api.stop_session(session_id, reason='preparation_cancelled')
             raise RuntimeError('Run preparation cancelled while joining the queue')
-        events = self._session_api.open_events(session_id)
+        try:
+            events = self._session_api.open_events(session_id)
+        except Exception:
+            # Creation succeeded: an event handshake failure must not orphan a
+            # queued/running session that the UI has never received an ID for.
+            self._session_api.stop_session(session_id, reason='event_connection_failed')
+            raise
         with self._lock:
+            if prepared and (self._stop_event.is_set() or self._provider is not provider):
+                # Stop can arrive during the WebSocket handshake, after creation.
+                events.close()
+                self._session_api.stop_session(session_id, reason='preparation_cancelled')
+                raise RuntimeError('Run preparation cancelled during event connection')
             # Status polling continues during the WebSocket handshake. Publish the
             # new clock together with its session/state, never with an old terminal state.
             self._run_duration_s = run_duration_s

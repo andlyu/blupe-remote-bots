@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Draw a path in 3D and use simulated YAM arms or the real BluPe API.">
+  <title>BluPe · Path Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c6f432'/%3E%3Cpath d='M9 9v14h7a4 4 0 000-8h-3V9z' fill='%2313221c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./path-studio.css">
+  <script src="./path-studio-yam-model.js" defer></script>
+  <script src="./path-studio-core.js" defer></script>
+  <script src="./hls.min.js" defer></script>
+  <script type="module" src="./path-studio.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="./path-studio.html" aria-label="BluPe Path Studio"><span class="brand-mark">b.</span><strong>BluPe</strong><span class="brand-divider"></span><span>Path Studio</span></a>
+    <div class="header-right"><select id="stationSelector" aria-label="Robot station"><option value="robohouse">Robo-house</option><option value="yam-1">YAM1</option></select><select id="connectionMode" aria-label="Motion destination"><option value="real" selected>Real arms · API</option><option value="preview">Simulation · real constraints</option></select><span id="connectionBadge" class="sim-badge"><i></i>Connecting</span><button id="helpButton" class="icon-button" aria-label="How to use Path Studio">?</button></div>
+  </header>
+  <main class="workspace observer-workspace">
+    <section class="observer-main" aria-label="Main observer workspace">
+        <figure id="observerPanel" class="observer-panel"><div class="observer-heading"><div><h1>Observer view</h1><p id="observerStation">Robo-house · live station camera</p></div><button id="expandObserver" type="button">Expand observer</button></div><div id="observerPicture" class="observer-picture"><p id="observerEmpty" class="observer-empty" role="status">Connecting to the observer camera…</p><canvas id="observerCanvas" hidden aria-label="Live observer camera"></canvas><video id="observerVideo" class="observer-source" muted playsinline aria-label="Observer video source"></video></div><figcaption><span id="observerStatus">Connecting…</span><button id="playObserver" type="button">Play observer</button></figcaption></figure>
+      <details id="cameraDetails" class="camera-details"><summary>Additional cameras</summary>
+        <div id="cameraStrip" class="camera-row"><figure><div id="cameraLeft" class="camera-image"></div><figcaption>Left camera <span>loading</span></figcaption></figure><figure><div id="cameraTop" class="camera-image"></div><figcaption>Overhead <span>loading</span></figcaption></figure><figure><div id="cameraRight" class="camera-image"></div><figcaption>Right camera <span>loading</span></figcaption></figure></div>
+      </details>
+      <footer class="playback-panel">
+        <div class="playback-top"><div class="playback-title"><span class="status-dot" id="statusDot"></span><div><strong id="playbackStatus">Ready to simulate</strong><span id="playbackDetail">A heart is loaded for both arms. Press Verify & draw to start.</span></div></div><div class="speed-control"><label for="speed">Speed</label><select id="speed"><option value="0.025">25 mm/s</option><option value="0.05" selected>50 mm/s</option><option value="0.1">100 mm/s</option></select></div></div>
+        <div class="transport"><button id="play" class="primary"><span id="playIcon">▶</span><span id="playLabel">Run on real arms</span></button><button id="stopReal" class="stop-real" disabled>Stop</button><button id="reset" class="reset-button" aria-label="Reset simulation to path start" title="Reset simulation to path start">↺</button><input id="scrubber" type="range" min="0" max="1000" value="0" disabled aria-label="Path progress"><output id="timeLabel">0.0 / — s</output></div>
+        <p id="message" class="message" role="status" aria-live="polite">Real motion starts only when you press Run on real arms.</p>
+      </footer>
+    </section>
+    <div class="left-rail">
+    <section class="scene-panel" aria-label="3D simulation workspace">
+      <div class="scene-heading"><div><h2 id="sceneViewLabel">3D robot view</h2><p id="stationGeometry" class="station-geometry">Robo-house · 600 mm base spacing</p></div><div class="view-buttons" role="group" aria-label="Camera view"><button data-view="perspective" class="selected" aria-pressed="true">3D</button><button data-view="top" aria-pressed="false">Top</button><button data-view="front" aria-pressed="false">Front</button><button id="resetView" aria-label="Reset camera view" title="Reset camera view">⤢</button></div></div>
+      <div id="viewport" tabindex="0" role="application" aria-label="3D path editor. Use the waypoint fields for keyboard editing."><div id="loading" class="loading">Opening workspace…</div></div>
+      <div class="scene-overlays"><span id="modeHint" class="mode-hint"><i></i>DRAW MODE<span>Click or drag on the highlighted plane</span></span><div class="legend"><span><i class="planned"></i>Left arm</span><span><i class="right-path"></i>Right arm</span></div></div>
+      <div class="scene-scale">Z UP <span>·</span> METRES <span>·</span> 50 MM GRID</div>
+      <div class="telemetry"><div><span>LEFT TOOL · XYZ</span><strong id="leftPosition">—</strong></div><div><span>RIGHT TOOL · XYZ</span><strong id="rightPosition">—</strong></div><div><span>MAX ERROR</span><strong id="trackingError">—</strong></div><div><span>PATH LENGTH</span><strong id="pathLength">—</strong></div></div>
+
+    </section>
+    <aside class="sidebar">
+      <section id="apiPanel" class="section api-panel" aria-label="Live robot status">
+        <h2 id="apiState">Connecting to BluPe…</h2><p id="apiDetail" role="status">Reading station measurements.</p>
+        <div class="api-facts"><span id="apiQueue">Queue —</span><span id="apiAge">Feedback —</span></div>
+        <p id="queueIdentitySummary" class="field-hint">Queue identity · loading</p>
+        <p id="geometryStatus" class="field-hint">Gripper plan · forward and level, right wrist 90°</p>
+        <p class="field-hint">3D arms follow measured joints. Cameras show the station.</p>
+        <p id="apiGrippers" class="field-hint">Grippers · waiting for feedback</p>
+        <details id="queueIdentityFields" class="queue-identity"><summary>Queue identity settings</summary><label for="queueName">Queue name</label><input id="queueName" type="text" maxlength="32" value="Andrew" autocomplete="name" required><label for="queueEmail">Queue email</label><input id="queueEmail" type="email" maxlength="254" autocomplete="email" placeholder="Your email address" required><p class="field-hint">Used for your API queue entry.</p></details>
+      </section>
+      <section id="simulationPanel" class="section simulation-panel" aria-label="Simulation verification" hidden>
+        <p class="eyebrow">REAL PLANNER / SIMULATED MOTION</p>
+        <h2 id="simulationStatus">Ready to verify</h2>
+        <p id="simulationResult" class="field-hint" role="status">The full motion must pass before playback. Both arms draw together.</p>
+        <p class="field-hint">20 mm minimum gripper gap · joint limits · workspace · speed · swept CAD clearance · API packet limits</p>
+        <p class="field-hint">Reference starting pose, grippers fully open. Uses API spacing and saved controller limits. Real execution replans from measured joints.</p>
+        <button id="saveVerification" class="quiet" type="button" disabled>Save verification</button>
+      </section>
+      <section class="section prompt-section"><label for="shapePrompt" class="field-label">What should the robot draw?</label><form id="shapeForm"><input id="shapePrompt" type="text" value="Draw a heart" placeholder="Draw a heart" maxlength="180" autocomplete="off"><button id="drawPrompt" type="submit" class="primary">Create path</button></form><div class="prompt-examples"><button type="button" data-prompt="Draw a heart">♡ Heart</button><button type="button" data-prompt="Draw a star">☆ Star</button><button type="button" data-prompt="Draw an infinity symbol">∞ Infinity</button></div><p id="promptHint" class="field-hint">Create a shape, then run it on the selected station.</p></section>
+      <section class="section">
+        <div class="section-heading"><h2>Create a path</h2><span class="step-number">01</span></div>
+        <label class="field-label" for="armAssignment">Arms</label><select id="armAssignment" class="arm-assignment"><option value="both">Both arms</option><option value="left">Left arm</option><option value="right">Right arm</option></select><div id="coordinationControl"><label for="coordination" class="field-label">Coordination</label><select id="coordination" class="arm-assignment"><option value="together" selected>Together · keep grippers apart</option><option value="sequential">Take turns · exact outline</option></select></div><div class="segmented" aria-label="Interaction mode"><button id="drawMode" class="selected" aria-pressed="true"><span>⌁</span> Draw</button><button id="orbitMode" aria-pressed="false"><span>↻</span> Orbit</button></div>
+        <label class="field-label" for="plane">Drawing plane</label>
+        <select id="plane"><option value="xy">XY · horizontal</option><option value="xz">XZ · side</option><option value="yz">YZ · front</option></select>
+        <div class="range-label"><label for="planeOffset" id="offsetLabel">Height · Z</label><output id="offsetValue">280 mm</output></div>
+        <input id="planeOffset" type="range" min="30" max="600" value="280" step="5">
+        <p class="field-hint">Click to place points, or drag to draw. Change planes to add depth.</p>
+        <div class="action-row"><button id="undo" class="quiet">↶ Undo</button><button id="clear" class="quiet">Clear path</button></div>
+        <div class="divider-label"><span>or start with a shape</span></div>
+        <div class="preset-row"><button data-preset="wave">∿ <span>Wave</span></button><button data-preset="arch">⌒ <span>Arch</span></button><button data-preset="square">□ <span>Square</span></button></div>
+      </section>
+      <section class="section point-section">
+        <div class="section-heading"><h2>Waypoints</h2><span id="pointCount" class="count-badge">0</span></div>
+        <div class="point-columns"><span>POINT</span><span>X</span><span>Y</span><span>Z</span><span></span></div>
+        <div id="pointList" class="point-list" aria-label="Editable waypoints"></div>
+        <button id="addPoint" class="add-point">+ Add XYZ point</button>
+        <p class="field-hint">Coordinates in mm · shared YAM frame</p>
+      </section>
+      <section class="section file-section"><button id="importButton" class="quiet">↥ Import JSON</button><button id="exportButton" class="quiet">↧ Export JSON</button><input id="fileInput" type="file" accept=".json,application/json" hidden></section>
+      <div class="sidebar-footer"><span class="small-dot"></span>Bimanual YAM · 12 axes<span id="footerMode">BluPe API</span></div>
+    </aside>
+    </div>
+  </main>
+  <dialog id="observerDialog" class="observer-dialog"><div class="observer-heading"><h2>Live observer view</h2><button id="closeObserver">Close observer</button></div><div id="expandedObserver"></div></dialog>
+  <dialog id="helpDialog"><div class="dialog-top"><p class="eyebrow">PATH STUDIO</p><button id="closeHelp" class="icon-button" aria-label="Close help">×</button></div><h2>From sketch to motion.</h2><ol><li><strong>Prompt.</strong> Try “draw a heart”. Heart, star, circle, square, triangle and infinity are built in. In Simulation, Verify &amp; draw checks the full motion and starts playback.</li><li><strong>Draw.</strong> Click or drag on a plane, switch planes to add depth, or edit XYZ fields in millimetres.</li><li><strong>Verify.</strong> Simulation uses the same Python planner as real execution: calibrated spacing, joint limits, workspace, speed, tool orientation, closed grippers and swept CAD clearance. Together mode starts the arms at opposite shape endpoints and traces both halves at once. If needed, a bounded outward adjustment keeps the grippers apart; the preview reports the deviation. Together accepts up to 25 mm of measured target error only when the measured posture still passes closed-gripper and CAD clearance checks. Take turns retains strict sequential strokes. Alignment and approach are included; only drawing phases leave a trace.</li><li><strong>Inspect.</strong> Orbit, pan or zoom; pause, scrub or replay. Save verification exports the model-check receipt.</li><li><strong>Run.</strong> Real arms mode reads measured joints and live cameras. Run on real arms explicitly joins the API queue as your saved name/email. Stop cancels your own session.</li></ol><p class="help-note">Simulation starts from the documented reference pose with fully open grippers, using read-only API calibration and saved controller safety profiles. It never creates a control session. Real execution replans from fresh measured joints and retains gateway validation. The local CAD model covers original YAM arms, installed grippers and the nominal table; dynamics and movable objects are not modeled. A disabled station must be initialized separately. Robo-house uses the API's 620 mm spacing; YAM1 uses 500 mm. No controller calibration is changed.</p></dialog>
+</body>
+</html>

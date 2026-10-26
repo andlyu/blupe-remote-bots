@@ -1,0 +1,23 @@
+{
+  "controller_repository": "andlyu/blupe-playground-robot-controller",
+  "controller_commit": "d1f9e8d588b18810d13c0edbe34646763dc8f257",
+  "urdf": "models/controller-yam/yam_bimanual.urdf",
+  "visual_origins": "models/controller-yam/yam.xml",
+  "gripper": "aspire/assets/linear_4310/linear_4310.xml",
+  "hashes": {
+    "models/yam/assets/base.stl": "7d57efce4cd31db5e461e1bc83362943a7dbe0e8e101cdb94c29de0a72f3ff0f",
+    "models/yam/assets/link1.stl": "2283bab1300cfdd1a04aaf09503093d7d6d19bf2144abf3429d563b596920903",
+    "models/yam/assets/link2.stl": "4fd4df2916be71391c6c6ea6ffbdb3c270ce67c71c2bb7d42d44736c0be2af98",
+    "models/yam/assets/link3.stl": "5b51658509771514738d0f2271df5f271cd8ae0b6a4bf3787d8463d5ab582593",
+    "models/yam/assets/link4.stl": "f6e980b8064a1396b17e87065de50286abf616f94b55e1ccff92e889218de220",
+    "models/yam/assets/link5.stl": "b32ece2e963cd028d68290a904223826070be52ce8f0988e3ad36bf75be3582f",
+    "aspire/assets/linear_4310/assets/gripper.stl": "d949c401186197d842ca8f9b23bfcbf24bed8461b421df06093c65e4ead21f5d",
+    "aspire/assets/linear_4310/assets/tip_left.stl": "03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7",
+    "aspire/assets/linear_4310/assets/tip_right.stl": "8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f",
+    "models/controller-yam/yam.urdf": "36042c163b564ff414906cfb96a44d30104dea8df9adb85fe60b9fd3a1726082",
+    "models/controller-yam/yam_bimanual.urdf": "fa316609fd74431cbfe9834e832be5c861fd54e9538a82743d97dd20f88fa2af",
+    "models/controller-yam/yam.xml": "40a4026b76cf996bf7f01bac42a7a8931e007ea3db8f72de9a8f97b5d1e8d6ec",
+    "aspire/assets/linear_4310/linear_4310.xml": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652"
+  },
+  "note": "Controller URDF joint chain; companion MJCF visual origins; original STL meshes. User-specified station spacing overrides the generic URDF's 0.70 m layout."
+}

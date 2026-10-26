@@ -12,3 +12,5 @@ screenlog.*
 .local/
 codex-runner/data/
 codex-runner/outputs/
+
+.venv-path-studio/
