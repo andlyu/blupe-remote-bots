@@ -45,6 +45,7 @@ class HostingTests(unittest.TestCase):
                 with self.assertRaises(error.HTTPError) as caught:
                     self.fetch(path, headers)
                 self.assertEqual(caught.exception.code, 401)
+                self.assertEqual(caught.exception.headers['Referrer-Policy'],'same-origin')
         with self.fetch('/api/path-studio/config', {'Authorization':self.auth}) as response:
             self.assertEqual(json.load(response)['identity'], self.service.identity)
 

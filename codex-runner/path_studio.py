@@ -62,7 +62,9 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
 <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
 <button type="submit">Sign in</button></form><p class="note">Private controller access</p></main></html>'''
         message = '<p role="alert">That username and password did not match. Try again.</p>' if failed else ''
-        self._respond(401, page.replace('LOGIN_ERROR', message).encode(), 'text/html; charset=utf-8')
+        # Native form POSTs use an opaque Origin under no-referrer. Keep the
+        # same-origin form's Origin while disclosing no referrer off this site.
+        self._respond(401, page.replace('LOGIN_ERROR', message).encode(), 'text/html; charset=utf-8', referrer_policy='same-origin')
 
     def _login(self):
         if (not self._host_ok() or not self.server.public_origin
@@ -89,7 +91,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         self.send_header('Content-Length', '0')
         self.end_headers()
 
-    def _respond(self, status, body, content_type='application/json; charset=utf-8'):
+    def _respond(self, status, body, content_type='application/json; charset=utf-8', *, referrer_policy='no-referrer'):
         if not isinstance(body, bytes):
             body = json.dumps(body, allow_nan=False).encode()
         self.send_response(status)
@@ -97,7 +99,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Referrer-Policy', referrer_policy)
         self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(body)
