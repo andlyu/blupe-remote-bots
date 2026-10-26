@@ -20,6 +20,20 @@ class StubService:
         self.calls.append(body)
         return {'verified': True}
 
+    def status(self, station):
+        return {'run':getattr(self,'run_state',None)}
+
+    def run(self, body):
+        self.run_state={'identity':body['identity'],'status':'queued'}
+        return {'run':self.run_state}
+
+    def stop(self):
+        self.run_state=None
+        return {'run':None}
+
+    def close(self):
+        self.stop()
+
 
 class HostingTests(unittest.TestCase):
     def setUp(self):
@@ -123,6 +137,71 @@ class HostingTests(unittest.TestCase):
                        {'public_origin':'https://draw.example.test','username':'Andrew','password':'short'}):
             with self.assertRaises(ValueError):
                 studio.create_server(0, self.service, **kwargs)
+
+
+
+
+class PublicVisitorTests(unittest.TestCase):
+    def setUp(self):
+        self.owner=StubService()
+        def factory(key):
+            service=StubService();service.identity={'runner_name':'','email':''};service.calls=[]
+            return service
+        self.server=studio.create_server(0,self.owner,public_origin='https://owner.example.test',
+            username='Andrew',password='test-owner-password-more-than24chars',
+            origin_mounts={'https://shared.example.test':'/'},public_origins=['https://shared.example.test'],
+            visitor_factory=factory)
+        threading.Thread(target=self.server.serve_forever,daemon=True).start()
+        self.addCleanup(self.server.server_close);self.addCleanup(self.server.visitors.close);self.addCleanup(self.server.shutdown)
+        self.base=f'http://127.0.0.1:{self.server.server_port}'
+
+    def fetch(self,path,cookie=None,token=None,body=None,extra=None):
+        headers={'Host':'shared.example.test'}
+        if cookie:headers['Cookie']=cookie
+        if token:headers['X-Path-Studio-Token']=token
+        if body is not None:headers.update({'Origin':'https://shared.example.test','Content-Type':'application/json'})
+        headers.update(extra or {})
+        return request.urlopen(request.Request(self.base+path,data=json.dumps(body).encode() if body is not None else None,headers=headers))
+
+    def connect(self,cookie=None):
+        with self.fetch('/api/path-studio/config',cookie) as r:
+            value=json.load(r);new_cookie=r.headers.get('Set-Cookie')
+        self.assertEqual(value['identity'],{'runner_name':'','email':''})
+        if new_cookie:
+            for flag in ('Secure','HttpOnly','SameSite=Strict'):self.assertIn(flag,new_cookie)
+        return (new_cookie.split(';')[0] if new_cookie else cookie),value['csrf_token']
+
+    def test_shared_workspace_opens_without_login_and_private_origin_stays_private(self):
+        with self.fetch('/') as response:
+            html=response.read();self.assertEqual(response.status,200)
+            self.assertIn(b'<title>Path Studio</title>',html);self.assertNotIn(b'password',html)
+        with self.assertRaises(error.HTTPError) as caught:
+            self.fetch('/',extra={'Host':'owner.example.test'})
+        self.assertEqual(caught.exception.code,401)
+
+    def test_identity_run_and_stop_are_isolated_across_browsers(self):
+        a,ta=self.connect();b,tb=self.connect();self.assertNotEqual(a,b);self.assertNotEqual(ta,tb)
+        self.assertEqual(self.connect(a),(a,ta))
+        identity={'runner_name':'Visitor One','email':'one@example.test'}
+        with self.fetch('/api/path-studio/run',a,ta,{'identity':identity}) as r:
+            self.assertEqual(json.load(r)['run']['identity'],identity)
+        with self.fetch('/api/path-studio/status',b) as r:self.assertIsNone(json.load(r)['run'])
+        with self.fetch('/api/path-studio/stop',b,tb,{}) as r:self.assertIsNone(json.load(r)['run'])
+        with self.fetch('/api/path-studio/status',a) as r:self.assertEqual(json.load(r)['run']['identity'],identity)
+        self.assertIsNone(self.owner.status('robohouse')['run'])
+        for cookie,token in ((None,ta),(b,ta),(a,tb)):
+            with self.assertRaises(error.HTTPError) as caught:self.fetch('/api/path-studio/stop',cookie,token,{})
+            self.assertEqual(caught.exception.code,403)
+        with self.assertRaises(error.HTTPError) as caught:
+            self.fetch('/api/path-studio/stop',a,ta,{},extra={'Origin':'https://evil.example'})
+        self.assertEqual(caught.exception.code,403)
+
+    def test_expired_inactive_session_is_replaced_without_restoring_owner_identity(self):
+        cookie,token=self.connect()
+        for record in self.server.visitors.entries.values():record['seen']-=3600
+        self.server.visitors.prune()
+        new_cookie,new_token=self.connect(cookie)
+        self.assertNotEqual(cookie,new_cookie);self.assertNotEqual(token,new_token)
 
 
 if __name__ == '__main__':

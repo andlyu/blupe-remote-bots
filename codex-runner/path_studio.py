@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'src'))
-from remote_yam.path_studio_service import PathStudioService, API_ORIGIN
+from remote_yam.path_studio_service import PathStudioService, StudioVisitors, API_ORIGIN
 
 STATIC = Path(__file__).resolve().parent / "static"
 ASSETS = {
@@ -42,6 +42,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.server.host_sites.get(self.headers.get('Host'), (None, self.server.base_path))
 
     def _authenticated(self):
+        if self.headers.get('Host') in self.server.public_hosts:
+            return True
         if self.server.auth_header is None:
             return True
         if secrets.compare_digest(self.headers.get('Authorization', '').encode(), self.server.auth_header):
@@ -55,6 +57,20 @@ class Handler(BaseHTTPRequestHandler):
             pass
         self._login_page()
         return False
+
+    def _context(self, *, create=False):
+        if self.headers.get('Host') not in self.server.public_hosts:
+            return self.server.service, self.server.csrf_token
+        try:
+            cookie = SimpleCookie(self.headers.get('Cookie','')).get('path_studio_visitor')
+            record, fresh = self.server.visitors.resolve(cookie.value if cookie else None, create=create)
+        except CookieError:
+            record, fresh = self.server.visitors.resolve(None, create=create)
+        if record is None:
+            raise ValueError('Refresh Path Studio to reconnect your browser session.')
+        if fresh:
+            self.visitor_cookie = f'path_studio_visitor={fresh}; Path={self._site()[1]}; Secure; HttpOnly; SameSite=Strict; Max-Age=86400'
+        return record['service'], record['csrf']
 
     def _login_page(self, failed=False):
         page = '''<!doctype html><html lang="en"><meta charset="utf-8">
@@ -70,6 +86,9 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         self._respond(401, page.replace('LOGIN_ERROR', message).encode(), 'text/html; charset=utf-8', referrer_policy='same-origin')
 
     def _login(self):
+        if self.headers.get('Host') in self.server.public_hosts:
+            self._public_entry()
+            return
         if (not self._host_ok() or not self.server.public_origin
                 or self.headers.get('Origin') != self._site()[0]
                 or self.headers.get('Sec-Fetch-Site') == 'cross-site'):
@@ -95,6 +114,13 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         self.send_header('Content-Length', '0')
         self.end_headers()
 
+    def _public_entry(self):
+        self.send_response(303)
+        self.send_header('Location',self._site()[1])
+        self.send_header('Cache-Control','no-store')
+        self.send_header('Content-Length','0')
+        self.end_headers()
+
     def _respond(self, status, body, content_type='application/json; charset=utf-8', *, referrer_policy='no-referrer'):
         if not isinstance(body, bytes):
             body = json.dumps(body, allow_nan=False).encode()
@@ -102,6 +128,8 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
+        if getattr(self, 'visitor_cookie', None):
+            self.send_header('Set-Cookie', self.visitor_cookie)
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Referrer-Policy', referrer_policy)
         self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
@@ -115,6 +143,9 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
         if not self._host_ok():
             self._respond(403, dict(error='Use the configured Path Studio address'))
             return
+        if urlsplit(self.path).path == '/login' and self.headers.get('Host') in self.server.public_hosts:
+            self._public_entry()
+            return
         if urlsplit(self.path).path == '/path-studio-login.css':
             self._respond(200, (STATIC/'path-studio-login.css').read_bytes(), ASSETS['path-studio-login.css'])
             return
@@ -125,9 +156,11 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             try:
                 station = parse_qs(urlsplit(self.path).query).get('station', ['robohouse'])[0]
                 if path.endswith('/config'):
-                    self._respond(200, dict(csrf_token=self.server.csrf_token, api_origin=API_ORIGIN,identity=self.server.service.identity))
+                    service, token = self._context(create=True)
+                    self._respond(200, dict(csrf_token=token, api_origin=API_ORIGIN, identity=service.identity))
                 elif path.endswith('/status'):
-                    self._respond(200, self.server.service.status(station))
+                    service, _ = self._context()
+                    self._respond(200, service.status(station))
                 elif path.startswith('/api/path-studio/video/'):
                     video_path=path.removeprefix('/api/path-studio/video/')
                     body,kind=self.server.service.video(video_path,urlsplit(self.path).query)
@@ -155,11 +188,16 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             return
         if not self._authenticated():
             return
+        try:
+            service, token = self._context()
+        except ValueError as exc:
+            self._respond(403, dict(error=str(exc)))
+            return
         origin = self.headers.get('Origin')
         expected = self._site()[0] or f'http://{self.headers.get("Host")}'
         if (not self._host_ok() or (origin is not None and origin != expected)
                 or self.headers.get('Sec-Fetch-Site') == 'cross-site'
-                or not secrets.compare_digest(self.headers.get('X-Path-Studio-Token', ''), self.server.csrf_token)):
+                or not secrets.compare_digest(self.headers.get('X-Path-Studio-Token', ''), token)):
             self._respond(403, dict(error='Open the configured Path Studio address to control your run'))
             return
         try:
@@ -169,11 +207,11 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             body = json.loads(self.rfile.read(size))
             path = urlsplit(self.path).path
             if path == '/api/path-studio/run':
-                result = self.server.service.run(body)
+                result = service.run(body)
             elif path == '/api/path-studio/simulate':
-                result = self.server.service.simulate(body)
+                result = service.simulate(body)
             elif path == '/api/path-studio/stop':
-                result = self.server.service.stop()
+                result = service.stop()
             else:
                 self._respond(404, dict(error='Unknown API route'))
                 return
@@ -184,7 +222,7 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
             self._respond(502, dict(error='API request failed. Check the run status and retry Stop if needed.'))
 
 
-def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, username=None, password=None, base_path='/', origin_mounts=None):
+def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, username=None, password=None, base_path='/', origin_mounts=None, public_origins=None, visitor_factory=None):
     if not base_path.startswith('/') or not base_path.endswith('/') or any(c not in '/-_' and not c.isalnum() for c in base_path):
         raise ValueError('Base path must be a plain absolute directory path')
     if public_origin:
@@ -213,6 +251,14 @@ def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, u
         if parsed.netloc in sites:
             raise ValueError('Each origin host must have one explicit mount')
         sites[parsed.netloc] = (origin.rstrip('/'), mount)
+    public_hosts = set()
+    if public_origins is not None and not isinstance(public_origins,list):
+        raise ValueError('Public origins must be an explicit list')
+    for origin in public_origins or []:
+        host = urlsplit(origin).netloc
+        if host not in sites or sites[host][0] != origin:
+            raise ValueError('Public origins must match configured HTTPS origins exactly')
+        public_hosts.add(host)
     server = ThreadingHTTPServer((bind, port), Handler)
     server.daemon_threads = True
     server.allowed_hosts = (set(sites) if public_origin else
@@ -224,6 +270,13 @@ def create_server(port, service=None, *, bind='127.0.0.1', public_origin=None, u
     server.auth_header = (b'Basic ' + base64.b64encode(f'{username}:{password}'.encode())) if public_origin else None
     server.csrf_token = secrets.token_urlsafe(32)
     server.service = service or PathStudioService()
+    server.public_hosts = public_hosts
+    def make_visitor(key):
+        owner = server.service
+        return PathStudioService(api_factory=owner.api_factory,
+            identity_path=owner.identity_path.parent/'visitors'/key/'identity.json',
+            default_identity=dict(runner_name='',email=''), monitor_service=owner)
+    server.visitors = StudioVisitors(visitor_factory or make_visitor) if public_hosts else None
     return server
 
 
@@ -238,7 +291,8 @@ def main():
         public_origin=os.environ.get('PATH_STUDIO_PUBLIC_ORIGIN'),
         username=os.environ.get('PATH_STUDIO_USERNAME'), password=os.environ.get('PATH_STUDIO_PASSWORD'),
         base_path=os.environ.get('PATH_STUDIO_BASE_PATH', '/'),
-        origin_mounts=json.loads(os.environ.get('PATH_STUDIO_ADDITIONAL_ORIGINS', '{}')))
+        origin_mounts=json.loads(os.environ.get('PATH_STUDIO_ADDITIONAL_ORIGINS', '{}')),
+        public_origins=json.loads(os.environ.get('PATH_STUDIO_PUBLIC_ORIGINS', '[]')))
     print(f"Path Studio: {server.public_origin or f'http://127.0.0.1:{args.port}'}/", flush=True)
     print('Preview + BluPe API. Run on real arms explicitly joins the hardware queue.', flush=True)
     try:
@@ -250,6 +304,8 @@ def main():
         pass
     finally:
         try:
+            if server.visitors is not None:
+                server.visitors.close()
             server.service.close()
         except Exception:
             print('Stop acknowledgement unavailable; check the station.', file=sys.stderr)

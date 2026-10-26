@@ -3,6 +3,8 @@ import threading
 import time
 import re
 import json
+import hashlib
+import secrets
 from pathlib import Path
 from urllib import request
 
@@ -57,7 +59,7 @@ class StudioSessionAPI(HttpSessionAPI):
 
 
 class PathStudioService:
-    def __init__(self, api_factory=None, poll_s=.5, identity_path=None):
+    def __init__(self, api_factory=None, poll_s=.5, identity_path=None, default_identity=None, monitor_service=None):
         self.api_factory = api_factory or (lambda robot_id: StudioSessionAPI(
             API_ORIGIN, timeout_s=5, supports_trajectories=True, robot_id=robot_id))
         self.poll_s = poll_s
@@ -68,13 +70,16 @@ class PathStudioService:
         self.policy = None
         self.run_station = None
         self.stop_error = None
+        self.monitor_service = monitor_service
         self.identity_path = Path(identity_path) if identity_path else IDENTITY_PATH
         try:
             self.identity = validate_identity(json.loads(self.identity_path.read_text()))
         except (OSError,ValueError,TypeError):
-            self.identity = dict(runner_name='Andrew', email='')
+            self.identity = dict(default_identity or dict(runner_name='Andrew', email=''))
 
     def _monitor(self, station):
+        if self.monitor_service is not None:
+            return self.monitor_service._monitor(station)
         with self.lock:
             if station not in STATIONS:
                 raise ValueError('Unknown station')
@@ -224,3 +229,62 @@ class PathStudioService:
     def close(self):
         self.closed.set()
         self.stop()
+
+
+class StudioVisitors:
+    """Opaque browser sessions own independent identities and controllers."""
+    def __init__(self, factory, idle_s=1800, maximum=32):
+        self.factory, self.idle_s, self.maximum = factory, idle_s, maximum
+        self.lock = threading.RLock()
+        self.entries = {}
+        self.closed = threading.Event()
+        threading.Thread(target=self._clean_loop, daemon=True).start()
+
+    def _clean_loop(self):
+        while not self.closed.wait(60):
+            self.prune()
+
+    def prune(self):
+        stale = []
+        with self.lock:
+            for key, record in list(self.entries.items()):
+                service = record['service']
+                controller = getattr(service, 'controller', None)
+                running = controller and (controller.status().get('status') in ACTIVE
+                    or getattr(service,'stop_error',None)
+                    or getattr(controller._session_api,'stop_unconfirmed',False))
+                if time.monotonic()-record['seen'] > self.idle_s and not running:
+                    stale.append(self.entries.pop(key)['service'])
+        for service in stale:
+            try:
+                service.close()
+            except Exception:
+                pass
+
+    def resolve(self, token, *, create=False):
+        key = hashlib.sha256(token.encode()).hexdigest() if token and re.fullmatch(r'[A-Za-z0-9_-]{43}',token) else None
+        with self.lock:
+            record = self.entries.get(key)
+            fresh = False
+            if record is None and create:
+                if len(self.entries) >= self.maximum:
+                    raise ValueError('Path Studio is busy. Try again shortly.')
+                token = secrets.token_urlsafe(32)
+                key = hashlib.sha256(token.encode()).hexdigest()
+                record = dict(service=self.factory(key), csrf=secrets.token_urlsafe(32), seen=time.monotonic())
+                self.entries[key] = record
+                fresh = True
+            if record is not None:
+                record['seen'] = time.monotonic()
+            return record, token if fresh else None
+
+    def close(self):
+        self.closed.set()
+        with self.lock:
+            services = [r['service'] for r in self.entries.values()]
+            self.entries.clear()
+        for service in services:
+            try:
+                service.close()
+            except Exception:
+                pass

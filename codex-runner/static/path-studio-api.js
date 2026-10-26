@@ -16,7 +16,9 @@ export function connectHardware(hooks) {
     if(token)return;
     const config=await request('config');token=config.csrf_token;
     $('queueName').value=config.identity.runner_name;$('queueEmail').value=config.identity.email;
-    $('queueIdentitySummary').textContent=`Queue as ${config.identity.runner_name} · ${config.identity.email||'add your email below'}`;
+    $('queueIdentitySummary').textContent=config.identity.runner_name?
+      `Queue as ${config.identity.runner_name} · ${config.identity.email||'add your email below'}`:
+      'Add your name and email below to queue a real run.';
   }
   function lockEditor(value) {
     if(value===locked)return;locked=value;

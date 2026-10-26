@@ -193,3 +193,18 @@ and API POSTs require the origin corresponding to the requested host; allowing
 a second host does not permit cross-host form submissions or share browser cookies.
 The interface uses neutral Path Studio branding; transport schemas and model
 provenance remain compatible with existing exports.
+
+## Shared access without sign-in
+
+`PATH_STUDIO_PUBLIC_ORIGINS` is an explicit JSON list of already configured
+HTTPS origins that open without owner login. Each browser gets an opaque Secure,
+HttpOnly, SameSite=Strict visitor cookie and an independent request token,
+identity and controller. Visitors begin with blank queue identity; a real run
+uses that visitor's submitted name/email. The owner's saved identity and control
+session are not returned to public visitors. Read-only station monitoring is
+shared; runs and Stop remain private to each browser. Other origins keep owner
+sign-in. Legacy login URLs on a public origin return to the workspace.
+
+Up to 32 visitor sessions are retained in memory. Inactive sessions expire after
+30 minutes without API use; active runs or unconfirmed Stops retain their session.
+A reload creates a new browser session after expiry or a service restart.
