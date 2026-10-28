@@ -178,6 +178,10 @@ Astra remains the default. Claude supports **Opus or Haiku 5.5 or newer**. The s
 limits apply to manually entered IDs; older models and other Claude families
 are rejected before joining the queue.
 
+Share [Terra in the playground](https://playground.blupe.io/?model=terra) to open
+with `gpt-6.1-terra` selected. `?model=gpt-6.1-terra` also works, and the link can
+include `robot_id` to select a robot. Opening a model link never starts a run.
+
 The catalog loads when you choose a provider. **Refresh models** fetches it again;
 reopening settings also refreshes lists older than five minutes. New matching
 releases appear without a runner code update when the provider lists them.
