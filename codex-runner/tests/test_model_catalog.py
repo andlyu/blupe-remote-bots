@@ -12,7 +12,7 @@ from remote_yam import model_catalog as catalog
 class ModelCatalogTests(unittest.TestCase):
     def test_release_floors_include_future_models_without_a_release_allowlist(self):
         for provider in ('openai', 'codex'):
-            for model in ('gpt-6-astra', 'gpt-6-astra-2026-01-01', 'gpt-6.1-sol',
+            for model in ('gpt-6-astra', 'gpt-6-astra-2026-01-01', 'gpt-6.1-sol', 'gpt-6.1-terra',
                           'gpt-6.12-sol', 'gpt-7-sol', 'gpt-7-new-family'):
                 self.assertEqual(catalog.selected_model(provider, ' ' + model + ' '), model)
             for model in ('gpt-4.1', 'gpt-5.6-sol', 'gpt-6-sol', 'gpt-6-astra-fake',
@@ -53,6 +53,25 @@ class ModelCatalogTests(unittest.TestCase):
         fetch.assert_not_called()
         self.assertEqual(result['source'], 'fallback')
         self.assertEqual([row['id'] for row in result['models']], ['claude-opus-5-5','claude-haiku-5-5'])
+
+    def test_terra_suggestion_survives_missing_credentials_and_cli_failure(self):
+        with patch.object(catalog, 'api_models') as fetch, \
+             patch.object(catalog, 'codex_models', side_effect=OSError('unavailable')):
+            for provider in ('openai', 'codex'):
+                result = catalog.discover_models(provider)
+                self.assertEqual(result['source'], 'fallback')
+                self.assertEqual([row['id'] for row in result['models']], ['gpt-6-astra','gpt-6.1-terra'])
+                self.assertEqual(catalog.selected_model(provider, ''), 'gpt-6-astra')
+            fetch.assert_not_called()
+
+    def test_terra_discovery_retains_provider_reasoning_metadata(self):
+        row = {'model':'gpt-6.1-terra','displayName':'GPT-6.1 Terra',
+               'inputModalities':['text','image'], 'defaultReasoningEffort':'low',
+               'supportedReasoningEfforts':[{'reasoningEffort':e} for e in
+                   ('low','medium','high','xhigh','max','ultra')]}
+        self.assertEqual(catalog.normalize([row], 'codex'), [{
+            'id':'gpt-6.1-terra','label':'GPT-6.1 Terra','default_reasoning_effort':'low',
+            'reasoning_efforts':['low','medium','high','xhigh','max','ultra']}])
 
     def test_codex_catalog_pages_use_only_initialize_and_list_no_inference(self):
         sent = []

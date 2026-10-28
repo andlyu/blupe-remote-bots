@@ -16,7 +16,7 @@
     function modelsFor(name) {
       if (!defaults[name]) return [];
       return catalogs.get(name)?.models || [defaults[name],
-        ...(['anthropic','claude','guest_claude'].includes(name) ? ['claude-haiku-5-5'] : [])]
+        ...(['anthropic','claude','guest_claude'].includes(name) ? ['claude-haiku-5-5'] : ['gpt-6.1-terra'])]
         .map(id => ({id,label:id}));
     }
     function saveSelection() {
