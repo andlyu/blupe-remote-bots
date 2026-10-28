@@ -27,6 +27,19 @@ test('new provider models appear without changing the selected model', async () 
   const restored=fixture(undefined,f.storage);restored.choose('claude');
   assert.equal(restored.$('model').value,'claude-opus-6');
 });
+test('Terra can be selected for API, local and sponsored Codex without changing defaults',async()=>{
+  const f=fixture(async()=>({source:'fallback',models:[{id:'gpt-6-astra'},{id:'gpt-6.1-terra'}]}));
+  for (const provider of ['openai','codex','guest_astra']) {
+    assert.deepEqual(f.picker.modelsFor(provider).map(row=>row.id),['gpt-6-astra','gpt-6.1-terra']);
+    f.choose(provider);await tick();
+    assert.equal(f.$('model').value,'gpt-6-astra');
+    f.picker.selectModel('gpt-6.1-terra');
+    await f.picker.refresh(true);
+    assert.equal(f.$('provider').value,provider);
+    assert.equal(f.$('model').value,'gpt-6.1-terra');
+  }
+  f.choose('codex');assert.equal(f.$('model').value,'gpt-6.1-terra');
+});
 test('catalog and reasoning options follow the current provider and ignore stale responses',async()=>{
   const pending=[];const f=fixture((path,payload)=>new Promise(resolve=>pending.push({payload,resolve})));
   f.choose('codex'); f.choose('claude');
