@@ -3030,19 +3030,15 @@ function bindQuickTaskDraft(prompt, quick) {
   function fitCameras() {
     const viewer = $('liveViewer'), four = viewer.dataset.layout === 'observer-focus';
     const aspect = four ? 640/324 : 16/9;
-    // The camera and chat stack vertically. Size from the viewport and the
-    // outer width, never from footer wrapping or the camera's own dimensions.
-    const available = Math.max(100, workspace.clientWidth || visuals.clientWidth);
-    const height = Math.max(220, window.innerHeight * .7);
-    const belowHeight = available/aspect + (available-12)/aspect/3 + 6;
-    const side = four && window.innerWidth > 740 && belowHeight > height;
-    const ideal = four ? side ? (height*4/3 - 4)*aspect + 6 : (height-6+4/aspect)*aspect*3/4 : height*aspect;
-    const width = window.innerWidth <= 740 ? available : Math.min(available, ideal);
-    const cameraHeight = four ? side ? ((width-6)/aspect + 4)*3/4 : width/aspect + (width-12)/aspect/3 + 6 : width/aspect;
+    // CSS reserves the narrow right column for chat. Use only the camera
+    // column's width so footer wrapping and scroll position cannot feed back
+    // into camera sizing. The smaller views always stay below the observer.
+    const width = Math.max(100, visuals.clientWidth);
+    const cameraHeight = four ? width/aspect + (width-12)/aspect/3 + 6 : width/aspect;
     workspace.style.removeProperty('height');
     workspace.style.setProperty('--console-camera-width', width + 'px');
     workspace.style.setProperty('--console-camera-height', cameraHeight + 'px');
-    viewer.dataset.detailLayout = side ? 'side' : 'below';
+    viewer.dataset.detailLayout = 'below';
   }
   let cameraFitFrame = null;
   function scheduleCameraFit() {

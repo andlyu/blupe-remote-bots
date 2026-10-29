@@ -34,7 +34,7 @@ function harness() {
     MutationObserver: class {constructor(callback) {onMutation = callback;} observe() {}},
   };
   vm.runInNewContext(source.slice(start, end), context);
-  return {frames, values, writes, workspace, window,
+  return {frames, values, writes, workspace, window, visuals:context.visuals,
     resize: () => onResize([]), mutation: () => onMutation([]),
     flush: () => frames.shift()(),
   };
@@ -47,7 +47,7 @@ test('camera observation never changes observed geometry during observer deliver
   assert.equal(h.workspace.clientHeight, 100);
   h.flush();
   assert.equal(h.values.has('height'), false);
-  assert(parseFloat(h.values.get('--console-camera-height')) <= h.window.innerHeight*.7+.01);
+  assert.equal(h.values.get('--console-camera-width'), '1037px');
 });
 
 test('a burst of resize and camera-layout notifications shares one animation frame', () => {
@@ -63,14 +63,16 @@ test('a burst of resize and camera-layout notifications shares one animation fra
   assert.equal(h.frames.length, 0);
 });
 
-test('a later resize reads fresh viewport dimensions in the queued frame', () => {
+test('a later resize reads the new camera column width in the queued frame', () => {
   const h = harness();
   h.resize();
   h.window.innerHeight = 700;
+  h.visuals.clientWidth = 900;
   h.flush();
-  assert(parseFloat(h.values.get('--console-camera-height')) <= 490.01);
+  assert.equal(h.values.get('--console-camera-width'), '900px');
   h.window.innerWidth = 390;
   h.workspace.clientWidth = 354;
+  h.visuals.clientWidth = 354;
   h.resize(); h.flush();
   assert.equal(h.values.has('height'), false);
   assert.equal(h.values.get('--console-camera-width'), '354px');
@@ -107,12 +109,12 @@ test('a wrapping camera footer cannot alternate side and bottom thumbnails each 
     layouts.push(h.viewer.dataset.detailLayout + ':' + h.values.get('--console-camera-width'));
   }
   assert.equal(new Set(layouts).size, 1, 'camera width must converge instead of changing footer wrapping every frame');
-  assert.equal(h.viewer.dataset.detailLayout, 'side');
+  assert.equal(h.viewer.dataset.detailLayout, 'below');
 });
 
-test('bottom thumbnails use the full available width when there is enough height', () => {
+test('bottom thumbnails use the camera column width without consuming the chat column', () => {
   const h = wrappingFooterHarness(2000);
   h.frame();
   assert.equal(h.viewer.dataset.detailLayout, 'below');
-  assert.equal(h.values.get('--console-camera-width'), '1680px');
+  assert.equal(h.values.get('--console-camera-width'), '1244px');
 });
