@@ -1,12 +1,12 @@
 # Past Runs implementation verification
 
-Baseline: public repository commit `224bd14`. Verified October 28, 2026.
+Started from `224bd14`; incorporated current main `a2f3383` before final checks. Verified October 28, 2026.
 
 ## Automated checks
 
-- Python: 97 tests passed in 1.872s. Command:
-  `PYTHONPATH=codex-runner/src:codex-runner/tests python3 -m unittest test_hosted test_run_assessments test_task_cloud test_run_assessment_hosted test_past_runs test_run_search test_run_model_filter test_run_model_filter_hosted test_run_search_hosted test_replay_link_hosted test_history_endpoint test_quick_replay_proxy test_past_runs_video_layout`.
-- JavaScript: `node --test codex-runner/tests/*.cjs`; 334 passed, including live
+- Python: 107 tests passed in 1.782s. Command:
+  `PYTHONPATH=codex-runner/src:codex-runner/tests python3 -m unittest test_hosted test_model_catalog test_run_assessments test_task_cloud test_run_assessment_hosted test_past_runs test_run_search test_run_model_filter test_run_model_filter_hosted test_run_search_hosted test_replay_link_hosted test_history_endpoint test_quick_replay_proxy test_past_runs_video_layout`.
+- JavaScript: `node --test codex-runner/tests/*.cjs`; 336 passed, including live
   labels, five-second timing/concurrent preview request, processing/error handling,
   edit/review controls, search explanations, pagination/filter races, multiple
   models, view preference/selection, xyz rotation, duplicates, and empty focus.
