@@ -1,6 +1,7 @@
 """Runner control for installed controller policies; inference stays on the robot."""
 import time
 import uuid
+from .session import SessionAPIError
 
 ROBOHOUSE = 'robot-ba8413962083809c'
 DREAM_MODEL = 'dreamlabs/dream-1-beta'
@@ -49,13 +50,20 @@ class ControllerExecutorPolicy:
         def request(operation):
             if cancelled():
                 return {'state': 'cancelled'}
-            response = execution_request(api, context, 'dream_one', operation)
-            while response['status'] == 'pending':
-                if cancelled():
+            try:
+                response = execution_request(api, context, 'dream_one', operation)
+                while response['status'] == 'pending':
+                    if cancelled():
+                        return {'state': 'cancelled'}
+                    time.sleep(.1)
+                    response = api._request('GET', '/v1/sessions/' + context['session_id']
+                        + '/executions/' + response['request_id'], bearer=api._capability(context['session_id']))
+            except SessionAPIError:
+                if cancelled():  # A request can cross the selected-duration deadline.
                     return {'state': 'cancelled'}
-                time.sleep(.1)
-                response = api._request('GET', '/v1/sessions/' + context['session_id']
-                    + '/executions/' + response['request_id'], bearer=api._capability(context['session_id']))
+                raise
+            if cancelled():
+                return {'state': 'cancelled'}
             if response['status'] != 'completed':
                 raise RuntimeError('Controller Dream execution request failed')
             return response['result']
