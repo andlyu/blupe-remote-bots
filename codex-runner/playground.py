@@ -1014,6 +1014,12 @@ class HostedRunner:
             if visitor.launches >= 20:
                 raise RequestError(429, 'This browser session reached its 20-run limit. Click Reset runs in the page footer to continue.')
             name, key, prompt, model = (payload.get(k, "") for k in ("provider", "api_key", "prompt", "model"))
+            from remote_yam.controller_executor import selected_executor
+            try:
+                controller_provider = selected_executor(payload.get('executor'), provider=name,
+                    model=model, robot_id=self.robot_id)
+            except ValueError as exc:
+                raise RequestError(400, str(exc)) from None
             fast_provider = name in ('openai', 'codex', 'anthropic', 'claude')
             response_speed = payload.get('response_speed', 'fast' if fast_provider else 'standard')
             if response_speed not in ('standard', 'fast'):
@@ -1050,7 +1056,7 @@ class HostedRunner:
             if not isinstance(runner_name, str) or not 1 <= len(runner_name.strip()) <= 32 or any(ord(c) < 32 for c in runner_name):
                 raise RequestError(400, 'Enter a name of 1–32 characters')
             if name not in ({"local_raise_lower", "openai", "astra", "anthropic"} | ({"codex"} if self.local_codex else set())
-                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers):
+                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | ({'dream'} if controller_provider else set()):
                 raise RequestError(400, "Choose a supported provider")
             if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000:
                 raise RequestError(400, "Enter a task of up to 4,000 characters")
@@ -1062,7 +1068,7 @@ class HostedRunner:
                     model = selected_model(name, model)
                 except ValueError as exc:
                     raise RequestError(400, str(exc)) from None
-            if name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)) and (not isinstance(key, str) or not 8 <= len(key) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key)):
+            if controller_provider is None and name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)) and (not isinstance(key, str) or not 8 <= len(key) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key)):
                 raise RequestError(400, "Enter your provider API key")
             if payload.get("endpoint"):
                 raise RequestError(400, "Provider endpoints are configured by the service")
@@ -1084,7 +1090,9 @@ class HostedRunner:
             launch_route = depth_route['route'] if depth_route else None
             if launch_route and launch_route['actual_policy'] == 'astra':
                 use_api_depth = False
-            if use_api_depth:
+            if controller_provider is not None:
+                provider = controller_provider
+            elif use_api_depth:
                 if depth_route:
                     provider = self.api_depth_provider_factory(name, key, model, visitor.directory,
                         task=prompt, selected_executable=depth_route['program'])
@@ -1246,7 +1254,7 @@ class HostedRunner:
                 print('[contacts] save_failed error_type=' + type(exc).__name__, flush=True)
                 visitor.controller._session_api.note(
                     'contact_save_failed', {'error_type': type(exc).__name__}, visitor.runner_session_id)
-            if not paid and name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)):
+            if controller_provider is None and not paid and name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)):
                 visitor.saved_keys[name] = key
             current = visitor.controller.status()
             return {"ok": True, "saved_key_providers": sorted(visitor.saved_keys),
