@@ -2950,7 +2950,6 @@ function bindQuickTaskDraft(prompt, quick) {
         value:option.value + ':' + id,
         provider:option.value,label:modelChoice(option,id).label,id}));
     });
-    choices.push({value:'custom_endpoint_setup',provider:'custom_endpoint_setup',label:'Custom end-point…',id:''});
     const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
     if (model.dataset.options !== signature) {
       model.replaceChildren(...choices.map(option => {
@@ -2999,14 +2998,6 @@ function bindQuickTaskDraft(prompt, quick) {
     const picker = event.currentTarget, selected = picker.selectedOptions[0];
     const selectedId = selected?.dataset.model;
     const nextProvider = selected?.dataset.provider || picker.value;
-    if (nextProvider === 'custom_endpoint_setup') {
-      const setup = $('customEndpointSetup');
-      setup.hidden = false;
-      setup.querySelector('a').click();
-      // This is a setup link, not an unconfigured runnable provider.
-      updateComposer();
-      return;
-    }
     if (nextProvider !== provider.value) {
       provider.value = nextProvider;
       provider.dispatchEvent(new Event('change', {bubbles:true}));
