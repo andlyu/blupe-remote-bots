@@ -222,9 +222,16 @@ class RunNames:
                 return None
             row = db.execute('SELECT robot_id,task,started_at FROM run_metadata WHERE episode_id=? AND robot_id=?',
                              (episode_id, robot_id)).fetchone()
+            configuration = None
+            if db.execute("SELECT name FROM sqlite_master WHERE name='run_configuration'").fetchone():
+                configuration = db.execute('SELECT configuration FROM run_configuration WHERE episode_id=?',
+                                           (episode_id,)).fetchone()
         if row is None:
             return None
+        configuration = json.loads(configuration[0]) if configuration else {}
         return {'episode_id':episode_id, 'robot_id':row[0], 'prompt':row[1], 'started_at':row[2],
+                'model':recorded_model(configuration.get('model')),
+                'model_version':recorded_model(configuration.get('model_version')),
                 'episode_index':None, 'video_status':'processing', 'video_url':None,
                 'video_duration_s':None, 'camera_order':[]}
 
@@ -405,7 +412,7 @@ class PastRuns:
         rows = self.page(episode_id=episode_id)['runs']
         return rows[0] if rows else None
 
-    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None, model='', query=''):
+    def page(self, offset=0, *, episode_id=None, episode_ids=None, robot_id=None, model='', query='', metadata=False, models=None):
         with self.lock:
             stale = False
             if self.rows is None or time.monotonic() - self.updated > 60:
@@ -432,7 +439,7 @@ class PastRuns:
                             rows.append({'episode_id':eid, 'episode_index':None,
                                          'started_at':item['started_at'], 'prompt':item.get('task') or 'Task unavailable',
                                          'original_available':item.get('original_available', False),
-                                         'model':item.get('model'),
+                                         'model':item.get('model'), 'model_version':recorded_model(item.get('model_version')),
                                          'robot_id':item.get('robot_id', 'yam-1')})
                     for row in sources:
                         if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', row.get('episode_id', '')):
@@ -445,6 +452,7 @@ class PastRuns:
                         rows.append({'episode_id': row['episode_id'], 'episode_index': row['episode_index'],
                                      'robot_id':row.get('robot_id', 'yam-1'),
                                      'model':row.get('model') or viewing.get(row['episode_id'], {}).get('model'),
+                                     'model_version':recorded_model(row.get('model_version') or viewing.get(row['episode_id'], {}).get('model_version')),
                                      'started_at': row['recorded_at'], 'prompt': '\n'.join(prompts) or 'Task unavailable'})
                     # Explicitly excluded by the operator, including incomplete recordings.
                     rows = [r for r in rows if (self.robot_id is None or r['robot_id'] == self.robot_id) and ' '.join(r['prompt'].split()).casefold().rstrip('.') != 'raise and lower both arms for three cycles']
@@ -459,28 +467,42 @@ class PastRuns:
             recorded_models = self.model_reader() if self.model_reader else {}
             available = [dict(r, model=recorded_model(recorded_models.get(r['episode_id'])) or recorded_model(r.get('model')))
                          for r in available]
+            selected_models = models
             models = sorted({r['model'] for r in available if r['model']}, key=str.casefold)
             if any(r['model'] is None for r in available):
                 models.append('__unrecorded__')
             if model:
                 available = [r for r in available if (r['model'] or '__unrecorded__') == model]
+            if selected_models:
+                available = [r for r in available if (r['model'] or '__unrecorded__') in selected_models]
             if query.strip() and episode_id is None:
                 from .run_search import rank_runs
                 available = rank_runs(available, query)
+            if metadata:
+                # No episode JSON, recordings, or media URLs in the full catalog.
+                return {'runs': [dict(r) for r in available], 'next_offset': None,
+                        'stale': stale, 'total': len(available), 'models': models}
             selected = ([r for r in available if r['episode_id'] == episode_id]
                         if episode_id is not None else available[offset:offset+12])
-            now = time.monotonic()
-            missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                for eid, detail in pool.map(self._detail, missing):
-                    self.details[eid] = (now, detail)
-            # Bound caches as the archive grows.
-            if len(self.details) > 240:
-                wanted = {r['episode_id'] for r in selected}
-                self.details = {k: v for k, v in self.details.items() if k in wanted}
-            result = [dict(r, **self.details[r['episode_id']][1]) for r in selected]
+            result = self._with_details(selected)
             return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
                     'stale': stale, 'total': len(available), 'models': models}
+
+    def details_for(self, rows):
+        """Enrich only the visible recording blocks, keeping full scores metadata-only."""
+        with self.lock:
+            return self._with_details(rows)
+
+    def _with_details(self, selected):
+        now = time.monotonic()
+        missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for eid, detail in pool.map(self._detail, missing):
+                self.details[eid] = (now, detail)
+        if len(self.details) > 240:
+            wanted = {r['episode_id'] for r in selected}
+            self.details = {k: v for k, v in self.details.items() if k in wanted}
+        return [dict(r, **self.details[r['episode_id']][1]) for r in selected]
 
     def _detail(self, row):
         eid = row['episode_id']

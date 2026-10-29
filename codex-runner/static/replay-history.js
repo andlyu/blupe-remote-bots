@@ -6,7 +6,7 @@
   const validId = value => typeof value === 'string' && /^ep_[A-Za-z0-9_-]{1,100}$/.test(value);
   let saved = [];
   let robot = null, token = '', historyToken = '', generation = 0, searchVersion = 0, next = null;
-  let pending = null, timer = null, lastMineAt = 0;
+  let pending = null, timer = null, reviewTimer = null, lastMineAt = 0;
   const processingRuns = new Set();
   const activeSessions = new Set(), completedSessions = new Set();
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
@@ -29,6 +29,8 @@
     window.yamReplayEmail?.setRun(null);
     pending = null;
     clearTimeout(timer);
+    clearTimeout(reviewTimer);
+    if ($('assessmentWindow')) $('assessmentWindow').hidden = true;
     processing.hidden = true;
     player.parentElement.hidden = false;
   }
@@ -82,8 +84,9 @@
   function renderSummary(run) {
     $('pastRunTitle').textContent = `${run.runner_name || 'Your run'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt || '';
+    window.yamRunAssessment?.showReplay(run);
     const reason = run.ending_reason || run.result_reason;
-    $('pastRunDetails').textContent = [run.result, reason].filter(Boolean).join(': ');
+    $('pastRunDetails').textContent = [run.model ? `${run.model} · ${run.model_version || 'version unknown'}` : 'Model not recorded · version unknown', [run.result, reason].filter(Boolean).join(': ')].filter(Boolean).join(' · ');
     renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
     $('aspirePastLineage')?.remove();
@@ -119,7 +122,7 @@
       }
       if (run && run.video_duration_s !== 0 && run.video_url) {
         processingRuns.delete(run.episode_id);
-        window.yamReplayHistory.openRun(run);
+        window.yamReplayHistory.openRun(request.known);
         loadMine(); window.yamReplayHistory.refresh();
         return;
       }
@@ -148,8 +151,18 @@
     }
     if (sid && activeSessions.has(sid) && terminal.has(state.status) && validId(state.episode_id) && !completedSessions.has(sid)) {
       completedSessions.add(sid); remember(state); processingRuns.add(state.episode_id);
-      openEpisode(state.episode_id, {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
-        run_metrics:state.run_metrics, step_timings:state.step_timings}); loadMine();
+      const known = {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
+        run_metrics:state.run_metrics, step_timings:state.step_timings};
+      const scope = generation, id = state.episode_id;
+      if ($('assessmentWindow')) $('assessmentWindow').hidden = false;
+      // Recording/V0 processing starts at termination on the recorder. Begin
+      // checking its public receipt immediately, concurrently with this window.
+      fetch(`/api/past-runs?episode_id=${encodeURIComponent(id)}&robot_id=${encodeURIComponent(robot)}&preview=1`,
+        {cache:'no-store',headers:{'X-Blupe-Robot':robot}}).then(response => response.ok ? response.json() : null)
+        .then(data => { if (scope === generation) Object.assign(known, data?.runs?.find(run => run.episode_id === id) || {}); }).catch(() => {});
+      clearTimeout(reviewTimer);
+      reviewTimer = setTimeout(() => { if (scope === generation) openEpisode(id, known); }, 5000);
+      loadMine();
     }
     if (processingRuns.size && token && Date.now() - lastMineAt > 10000) loadMine();
     if (!$('myRunsList').dataset.loaded && token) { $('myRunsList').dataset.loaded = 'true'; loadMine(); }

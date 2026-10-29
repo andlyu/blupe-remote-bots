@@ -1078,3 +1078,23 @@ body.cameraExpanded{overflow:hidden}
 /* END observer enhancement preview v1 */
 
 .pastRunMatch { margin: 8px 0; overflow-wrap: anywhere; }
+
+/* Past Runs extends the existing quiet green console, with one shared replay. */
+.allRunsHeading{margin-top:36px;flex-wrap:wrap}.allRunsHeading h2{margin:0}.runViewSwitch,.cloudToolbar,.assessmentControls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.runViewSwitch button[aria-pressed="true"],.assessmentControls button[aria-pressed="true"]{background:#214e39;color:#fff;border-color:#214e39}
+.runModelFilter{margin:18px 0;max-width:560px}.runModelFilter summary{cursor:pointer;overflow-wrap:anywhere}.runModelFilter label{display:block;margin:14px 0 8px}.runModelFilter select{width:100%;min-height:130px}
+.runScores{border-block:1px solid var(--line);padding:10px 0;margin:20px 0 10px;font-variant-numeric:tabular-nums}.runScores:empty{display:none}.runScores p{margin:8px 0;font-size:14px;line-height:1.6}.runScores strong{font-weight:650}.scoreCaveat{max-width:76ch}
+.cloudToolbar{margin:12px 0}.cloudLegend{font-size:13px;line-height:1.7;color:#43564a}.taskCloudCanvas{display:block;width:100%;height:540px;border:1px solid #cbd5ca;border-radius:12px;touch-action:none;cursor:grab;background:#f8faf5}.taskCloudCanvas:active{cursor:grabbing}#taskCloudVersion{overflow-wrap:anywhere;font-size:11px}#taskCloudFocus{min-height:3em;overflow-wrap:anywhere;font-size:14px;line-height:1.6}
+.cloudLegend{display:flex;flex-wrap:wrap;gap:4px 14px}.cloudKey{display:inline-flex;align-items:center;gap:6px}.cloudDot{width:9px;height:9px;box-sizing:border-box;border-radius:50%;display:inline-block;border:1.75px solid #607064}.cloudDot.success{background:#246744;border-color:#246744}.cloudDot.failure{background:#b2352c;border-color:#b2352c}
+.taskCloudStage{position:relative}.taskCloudPreview{position:absolute;width:260px;max-width:calc(100% - 16px);box-sizing:border-box;z-index:2;pointer-events:none;background:#f8faf5;border:1px solid #607064;border-radius:12px;overflow:hidden;color:#172c21}.taskCloudPreview[hidden]{display:none}.taskCloudPreviewMedia{aspect-ratio:1.6;background:#172c21}.taskCloudPreviewMedia :is(video,canvas){display:block;width:100%;height:100%;max-height:164px;object-fit:contain;margin:0;border-radius:0}.taskCloudPreviewTitle{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;font-weight:600;line-height:1.5;margin:10px 12px 6px}.taskCloudPreviewState{font-size:12px;line-height:1.5;margin:0 12px 10px;color:#43564a}
+.taskCloudPreviewMedia video.recordingSource{display:none}
+.runnerAssessment{width:100%;padding:18px 0;margin:8px 0;border-block:1px solid var(--line)}.runnerAssessment h3{font-size:16px;margin:0 0 12px}.runnerAssessment .help{margin:10px 0 0}.runnerAssessment details{margin-top:14px}.runnerAssessment li{font-size:13px;line-height:1.7}.assessmentControls button{min-height:42px}.visuallyHidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+:is(.taskCloudCanvas,.runViewSwitch button,.assessmentControls button,.runModelFilter summary):focus-visible{outline:3px solid #326c4e;outline-offset:3px}.runnerAssessment [hidden],#pastRunsTable[hidden],#pastRunsCloud[hidden],#liveAssessment[hidden]{display:none}
+@media(max-width:700px){.taskCloudCanvas{height:370px}.cloudLegend{flex-basis:100%}.allRunsHeading{gap:12px}runScores p{font-size:13px}.assessmentControls button{padding:9px 10px}.runHistorySearch input{min-width:140px}.runnerAssessment{padding:14px 0}}
+
+.playgroundConsole .runViewSwitch button[aria-pressed="true"],.playgroundConsole .assessmentControls button[aria-pressed="true"],.playgroundConsole .runViewSwitch button[aria-pressed="true"]:hover:not(:disabled),.playgroundConsole .assessmentControls button[aria-pressed="true"]:hover:not(:disabled){background:#214e39;color:#fff;border-color:#214e39}
+
+#liveAssessment{grid-column:1/-1;grid-row:2;padding:12px 0;margin:0}#liveAssessment .assessmentControls{gap:8px}#liveAssessmentStatus{max-width:70ch}
+@media(max-width:620px){#liveAssessment{grid-row:3}}
+
+.pastRunAssessment{margin:8px 0;font-size:12px;line-height:1.6}.playgroundConsole #pastRunsList>li[data-selected="true"]>.pastRunCard{outline:2px solid #567d26;outline-offset:3px}

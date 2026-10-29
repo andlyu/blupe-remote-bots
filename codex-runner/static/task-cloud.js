@@ -1,0 +1,200 @@
+/* Perspective projection of real persisted xyz coordinates; Canvas API references
+   and MiniLM/PCA provenance are in docs/refs/task-cloud/INDEX.md. */
+(() => {
+  'use strict';
+  const offset = id => {
+    let hash = 2166136261;
+    for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
+    return [0,8,16].map(shift => (((hash >>> shift) & 255)/255-.5)*.035);
+  };
+  function project(xyz, yaw, pitch, zoom, width, height) {
+    const x = xyz[0]*Math.cos(yaw)+xyz[2]*Math.sin(yaw);
+    const z = -xyz[0]*Math.sin(yaw)+xyz[2]*Math.cos(yaw);
+    const y = xyz[1]*Math.cos(pitch)-z*Math.sin(pitch);
+    const depth = xyz[1]*Math.sin(pitch)+z*Math.cos(pitch);
+    const perspective = Math.min(width,height)*2.6*zoom/Math.max(.8,3+depth);
+    return {x:width/2+x*perspective,y:height/2-y*perspective,depth};
+  }
+  const outcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
+    ? run.assessment.label : 'Unscored';
+  // A single lazy media owner. Every transition invalidates pending detail/play
+  // promises and tears down the old element and camera-layout frame callbacks.
+  function createPreview(root, {loadRun, source, layout, canPlay = () => true, reducedMotion = () => false}) {
+    const media = root.querySelector('.taskCloudPreviewMedia'), title = root.querySelector('.taskCloudPreviewTitle');
+    const status = root.querySelector('.taskCloudPreviewState');
+    let current = null, generation = 0, request = null, video = null, dispose = null, anchor = null;
+    function position() {
+      if (!anchor) return;
+      const width = root.offsetWidth, height = root.offsetHeight;
+      const x = anchor.x + 18 + width <= anchor.width - 8 ? anchor.x + 18 : anchor.x - width - 18;
+      root.style.left = Math.max(8, Math.min(anchor.width-width-8, x))+'px';
+      root.style.top = Math.max(8, Math.min(anchor.height-height-8, anchor.y-24))+'px';
+    }
+    function hide() {
+      generation++; request?.abort(); request = null; current = null; anchor = null;
+      if (video) {video.pause(); dispose?.(); video.removeAttribute('src'); video.load();}
+      video = null; dispose = null; media.replaceChildren(); root.hidden = true;
+      delete root.dataset.episodeId;
+    }
+    async function show(run, point) {
+      if (!run || !canPlay()) {hide(); return;}
+      if (current === run.episode_id) {anchor = point; position(); return;}
+      hide(); current = run.episode_id; anchor = point;
+      const version = generation;
+      request = new AbortController();
+      root.dataset.episodeId = run.episode_id; root.hidden = false;
+      title.textContent = run.prompt; status.textContent = 'Loading video…'; position();
+      try {
+        const detail = await loadRun(run, request.signal);
+        if (version !== generation || !canPlay()) return;
+        if (!detail?.video_url || detail.video_duration_s === 0) {
+          status.textContent = 'No preview available. Open run for details.'; return;
+        }
+        const recording = {...run,...detail}, playback = source(recording);
+        video = document.createElement('video');
+        const clip = video;
+        clip.defaultMuted = clip.muted = true; clip.playsInline = true; clip.loop = true; clip.preload = 'metadata';
+        clip.setAttribute('muted',''); clip.setAttribute('playsinline','');
+        clip.setAttribute('aria-hidden','true'); clip.tabIndex = -1;
+        media.append(clip); dispose = layout?.(clip, recording.camera_order, recording.video_layout);
+        const state = message => {if (version === generation) {status.textContent = message; position();}};
+        clip.addEventListener('playing', () => state('Playing muted preview · Open run for full replay'));
+        clip.addEventListener('waiting', () => state('Buffering video…'));
+        clip.addEventListener('error', () => state('Video unavailable. Open run to retry.'));
+        clip.addEventListener('loadedmetadata', position);
+        clip.src = playback.url; clip.defaultPlaybackRate = clip.playbackRate = playback.rate;
+        position();
+        if (reducedMotion()) state('Preview paused for reduced motion. Open run to play.');
+        else await clip.play().catch(error => state(error.name === 'NotAllowedError'
+          ? 'Preview playback was blocked. Open run to play.' : 'Preview could not play. Open run to play.'));
+      } catch (_) {
+        if (version === generation) status.textContent = 'Video unavailable. Open run to retry.';
+      }
+    }
+    return {show,hide};
+  }
+  function create(canvas, focusText, onSelect, onPreview = () => {}) {
+    const ctx = canvas.getContext('2d');
+    let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
+    let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
+    const pointers = new Map();
+    const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
+    function description(run) {
+      const a = run.assessment || {};
+      return `${run.prompt} · ${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'} · ${outcome(run)} · Runner label: ${a.label || 'Unlabeled'} · ${a.correct || 0} correct / ${a.incorrect || 0} incorrect · ${a.eligibility || 'unlabeled'} · ${run.episode_id}`;
+    }
+    function focus(run) {
+      focusText.textContent = run ? description(run) : 'No runs match these filters. Choose another model or clear search.';
+    }
+    function marker(point) {
+      const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
+      const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : '#607064';
+      ctx.beginPath();
+      ctx.arc(point.x,point.y,radius,0,Math.PI*2);
+      ctx.fillStyle = state === 'Unscored' ? '#f8faf5' : color;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = state === 'Unscored' ? 1.75 : 1;
+      ctx.fill();ctx.stroke();
+      if (selected === point.run.episode_id || hover === point.run.episode_id) {
+        ctx.beginPath();ctx.arc(point.x,point.y,11,0,Math.PI*2);ctx.strokeStyle='#172c21';ctx.lineWidth=1.5;ctx.stroke();
+      }
+    }
+    function draw() {
+      frame = null;
+      const width = canvas.clientWidth || 1000, height = canvas.clientHeight || 540, dpr = Math.min(window.devicePixelRatio || 1,2);
+      if (canvas.width !== Math.round(width*dpr) || canvas.height !== Math.round(height*dpr)) {
+        canvas.width = Math.round(width*dpr);canvas.height = Math.round(height*dpr);
+      }
+      ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
+      ctx.fillStyle='#f8faf5';ctx.fillRect(0,0,width,height);
+      // Rotation reference: three real perspective axes, with no outcome meaning.
+      const origin=project([0,0,0],yaw,pitch,magnification,width,height);
+      for (const [i,name] of ['x','y','z'].entries()) {
+        const axis=[0,0,0];axis[i]=.65;
+        const end=project(axis,yaw,pitch,magnification,width,height);
+        ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(end.x,end.y);ctx.strokeStyle='#cbd5ca';ctx.lineWidth=1;ctx.stroke();
+        ctx.fillStyle='#536155';ctx.font='12px system-ui';ctx.fillText(name,end.x+5,end.y);
+      }
+      points = rows.filter(run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite)).map(run => {
+        const delta=offset(run.episode_id), xyz=run.xyz.map((value,i)=>value+delta[i]);
+        return {...project(xyz,yaw,pitch,magnification,width,height),run};
+      }).sort((a,b)=>b.depth-a.depth);
+      for (const point of points) if (point.x>-15 && point.x<width+15 && point.y>-15 && point.y<height+15) marker(point);
+      const labels = points.filter(p=>p.run.episode_id===hover || p.run.episode_id===selected || p.run===rows[focused]);
+      if (magnification>1.8) labels.push(...points.filter(p=>!labels.includes(p)).slice().reverse());
+      const boxes=[];
+      ctx.font='13px system-ui';
+      for (const point of labels) {
+        if (boxes.length>=14) break;
+        const text=point.run.prompt.length>64?point.run.prompt.slice(0,61)+'…':point.run.prompt;
+        const length=Math.min(ctx.measureText(text).width+12,width-12);
+        const x=Math.max(4,Math.min(width-length-4,point.x+12)),y=Math.max(4,Math.min(height-27,point.y-25));
+        if(boxes.some(b=>x<b.x+b.w && x+length>b.x && y<b.y+25 && y+25>b.y)) continue;
+        boxes.push({x,y,w:length});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,length,24);ctx.fillStyle='#172c21';ctx.fillText(text,x+6,y+17,length-12);
+      }
+      canvas.dataset.renderedPoints=String(points.length);
+      canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
+    }
+    function hit(event) {
+      const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left,y=event.clientY-rect.top;
+      return points.filter(p=>Math.hypot(p.x-x,p.y-y)<13).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
+    }
+    function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight} : null);}
+    function clearPreview() {hover=null;preview(null);}
+    function previewFocused() {const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;preview(point);schedule();}
+    function zoom(factor) {clearPreview();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
+    function reset() {clearPreview();yaw=-.3;pitch=.2;magnification=1;schedule();}
+    function open() {if(rows[focused]) {clearPreview();selected=rows[focused].episode_id;focus(rows[focused]);onSelect(rows[focused]);schedule();}}
+    function step(delta) {if(rows.length) {focused=(focused+delta+rows.length)%rows.length;focus(rows[focused]);previewFocused();}}
+    canvas.addEventListener('pointerdown',event=>{
+      clearPreview();
+      pointers.set(event.pointerId,[event.clientX,event.clientY]);canvas.setPointerCapture(event.pointerId);
+      last=[event.clientX,event.clientY];moved=false;
+      if(pointers.size===2) {const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);}
+    });
+    canvas.addEventListener('pointermove',event=>{
+      if(pointers.has(event.pointerId)) {
+        pointers.set(event.pointerId,[event.clientX,event.clientY]);
+        if(pointers.size===2) {
+          const [a,b]=[...pointers.values()],distance=Math.hypot(a[0]-b[0],a[1]-b[1]);
+          if(lastDistance>0) zoom(distance/lastDistance);lastDistance=distance;moved=true;
+        } else if(last) {
+          const dx=event.clientX-last[0],dy=event.clientY-last[1];
+          if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
+          yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));last=[event.clientX,event.clientY];schedule();
+        }
+      } else {
+        const point=hit(event)[0];
+        if(hover!==point?.run.episode_id) {hover=point?.run.episode_id;focus(point?.run || rows[focused]);canvas.style.cursor=point?'pointer':'grab';preview(event.pointerType === 'touch' ? null : point);schedule();}
+      }
+    });
+    canvas.addEventListener('pointerup',event=>{
+      const dragged=moved || pointers.size>1;pointers.delete(event.pointerId);last=null;
+      if(!dragged) {
+        const hits=hit(event),signature=hits.map(p=>p.run.episode_id).join(',');
+        hitCycle=signature===lastHits?(hitCycle+1)%Math.max(1,hits.length):0;lastHits=signature;
+        if(hits.length) {focused=rows.indexOf(hits[hitCycle].run);open();}
+      }
+    });
+    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;clearPreview();});
+    canvas.addEventListener('pointerleave',()=>{clearPreview();focus(rows[focused]);schedule();});
+    canvas.addEventListener('focus',previewFocused);
+    canvas.addEventListener('blur',clearPreview);
+    canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
+    canvas.addEventListener('keydown',event=>{
+      const key=event.key;
+      if(key==='Escape') {clearPreview();schedule();return;}
+      if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-','Home','[',']','Enter'].includes(key)) return;
+      event.preventDefault();
+      if(key.startsWith('Arrow')) clearPreview();
+      if(key==='ArrowLeft') yaw-=.12;if(key==='ArrowRight') yaw+=.12;
+      if(key==='ArrowUp') pitch-=.12;if(key==='ArrowDown') pitch+=.12;
+      if(key==='+' || key==='=') zoom(1.2);if(key==='-') zoom(1/1.2);
+      if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
+    });
+    if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();schedule();}).observe(canvas);
+    return {setRuns(next,id) {clearPreview();rows=next;selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+      select(id) {selected=id;schedule();},clearPreview,reset,zoom,step,open};
+  }
+  window.yamTaskCloud={create,createPreview,project,offset,outcome};
+})();
