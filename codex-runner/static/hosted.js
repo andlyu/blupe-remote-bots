@@ -1190,7 +1190,7 @@ function createRunLaunchGuard() {
     active = ['queued','preparing','running'].includes(state.status || 'queued');
     const actualAspire = aspireRequest && state.launch_route?.actual_policy !== 'astra';
     guideRunAttention(actualAspire ? {status:state.status || 'preparing',aspire:true} : {status:state.status || 'queued'});
-    message(state.launch_route?.message || (aspireRequest ? 'ASPIRE request accepted. Follow task progress on the left.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
+    message(state.launch_route?.message || (aspireRequest ? 'ASPIRE request accepted. Follow task progress on the left.' : ['molmoact2','dreamzero'].includes(payload.provider) && !state.session_id ? 'Preparing the model GPU. The robot queue and run timer start after it is ready.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
     }
     catch (error) {
       if (error.stale) return;
@@ -1698,7 +1698,7 @@ function createRunLaunchGuard() {
       message(failureInChat && state.error === taskFailure.reason ? '' : state.error || state.execution_blocked_reason, true);
     else if (state.feedback_warning) message(state.feedback_warning);
     else if ($('message').textContent.startsWith('Motion paused while refreshing robot status:')) message('Robot status confirmed. Continuing the run.');
-    else if (['groot','molmoact2','dreamzero'].includes(state.provider?.provider) && state.provider.warmup === 'warming') message('In the robot queue · warming ' + (configuredProviders[state.provider.provider]?.label || 'GR00T') + ' GPU…');
+    else if (['groot','molmoact2','dreamzero'].includes(state.provider?.provider) && state.provider.warmup === 'warming') message((state.session_id ? 'In the robot queue · warming ' : 'Preparing before the robot queue · warming ') + (configuredProviders[state.provider.provider]?.label || state.provider.model || 'GR00T') + ' GPU…' + (state.session_id ? '' : ' The run timer has not started.'));
     else if (['groot','molmoact2','dreamzero'].includes(state.provider?.provider) && state.provider.warmup === 'failed') message((configuredProviders[state.provider.provider]?.label || 'GR00T') + ' GPU startup failed. Leave the queue and try again.', true);
     else if (state.provider?.vision?.retry?.state === 'retrying') message(state.provider.vision.retry.message, state.provider.vision.retry.cause === 'No image');
     else if (state.provider?.vision?.retry?.state === 'failed') message(state.provider.vision.retry.message, true);

@@ -84,6 +84,17 @@ class YAMRunpodAdapter:
         self._thread = threading.Thread(target=self._keep_ready, args=(cancelled,), daemon=True)
         self._thread.start()
 
+    def prepare_before_session(self, prompt):
+        # RunnerController's existing pre-session hook keeps cold GPU loading
+        # outside the Jetson's selected-duration lease and hardware timer.
+        if self.cancelled():
+            raise RuntimeError('YAM1 policy preparation cancelled')
+        self.interaction_sink('model_progress', 'Preparing ' + self.spec['label']
+            + ' GPU before joining the robot queue; the run timer has not started')
+        self.start_preparation(self.cancelled)
+        self.wait_ready(self.cancelled)
+        self.interaction_sink('model_progress', self.spec['label'] + ' GPU ready; joining the robot queue')
+
     def _keep_ready(self, cancelled):
         # The first prepared DreamZero cold launch took 14m53s. Warm before
         # controller dispatch; never replay an observation across this wait.
@@ -155,17 +166,53 @@ class YAMRunpodAdapter:
             images[frame.name] = base64.b64encode(output.getvalue()).decode()
         if self.cancelled():
             raise RuntimeError('YAM1 policy cancelled')
-        result = self._json('/act', dict(robot_id='yam-1', instruction=prompt, state=state,
-            images=images, action_units='radians', gripper_units=GRIPPER_UNITS))
+        started = time.monotonic()
+        try:
+            result = self._json('/act', dict(robot_id='yam-1', instruction=prompt, state=state,
+                images=images, action_units='radians', gripper_units=GRIPPER_UNITS))
+        finally:
+            self.interaction_sink('model_timing', 'YAM1 policy request finished',
+                elapsed_s=time.monotonic() - started)
         if self.cancelled():
             raise RuntimeError('YAM1 policy cancelled')
         rows = result.get('actions')
-        if (not self._identity(result) or result.get('device') != 'cuda:0'
-                or not isinstance(rows, list) or len(rows) != self.spec['num_actions']
-                or any(not isinstance(row, list) or len(row) != 14
-                       or not all(self._number(v) for v in row) for row in rows)
-                or any(not 0 <= row[i] <= 1 for row in rows for i in (6, 13))):
-            raise ValueError('Invalid YAM1 action chunk; no targets dispatched')
+        reason = None
+        if not self._identity(result):
+            reason = 'checkpoint_identity_or_units'
+        elif result.get('device') != 'cuda:0':
+            reason = 'cuda_device'
+        elif not isinstance(rows, list) or len(rows) != self.spec['num_actions']:
+            reason = 'action_horizon'
+        elif any(not isinstance(row, list) or len(row) != 14 for row in rows):
+            reason = 'action_width'
+        elif any(not all(self._number(v) for v in row) for row in rows):
+            reason = 'nonfinite_or_nonnumeric_action'
+        if reason is None:
+            grips = [row[i] for row in rows for i in (6, 13)]
+            projected = sum(not 0 <= value <= 1 for value in grips)
+            if self.provider_name == 'dreamzero':
+                # The pinned release decodes continuous relative gripper actions
+                # by adding measured state. They can overshoot normalized ends.
+                # Match dream_policy.action_waypoints' bounded actuator mapping;
+                # keep the raw model result intact and never clip arm joints.
+                rows = [list(row) for row in rows]
+                for row in rows:
+                    for index in (6, 13):
+                        row[index] = min(1., max(0., row[index]))
+                self.interaction_sink('model_response', 'DreamZero action chunk decoded',
+                    raw_gripper_min=min(grips), raw_gripper_max=max(grips),
+                    gripper_values_clipped=projected, action_count=len(rows))
+            elif projected:
+                reason = 'gripper_out_of_range'
+        if reason:
+            details = dict(reason=reason)
+            if reason == 'gripper_out_of_range':
+                for side, index in [('left', 6), ('right', 13)]:
+                    values = [row[index] for row in rows]
+                    details[side + '_gripper_min'] = min(values)
+                    details[side + '_gripper_max'] = max(values)
+            self.interaction_sink('model_failure', 'YAM1 action chunk rejected before dispatch', **details)
+            raise ValueError('Invalid YAM1 action chunk (' + reason + '); no targets dispatched')
         # Match the GR00T gateway contract: select every third 30 Hz target.
         # DreamZero keeps eight 10 Hz waypoints (0.8s), MolmoAct2 ten (1s).
         targets = rows[2::3]

@@ -1,6 +1,7 @@
 import io
 import math
 import shutil
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +10,7 @@ from PIL import Image
 import playground
 from remote_yam.cameras import CameraFrame
 from remote_yam.session import MockSessionAPI
+from remote_yam.controller import RunnerController
 from remote_yam.yam_runpod_policy import YAMRunpodAdapter, MODELS, GRIPPER_UNITS
 
 
@@ -73,12 +75,84 @@ def test_wrong_identity_units_or_cpu_response_rejects_entire_chunk(change):
 
 
 @pytest.mark.parametrize('index,value', [(6, -.01), (13, 1.01), (0, float('nan')), (0, True)])
-def test_invalid_unsampled_row_is_rejected_without_clamping(index, value):
-    policy, observation, result = fixture()
+def test_invalid_unsampled_molmoact_row_is_rejected_without_clamping(index, value):
+    policy, observation, result = fixture('molmoact2')
     result['actions'][0][index] = value
     policy._json = lambda *args: result
     with pytest.raises(ValueError, match='chunk'):
         policy.build_trajectory('Pick up the block.', observation, 0)
+
+
+def test_dreamzero_continuous_grippers_map_to_endpoints_without_changing_joints_or_raw_result():
+    policy, observation, result = fixture()
+    result['actions'][2][6] = -.03
+    result['actions'][2][13] = 1.054142890846263
+    events = []
+    policy.interaction_sink = lambda kind, message, **details: events.append((kind, details))
+    policy._json = lambda *args: result
+    points = policy.build_trajectory('Put the orange block into the box.', observation, 0)
+    assert points[0]['left_gripper'] == 0
+    assert points[0]['right_gripper'] == 1
+    assert points[0]['left_joints_deg'] == pytest.approx([math.degrees(.003)] * 6)
+    assert result['actions'][2][6] == -.03
+    assert result['actions'][2][13] == 1.054142890846263
+    response = next(details for kind, details in events if kind == 'model_response')
+    assert response['gripper_values_clipped'] == 2
+    assert response['raw_gripper_max'] == 1.054142890846263
+    assert any(kind == 'model_timing' for kind, _ in events)
+
+
+@pytest.mark.parametrize('index,value', [(0, float('nan')), (6, float('inf')), (13, True)])
+def test_dreamzero_invalid_unsampled_values_still_reject_whole_chunk(index, value):
+    policy, observation, result = fixture()
+    result['actions'][0][index] = value
+    policy._json = lambda *args: result
+    with pytest.raises(ValueError, match='nonfinite_or_nonnumeric_action'):
+        policy.build_trajectory('Pick up the block.', observation, 0)
+
+
+@pytest.mark.parametrize('name', ['dreamzero', 'molmoact2'])
+@pytest.mark.parametrize('stop_before_ready', [False, True])
+def test_cold_gpu_must_be_ready_before_any_robot_session(name, stop_before_ready):
+    policy, _, result = fixture(name)
+    policy._ready.clear()
+    entered, release, admitted = threading.Event(), threading.Event(), threading.Event()
+    health = dict(result, ok=True, cuda_available=True, action_dim=14,
+        num_actions=policy.spec['num_actions'], norm_tag=policy.spec['norm_tag'])
+    def response(path):
+        assert path == '/health'
+        entered.set()
+        assert release.wait(3)
+        return health
+    policy._json = response
+    class Session(MockSessionAPI):
+        def create_session(self, *args, **kwargs):
+            assert policy._ready.is_set()
+            assert kwargs['run_duration_s'] == 120
+            admitted.set()
+            return super().create_session(*args, **kwargs)
+    api = Session(auto_activate=False)
+    controller = RunnerController(api)
+    try:
+        state = controller.join_and_run(policy, 'Pick up the block.', run_duration_s=120)
+        assert state['status'] == 'preparing'
+        assert entered.wait(2)
+        assert not admitted.is_set() and not api._sessions
+        assert controller.status()['run_started_at'] is None
+        if stop_before_ready:
+            controller.stop()
+        release.set()
+        if stop_before_ready:
+            controller._worker.join(2)
+            assert not admitted.is_set() and not api._sessions
+        else:
+            assert admitted.wait(2)
+        assert not api.action_log
+    finally:
+        release.set()
+        controller.stop()
+        if policy._thread:
+            policy._thread.join(2)
 
 
 def test_wrong_horizon_budget_overflow_and_late_stop_never_return_commands():
