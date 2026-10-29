@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   if (!$('liveAssessment')) return;
   let token = '', robot = '', generation = 0, live = null, replay = null, busy = false;
-  const active = new Set(['queued', 'preparing', 'running']);
+  const active = new Set(['preparing', 'running']);
   const empty = () => ({revision:0,label:null,correct:0,incorrect:0,eligibility:'unlabeled',can_edit:false,can_vote:false,history:[]});
   const issued = new Map();
   let requestSequence = 0;
@@ -83,7 +83,9 @@
         token = csrf; robot = selectedRobot; generation++; live = null;
         if (replay) refresh(replay);
       }
-      const visible = !!state.session_id && (active.has(state.status) || !!state.episode_id);
+      // public_run may belong to somebody else. Only this session's active
+      // runner sees the live result controls; old results remain in replay.
+      const visible = !!state.session_id && active.has(state.status);
       $('liveAssessment').hidden = !visible;
       if (!visible) return;
       const changed = live?.id !== state.episode_id || live?.status !== state.status;

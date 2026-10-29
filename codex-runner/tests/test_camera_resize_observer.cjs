@@ -46,7 +46,8 @@ test('camera observation never changes observed geometry during observer deliver
   assert.deepEqual(h.writes, [], 'writing observed dimensions here causes a ResizeObserver loop error');
   assert.equal(h.workspace.clientHeight, 100);
   h.flush();
-  assert.equal(h.workspace.clientHeight, 814);
+  assert.equal(h.values.has('height'), false);
+  assert(parseFloat(h.values.get('--console-camera-height')) <= h.window.innerHeight*.7+.01);
 });
 
 test('a burst of resize and camera-layout notifications shares one animation frame', () => {
@@ -54,11 +55,11 @@ test('a burst of resize and camera-layout notifications shares one animation fra
   h.resize(); h.resize(); h.mutation();
   assert.equal(h.frames.length, 1);
   h.flush();
-  const height = h.values.get('height');
+  const height = h.values.get('--console-camera-height');
   h.resize(); h.resize();
   assert.equal(h.frames.length, 1);
   h.flush();
-  assert.equal(h.values.get('height'), height, 'the follow-up layout converges');
+  assert.equal(h.values.get('--console-camera-height'), height, 'the follow-up layout converges');
   assert.equal(h.frames.length, 0);
 });
 
@@ -67,11 +68,12 @@ test('a later resize reads fresh viewport dimensions in the queued frame', () =>
   h.resize();
   h.window.innerHeight = 700;
   h.flush();
-  assert.equal(h.workspace.clientHeight, 614);
+  assert(parseFloat(h.values.get('--console-camera-height')) <= 490.01);
   h.window.innerWidth = 390;
+  h.workspace.clientWidth = 354;
   h.resize(); h.flush();
   assert.equal(h.values.has('height'), false);
-  assert.equal(h.values.has('--console-camera-width'), false);
+  assert.equal(h.values.get('--console-camera-width'), '354px');
 });
 
 function wrappingFooterHarness(viewportHeight = 854) {
@@ -109,8 +111,8 @@ test('a wrapping camera footer cannot alternate side and bottom thumbnails each 
 });
 
 test('bottom thumbnails use the full available width when there is enough height', () => {
-  const h = wrappingFooterHarness(1300);
+  const h = wrappingFooterHarness(2000);
   h.frame();
   assert.equal(h.viewer.dataset.detailLayout, 'below');
-  assert.equal(h.values.get('--console-camera-width'), '1244px');
+  assert.equal(h.values.get('--console-camera-width'), '1680px');
 });

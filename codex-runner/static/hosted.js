@@ -3030,25 +3030,16 @@ function bindQuickTaskDraft(prompt, quick) {
   function fitCameras() {
     const viewer = $('liveViewer'), four = viewer.dataset.layout === 'observer-focus';
     const aspect = four ? 640/324 : 16/9;
-    if (window.innerWidth <= 740) {
-      const width = visuals.clientWidth;
-      workspace.style.removeProperty('height');
-      workspace.style.removeProperty('--console-camera-width');
-      workspace.style.setProperty('--console-camera-height', (four ? width/aspect + (width-12)/aspect/3 + 6 : width/aspect) + 'px');
-      viewer.dataset.detailLayout = 'below'; return;
-    }
-    const documentTop = workspace.getBoundingClientRect().top + window.scrollY;
-    workspace.style.height = Math.max(160, window.innerHeight - documentTop - 18) + 'px';
-    const height = Math.max(100, workspace.clientHeight - document.querySelector('.cameraFooter').offsetHeight - 8);
-    const available = Math.max(100, workspace.clientWidth - Math.max(320, workspace.clientWidth*.25) - 16);
-    // Keep the full available width whenever bottom thumbnails fit. Shrinking
-    // below an aspect threshold wraps the footer, which can flip the layout
-    // back to side thumbnails on the next observation and repeat indefinitely.
+    // The camera and chat stack vertically. Size from the viewport and the
+    // outer width, never from footer wrapping or the camera's own dimensions.
+    const available = Math.max(100, workspace.clientWidth || visuals.clientWidth);
+    const height = Math.max(220, window.innerHeight * .7);
     const belowHeight = available/aspect + (available-12)/aspect/3 + 6;
-    const side = four && belowHeight > height;
+    const side = four && window.innerWidth > 740 && belowHeight > height;
     const ideal = four ? side ? (height*4/3 - 4)*aspect + 6 : (height-6+4/aspect)*aspect*3/4 : height*aspect;
-    const width = Math.min(available, ideal);
+    const width = window.innerWidth <= 740 ? available : Math.min(available, ideal);
     const cameraHeight = four ? side ? ((width-6)/aspect + 4)*3/4 : width/aspect + (width-12)/aspect/3 + 6 : width/aspect;
+    workspace.style.removeProperty('height');
     workspace.style.setProperty('--console-camera-width', width + 'px');
     workspace.style.setProperty('--console-camera-height', cameraHeight + 'px');
     viewer.dataset.detailLayout = side ? 'side' : 'below';
