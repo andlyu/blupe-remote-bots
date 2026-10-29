@@ -58,7 +58,9 @@ def setup(native_handler=None, adapter_factory=Adapter):
         final['step_id'] = payload['waypoints'][-1]['step_id'] + 1
         op.api_client.send(final)
         op.api_last_step = final['step_id'] - 1
-        op.api_client.send(dict(common, type='trajectory_result', status='completed', step_id=op.api_last_step))
+        # Installed native record leaves its optional result step_id absent;
+        # exact progress and the settled next observation prove completion.
+        op.api_client.send(dict(common, type='trajectory_result', status='completed'))
         return []
     op.api_handle_joint_trajectory = execute
     def native(*args, **kwargs):
@@ -150,6 +152,21 @@ def test_completed_without_all_progress_fails_closed_and_stops_native_lease():
     assert not op.api_authorized and adapters[0].completed == 0
     assert sent[-1]['type'] == 'safety_abort'
     assert sent[-1]['message'] == 'Controller Dream execution failed'
+
+
+def test_explicit_wrong_completion_cursor_still_fails_after_all_progress():
+    def wrong_cursor(op, payload):
+        common = {k:payload[k] for k in ('session_id', 'episode_id', 'lease_id', 'trajectory_id')}
+        op.api_client.send(dict(common, type='trajectory_result', status='accepted'))
+        op.api_client.send(dict(common, type='trajectory_progress', step_id=0))
+        op.api_client.send(dict(common, type='observation', step_id=1, settled=True,
+            left_joints_deg=[1.]*6, right_joints_deg=[2.]*6))
+        op.api_client.send(dict(common, type='trajectory_result', status='completed', step_id=99))
+        return []
+    op, executor, request, submitted, sent, adapters = setup(native_handler=wrong_cursor)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    assert not op.api_authorized and adapters[0].completed == 0
 
 
 def test_failed_notification_cannot_prevent_local_native_stop():

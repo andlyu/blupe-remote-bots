@@ -319,7 +319,7 @@ class DreamControllerExecutor:
                 if result.get('status') == 'completed':
                     obs = row['observation']
                     if (not row['accepted'] or row['progress'] != count or not obs
-                            or obs.get('settled') is not True or result.get('step_id') != last):
+                            or obs.get('settled') is not True or result.get('step_id', last) != last):
                         raise RuntimeError('Incomplete native Dream execution evidence')
                     target = row['adjustment'] or points[-1]
                     if row['adjustment']:
