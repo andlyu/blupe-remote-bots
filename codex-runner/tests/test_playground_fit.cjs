@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname,'../static/hosted.js'),'utf8');
-const fit = source.slice(source.indexOf('  function fitCameras()'),source.indexOf('  const sizing = new ResizeObserver(fitCameras)'));
+const fit = source.slice(source.indexOf('  function fitCameras()'),source.indexOf('  let cameraFitFrame = null;'));
 
 function harness() {
   const values = new Map();

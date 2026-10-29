@@ -3049,13 +3049,23 @@ function bindQuickTaskDraft(prompt, quick) {
     workspace.style.setProperty('--console-camera-height', cameraHeight + 'px');
     viewer.dataset.detailLayout = side ? 'side' : 'below';
   }
-  const sizing = new ResizeObserver(fitCameras);
+  let cameraFitFrame = null;
+  function scheduleCameraFit() {
+    if (cameraFitFrame !== null) return;
+    // ResizeObserver must not change the geometry it is currently observing.
+    // Share one layout update across resize and camera-layout notifications.
+    cameraFitFrame = window.requestAnimationFrame(() => {
+      cameraFitFrame = null;
+      fitCameras();
+    });
+  }
+  const sizing = new ResizeObserver(scheduleCameraFit);
   sizing.observe(workspace); sizing.observe(document.querySelector('.cameraFooter'));
   if ($('collectionProgress')) sizing.observe($('collectionProgress'));
-  new MutationObserver(fitCameras).observe($('liveViewer'), {attributes:true,attributeFilter:['data-layout']});
+  new MutationObserver(scheduleCameraFit).observe($('liveViewer'), {attributes:true,attributeFilter:['data-layout']});
   provider.addEventListener('change', updateComposer);
   document.addEventListener('blupe-model-changed', updateComposer);
-  window.addEventListener('resize', fitCameras);
+  window.addEventListener('resize', scheduleCameraFit);
   updateComposer(); sizePrompt(); fitCameras();
 })();
 
