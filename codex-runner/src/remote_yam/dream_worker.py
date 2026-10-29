@@ -82,7 +82,7 @@ def error_response(error, *, phase=None, timing=None):
                             'SSLV3_ALERT_BAD_RECORD_MAC', 'CERTIFICATE_VERIFY_FAILED',
                             'WRONG_VERSION_NUMBER'} else None,
                         transport_stage=transport_stage, protocol_trace=trace,
-                        http_connection_policy='fresh_per_exchange')
+                        http_connection_policy='reuse_until_reset_or_failure')
     if isinstance(timing, dict):
         safe = {key: value for key, value in timing.items()
                 if key in {'rtt_ms', 'request_bytes', 'response_bytes', 'serve_infer_ms', 'gateway_ms', 'network_ms'}
@@ -129,10 +129,9 @@ def protocol_trace(error):
 
 def close_http_connection(client):
     # Pinned SDK1.0.0 _drop closes HTTP/TLS only; it retains PolicyClient's
-    # model-session ID, smoother, observation window and compiled IK. A reused
-    # Linux/OpenSSL3.0 socket can raise SSLEOFError during a write, which the
-    # SDK's narrow stale-connection retry does not handle. Avoid reuse rather
-    # than retrying an ambiguously processed inference. See refs/python/HTTP-TLS.
+    # model-session ID, smoother, observation window and compiled IK. Reuse
+    # healthy channels within a run; reset and failed predictions discard them.
+    # Never add an inference retry after an ambiguous TLS failure.
     transport = getattr(getattr(client, '_policy', None), '_transport', None)
     if transport is not None:
         transport._drop()
@@ -300,12 +299,12 @@ def main():
             phase = 'predict'
             request_started = True
             with stage(spans, 'sdk_get_action'):
-                close_http_connection(client)
                 try:
                     with sdk_trace.prediction(command.get('first_step_id')):
                         action = client.get_action(commanded=command.get('commanded'))
-                finally:
+                except BaseException:
                     close_http_connection(client)
+                    raise
             return {'action': action, 'timing': client.last_timing}
         raise ValueError('Unknown worker command')
 
