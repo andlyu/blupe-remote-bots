@@ -7,6 +7,7 @@ import math
 import os
 from pathlib import Path
 import re
+import select
 import signal
 import sys
 
@@ -135,6 +136,38 @@ def close_http_connection(client):
     transport = getattr(getattr(client, '_policy', None), '_transport', None)
     if transport is not None:
         transport._drop()
+
+
+def prepare_http_connection(client):
+    """Replace a closed idle socket before sending, without replaying inference.
+
+    SDK1.0.0 does not recognize SSLEOFError as a stale-connection failure.
+    CPython3.12 ssl's nonblocking notes require reading through TLS control
+    records: select readability alone cannot distinguish them from closure.
+    No response is outstanding here; any application bytes are also unexpected.
+    """
+    transport = getattr(getattr(client, '_policy', None), '_transport', None)
+    connection = getattr(transport, '_connection', None)
+    sock = getattr(connection, 'sock', None)
+    if sock is None:
+        return
+    try:
+        if isinstance(sock, ssl.SSLSocket):
+            timeout = sock.gettimeout()
+            try:
+                sock.setblocking(False)
+                try:
+                    sock.recv(1)
+                except (ssl.SSLWantReadError, BlockingIOError):
+                    # Control records consumed, with no EOF or application data.
+                    return
+            finally:
+                sock.settimeout(timeout)
+        elif not select.select([sock], [], [], 0)[0]:
+            return
+    except (OSError, ValueError):
+        pass  # Invalid/closed socket; the next exchange must connect afresh.
+    transport._drop()
 
 
 def reset_episode(client):
@@ -300,6 +333,7 @@ def main():
             request_started = True
             with stage(spans, 'sdk_get_action'):
                 try:
+                    prepare_http_connection(client)
                     with sdk_trace.prediction(command.get('first_step_id')):
                         action = client.get_action(commanded=command.get('commanded'))
                 except BaseException:
