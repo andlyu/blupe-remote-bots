@@ -547,8 +547,19 @@ class HostedRunner:
                     for r in rows:
                         r['task_id'] = task_key(r['prompt'])
                         r['xyz'] = coordinates.get(r['task_id'])
-                limit = 10000 if view == 'cloud' else 100
+                limit = 10000 if view == 'cloud' else 12
                 selected = rows[:limit] if view == 'cloud' else rows[offset:offset+limit]
+                if view == 'table':
+                    selected = await asyncio.to_thread(self.past_runs.details_for, selected)
+                    names = await asyncio.to_thread(self.run_names.names)
+                    outcomes = await asyncio.to_thread(self.run_names.results)
+                    speeds = await asyncio.to_thread(self.run_names.replay_speeds)
+                    from remote_yam.past_runs import merge_run_result
+                    for row in selected:
+                        row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                        if row['episode_id'] in speeds:
+                            row['replay_speed'] = speeds[row['episode_id']]
+                        merge_run_result(row, outcomes.get(row['episode_id'], {}))
                 result = {'runs': selected, 'models': choices, 'scores': scores, 'total': len(rows),
                           'next_offset': offset+len(selected) if view == 'table' and offset+len(selected) < len(rows) else None,
                           'stale': catalog.get('stale', False), 'cloud': cloud,

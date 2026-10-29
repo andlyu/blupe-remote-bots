@@ -47,7 +47,7 @@ class AssessmentHostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body['history'][1]['incorrect'],1)
         self.assertEqual((await self.call('/api/run-assessment',method='POST',payload=vote,**other))[0],409)
 
-    async def test_catalog_scores_complete_dataset_no_media_preloads_and_model_versions(self):
+    async def test_scores_use_complete_data_while_only_visible_blocks_get_preview_detail(self):
         self.app.run_assessments=RunAssessments(self.app.root/'catalog-tests.sqlite3')
         archive=self.app.past_runs
         archive.rows=[{'episode_id':f'ep_{i}','robot_id':'yam-1','prompt':'Put pens in cup','started_at':i,
@@ -57,16 +57,25 @@ class AssessmentHostedTests(unittest.IsolatedAsyncioTestCase):
         for i in range(205):
             self.app.run_assessments.register(f'ep_{i}','runner',ended=True)
             self.app.run_assessments.assess(f'ep_{i}','Success' if i<3 else 'Failure',0,'runner')
-        archive.reader=Mock(side_effect=AssertionError('Metadata listing must not preload media/detail'))
+        archive.reader=Mock(side_effect=AssertionError('No full archive detail scan'))
+        archive._detail=Mock(side_effect=lambda row:(row['episode_id'], {'video_url':'https://example.com/'+row['episode_id']+'.mp4','camera_order':[]}))
         code,body=await self.catalog('model=M&q=pen&offset=100')
-        self.assertEqual(code,200);self.assertEqual(len(body['runs']),100)
+        self.assertEqual(code,200);self.assertEqual(len(body['runs']),12)
         self.assertEqual(body['total'],204)
         self.assertEqual(sum(score['denominator'] for score in body['scores']),204)
         self.assertEqual(sum(score['successes'] for score in body['scores']),3)
         self.assertEqual({score['version'] for score in body['scores']},{'v1','v2'})
-        self.assertIn('search_match',body['runs'][0]);self.assertNotIn('video_url',body['runs'][0])
+        self.assertIn('search_match',body['runs'][0]);self.assertIn('video_url',body['runs'][0])
+        self.assertEqual(archive._detail.call_count,12)
         self.assertNotIn('owner_session',json.dumps(body))
         archive.reader.assert_not_called()
+        archive._detail.reset_mock()
+        self.app.task_cloud=Mock()
+        self.app.task_cloud.snapshot.return_value={'status':'ready','version':'test-map','coordinates':{}}
+        code,cloud=await self.catalog('view=cloud&model=M')
+        self.assertEqual((code,cloud['total']),(200,204))
+        self.assertNotIn('video_url',cloud['runs'][0])
+        archive._detail.assert_not_called()
         code,body=await self.catalog('model=M&model=Other')
         self.assertEqual((code,body['total']),(200,205))
         for query in ['offset=-1','view=2d',urlencode({'q':'x'*301}),urlencode({'model':'x'*129})]:

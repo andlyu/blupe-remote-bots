@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf8').split('\n})();')[0]+'\n})();';
-test('Table loads lightweight metadata, waits for robot selection and ignores a previous robot response', async () => {
+test('Table recording blocks wait for robot selection, ignore stale responses and open shared details', async () => {
   const c = require('./helpers/past-runs.cjs')();
   assert.equal(c.requests.length,0);
   c.events['blupe-robot-selected']({detail:'robot-3652c537a175cbae'});
@@ -16,9 +16,7 @@ test('Table loads lightweight metadata, waits for robot selection and ignores a 
   const run={episode_id:'ep_one',prompt:'Move block',started_at:1,model:'M'};
   c.answer(c.requests[1],[run]);await c.flush();
   const row=c.nodes.get('pastRunsList').children[0];
-  assert.equal(row.tag,'tr');assert.equal(row.children.length,6);
-  assert.equal(row.children[0].children.length,1);
-  row.children[0].children[0].emit('click');assert.equal(c.opened[0].id,'ep_one');
+  row.children[0].emit('click');assert.equal(c.opened[0].id,'ep_one');
 });
 
  test('robot switching uses browser history even with a local history function', async () => {
@@ -33,4 +31,41 @@ test('Table loads lightweight metadata, waits for robot selection and ignores a 
     start:async()=>{started++;}, csrf:'',active:false,ended:false,lastChatSnapshot:''};
   await vm.runInNewContext('(async()=>{'+handler+'})()',context);
   assert.equal(replaced,1); assert.equal(started,1);
+});
+
+test('incumbent previews are muted, exclusive and pause on replay, view switch, exit and hidden page',async()=>{
+  const c=require('./helpers/past-runs.cjs')();
+  c.events['blupe-robot-selected']({detail:'yam-1'});
+  const run={episode_id:'ep_one',episode_index:1,prompt:'Move block',started_at:1,model:'M',
+    video_url:'https://example.com/previews/one.mp4',original_video_url:'https://example.com/videos/one.mp4',
+    camera_order:['top','left','right'],video_layout:'observer-focus',compressed:true};
+  c.answer(c.requests[0],[run,{...run,episode_id:'ep_two',video_url:'https://example.com/previews/two.mp4'}]);await c.flush();
+  const cards=c.nodes.get('pastRunsList').children.map(item=>item.children[0]);
+  const videos=cards.map(card=>card.children.find(child=>child.tag==='video'));
+  cards[0].emit('pointerenter',{pointerType:'touch'});assert.equal(videos[0].plays,0);
+  cards[0].emit('pointerenter',{pointerType:'mouse'});assert.equal(videos[0].plays,1);
+  assert.equal(videos[0].muted,true);assert.equal(videos[0].playbackRate,1);
+  cards[1].emit('focus');assert.equal(videos[0].pauses,1);assert.equal(videos[1].plays,1);
+  cards[1].emit('pointerleave');assert.equal(videos[1].pauses,1);
+  cards[0].emit('click');assert.equal(c.nodes.get('pastRunVideo').src,run.video_url);assert.equal(c.nodes.get('pastRunDialog').open,true);
+  cards[0].emit('pointerenter',{pointerType:'mouse'});assert.equal(videos[0].plays,1,'Modal playback suppresses hover previews');
+  c.nodes.get('pastRunDialog').close();cards[0].emit('pointerenter',{pointerType:'mouse'});
+  const before=videos[0].pauses;c.document.hidden=true;c.events.visibilitychange();assert.equal(videos[0].pauses,before+1);c.document.hidden=false;
+  const played=videos[0].plays;c.window.matchMedia=()=>({matches:true});cards[0].emit('pointerenter',{pointerType:'mouse'});assert.equal(videos[0].plays,played,'Reduced motion disables autoplay previews');c.window.matchMedia=()=>({matches:false});
+  cards[0].emit('pointerenter',{pointerType:'mouse'});
+  c.nodes.get('pastRunsCloudView').emit('click');assert.ok(videos[0].pauses>=2);
+});
+
+test('recording blocks retain reason, assessment text and the live-speed replay action',async()=>{
+ const c=require('./helpers/past-runs.cjs')();c.events['blupe-robot-selected']({detail:'yam-1'});
+ const run={episode_id:'ep_one',episode_index:1,prompt:'Move block',started_at:1,model:'M',
+   video_url:'https://example.com/previews/one.mp4',original_video_url:'https://example.com/videos/one.mp4',camera_order:[],
+   result:'Stopped',ending_reason:'Time limit',assessment:{label:'Success',correct:1,incorrect:2,eligibility:'excluded'}};
+ c.answer(c.requests[0],[run]);await c.flush();
+ const block=c.nodes.get('pastRunsList').children[0];
+ const reason=block.children.find(child=>child.tag==='details');
+ assert.equal(reason.children[1].textContent,'Ending reason: Time limit');
+ assert.match(block.children.find(child=>child.className==='pastRunAssessment help').textContent,/Runner: Success · excluded · 1 correct \/ 2 incorrect/);
+ block.children.find(child=>child.tag==='button' && child.textContent==='Live speed').emit('click');
+ assert.equal(c.nodes.get('pastRunVideo').src,run.original_video_url);assert.equal(c.nodes.get('pastRunVideo').playbackRate,1);
 });

@@ -35,8 +35,10 @@ reviews; guests keep session ownership and session-based voting.
 ## Catalog and UI
 
 `GET /api/run-catalog?robot_id=…&model=…&model=…&q=…&view=table|cloud&offset=…`
-returns lightweight run metadata, complete filtered per-model/version scores, and
-Table pagination or Cloud coordinates. Unknown versions stay separate as unknown;
+returns complete filtered per-model/version scores and Table block pagination or
+lightweight Cloud coordinates. Table enriches only its 12 visible recording blocks
+with the incumbent preview, machine ending, reason and playback metadata.
+Unknown versions stay separate as unknown;
 recorded model IDs (including versions in the ID) are never collapsed. Counts
 are calculated before pagination and the Cloud's disclosed 10,000-point limit.
 Selected models with no matching tasks show No scored runs, not zero percent.
@@ -45,11 +47,16 @@ Cloud filters the same matches without changing coordinates.
 
 Your runs retains its own current-session collection above All runs. Table is the
 first-visit default; only the chosen Table/Cloud preference is stored in browser
-storage. Filter/selection state survives view switches. Both views select into
-the existing replay/processing surface and fetch recording detail on selection.
-Long table task text is visually clamped to three lines; the button's accessible
-name and replay contain the full task. Table remains usable with keyboard and
-horizontal scrolling on phones. Cloud supports drag/pinch, wheel, rotation keys,
+storage. Filter/selection state survives view switches. Table is the user's name
+for the familiar recording-block grid, using the original
+video previews, two-line task text, hover/focus behavior, reason/details and
+live-speed replay actions. A small runner-assessment/review line augments each
+block; recorded model version is available in its existing details. Full task
+text remains in the accessible replay action and replay. Both views select into
+the same replay/processing surface. Cloud fetches recording detail on selection;
+Table retains preview information for only its visible blocks. Blocks remain
+keyboard accessible and stack in one column on phones. Cloud supports drag/pinch,
+wheel, rotation keys,
 zoom/reset buttons, keyboard run cycling, and per-attempt replay access.
 
 During a run, the three human assessment controls are visible. Labels are

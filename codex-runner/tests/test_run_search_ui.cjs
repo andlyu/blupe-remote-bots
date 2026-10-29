@@ -8,9 +8,9 @@ test('Table search ranks through server query, explains related/partial matches,
  c.answer(c.requests[0]);await c.flush();assert.equal(c.nodes.get('pastRunsStatus').textContent,'Loading past runs…');
  c.answer(c.requests[1],[run],100,101);await c.flush();
  assert.match(c.nodes.get('pastRunsStatus').textContent,/101 matching videos.*closest task prompts first/);
- const task=c.nodes.get('pastRunsList').children[0].children[0];
- assert.match(task.children[1].textContent,/Related: pen → marker · Partial task match/);
- task.children[0].emit('click');assert.equal(c.opened[0].id,'ep_marker');
+ const block=c.nodes.get('pastRunsList').children[0],task=block.children[0];
+ assert.match(block.children[1].textContent,/Related: pen → marker · Partial task match/);
+ task.emit('click');assert.equal(c.opened[0].id,'ep_marker');
  c.nodes.get('morePastRuns').emit('click');assert.match(c.requests[2].url,/offset=100.*q=put%20pens/);
  c.nodes.get('clearPastRunsSearch').emit('click');assert.doesNotMatch(c.requests[3].url,/[?&]q=/);
  c.answer(c.requests[2],[run]);await c.flush();assert.equal(c.nodes.get('pastRunsList').children.length,0);

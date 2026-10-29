@@ -339,6 +339,16 @@ function createRunLaunchGuard() {
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
+  let preview = null;
+  const previewViews = [];
+  function stopPreview() {
+    if (preview) preview.pause();
+    preview = null;
+  }
+  function clearBlocks() {
+    stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
+    $('pastRunsList').replaceChildren();
+  }
   const speedButton = document.createElement('button');
   speedButton.id = 'pastRunSpeed'; speedButton.type = 'button'; speedButton.textContent = 'Live speed';
   $('pastRunDetails').after(speedButton);
@@ -355,6 +365,7 @@ function createRunLaunchGuard() {
     if (selectedRun?.episode_id === run.episode_id) run = {...selectedRun,...run};
     if (zeroSecondVideo(run.video_duration_s) || (live && run.original_available === false)) return;
     window.yamReplayReview?.ready();
+    stopPreview();
     $('pastRunTitle').textContent = `${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt;
     document.getElementById('aspirePastLineage')?.remove?.();
@@ -391,45 +402,100 @@ function createRunLaunchGuard() {
     if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close();
   }});
   player.addEventListener('error', () => { if (player.hasAttribute('src')) $('pastRunError').textContent = 'Video unavailable. Close this player and try again.'; });
-  const assessmentText = run => run.assessment?.label || 'Not completed';
-  function selectRun(run) {
+  function selectRun(run, live = false) {
     selectedRun = run;
     for (const row of $('pastRunsList').children) row.dataset.selected = String(row.dataset.episodeId === run.episode_id);
     cloud?.select(run.episode_id);
-    window.yamReplayReview?.openEpisode(run.episode_id, run);
+    stopPreview();
+    if (run.video_url && !zeroSecondVideo(run.video_duration_s)) window.yamReplayHistory.openRun(run, live);
+    else window.yamReplayReview?.openEpisode(run.episode_id, run);
   }
-  function matchText(run) {
-    const match = run.search_match;
-    if (!match) return '';
-    return [match.exact?.length ? 'Matches: '+match.exact.join(', ') : '',
-      match.related?.length ? 'Related: '+match.related.map(item => `${item.query} → ${item.match}`).join(', ') : '',
-      match.partial ? 'Partial task match — watch replay to verify' : 'Task prompt match — watch replay to verify'].filter(Boolean).join(' · ');
-  }
-  function renderRows(rows) {
-    for (const run of rows) {
-      const row = document.createElement('tr'); row.dataset.episodeId = run.episode_id;
-      row.dataset.selected = String(selectedRun?.episode_id === run.episode_id);
-      const task = document.createElement('td'), button = document.createElement('button');
-      button.type = 'button'; button.className = 'runTaskButton'; button.textContent = run.prompt;
-      button.setAttribute('aria-label', `Open run ${run.episode_index ?? run.episode_id}: ${run.prompt}`);
-      button.addEventListener('click', () => selectRun(run)); task.append(button);
-      const match = matchText(run);
-      if (match) { const note = document.createElement('p'); note.className = 'help runMatch'; note.textContent = match; task.append(note); }
-      row.append(task);
-      const a = run.assessment || {};
-      const cells = [
-        `${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'}`,
-        run.started_at ? new Date(run.started_at*1000).toLocaleString([], {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : 'Date unknown',
-        assessmentText(run), `${a.correct || 0} correct / ${a.incorrect || 0} incorrect`, a.eligibility || 'unlabeled'
-      ];
-      cells.forEach((value, index) => {
-        const cell = document.createElement('td'); cell.textContent = value;
-        if (index === 2) cell.dataset.assessment = a.label || 'unlabeled';
-        if (index === 4) cell.className = 'scoreEligibility';
-        row.append(cell);
-      });
-      $('pastRunsList').append(row);
-    }
+  function renderBlocks(rows) {
+      for (const run of rows) {
+        const li = document.createElement('li'), button = document.createElement('button');
+        li.dataset.episodeId = run.episode_id;
+        li.dataset.selected = String(selectedRun?.episode_id === run.episode_id);
+        button.type = 'button'; button.className = 'pastRunCard';
+        button.setAttribute('aria-label', `Watch run ${run.episode_index}: ${run.prompt}`);
+        const video = document.createElement('video');
+        video.preload = 'metadata'; video.muted = true; video.playsInline = true; video.loop = true;
+        function startPreview() {
+          if (dialog.open || zeroSecondVideo(run.video_duration_s) || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+          stopPreview();
+          preview = video;
+          video.defaultPlaybackRate = video.playbackRate = playbackSource(run, false).rate;
+          video.play().catch(() => {});
+        }
+        button.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') startPreview(); });
+        button.addEventListener('focus', () => { if (button.matches(':focus-visible')) startPreview(); });
+        button.addEventListener('blur', () => { if (preview === video) stopPreview(); });
+        button.addEventListener('pointerleave', () => { if (preview === video) stopPreview(); });
+        video.addEventListener('loadedmetadata', () => {
+          if (zeroSecondVideo(video.duration)) { showEmptyRun(); return; }
+          if (Number.isFinite(video.duration) && video.duration > .2) video.currentTime = Math.min(1, video.duration/2);
+        }, {once:true});
+        video.tabIndex = -1; video.setAttribute('aria-hidden', 'true');
+        const title = document.createElement('span'); title.className = 'pastRunLabel';
+        const robotName = {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods SO101', 'robot-abecb4cd868ab24b':'SO101'}[run.robot_id || 'yam-1'] || run.robot_id;
+        title.textContent = `${robotName} · ${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : '#'+run.episode_index} · ${new Date(run.started_at*1000).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
+        if (run.model) title.textContent += ` · ${run.model}`;
+        const prompt = document.createElement('span'); prompt.className = 'pastRunPrompt'; prompt.textContent = run.prompt;
+        const watch = document.createElement('span'); watch.className = 'pastRunWatch'; watch.textContent = '▶ Watch replay';
+        const outcome = document.createElement('span'); outcome.className = 'pastRunLabel';
+        outcome.textContent = run.result || 'Unknown';
+        outcome.dataset.result = run.result || 'Unknown';
+        const errors = document.createElement('span'); errors.className = 'pastRunLabel';
+        errors.textContent = 'Errors: ' + (run.errors || 'None recorded');
+        const ending = document.createElement('span'); ending.className = 'pastRunLabel';
+        ending.textContent = 'Ending reason: ' + (run.ending_reason || run.result_reason || 'Not recorded');
+        const reasonDetails = document.createElement('details');
+        const reasonSummary = document.createElement('summary');
+        reasonSummary.className = 'pastRunLabel';
+        outcome.style.display = 'inline';
+        outcome.style.padding = '0';
+        const reasonLabel = document.createElement('span');
+        reasonLabel.textContent = 'Show reason';
+        reasonLabel.style.marginLeft = '12px';
+        reasonLabel.style.textDecoration = 'underline';
+        reasonSummary.append(outcome, reasonLabel);
+        reasonSummary.style.cursor = 'pointer';
+        reasonDetails.append(reasonSummary, ending);
+        if (run.errors) reasonDetails.append(errors);
+        button.append(title, prompt, video, watch); button.addEventListener('click', () => selectRun(run)); li.append(button); window.yamAspireLineage?.history(li, run);
+        if (run.search_match) {
+          const match = document.createElement('p'); match.className = 'pastRunMatch help';
+          const reasons = [];
+          if (run.search_match.exact.length) reasons.push('Matched: ' + run.search_match.exact.join(', '));
+          if (run.search_match.related.length) reasons.push('Related: ' + run.search_match.related.map(pair => `${pair.query} → ${pair.match}`).join(', '));
+          if (run.search_match.partial) reasons.push('Partial task match');
+          match.textContent = reasons.join(' · '); li.append(match);
+        }
+        const disposeView = window.yamRecordingView?.(video, run.camera_order, run.video_layout);
+        if (disposeView) previewViews.push(disposeView);
+        const liveButton = document.createElement('button');
+        liveButton.type = 'button';
+        liveButton.disabled = run.original_available === false;
+        liveButton.textContent = liveButton.disabled ? 'Live speed processing…' : 'Live speed';
+        liveButton.setAttribute('aria-label', `Watch run ${run.episode_index} at live speed with pauses`);
+        liveButton.addEventListener('click', () => selectRun(run, true));
+        const version = document.createElement('span'); version.className = 'pastRunLabel';
+        version.textContent = 'Model version: ' + (run.model_version || 'unknown'); reasonDetails.append(version);
+        const assessment = run.assessment || {};
+        const assessmentNote = document.createElement('p'); assessmentNote.className = 'pastRunAssessment help';
+        assessmentNote.textContent = `Runner: ${assessment.label || 'Not completed'} · ${assessment.eligibility || 'unlabeled'} · ${assessment.correct || 0} correct / ${assessment.incorrect || 0} incorrect`;
+        li.append(reasonDetails, assessmentNote, liveButton);
+        $('pastRunsList').append(li);
+        function showEmptyRun() {
+          if (preview === video) stopPreview();
+          run.video_duration_s = 0;
+          liveButton.remove();
+          watch.textContent = 'Run lasted 0 time · View details';
+          button.replaceChildren(title, prompt, watch);
+          video.removeAttribute('src'); video.load();
+        }
+        if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
+        else video.src = run.video_url;
+      }
   }
   function renderScores(scores) {
     $('pastRunsScores').replaceChildren();
@@ -475,9 +541,9 @@ function createRunLaunchGuard() {
         }));
         $('pastRunsModelSummary').textContent = historyModels.length ? `Models: ${historyModels.join(', ')}` : 'Models: All models';
       }
-      if (reset) { $('pastRunsList').replaceChildren(); catalogRows = []; }
+      if (reset) { clearBlocks(); catalogRows = []; }
       catalogRows.push(...data.runs);
-      if (historyView === 'table') renderRows(data.runs);
+      if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
       renderView();
       next = data.next_offset;
@@ -506,7 +572,7 @@ function createRunLaunchGuard() {
   function searchPastRuns(query) {
     historySearch = query.trim();
     historyGeneration++; loading = false; next = 0;
-    $('pastRunsList').replaceChildren(); $('morePastRuns').hidden = true;
+    clearBlocks(); $('morePastRuns').hidden = true;
     $('clearPastRunsSearch').hidden = !historySearch;
     load(true);
   }
@@ -526,6 +592,7 @@ function createRunLaunchGuard() {
   });
   for (const view of ['table', 'cloud']) $(view === 'table' ? 'pastRunsTableView' : 'pastRunsCloudView').addEventListener('click', () => {
     if (historyView === view) return;
+    stopPreview();
     historyView = view;
     try { localStorage.setItem('yam-past-runs-view', view); } catch (_) {}
     historyGeneration++; loading = false; next = 0; renderView(); load(true);
@@ -537,7 +604,9 @@ function createRunLaunchGuard() {
   $('taskCloudNext').addEventListener('click', () => cloud?.step(1));
   $('taskCloudOpen').addEventListener('click', () => cloud?.open());
   renderView();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
   window.addEventListener('blupe-robot-selected', event => {
+    clearBlocks();
     historyRobot = event.detail; historyGeneration++; loading = false; next = 0;
     const selectedName = $('robotSelector')?.selectedOptions?.[0]?.textContent ||
       {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods Bimanual SO101', 'robot-abecb4cd868ab24b':'SO101'}[historyRobot] || historyRobot;
@@ -560,7 +629,6 @@ function createRunLaunchGuard() {
     }
 
     if (dialog.open) dialog.close();
-    $('pastRunsList').replaceChildren();
     load(true);
   });
 })();

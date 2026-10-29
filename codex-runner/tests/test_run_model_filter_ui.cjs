@@ -6,8 +6,8 @@ test('multi-model filters compose with pagination, search, refresh, robot and vi
  assert.deepEqual(c.nodes.get('pastRunsModel').children.map(option=>option.textContent),['All models','A','B','Model not recorded']);
  c.choose('A','B');assert.match(c.requests[1].url,/model=A&model=B&view=table/);
  c.answer(c.requests[1],[run],100,101,false,['A','B']);await c.flush();
- assert.equal(c.nodes.get('pastRunsList').children[0].children[1].textContent,'A · version unknown');
- c.nodes.get('pastRunsList').children[0].children[0].children[0].emit('click');
+ assert.match(c.nodes.get('pastRunsList').children[0].children[0].children[0].textContent,/ · A$/);
+ c.nodes.get('pastRunsList').children[0].children[0].emit('click');
  c.nodes.get('morePastRuns').emit('click');assert.match(c.requests[2].url,/offset=100.*model=A&model=B/);
  c.nodes.get('pastRunsCloudView').emit('click');assert.match(c.requests[3].url,/offset=0.*model=A&model=B.*view=cloud/);
  c.answer(c.requests[2],[{...run,episode_id:'ep_stale'}]);c.answer(c.requests[3],[run],null,101,false,['A','B']);await c.flush();
@@ -22,6 +22,6 @@ test('first visit defaults to Table; later visits remember Cloud; Your runs rema
  const first=setup();assert.equal(first.nodes.get('pastRunsTable').hidden,false);assert.equal(first.nodes.get('pastRunsCloud').hidden,true);
  const later=setup('','cloud');assert.equal(later.nodes.get('pastRunsCloud').hidden,false);
  const html=fs.readFileSync(path.join(__dirname,'../static/hosted.html'),'utf8');
- assert.ok(html.indexOf('id="myRunsList"')<html.indexOf('id="pastRunsTableView"'));assert.ok(html.includes('<tbody id="pastRunsList">'));
+ assert.ok(html.indexOf('id="myRunsList"')<html.indexOf('id="pastRunsTableView"'));assert.ok(html.includes('<ol id="pastRunsList">'));
  assert.doesNotMatch(html,/Cards<\/button>/);
 });

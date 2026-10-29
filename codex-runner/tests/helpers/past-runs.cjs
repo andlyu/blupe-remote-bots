@@ -5,20 +5,20 @@ const source=full.slice(start).split('\n})();')[0]+'\n})();';
 module.exports=function setup(initialSearch='',savedView=null){
   const nodes=new Map(),events={},requests=[],opened=[],storage=new Map(),cloud={rows:[],selected:null,setRuns(rows,id){this.rows=rows;this.selected=id},select(id){this.selected=id},reset(){},zoom(){},step(){},open(){}};
   if(savedView)storage.set('yam-past-runs-view',savedView);
-  const element=(tag='div')=>({tag,children:[],listeners:{},dataset:{},style:{},value:'',open:false,attributes:{},
+  const element=(tag='div')=>({tag,children:[],listeners:{},dataset:{},style:{},value:'',open:false,attributes:{},plays:0,pauses:0,
     get selectedOptions(){return this.children.filter(child=>child.selected)},
     addEventListener(name,fn){(this.listeners[name]||=[]).push(fn)},emit(name,event={}){for(const fn of this.listeners[name]||[])fn(event)},
     after(){},append(...children){this.children.push(...children)},replaceChildren(...children){this.children=children},
-    removeAttribute(name){delete this.attributes[name]},setAttribute(name,value){this.attributes[name]=value},pause(){},play(){return Promise.resolve()},load(){},
+    removeAttribute(name){delete this.attributes[name]},setAttribute(name,value){this.attributes[name]=value},pause(){this.pauses++},play(){this.plays++;return Promise.resolve()},load(){},matches(){return true},remove(){this.removed=true},
     showModal(){this.open=true},close(){this.open=false;this.emit('close')},focus(){this.focused=true}
   });
-  const document={addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element,createTextNode:text=>({textContent:text})};
-  const window={location:{search:initialSearch},addEventListener(name,fn){events[name]=fn},yamTaskCloud:{create(){return cloud}},yamReplayReview:{openEpisode(id,run){opened.push({id,run})}}};
+  const document={hidden:false,addEventListener(name,fn){events[name]=fn},getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element,createTextNode:text=>({textContent:text})};
+  const window={location:{search:initialSearch},addEventListener(name,fn){events[name]=fn},yamTaskCloud:{create(){return cloud}},yamReplayReview:{ready(){},openEpisode(id,run){opened.push({id,run})}}};
   vm.runInNewContext(source,{document,window,URLSearchParams,encodeURIComponent,renderStepMetricsChart(){},renderRunMetrics(){},
     localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},clearTimeout(){},setTimeout(){return 1},
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))}});
   const answer=(request,runs=[],next_offset=null,total=runs.length,stale=false,models=[])=>request.resolve({ok:true,json:async()=>({runs,next_offset,total,stale,models,scores:[],cloud:{status:'ready',version:'fixed-v1'}})});
   const search=query=>{nodes.get('pastRunsQuery').value=query;nodes.get('pastRunsSearch').emit('submit',{preventDefault(){}})};
   const choose=(...values)=>{const select=nodes.get('pastRunsModel');for(const option of select.children)option.selected=values.includes(option.value);select.emit('change')};
-  return{nodes,events,requests,answer,search,choose,opened,storage,cloud,source,flush:()=>new Promise(setImmediate)};
+  return{nodes,events,requests,answer,search,choose,opened,storage,cloud,source,document,window,flush:()=>new Promise(setImmediate)};
 };

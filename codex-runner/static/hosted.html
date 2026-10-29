@@ -303,8 +303,9 @@
         <div id="pastRunsScores" class="runScores" aria-label="Per-model success rates" aria-live="polite"></div>
         <p class="help scoreCaveat">Observed rates on the selected user-labeled tasks. Different task mixes are not a controlled benchmark. Unlabeled and excluded runs stay visible.</p>
         <p id="pastRunsStatus" class="help" role="status">Loading past runs…</p>
-        <div id="pastRunsTable" class="runTableScroll" tabindex="0" role="region" aria-label="All runs table; scroll horizontally for all columns">
-          <table class="runTable"><caption class="visuallyHidden">All historical runs. Select a task for recording and assessment details.</caption><thead><tr><th scope="col">Task / replay</th><th scope="col">Model / version</th><th scope="col">Date</th><th scope="col">Runner assessment</th><th scope="col">Reviews</th><th scope="col">Score eligibility</th></tr></thead><tbody id="pastRunsList"></tbody></table>
+        <div id="pastRunsTable" role="region" aria-label="All runs recording blocks">
+          <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
+          <ol id="pastRunsList"></ol>
         </div>
         <div id="pastRunsCloud" hidden>
           <p class="help">Nearby points have similar task descriptions; this does not establish identical starting conditions or physical difficulty. Small offsets separate repeated attempts.</p>

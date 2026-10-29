@@ -484,18 +484,25 @@ class PastRuns:
                         'stale': stale, 'total': len(available), 'models': models}
             selected = ([r for r in available if r['episode_id'] == episode_id]
                         if episode_id is not None else available[offset:offset+12])
-            now = time.monotonic()
-            missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
-            with ThreadPoolExecutor(max_workers=4) as pool:
-                for eid, detail in pool.map(self._detail, missing):
-                    self.details[eid] = (now, detail)
-            # Bound caches as the archive grows.
-            if len(self.details) > 240:
-                wanted = {r['episode_id'] for r in selected}
-                self.details = {k: v for k, v in self.details.items() if k in wanted}
-            result = [dict(r, **self.details[r['episode_id']][1]) for r in selected]
+            result = self._with_details(selected)
             return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
                     'stale': stale, 'total': len(available), 'models': models}
+
+    def details_for(self, rows):
+        """Enrich only the visible recording blocks, keeping full scores metadata-only."""
+        with self.lock:
+            return self._with_details(rows)
+
+    def _with_details(self, selected):
+        now = time.monotonic()
+        missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for eid, detail in pool.map(self._detail, missing):
+                self.details[eid] = (now, detail)
+        if len(self.details) > 240:
+            wanted = {r['episode_id'] for r in selected}
+            self.details = {k: v for k, v in self.details.items() if k in wanted}
+        return [dict(r, **self.details[r['episode_id']][1]) for r in selected]
 
     def _detail(self, row):
         eid = row['episode_id']
