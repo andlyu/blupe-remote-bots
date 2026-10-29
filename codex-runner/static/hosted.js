@@ -1069,6 +1069,7 @@ function createRunLaunchGuard() {
       $('model').value = 'custom-endpoint'; $('prompt').readOnly = false;
       $('codexSetup').hidden = true; $('claudeSetup').hidden = true; $('forget').hidden = true;
       $('policyHelp').textContent = 'Your policy server receives fresh YAM1 cameras and joint state and returns action targets. Robot checks still apply.';
+      window.yamApplication?.configuredProviderChanged?.({model:'custom-endpoint',label:'Custom end-point'}, applicationContext());
       window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel(); return;
     }
