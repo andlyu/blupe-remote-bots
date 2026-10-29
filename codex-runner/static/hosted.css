@@ -1081,7 +1081,7 @@ body.cameraExpanded{overflow:hidden}
 
 /* Past Runs extends the existing quiet green console, with one shared replay. */
 .allRunsHeading{margin-top:36px;flex-wrap:wrap}.allRunsHeading h2{margin:0}.runViewSwitch,.cloudToolbar,.assessmentControls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.runViewSwitch button[aria-pressed="true"],.assessmentControls button[aria-pressed="true"]{background:#214e39;color:#fff;border-color:#214e39}
+.runViewSwitch button[aria-pressed="true"]{background:#214e39;color:#fff;border-color:#214e39}
 .runModelFilter{margin:18px 0;max-width:560px}.runModelFilter summary{cursor:pointer;overflow-wrap:anywhere}.runModelFilter label{display:block;margin:14px 0 8px}.runModelFilter select{width:100%;min-height:130px}
 .runScores{border-block:1px solid var(--line);padding:10px 0;margin:20px 0 10px;font-variant-numeric:tabular-nums}.runScores:empty{display:none}.runScores p{margin:8px 0;font-size:14px;line-height:1.6}.runScores strong{font-weight:650}.scoreCaveat{max-width:76ch}
 .cloudToolbar{margin:12px 0}.cloudLegend{font-size:13px;line-height:1.7;color:#43564a}.taskCloudCanvas{display:block;width:100%;height:540px;border:1px solid #cbd5ca;border-radius:12px;touch-action:none;cursor:grab;background:#f8faf5}.taskCloudCanvas:active{cursor:grabbing}#taskCloudVersion{overflow-wrap:anywhere;font-size:11px}#taskCloudFocus{min-height:3em;overflow-wrap:anywhere;font-size:14px;line-height:1.6}
@@ -1092,9 +1092,20 @@ body.cameraExpanded{overflow:hidden}
 :is(.taskCloudCanvas,.runViewSwitch button,.assessmentControls button,.runModelFilter summary):focus-visible{outline:3px solid #326c4e;outline-offset:3px}.runnerAssessment [hidden],#pastRunsTable[hidden],#pastRunsCloud[hidden],#liveAssessment[hidden]{display:none}
 @media(max-width:700px){.taskCloudCanvas{height:370px}.cloudLegend{flex-basis:100%}.allRunsHeading{gap:12px}runScores p{font-size:13px}.assessmentControls button{padding:9px 10px}.runHistorySearch input{min-width:140px}.runnerAssessment{padding:14px 0}}
 
-.playgroundConsole .runViewSwitch button[aria-pressed="true"],.playgroundConsole .assessmentControls button[aria-pressed="true"],.playgroundConsole .runViewSwitch button[aria-pressed="true"]:hover:not(:disabled),.playgroundConsole .assessmentControls button[aria-pressed="true"]:hover:not(:disabled){background:#214e39;color:#fff;border-color:#214e39}
+.playgroundConsole .runViewSwitch button[aria-pressed="true"],.playgroundConsole .runViewSwitch button[aria-pressed="true"]:hover:not(:disabled){background:#214e39;color:#fff;border-color:#214e39}
 
-#liveAssessment{grid-column:1/-1;grid-row:2;padding:12px 0;margin:0}#liveAssessment .assessmentControls{gap:8px}#liveAssessmentStatus{max-width:70ch}
-@media(max-width:620px){#liveAssessment{grid-row:3}}
+/* Three result controls share the original camera toolbar; no extra panel. */
+.playgroundConsole .assessmentControls button[data-label]{background:var(--assessment-bg,#e1e5e0);color:var(--assessment-fg,#203a30);border:1px solid var(--assessment-border,#b5c0b6)}
+.playgroundConsole .assessmentControls button[data-label="Failure"]{--assessment-bg:#b2352c;--assessment-fg:#fff;--assessment-border:#b2352c}
+.playgroundConsole .assessmentControls button[data-label="Success"]{--assessment-bg:#246744;--assessment-fg:#fff;--assessment-border:#246744}
+.playgroundConsole .assessmentControls button[data-label][aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}
+.playgroundConsole .assessmentControls button[data-label]:hover:not(:disabled){filter:brightness(.94)}
+.playgroundConsole .assessmentControls button[data-label]:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+#liveAssessment{position:relative;flex:none;margin:0;padding:2px}
+#liveAssessment .assessmentControls{flex-wrap:nowrap;gap:6px}
+.playgroundConsole #liveAssessment button{display:grid;place-items:center;width:32px;min-height:32px;padding:0;border-radius:50%}
+#liveAssessmentStatus[data-error="true"]{position:absolute;z-index:10;right:0;top:100%;width:240px;height:auto;padding:8px 10px;margin:6px 0 0;clip-path:none;white-space:normal;border:1px solid #b2352c;border-radius:8px;background:var(--surface);color:#922b24;font-size:12px}
+.cameraSocialControls{flex-wrap:wrap;max-width:100%}
+@media(max-width:740px),(pointer:coarse){.playgroundConsole #liveAssessment button{width:44px;min-height:44px}}
 
 .pastRunAssessment{margin:8px 0;font-size:12px;line-height:1.6}.playgroundConsole #pastRunsList>li[data-selected="true"]>.pastRunCard{outline:2px solid #567d26;outline-offset:3px}

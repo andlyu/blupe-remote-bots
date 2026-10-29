@@ -41,3 +41,17 @@ test('review buttons identify correctness, send revision and support vote remova
  c.answer(c.requests[1],{...c.data,revision:3,label:'Failure',can_edit:false,can_vote:true,eligibility:'included',my_vote:null});await c.flush();
  assert.equal(c.node('replayVoteControls').children[2].disabled,true);
 });
+test('compact controls surface save errors and clear the error when retried',async()=>{
+ const c=setup();c.window.yamRunAssessment.observe({session_id:'own',episode_id:'ep_own',status:'stopped'},'yam-1','csrf');
+ c.answer(c.requests[0],c.data);await c.flush();
+ const button=c.node('liveAssessmentControls').children[1],status=c.node('liveAssessmentStatus');
+ c.node('liveAssessmentControls').listeners.click({target:{closest:()=>button}});
+ c.answer(c.requests[1],{error:'Assessment could not be saved. Try again.'},false);await c.flush();
+ assert.equal(status.dataset.error,'true');assert.match(status.textContent,/could not be saved/);
+ c.answer(c.requests[2],c.data);await c.flush();
+ assert.equal(button.disabled,false);
+ c.node('liveAssessmentControls').listeners.click({target:button});
+ assert.equal(status.dataset.error,'false');
+ c.answer(c.requests[3],{...c.data,revision:1,label:'Failure'});await c.flush();
+ assert.equal(button.attributes['aria-pressed'],'true');
+});

@@ -52,12 +52,14 @@
   }
   async function mutate(scope, fields, target) {
     if (busy || !scope?.id) return;
+    $(target+'AssessmentStatus').dataset.error = 'false';
     busy = true; render(); $(target+'AssessmentStatus').textContent = 'Saving…';
     try {
       await request(scope, {...fields,revision:scope.assessment?.revision || 0});
       $(target+'AssessmentStatus').textContent = 'Saved. You can change this later.';
       window.dispatchEvent(new CustomEvent('yam-assessment-changed', {detail:scope.id}));
     } catch(error) {
+      $(target+'AssessmentStatus').dataset.error = 'true';
       $(target+'AssessmentStatus').textContent = error.message;
       await refresh(scope, true);
     } finally { busy = false; render(); }
