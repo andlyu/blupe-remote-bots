@@ -171,7 +171,8 @@ class HostedRunner:
             raise ValueError("Policy cameras must be selected from the robot cameras")
         self.robot_id = robot_id
         from remote_yam.controller_models import load_public_models
-        self.controller_models = load_public_models(os.environ.get('YAM_CONTROLLER_MODELS_FILE'), robot_id)
+        self.controller_models_file = os.environ.get('YAM_CONTROLLER_MODELS_FILE')
+        self.controller_models = load_public_models(self.controller_models_file, robot_id)
         from remote_yam.video_stream import video_stream
         self.video_stream = video_stream(robot_id)
         self.robots = robots if robots is not None else [
@@ -331,6 +332,12 @@ class HostedRunner:
 
     def validate_launch(self, visitor, payload, paid):
         """Application admission rules, before shared robot/provider validation."""
+
+    def controller_model_catalog(self):
+        if self.controller_models_file:
+            from remote_yam.controller_models import load_public_models
+            self.controller_models = load_public_models(self.controller_models_file, self.robot_id)
+        return self.controller_models
 
     def resolve_api_depth_launch(self, prompt):
         """Optional text-only policy routing, before constructing a depth provider."""
@@ -689,7 +696,7 @@ class HostedRunner:
                                       "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "dream_providers": self.dream_providers if self.dream_worker_ready() else {},
-                                      "controller_models": self.controller_models,
+                                      "controller_models": self.controller_model_catalog(),
                                       **await self.chat_setup(visitor),
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},
@@ -1020,7 +1027,7 @@ class HostedRunner:
             from remote_yam.controller_executor import selected_executor
             try:
                 controller_provider = selected_executor(payload.get('executor'), provider=name,
-                    model=model, robot_id=self.robot_id, models=self.controller_models,
+                    model=model, robot_id=self.robot_id, models=self.controller_model_catalog(),
                     model_id=payload.get('controller_model'), custom_endpoint=payload.get('custom_endpoint'))
             except ValueError as exc:
                 raise RequestError(400, str(exc)) from None
