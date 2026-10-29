@@ -13,6 +13,9 @@ import time
 from .controller_dream import NativeControllerDream
 from .controller_executor import ROBOHOUSE
 from .dream_worker_pool import DreamWorkerPool
+from .controller_models import ROBOTS
+from .providers import PolicyComplete
+from .session import command_budget
 
 CONTEXT = ('session_id', 'episode_id', 'lease_id')
 TERMINAL = {'completed', 'cancelled', 'failed'}
@@ -53,14 +56,17 @@ def workspace_held(row):
 class DreamControllerExecutor:
     def __init__(self, operator, *, robot_id, credentials, python, directory,
                  pool_factory=DreamWorkerPool, native_factory=NativeControllerDream,
+                 model_runtime=None,
                  **adapter_settings):
-        if robot_id != ROBOHOUSE or operator.api_client.jetson_id != robot_id:
-            raise ValueError('Dream executor requires the installed RoboHouse identity')
+        if robot_id not in (ROBOTS if model_runtime else {ROBOHOUSE}) or operator.api_client.jetson_id != robot_id:
+            raise ValueError('Executor requires the installed controller identity')
         self.operator = operator
+        self.model_runtime, self.model_id = model_runtime, None
+        self.selection = None
         self.settings = dict(robot_id=robot_id, credentials=credentials, python=python,
                              directory=directory, **adapter_settings)
         self.native_factory = native_factory
-        self.pool = pool_factory(python, credentials, directory)
+        self.pool = model_runtime or pool_factory(python, credentials, directory)
         self.lock = threading.RLock()
         self.cancelled = threading.Event()
         self.thread = None
@@ -104,10 +110,29 @@ class DreamControllerExecutor:
             return dict(state=self.state, packets=self.packets, waypoints=self.waypoints,
                         predictions=self.predictions, predicted_waypoints=self.predicted_waypoints,
                         failure=deepcopy(self.failure),
-                        worker=self.pool.status())
+                        worker=self.pool.status(),
+                        **({'model_id': self.model_id} if self.model_runtime else {}))
 
     def request(self, payload):
-        if (payload.get('executor') != 'dream_one' or payload.get('payload') != {}
+        model_id = None
+        if self.model_runtime:
+            if payload.get('executor') == 'dream_one' and payload.get('payload') == {}:
+                model_id = 'dream_one'
+            elif (payload.get('executor') == 'controller' and isinstance(payload.get('payload'), dict)
+                  and set(payload['payload']) in ({'model_id'}, {'model_id', 'custom_endpoint', 'model'})):
+                model_id = payload['payload']['model_id']
+            else:
+                raise ValueError('Select an installed controller model')
+            spec = self.model_runtime.select(model_id)
+            selection = deepcopy(payload['payload'])
+            if spec.get('user_endpoint'):
+                from .controller_custom import validate_custom
+                from .model_catalog import model_id as validate_model
+                selection['custom_endpoint'] = validate_custom(selection.get('custom_endpoint'))
+                selection['model'] = validate_model(selection.get('model'))
+            elif set(selection) - {'model_id'}:
+                raise ValueError('A predefined controller model cannot be overridden')
+        if ((not self.model_runtime and (payload.get('executor') != 'dream_one' or payload.get('payload') != {}))
                 or payload.get('operation') not in {'start', 'predict', 'status'}):
             raise ValueError('Unsupported Dream request')
         context = tuple(payload.get(key) for key in CONTEXT)
@@ -124,6 +149,8 @@ class DreamControllerExecutor:
             if observation.get('homed') is not True or observation.get('settled') is not True:
                 raise ValueError('Wait for the normal settled Home observation')
         with self.lock:
+            if self.context == context and self.model_runtime and (self.model_id != model_id or self.selection != selection):
+                raise ValueError('This lease already belongs to another controller model')
             if payload['operation'] == 'status':
                 if self.context != context:
                     raise ValueError('Dream has not started for this lease')
@@ -136,9 +163,11 @@ class DreamControllerExecutor:
             prepared = self.prepared
             if (not prepared or tuple(prepared.get(k) for k in CONTEXT) != context
                     or not isinstance(prepared.get('task'), str) or not prepared['task'].strip()
-                    or prepared.get('provider') not in (None, '', 'dream')):
+                    or prepared.get('provider') not in (None, '', spec['provider'] if self.model_runtime else 'dream')):
                 raise ValueError('Dream requires the current session task')
             self.context = context
+            self.model_id = model_id
+            self.selection = selection if self.model_runtime else None
             self.cancelled = threading.Event()
             self.state = 'preparing'
             self.packets = self.waypoints = 0
@@ -184,22 +213,44 @@ class DreamControllerExecutor:
                 return
             if not self.pool.status()['ready']:
                 raise RuntimeError('Dream worker preparation failed')
-            native = self.native_factory(self.operator, **self.settings,
-                worker_factory=self.pool.factory, dispatch=self._dispatch)
+            if self.model_runtime:
+                native = self.model_runtime.native(self.operator, self.model_id,
+                    dispatch=self._dispatch, cameras=self.settings.get('cameras'),
+                    custom_endpoint=self.selection.get('custom_endpoint'), custom_model=self.selection.get('model'))
+            else:
+                native = self.native_factory(self.operator, **self.settings,
+                    worker_factory=self.pool.factory, dispatch=self._dispatch)
             native.adapter.interaction_sink = self._interaction
+            native.adapter.cancelled = self._cancelled
             with self.lock:
                 self.native = native
-            native.adapter.configure_run_duration(prepared.get('run_duration_s', 120))
+            duration = prepared.get('run_duration_s', 120)
+            configure = getattr(native.adapter, 'configure_run_duration', None)
+            if callable(configure):
+                configure(duration)
+            # Retain each adapter's own preparation and checkpoint/CUDA checks.
+            prepare = getattr(native.adapter, 'prepare_before_session', None)
+            if callable(prepare):
+                prepare(prepared['task'])
+            elif callable(getattr(native.adapter, 'start_preparation', None)):
+                native.adapter.start_preparation(self._cancelled)
+                native.adapter.wait_ready(self._cancelled)
             while not self._cancelled():
                 with self.operator.lock:
-                    budget_reached = self.operator.api_last_step + 1 >= native.adapter._max_commands
+                    budget_reached = self.operator.api_last_step + 1 >= getattr(native.adapter,
+                        '_max_commands', command_budget(prepared.get('provider', ''), duration))
                 if budget_reached:
                     with self.lock:
                         self.state = 'completed'
                     return
                 with self.lock:
                     self.state = 'predicting'
-                points = native.predict(prepared['task'])
+                try:
+                    points = native.predict(prepared['task'])
+                except PolicyComplete:
+                    with self.lock:
+                        self.state = 'completed'
+                    return
                 if self._cancelled():
                     return
                 with self.lock:
@@ -373,7 +424,7 @@ def install(hardware, **settings):
             return observation
 
         def api_handle_execution(self, payload):
-            if payload.get('executor') == 'dream_one':
+            if payload.get('executor') == 'dream_one' or (settings.get('model_runtime') and payload.get('executor') == 'controller'):
                 return self.dream_executor.request(payload)
             if self.dream_executor.context == tuple(getattr(self, 'api_' + k) for k in CONTEXT):
                 raise ValueError('This lease belongs to Dream')
@@ -401,7 +452,11 @@ def install(hardware, **settings):
         def status(self):
             status = super().status()
             if hasattr(self, 'dream_executor'):
-                status['controller_executors'] = {'dream_one': self.dream_executor.status()}
+                executor = self.dream_executor
+                status['controller_executors'] = {'dream_one': executor.status()}
+                if executor.model_runtime:
+                    status['controller_executors']['controller'] = executor.status()
+                    status['controller_models'] = executor.model_runtime.catalog
             return status
 
         def stop(self):

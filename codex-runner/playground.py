@@ -170,6 +170,8 @@ class HostedRunner:
         if not self.policy_camera_names or not set(self.policy_camera_names).issubset(self.camera_names):
             raise ValueError("Policy cameras must be selected from the robot cameras")
         self.robot_id = robot_id
+        from remote_yam.controller_models import load_public_models
+        self.controller_models = load_public_models(os.environ.get('YAM_CONTROLLER_MODELS_FILE'), robot_id)
         from remote_yam.video_stream import video_stream
         self.video_stream = video_stream(robot_id)
         self.robots = robots if robots is not None else [
@@ -529,7 +531,7 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/run-assessments.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/controller-model-picker.js", "/static/run-assessments.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -687,6 +689,7 @@ class HostedRunner:
                                       "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "dream_providers": self.dream_providers if self.dream_worker_ready() else {},
+                                      "controller_models": self.controller_models,
                                       **await self.chat_setup(visitor),
                                       "api_depth": {"available": bool(self.api_depth_provider_factory and self.local_codex),
                                                     "enabled": self.use_api_depth},
@@ -1017,7 +1020,8 @@ class HostedRunner:
             from remote_yam.controller_executor import selected_executor
             try:
                 controller_provider = selected_executor(payload.get('executor'), provider=name,
-                    model=model, robot_id=self.robot_id)
+                    model=model, robot_id=self.robot_id, models=self.controller_models,
+                    model_id=payload.get('controller_model'), custom_endpoint=payload.get('custom_endpoint'))
             except ValueError as exc:
                 raise RequestError(400, str(exc)) from None
             fast_provider = name in ('openai', 'codex', 'anthropic', 'claude')
@@ -1039,6 +1043,8 @@ class HostedRunner:
             use_api_depth = payload.get("use_api_depth", self.use_api_depth if name == 'codex' else False)
             if type(use_api_depth) is not bool:
                 raise RequestError(400, "API depth must be true or false")
+            if controller_provider is not None and (use_api_depth or selected_prompt is not None):
+                raise RequestError(400, 'Controller execution uses its installed adapter and prompt contract')
             if use_api_depth and not (name == 'codex' and self.local_codex and self.api_depth_provider_factory):
                 raise RequestError(400, "API depth requires a configured local Astra runner")
             maximum_duration = 1200 if name in ('dream', 'dream_flash') else 600
@@ -1056,7 +1062,7 @@ class HostedRunner:
             if not isinstance(runner_name, str) or not 1 <= len(runner_name.strip()) <= 32 or any(ord(c) < 32 for c in runner_name):
                 raise RequestError(400, 'Enter a name of 1–32 characters')
             if name not in ({"local_raise_lower", "openai", "astra", "anthropic"} | ({"codex"} if self.local_codex else set())
-                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | ({'dream'} if controller_provider else set()):
+                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | ({controller_provider.provider_name} if controller_provider else set()):
                 raise RequestError(400, "Choose a supported provider")
             if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000:
                 raise RequestError(400, "Enter a task of up to 4,000 characters")
@@ -1080,7 +1086,7 @@ class HostedRunner:
             if self.joint_counts != (6,6) and name not in ({'openai'} | ({'codex'} if self.local_codex else set())
                     | ({'anthropic'} | ({'claude'} if self.local_claude else set()) if claude_supported else set())):
                 raise RequestError(400, 'This robot requires an OpenAI or supported local Codex runner')
-            if name in {'codex', 'claude'}:
+            if name in {'codex', 'claude'} and controller_provider is None:
                 from remote_yam.subscription_setup import verify_subscription
                 setup = verify_subscription(name, model)
                 visitor.subscription_prompts[name] = setup['setup_prompt']

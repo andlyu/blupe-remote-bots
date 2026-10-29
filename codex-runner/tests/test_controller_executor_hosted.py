@@ -10,6 +10,18 @@ class ExecutorHostedTests(unittest.IsolatedAsyncioTestCase):
     call = test_hosted.HostedTests.call
     session = test_hosted.HostedTests.session
 
+    async def test_registered_controller_model_catalog_and_picker_asset_are_served(self):
+        self.app.controller_models = {'custom': dict(provider='custom',model='custom',label='Your endpoint',
+            available=True,custom=True,user_endpoint=True)}
+        code,_,_ = await self.call('/static/controller-model-picker.js')
+        self.assertEqual(code,200)
+        browser = await self.session()
+        code,result,_ = await self.call('/api/run',method='POST',payload=dict(provider='custom',model='my/model',
+            prompt='Hold.',executor='controller',controller_model='custom',
+            custom_endpoint=dict(protocol='responses_v1',url='https://inference.example/v1/responses')),**browser)
+        self.assertEqual(code,200,result)
+        self.assertFalse(self.providers)
+
     async def test_omitted_and_null_executor_use_existing_factory_and_queue(self):
         for extra in ({}, {'executor': None}):
             browser = await self.session()

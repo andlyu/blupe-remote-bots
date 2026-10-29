@@ -711,6 +711,9 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   let claudeModel = 'claude-opus-5-5';
   let configuredProviders = {};
+  const controllerModels = $('executionLocation') && window.createControllerModelPicker?.($, () => {
+    providerChanged(); buttons(); applyModelName(lastLive);
+  });
   window.yamRunDuration = createProviderRunDuration($('runDuration'));
   let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
@@ -794,6 +797,10 @@ function createRunLaunchGuard() {
     $('runGroot').disabled = !csrf || ended || active || submitting;
     $('runAstra').disabled = $('runClaude').disabled = !csrf || ended || active || submitting;
     ['runDuration', 'runnerName', 'email', 'provider', 'model', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
+    ['executionLocation','controllerModel','controllerEndpoint','controllerEndpointModel'].forEach(id => {
+      if ($(id)) $(id).disabled = active || submitting || ended;
+    });
+    controllerModels?.sync();
     $('prompt').disabled = !csrf || ended || submitting || (active && !window.yamRuntimeSteering?.available);
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
@@ -814,7 +821,7 @@ function createRunLaunchGuard() {
   let savedKeyProviders = [];
   function runSetupNeeded() {
     return !$('runnerName').value.trim() ||
-      (['openai', 'astra', 'anthropic'].includes($('provider').value) && !$('providerFields').hidden &&
+      (!controllerModels?.selected() && ['openai', 'astra', 'anthropic'].includes($('provider').value) && !$('providerFields').hidden &&
        !savedKeyProviders.includes($('provider').value) && !$('apiKey').value.trim());
   }
   $('openCodexInstructions').onclick = () => {
@@ -1133,10 +1140,10 @@ function createRunLaunchGuard() {
     if (window.yamRuntimeSteering?.available) {await window.yamRuntimeSteering.submit();return;}
     if (active) return;
     if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
-    if($('provider').value === 'aspire' && !aspireRunAvailable) {message('ASPIRE is unavailable for this robot.',true);return;}
+    if(!controllerModels?.selected() && $('provider').value === 'aspire' && !aspireRunAvailable) {message('ASPIRE is unavailable for this robot.',true);return;}
     contactRequested = false;
     window.yamPolicyRoute?.(null);
-    const aspireRequest = aspireRunAvailable && $('provider').value === 'aspire';
+    const aspireRequest = !controllerModels?.selected() && aspireRunAvailable && $('provider').value === 'aspire';
     let launchVersion = null, payload;
     try {
     const provisional = {task:$('prompt').value,runner_name:$('runnerName').value.trim(),
@@ -1155,7 +1162,7 @@ function createRunLaunchGuard() {
     // Give the browser its first paint before potentially expensive hooks.
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if(launchVersion !== runLaunchGuard.version) return;
-    if (await window.yamApplication?.submit?.(applicationContext())) {
+    if (!controllerModels?.selected() && await window.yamApplication?.submit?.(applicationContext())) {
       if(launchVersion !== runLaunchGuard.version) return;
       runLaunchGuard.reset();window.yamAspireLineage?.reset();guideRunAttention({status:'idle'});
       submitting=false;buttons();
@@ -1173,6 +1180,10 @@ function createRunLaunchGuard() {
     if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('provider').value === 'aspire' ? 'high' : $('reasoningEffort').value;
     if (['gemini', 'guest_gemini'].includes(payload.provider)) payload.gemini_calling_mode = $('geminiCallingMode').value;
     if (['openai', 'codex', 'anthropic', 'claude'].includes(payload.provider)) payload.response_speed = $('provider').value === 'aspire' ? 'standard' : $('responseSpeed').value;
+    if (controllerModels?.selected()) {
+      for (const key of ['reasoning_effort','gemini_calling_mode','response_speed','system_prompt','system_prompt_preset','automatic_retry_limit']) delete payload[key];
+      Object.assign(payload, controllerModels.payload());
+    }
     $('subscriptionHelp').close();
     submitting = true; buttons(); if(!aspireRequest) message(['codex', 'claude'].includes(payload.provider) ? 'Checking your subscription connection…' : 'Joining the robot queue…');
     const state = await api('/api/run', payload);
@@ -1414,6 +1425,7 @@ function createRunLaunchGuard() {
   }
   let liveModelName = 'Astra', lastLive = null;
   function selectedModelName() {
+    if (controllerModels?.selected()) return controllerModels.label();
     const applicationName = window.yamApplication?.modelDisplayName?.();
     if (applicationName) return applicationName;
     const provider = $('provider').value;
@@ -2507,6 +2519,7 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      controllerModels?.configure(session.controller_models);
       window.yamReplayEmail.configure(session.replay_email, csrf);
       window.yamReactions?.reset(session.reaction_cursor);
       chatScope = session.chat_scope === 'public' ? 'Shared with everyone watching this robot' : 'Shared in this playground';
