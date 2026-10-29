@@ -233,4 +233,3 @@ Constructor: SentenceTransformer(model_name_or_path, revision=..., cache_folder=
             if hasattr(ht, "hpu") and hasattr(ht.hpu, "wrap_in_hpu_graph"):
                 ht.hpu.wrap_in_hpu_graph(self, disable_tensor_cache=True)
                 self.is_hpu_graph_enabled = True
-

@@ -186,4 +186,3 @@ def svd(a, full_matrices=True, compute_uv=True, hermitian=False):
             s = _umath_linalg.svd(a, signature=signature)
         s = s.astype(_realType(result_t), copy=False)
         return s
-
