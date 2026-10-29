@@ -303,8 +303,14 @@ class DreamControllerExecutor:
 def install(hardware, **settings):
     """Compose after the station's existing calibration and recovery wrappers."""
     class DreamOperator(hardware.base.OperatorSimulator):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+        def attach_api_client(self, client):
+            # Native main constructs the operator first, attaches its client,
+            # then starts HTTP/transport threads. Bind at that lifecycle hook.
+            if hasattr(self, 'dream_executor'):
+                if self.api_client is not client:
+                    raise ValueError('Dream operator API client cannot be replaced')
+                return
+            super().attach_api_client(client)
             self.dream_executor = DreamControllerExecutor(self, **settings)
 
         def api_prepare_session(self, payload):

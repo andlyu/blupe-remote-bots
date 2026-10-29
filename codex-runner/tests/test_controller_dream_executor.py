@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from remote_yam.controller_dream import NativeControllerDream
-from remote_yam.controller_dream_executor import DreamControllerExecutor
+from remote_yam.controller_dream_executor import DreamControllerExecutor, install
 from remote_yam.controller_executor import ROBOHOUSE
 
 
@@ -14,6 +14,7 @@ class Pool:
     def prime(self): pass
     def status(self): return {'ready': True}
     def factory(self, *args): raise AssertionError('No real SDK in unit tests')
+    def close(self): pass
 
 
 class Adapter:
@@ -186,3 +187,30 @@ def test_native_workspace_hold_requires_evidence_and_fresh_prediction():
     executor.request(request)
     assert finish(executor) == 'completed'
     assert adapters[0].failed == 1 and adapters[0].completed == 0
+
+
+def test_installed_operator_constructs_before_api_client_is_attached():
+    class ExistingOperator:
+        def __init__(self):
+            self.api_client = None
+        def attach_api_client(self, client):
+            self.api_client = client
+        def status(self):
+            return {'mode':'DISABLED'}
+        def stop(self):
+            return 'native stop'
+    hardware = SimpleNamespace(base=SimpleNamespace(OperatorSimulator=ExistingOperator),
+                               PhysicalOperator=ExistingOperator)
+    installed = install(hardware, robot_id=ROBOHOUSE, credentials='unused', python='unused',
+                        directory='unused', pool_factory=Pool)
+    operator = installed()
+    assert operator.api_client is None
+    assert 'controller_executors' not in operator.status()
+    client = SimpleNamespace(jetson_id=ROBOHOUSE, send=lambda payload: None)
+    operator.attach_api_client(client)
+    assert operator.dream_executor.preparation_done.wait(1)
+    executor = operator.dream_executor
+    assert operator.status()['controller_executors']['dream_one']['worker']['ready']
+    operator.attach_api_client(client)
+    assert operator.dream_executor is executor
+    assert operator.stop() == 'native stop'
