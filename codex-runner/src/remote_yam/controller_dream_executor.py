@@ -72,6 +72,7 @@ class DreamControllerExecutor:
         self.predictions = self.predicted_waypoints = 0
         self.trajectory = None
         self.failure = None
+        self.provider_failure = None
         self.owned_receipts = deque(maxlen=8192)
         self._send = operator.api_client.send
         operator.api_client.send = self.send
@@ -143,6 +144,7 @@ class DreamControllerExecutor:
             self.packets = self.waypoints = 0
             self.predictions = self.predicted_waypoints = 0
             self.failure = None
+            self.provider_failure = None
             self.thread = threading.Thread(target=self._run,
                 args=(deepcopy(prepared), payload['operation'] == 'predict'),
                 daemon=True, name='controller-dream')
@@ -159,6 +161,19 @@ class DreamControllerExecutor:
     def _cancelled(self):
         return self.cancelled.is_set() or not self._owns(self.context)
 
+    def _interaction(self, kind, message, **details):
+        if kind == 'model_failure':
+            # DreamWorker.error_response already sanitizes these status fields.
+            # Never retain its message, model payload, URLs or protocol locals.
+            diagnostic = {key: details.get(key) for key in ('code', 'reason', 'phase',
+                'protocol_category', 'http_status', 'cause_type', 'transport_stage')}
+            types = {'DreamError', 'DreamConfigError', 'DreamBadRequest', 'DreamObservationError',
+                'DreamActionError', 'DreamTimeout', 'DreamProtocolError', 'DreamServerError',
+                'DreamAuthError', 'DreamSessionExpired', 'RuntimeError', 'ValueError', 'TimeoutError'}
+            diagnostic['error_type'] = details.get('error_type') if details.get('error_type') in types else 'other'
+            with self.lock:
+                self.provider_failure = diagnostic
+
     def _run(self, prepared, predict_only):
         native = None
         try:
@@ -171,6 +186,7 @@ class DreamControllerExecutor:
                 raise RuntimeError('Dream worker preparation failed')
             native = self.native_factory(self.operator, **self.settings,
                 worker_factory=self.pool.factory, dispatch=self._dispatch)
+            native.adapter.interaction_sink = self._interaction
             with self.lock:
                 self.native = native
             native.adapter.configure_run_duration(prepared.get('run_duration_s', 120))
@@ -213,6 +229,8 @@ class DreamControllerExecutor:
                         native_status=result.get('status') if result.get('status') in
                             {'rejected', 'aborted', 'completed'} else None,
                         native_code=result.get('code') if result.get('code') in NATIVE_FAILURE_CODES else None)
+                    if self.provider_failure is not None:
+                        self.failure['provider'] = deepcopy(self.provider_failure)
                     self.state = 'failed'
                 # Native Stop is immediate even if the runner disconnects before
                 # polling this failure. Its normal notification closes the lease.

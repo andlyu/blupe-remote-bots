@@ -179,6 +179,24 @@ def test_native_rejection_retains_only_bounded_diagnostics(code, expected):
     assert not op.api_authorized
 
 
+def test_provider_refusal_survives_native_stop_without_raw_error_or_payload():
+    class Refused(Adapter):
+        def build_trajectory(self, *args):
+            self.interaction_sink('model_failure', 'private provider text',
+                error_type='DreamServerError', code='DA-2000', reason='rate_limited',
+                phase='predict', credentials='secret', payload={'private': 'image'})
+            raise RuntimeError('private SDK exception')
+    op, executor, request, submitted, sent, adapters = setup(adapter_factory=Refused)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    failure = executor.status()['failure']
+    assert failure['provider']['reason'] == 'rate_limited'
+    assert failure['provider']['error_type'] == 'DreamServerError'
+    assert 'private' not in str(failure) and 'secret' not in str(failure)
+    assert sent[-1]['details'] == failure
+    assert not op.api_authorized and not submitted
+
+
 def test_premature_final_observation_is_not_accepted_after_later_progress():
     def out_of_order(op, payload):
         context = {k:payload[k] for k in ('session_id','episode_id','lease_id','trajectory_id')}
