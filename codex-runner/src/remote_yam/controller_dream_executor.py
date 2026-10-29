@@ -35,6 +35,21 @@ NATIVE_FAILURE_CODES = {
 }
 
 
+def workspace_held(row):
+    result = row.get('result') or {}
+    details = result.get('details') or {}
+    points = row['payload']['waypoints']
+    last = points[-1]['step_id']
+    return (result.get('code') in {'left_tip_outside_workspace', 'right_tip_outside_workspace'}
+        and details.get('recoverable') is True and details.get('workspace_recovery') == 'held'
+        and details.get('hold') == 'measured_position' and details.get('next_step_id') == last + 1
+        and type(details.get('executed_waypoints')) is int
+        and details['executed_waypoints'] == row['progress']
+        and ((result.get('status') == 'rejected' and not row['accepted'] and row['progress'] == 0)
+             or (result.get('status') == 'aborted' and row['accepted']
+                 and result.get('step_id') == min(points[0]['step_id'] + row['progress'], last))))
+
+
 class DreamControllerExecutor:
     def __init__(self, operator, *, robot_id, credentials, python, directory,
                  pool_factory=DreamWorkerPool, native_factory=NativeControllerDream,
@@ -237,8 +252,8 @@ class DreamControllerExecutor:
             kind = payload.get('type')
             if same and kind == 'observation':
                 if payload.get('step_id') == row['payload']['waypoints'][-1]['step_id'] + 1:
-                    if (not row['accepted'] or row['progress'] != len(row['payload']['waypoints'])
-                            or payload.get('settled') is not True):
+                    played = row['accepted'] and row['progress'] == len(row['payload']['waypoints'])
+                    if (not (played or workspace_held(row)) or payload.get('settled') is not True):
                         row['error'] = True
                     row['observation'] = deepcopy(payload)
             if (same and kind in {'trajectory_progress', 'trajectory_result'}
@@ -307,14 +322,7 @@ class DreamControllerExecutor:
                         native.trajectory_completed(obs, count)
                     return count
                 code = result.get('code')
-                held = (code in {'left_tip_outside_workspace', 'right_tip_outside_workspace'}
-                    and details.get('workspace_recovery') == 'held' and details.get('hold') == 'measured_position'
-                    and details.get('next_step_id') == last + 1
-                    and type(details.get('executed_waypoints')) is int
-                    and details['executed_waypoints'] == row['progress']
-                    and ((result.get('status') == 'rejected' and not row['accepted'] and row['progress'] == 0)
-                         or (result.get('status') == 'aborted' and row['accepted']
-                             and result.get('step_id') == min(points[0]['step_id'] + row['progress'], last))))
+                held = workspace_held(row)
                 settling = (code == 'joint_settle_timeout' and result.get('status') == 'aborted'
                     and row['accepted'] and row['progress'] == count and result.get('step_id') == last)
                 if details.get('recoverable') is True and (held or settling):

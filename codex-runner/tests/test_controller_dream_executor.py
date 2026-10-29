@@ -199,11 +199,32 @@ def test_native_workspace_hold_requires_evidence_and_fresh_prediction():
         op.api_last_step = payload['waypoints'][-1]['step_id']
         return [dict(payload, type='trajectory_result', status='rejected',
             code='left_tip_outside_workspace', details=dict(recoverable=True,
-                workspace_recovery='held', hold='measured_position', next_step_id=1, executed_waypoints=0))]
+                workspace_recovery='held', hold='measured_position', next_step_id=1, executed_waypoints=0)),
+            dict({k:payload[k] for k in ('session_id', 'episode_id', 'lease_id')},
+                 type='observation', step_id=1, settled=True,
+                 left_joints_deg=[0.]*6, right_joints_deg=[0.]*6)]
     op, executor, request, submitted, sent, adapters = setup(native_handler=held)
     executor.request(request)
     assert finish(executor) == 'completed'
     assert adapters[0].failed == 1 and adapters[0].completed == 0
+
+
+@pytest.mark.parametrize('change', [dict(recoverable=False), dict(next_step_id=2),
+                                  dict(executed_waypoints=1), dict(hold='unverified')])
+def test_workspace_observation_cannot_excuse_unverified_hold(change):
+    def held(op, payload):
+        details = dict(recoverable=True, workspace_recovery='held', hold='measured_position',
+                       next_step_id=1, executed_waypoints=0)
+        details.update(change)
+        return [dict(payload, type='trajectory_result', status='rejected',
+                     code='left_tip_outside_workspace', details=details),
+                dict({k:payload[k] for k in ('session_id', 'episode_id', 'lease_id')},
+                     type='observation', step_id=1, settled=True)]
+    op, executor, request, submitted, sent, adapters = setup(native_handler=held)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    assert not op.api_authorized
+    assert adapters[0].failed == adapters[0].completed == 0
 
 
 def test_installed_operator_constructs_before_api_client_is_attached():
