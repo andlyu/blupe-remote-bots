@@ -48,11 +48,10 @@ class LoopbackControllerInputs:
         with self.opener.open(Request(self.operator_origin + '/api/status', method='GET'), timeout=2) as response:
             status = json.load(response)
         ended_at = time.time()
-        if (status.get('backend') != 'physical_i2rt' or status.get('mode') not in {'READY', 'STOPPED'}
-                or status.get('feedback_available') is not True or status.get('adapter_fault')
-                or status.get('api', {}).get('session_id') is not None
-                or status.get('auto_queue', {}).get('running') is not False):
-            raise RuntimeError('Live probe requires initialized idle physical feedback')
+        if (status.get('backend') != 'physical_i2rt'
+                or status.get('mode') not in {'READY', 'STOPPED', 'API_ACTIVE'}
+                or status.get('feedback_available') is not True or status.get('adapter_fault')):
+            raise RuntimeError('Live probe requires initialized physical feedback')
         identity = status.get('robot_id') or (status.get('dataset') or {}).get('robot_id')
         if identity != self.robot_id:
             raise ValueError('Controller robot identity is unavailable or changed')
@@ -71,7 +70,8 @@ class LoopbackControllerInputs:
                     for role, device in self.cameras.items()})
         state_input(observation, '')
         self.last_read = dict(source='native_status_snapshot', duration_s=elapsed,
-                              bracket_started_at=started_at, bracket_ended_at=ended_at)
+            bracket_started_at=started_at, bracket_ended_at=ended_at,
+            controller_mode=status['mode'], existing_session_present=bool(status.get('api', {}).get('session_id')))
         return observation
 
 

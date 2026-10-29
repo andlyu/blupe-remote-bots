@@ -62,7 +62,7 @@ def main():
             if command == 'predict':
                 if receipt['predictions']:
                     raise RuntimeError('One-prediction budget exhausted')
-                inputs()  # Confirm native state is still initialized and idle.
+                inputs()  # Confirm native state is still initialized and fresh.
                 receipt['predictions'] += 1
             started = time.monotonic()
             reply = super().call(command, **kwargs)
@@ -92,7 +92,7 @@ def main():
             waypoint_count=len(points), probe=adapter.last_probe, state_read=inputs.last_read)
     except Exception as error:
         receipt.update(result='failed', error_type=type(error).__name__)
-        if str(error) in {'Live probe requires initialized idle physical feedback',
+        if str(error) in {'Live probe requires initialized physical feedback',
                           'Controller measured joints are unavailable',
                           'Controller robot identity is unavailable or changed',
                           'One-prediction budget exhausted'}:

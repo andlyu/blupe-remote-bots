@@ -23,9 +23,11 @@ The existing runner instance and Session API route continue independently.
 
 `tools/probe_controller_dream.py` runs on the controller host and exposes no
 command transport. It reads only the existing loopback physical operator status
-and camera relay. The status endpoint reads a fresh native snapshot in READY or
-STOPPED; the probe rejects DISABLED display-cache joints, absent grippers, another
-robot identity and an active session. Its observation time is the conservative
+and camera relay. The deployed status endpoint reads a fresh native snapshot in
+physical STOPPED/EXECUTING states, including operator mode API_ACTIVE. The probe
+accepts active-session telemetry without changing its queue or ownership. It
+rejects DISABLED display-cache joints, absent grippers, faults and another robot
+identity. Its observation time is the conservative
 start of the HTTP snapshot bracket, explicitly recorded as such.
 
 Prepare the pinned SDK in a separate Python 3.12 environment using

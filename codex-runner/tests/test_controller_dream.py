@@ -10,7 +10,7 @@ from remote_yam.controller_dream import LoopbackControllerInputs, NativeControll
 
 def status():
     return dict(backend='physical_i2rt', mode='READY', feedback_available=True,
-        api={'session_id': None}, auto_queue={'running': False},
+        api={'session_id': None}, auto_queue={'enabled': False, 'running': False},
         dataset={'robot_id': 'robohouse'}, joints=[.1]*12, left_gripper=.3, right_gripper=.7)
 
 
@@ -34,15 +34,25 @@ def test_local_measured_units_and_camera_aliases():
 
 
 @pytest.mark.parametrize('changes', [
-    {'mode': 'DISABLED'}, {'mode': 'API_ACTIVE'}, {'feedback_available': False},
-    {'api': {'session_id': 'other'}}, {'auto_queue': {'running': True}},
+    {'mode': 'DISABLED'}, {'mode': 'FAULT'}, {'mode': 'STOPPING'}, {'feedback_available': False},
     {'dataset': {'robot_id': 'yam-1'}}, {'left_gripper': None}, {'joints': [0]*11},
     {'adapter_fault': 'fault'}, {'backend': 'simulated'},
 ])
-def test_display_cache_and_busy_or_wrong_robot_never_become_model_state(changes):
+def test_display_cache_fault_or_wrong_robot_never_become_model_state(changes):
     value = status(); value.update(changes)
     with pytest.raises((ValueError, RuntimeError)):
         source(value)()
+
+
+def test_active_session_telemetry_is_read_without_queue_or_ownership_changes():
+    value = status()
+    value.update(mode='API_ACTIVE', api={'session_id': 'existing'},
+                 auto_queue={'enabled': True, 'running': True})
+    inputs = source(value)
+    assert inputs()['left_gripper'] == .3
+    assert inputs.last_read['existing_session_present'] is True
+    assert value['api']['session_id'] == 'existing'
+    assert value['auto_queue'] == {'enabled': True, 'running': True}
 
 
 def test_nonlocal_inputs_rejected_before_connection():
