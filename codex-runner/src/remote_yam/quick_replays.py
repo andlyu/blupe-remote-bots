@@ -30,7 +30,9 @@ class QuickReplays:
             # Installation verifies the hash before atomic publication. Immutable
             # names avoid returning mixed metadata or changing a playing video.
             from remote_yam.past_runs import run_result
+            from remote_yam.run_history import recorded_model
             return dict(episode_id=eid,episode_index=None,robot_id=meta['robot_id'],
+                model=recorded_model(meta.get('model')), model_version=recorded_model(meta.get('model_version')),
                 started_at=meta.get('started_at'),prompt=meta.get('task') or 'Task unavailable',
                 **run_result(meta),video_url=f'/api/quick-replays/{eid}/{digest}.mp4',
                 original_video_url=f'https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/videos/{eid}.mp4',

@@ -28,9 +28,9 @@ test('legacy four-view exports retain their existing canvas arrangement', () => 
   assert.deepEqual(draws[1].slice(1), [0,444,640,324,0,495,314,159]);
 });
 
-test('both modal and card pass the saved layout through', () => {
+test('shared replay preserves saved layout and metadata table does not preload recordings', () => {
   assert.match(source, /yamRecordingView\?\.\(player, run.camera_order, run.video_layout\)/);
-  assert.match(source, /yamRecordingView\?\.\(video, run.camera_order, run.video_layout\)/);
+  assert.doesNotMatch(source, /video.preload = 'metadata'/);
 });
 
 test('cached metadata does not recrop the new renderer geometry', () => {

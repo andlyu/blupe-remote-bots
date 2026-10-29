@@ -117,6 +117,7 @@ class Visitor:
     subscription_prompts: dict[str, str] = field(default_factory=dict)
     visitor_chat: object | None = field(default=None, repr=False)
     retired: bool = False
+    assessment_session: str = field(default_factory=lambda: secrets.token_urlsafe(32), repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def close(self):
@@ -268,6 +269,10 @@ class HostedRunner:
         from remote_yam.past_runs import RunNames
         self.run_names = RunNames(os.environ.get('YAM_RUN_NAMES_DATABASE', ROOT / 'data/run-names.sqlite3'))
         self.submission_log = SubmissionLog(os.environ.get("YAM_SUBMISSION_DATABASE", ROOT / "data/queue-submissions.sqlite3"))
+        from remote_yam.run_assessments import RunAssessments
+        from remote_yam.task_cloud import TaskCloud
+        self.run_assessments = RunAssessments(os.environ.get('YAM_ASSESSMENT_DATABASE', ROOT / 'data/run-assessments.sqlite3'))
+        self.task_cloud = TaskCloud(os.environ.get('YAM_TASK_CLOUD_DATABASE', ROOT / 'data/task-cloud.sqlite3'))
         self.remembered_names = set()
 
     async def public_extension(self, scope, receive, send, headers):
@@ -323,6 +328,22 @@ class HostedRunner:
             except (OSError, sqlite3.Error):
                 return
             self.remembered_names.add(eid)
+
+    def assessment_user(self, visitor):
+        """Hosting hook: return an existing recorded account ID, never request identity.
+
+        Applications may set recorded_user_id after their existing authentication.
+        It is never read from assessment request JSON or sent to public clients.
+        """
+        return getattr(visitor, 'recorded_user_id', None)
+
+    def remember_assessment_owner(self, visitor):
+        """Run in maintenance/read paths; never add overlay I/O before Stop."""
+        state = visitor.controller.status()
+        eid = state.get('episode_id')
+        if eid and visitor.runner_session_id and state.get('session_id') == visitor.runner_session_id:
+            self.run_assessments.register(eid, visitor.assessment_session, self.assessment_user(visitor),
+                ended=state.get('status') not in ACTIVE | {'idle'})
 
     def new_visitor(self):
         if len(self.visitors) >= self.max_sessions:
@@ -386,6 +407,7 @@ class HostedRunner:
             for visitor in list(self.visitors.values()):
                 with suppress(Exception):
                     await asyncio.to_thread(self.remember_runner, visitor)
+                    await asyncio.to_thread(self.remember_assessment_owner, visitor)
             now = time.monotonic()
             expired = [key for key, item in self.visitors.items()
                        if now - item.touched > self.idle_seconds or now - item.born > self.lifetime_seconds]
@@ -481,10 +503,59 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/run-assessments.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
+            return
+        if method == 'GET' and path == '/api/run-catalog':
+            from remote_yam.run_assessments import RunAssessments, score_models
+            from remote_yam.run_search import rank_runs, MAX_QUERY_LENGTH
+            from remote_yam.task_cloud import task_key
+            try:
+                query = parse_qs(scope.get('query_string', b'').decode())
+                offset = int(query.get('offset', ['0'])[0])
+                search = query.get('q', [''])[0].strip()
+                models = query.get('model', [])
+                view = query.get('view', ['table'])[0]
+                if not 0 <= offset <= 1000000 or len(search) > MAX_QUERY_LENGTH or view not in {'table', 'cloud'}:
+                    raise ValueError('Invalid catalog query')
+                if len(models) > 100 or any(len(m) > 128 or any(ord(c) < 32 for c in m) for m in models):
+                    raise ValueError('Invalid model filter')
+            except (ValueError, UnicodeError) as exc:
+                raise RequestError(400, str(exc) or 'Invalid catalog query') from None
+            try:
+                # Index all known tasks together, regardless of request filters.
+                catalog = await asyncio.to_thread(self.past_runs.page, metadata=True)
+                overlay = await asyncio.to_thread(self.run_assessments.summaries)
+                all_rows = catalog['runs']
+                rows = [dict(r, assessment=overlay.get(r['episode_id'], RunAssessments.summary()))
+                        for r in all_rows if (not query.get('robot_id') or r['robot_id'] == query['robot_id'][0])]
+                choices = sorted({r.get('model') or '__unrecorded__' for r in rows}, key=str.casefold)
+                if models:
+                    rows = [r for r in rows if (r.get('model') or '__unrecorded__') in models]
+                score_groups = rows + [{'model': model} for model in models
+                    if not any((r.get('model') or '__unrecorded__') == model for r in rows)]
+                if search:
+                    rows = rank_runs(rows, search)
+                scores = score_models(rows, groups=score_groups)
+                cloud = None
+                if view == 'cloud':
+                    await asyncio.to_thread(self.task_cloud.schedule, all_rows)
+                    cloud = await asyncio.to_thread(self.task_cloud.snapshot, all_rows)
+                    coordinates = cloud.pop('coordinates')
+                    for r in rows:
+                        r['task_id'] = task_key(r['prompt'])
+                        r['xyz'] = coordinates.get(r['task_id'])
+                limit = 10000 if view == 'cloud' else 100
+                selected = rows[:limit] if view == 'cloud' else rows[offset:offset+limit]
+                result = {'runs': selected, 'models': choices, 'scores': scores, 'total': len(rows),
+                          'next_offset': offset+len(selected) if view == 'table' and offset+len(selected) < len(rows) else None,
+                          'stale': catalog.get('stale', False), 'cloud': cloud,
+                          'display_limit': limit, 'sampled': view == 'cloud' and len(rows) > limit}
+            except Exception:
+                raise RequestError(503, 'Run catalog is unavailable. Select Refresh to retry.') from None
+            await self.json(send, 200, result)
             return
         if method == 'GET' and path == '/api/run-comparisons':
             runs = await asyncio.to_thread(self.run_names.comparisons, self.robot_id)
@@ -524,7 +595,9 @@ class HostedRunner:
                 names = await asyncio.to_thread(self.run_names.names)
                 outcomes = await asyncio.to_thread(self.run_names.results)
                 replay_speeds = await asyncio.to_thread(self.run_names.replay_speeds)
+                assessments = await asyncio.to_thread(self.run_assessments.summaries)
                 for row in result['runs']:
+                    row['assessment'] = assessments.get(row['episode_id'], self.run_assessments.summary())
                     row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
                     if row['episode_id'] in replay_speeds:
                         row['replay_speed'] = replay_speeds[row['episode_id']]
@@ -591,7 +664,31 @@ class HostedRunner:
             payload = await self.body(receive)
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
-            if path == "/api/my-runs":
+            if path == '/api/run-assessment':
+                from remote_yam.run_assessments import AssessmentConflict
+                eid, operation = payload.get('episode_id'), payload.get('operation', 'read')
+                if not isinstance(eid, str) or not re.fullmatch(r'ep_[A-Za-z0-9_-]{1,100}', eid):
+                    raise RequestError(400, 'Invalid episode ID')
+                try:
+                    await asyncio.to_thread(self.remember_runner, visitor)
+                    await asyncio.to_thread(self.remember_assessment_owner, visitor)
+                    if operation == 'assess':
+                        await asyncio.to_thread(self.run_assessments.assess, eid, payload.get('label'),
+                            payload.get('revision'), visitor.assessment_session, self.assessment_user(visitor))
+                    elif operation == 'vote':
+                        await asyncio.to_thread(self.run_assessments.vote, eid, payload.get('revision'),
+                            payload.get('vote'), visitor.assessment_session)
+                    elif operation != 'read':
+                        raise ValueError('Unknown assessment operation')
+                    result = await asyncio.to_thread(self.run_assessments.detail, eid,
+                        visitor.assessment_session, self.assessment_user(visitor))
+                except PermissionError as exc:
+                    raise RequestError(403, str(exc)) from None
+                except AssessmentConflict as exc:
+                    raise RequestError(409, str(exc)) from None
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
+            elif path == "/api/my-runs":
                 try:
                     if 'email' in payload or 'episode_ids' in payload:
                         raise ValueError('Run history is limited to your current session')
@@ -607,8 +704,10 @@ class HostedRunner:
                     names = await asyncio.to_thread(self.run_names.names)
                     outcomes = await asyncio.to_thread(self.run_names.results)
                     replay_speeds = await asyncio.to_thread(self.run_names.replay_speeds)
+                    assessments = await asyncio.to_thread(self.run_assessments.summaries)
                     from remote_yam.past_runs import merge_run_result
                     for row in result['runs']:
+                        row['assessment'] = assessments.get(row['episode_id'], self.run_assessments.summary())
                         row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
                         if row['episode_id'] in replay_speeds:
                             row['replay_speed'] = replay_speeds[row['episode_id']]

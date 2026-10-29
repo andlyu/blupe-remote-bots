@@ -1,0 +1,236 @@
+Source: https://raw.githubusercontent.com/huggingface/sentence-transformers/v5.1.2/sentence_transformers/SentenceTransformer.py
+Fetched: 2026-10-28 (Los Angeles)
+
+Constructor: SentenceTransformer(model_name_or_path, revision=..., cache_folder=..., token=False, trust_remote_code=False, device="cpu")
+
+    def encode(
+        self,
+        sentences: str | list[str] | np.ndarray,
+        prompt_name: str | None = ...,
+        prompt: str | None = ...,
+        batch_size: int = ...,
+        show_progress_bar: bool | None = ...,
+        output_value: Literal["sentence_embedding"] = ...,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = ...,
+        convert_to_numpy: Literal[True] = ...,
+        convert_to_tensor: Literal[False] = ...,
+        device: str | list[str | torch.device] | None = ...,
+        normalize_embeddings: bool = ...,
+        truncate_dim: int | None = ...,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = ...,
+        chunk_size: int | None = ...,
+        **kwargs,
+    ) -> np.ndarray: ...
+
+    # Return a single tensor, because convert_to_tensor is True
+    # and "sentence_embeddings" is passed
+    @overload
+    def encode(
+        self,
+        sentences: str | list[str] | np.ndarray,
+        prompt_name: str | None = ...,
+        prompt: str | None = ...,
+        batch_size: int = ...,
+        show_progress_bar: bool | None = ...,
+        output_value: Literal["sentence_embedding"] = ...,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = ...,
+        convert_to_numpy: bool = ...,
+        convert_to_tensor: Literal[True] = ...,
+        device: str | list[str | torch.device] | None = ...,
+        normalize_embeddings: bool = ...,
+        truncate_dim: int | None = ...,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = ...,
+        chunk_size: int | None = ...,
+        **kwargs,
+    ) -> Tensor: ...
+
+    # Return a list of tensors. Value of convert_ doesn't matter.
+    @overload
+    def encode(
+        self,
+        sentences: list[str] | np.ndarray,
+        prompt_name: str | None = ...,
+        prompt: str | None = ...,
+        batch_size: int = ...,
+        show_progress_bar: bool | None = ...,
+        output_value: Literal["sentence_embedding", "token_embeddings"] = ...,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = ...,
+        convert_to_numpy: bool = ...,
+        convert_to_tensor: bool = ...,
+        device: str | list[str | torch.device] | None = ...,
+        normalize_embeddings: bool = ...,
+        truncate_dim: int | None = ...,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = ...,
+        chunk_size: int | None = ...,
+        **kwargs,
+    ) -> list[Tensor]: ...
+
+    # Return a list of dict of features, ignore the conversion args.
+    @overload
+    def encode(
+        self,
+        sentences: list[str] | np.ndarray,
+        prompt_name: str | None = ...,
+        prompt: str | None = ...,
+        batch_size: int = ...,
+        show_progress_bar: bool | None = ...,
+        output_value: None = ...,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = ...,
+        convert_to_numpy: bool = ...,
+        convert_to_tensor: bool = ...,
+        device: str | list[str | torch.device] | None = ...,
+        normalize_embeddings: bool = ...,
+        truncate_dim: int | None = ...,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = ...,
+        chunk_size: int | None = ...,
+        **kwargs,
+    ) -> list[dict[str, Tensor]]: ...
+
+    # Return a dict of features, ignore the conversion args.
+    @overload
+    def encode(
+        self,
+        sentences: str,
+        prompt_name: str | None = ...,
+        prompt: str | None = ...,
+        batch_size: int = ...,
+        show_progress_bar: bool | None = ...,
+        output_value: None = ...,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = ...,
+        convert_to_numpy: bool = ...,
+        convert_to_tensor: bool = ...,
+        device: str | list[str | torch.device] | None = ...,
+        normalize_embeddings: bool = ...,
+        truncate_dim: int | None = ...,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = ...,
+        chunk_size: int | None = ...,
+        **kwargs,
+    ) -> dict[str, Tensor]: ...
+
+    # If "token_embeddings" is True, then the output is a single tensor.
+    @overload
+    def encode(
+        self,
+        sentences: str,
+        prompt_name: str | None = ...,
+        prompt: str | None = ...,
+        batch_size: int = ...,
+        show_progress_bar: bool | None = ...,
+        output_value: Literal["token_embeddings"] = ...,
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = ...,
+        convert_to_numpy: bool = ...,
+        convert_to_tensor: bool = ...,
+        device: str | list[str | torch.device] | None = ...,
+        normalize_embeddings: bool = ...,
+        truncate_dim: int | None = ...,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = ...,
+        chunk_size: int | None = ...,
+        **kwargs,
+    ) -> Tensor: ...
+
+    @torch.inference_mode()
+    def encode(
+        self,
+        sentences: str | list[str] | np.ndarray,
+        prompt_name: str | None = None,
+        prompt: str | None = None,
+        batch_size: int = 32,
+        show_progress_bar: bool | None = None,
+        output_value: Literal["sentence_embedding", "token_embeddings"] | None = "sentence_embedding",
+        precision: Literal["float32", "int8", "uint8", "binary", "ubinary"] = "float32",
+        convert_to_numpy: bool = True,
+        convert_to_tensor: bool = False,
+        device: str | list[str | torch.device] | None = None,
+        normalize_embeddings: bool = False,
+        truncate_dim: int | None = None,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = None,
+        chunk_size: int | None = None,
+        **kwargs,
+    ) -> list[Tensor] | np.ndarray | Tensor | dict[str, Tensor] | list[dict[str, Tensor]]:
+        """
+        Computes sentence embeddings.
+
+        .. tip::
+
+            If you are unsure whether you should use :meth:`encode`, :meth:`encode_query`, or :meth:`encode_document`,
+            your best bet is to use :meth:`encode_query` and :meth:`encode_document` for Information Retrieval tasks
+            with clear query and document/passage distinction, and use :meth:`encode` for all other tasks.
+
+            Note that :meth:`encode` is the most general method and can be used for any task, including Information
+            Retrieval, and that if the model was not trained with predefined prompts and/or task types, then all three
+            methods will return identical embeddings.
+
+        Args:
+            sentences (Union[str, List[str]]): The sentences to embed.
+            prompt_name (Optional[str], optional): The name of the prompt to use for encoding. Must be a key in the `prompts` dictionary,
+                which is either set in the constructor or loaded from the model configuration. For example if
+                ``prompt_name`` is "query" and the ``prompts`` is {"query": "query: ", ...}, then the sentence "What
+                is the capital of France?" will be encoded as "query: What is the capital of France?" because the sentence
+                is appended to the prompt. If ``prompt`` is also set, this argument is ignored. Defaults to None.
+            prompt (Optional[str], optional): The prompt to use for encoding. For example, if the prompt is "query: ", then the
+                sentence "What is the capital of France?" will be encoded as "query: What is the capital of France?"
+                because the sentence is appended to the prompt. If ``prompt`` is set, ``prompt_name`` is ignored. Defaults to None.
+            batch_size (int, optional): The batch size used for the computation. Defaults to 32.
+            show_progress_bar (bool, optional): Whether to output a progress bar when encode sentences. Defaults to None.
+            output_value (Optional[Literal["sentence_embedding", "token_embeddings"]], optional): The type of embeddings to return:
+                "sentence_embedding" to get sentence embeddings, "token_embeddings" to get wordpiece token embeddings, and `None`,
+                to get all output values. Defaults to "sentence_embedding".
+            precision (Literal["float32", "int8", "uint8", "binary", "ubinary"], optional): The precision to use for the embeddings.
+                Can be "float32", "int8", "uint8", "binary", or "ubinary". All non-float32 precisions are quantized embeddings.
+                Quantized embeddings are smaller in size and faster to compute, but may have a lower accuracy. They are useful for
+                reducing the size of the embeddings of a corpus for semantic search, among other tasks. Defaults to "float32".
+            convert_to_numpy (bool, optional): Whether the output should be a list of numpy vectors. If False, it is a list of PyTorch tensors.
+                Defaults to True.
+            convert_to_tensor (bool, optional): Whether the output should be one large tensor. Overwrites `convert_to_numpy`.
+                Defaults to False.
+            device (Union[str, List[str], None], optional): Device(s) to use for computation. Can be:
+
+                - A single device string (e.g., "cuda:0", "cpu") for single-process encoding
+                - A list of device strings (e.g., ["cuda:0", "cuda:1"], ["cpu", "cpu", "cpu", "cpu"]) to distribute
+                  encoding across multiple processes
+                - None to auto-detect available device for single-process encoding
+                If a list is provided, multi-process encoding will be used. Defaults to None.
+            normalize_embeddings (bool, optional): Whether to normalize returned vectors to have length 1. In that case,
+                the faster dot-product (util.dot_score) instead of cosine similarity can be used. Defaults to False.
+            truncate_dim (int, optional): The dimension to truncate sentence embeddings to.
+                Truncation is especially interesting for `Matryoshka models <https://sbert.net/examples/sentence_transformer/training/matryoshka/README.html>`_,
+                i.e. models that are trained to still produce useful embeddings even if the embedding dimension is reduced.
+                Truncated embeddings require less memory and are faster to perform retrieval with, but note that inference
+                is just as fast, and the embedding performance is worse than the full embeddings. If None, the ``truncate_dim``
+                from the model initialization is used. Defaults to None.
+            pool (Dict[Literal["input", "output", "processes"], Any], optional): A pool created by `start_multi_process_pool()`
+                for multi-process encoding. If provided, the encoding will be distributed across multiple processes.
+                This is recommended for large datasets and when multiple GPUs are available. Defaults to None.
+            chunk_size (int, optional): Size of chunks for multi-process encoding. Only used with multiprocessing, i.e. when
+                ``pool`` is not None or ``device`` is a list. If None, a sensible default is calculated. Defaults to None.
+
+        Returns:
+            Union[List[Tensor], ndarray, Tensor]: By default, a 2d numpy array with shape [num_inputs, output_dimension] is returned.
+            If only one string input is provided, then the output is a 1d array with shape [output_dimension]. If ``convert_to_tensor``,
+            a torch Tensor is returned instead. If ``self.truncate_dim <= output_dimension`` then output_dimension is ``self.truncate_dim``.
+
+        Example:
+            ::
+
+                from sentence_transformers import SentenceTransformer
+
+                # Load a pre-trained SentenceTransformer model
+                model = SentenceTransformer("all-mpnet-base-v2")
+
+                # Encode some texts
+                sentences = [
+                    "The weather is lovely today.",
+                    "It's so sunny outside!",
+                    "He drove to the stadium.",
+                ]
+                embeddings = model.encode(sentences)
+                print(embeddings.shape)
+                # (3, 768)
+        """
+        if self.device.type == "hpu" and not self.is_hpu_graph_enabled:
+            import habana_frameworks.torch as ht
+
+            if hasattr(ht, "hpu") and hasattr(ht.hpu, "wrap_in_hpu_graph"):
+                ht.hpu.wrap_in_hpu_graph(self, disable_tensor_cache=True)
+                self.is_hpu_graph_enabled = True
+

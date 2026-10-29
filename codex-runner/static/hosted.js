@@ -329,19 +329,14 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
-  let historyModel = '';
+  let historyModels = [], historyView = 'table', catalogRows = [], cloud = null, cloudTimer = null;
+  try { historyView = localStorage.getItem('yam-past-runs-view') === 'cloud' ? 'cloud' : 'table'; } catch (_) {}
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
   if ($('pastRunsQuery')) $('pastRunsQuery').value = historySearch;
   if ($('clearPastRunsSearch')) $('clearPastRunsSearch').hidden = !historySearch;
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
-  let preview = null;
-  const previewViews = [];
-  function stopPreview() {
-    if (preview) preview.pause();
-    preview = null;
-  }
   const speedButton = document.createElement('button');
   speedButton.id = 'pastRunSpeed'; speedButton.type = 'button'; speedButton.textContent = 'Live speed';
   $('pastRunDetails').after(speedButton);
@@ -355,21 +350,23 @@ function createRunLaunchGuard() {
     if (selectedRun) openRun(selectedRun, speedButton.dataset.live !== 'true');
   });
   function openRun(run, live = false) {
+    if (selectedRun?.episode_id === run.episode_id) run = {...selectedRun,...run};
     if (zeroSecondVideo(run.video_duration_s) || (live && run.original_available === false)) return;
     window.yamReplayReview?.ready();
-    stopPreview();
     $('pastRunTitle').textContent = `${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt;
     document.getElementById('aspirePastLineage')?.remove?.();
     const lineageBox = document.createElement('div'); lineageBox.id = 'aspirePastLineage';
     window.yamAspireLineage?.history(lineageBox, run); $('pastRunPrompt').after(lineageBox);
     selectedRun = run;
+    window.yamRunAssessment?.showReplay(run);
+    cloud?.select(run.episode_id);
     window.yamReplayEmail?.setRun(run);
     speedButton.hidden = run.original_available === false;
     speedButton.dataset.live = String(live);
     speedButton.textContent = live ? `${playbackSource(run, false).speed}× speed` : 'Live speed';
     const cameras = !live && run.camera_order.length === 1 ? 'Main camera · quick preview' : live ? 'Top, left and right cameras' : run.camera_order.includes('observer') ? 'Top, side, left and right cameras' : 'Three cameras · side view was not recorded';
-    $('pastRunDetails').textContent = (live ? 'Live speed · 1× · all pauses retained' : run.compressed ? `${playbackSource(run, false).speed}× speed · idle pauses removed` : `${playbackSource(run, false).speed}× playback · original recording, pauses retained`) + ' · ' + cameras + ' · ' + (run.result || 'Unknown') + ': ' + ((run.result === 'Failure' && run.errors) || run.result_reason || 'Result was not recorded');
+    $('pastRunDetails').textContent = `${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'} · ` + (live ? 'Live speed · 1× · all pauses retained' : run.compressed ? `${playbackSource(run, false).speed}× speed · idle pauses removed` : `${playbackSource(run, false).speed}× playback · original recording, pauses retained`) + ' · ' + cameras + ' · Machine ending: ' + (run.result || 'Unknown') + ': ' + ((run.result === 'Failure' && run.errors) || run.result_reason || 'Result was not recorded');
     $('pastRunError').textContent = '';
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
     renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
@@ -392,128 +389,121 @@ function createRunLaunchGuard() {
     if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close();
   }});
   player.addEventListener('error', () => { if (player.hasAttribute('src')) $('pastRunError').textContent = 'Video unavailable. Close this player and try again.'; });
+  const assessmentText = run => run.assessment?.label || 'Not completed';
+  function selectRun(run) {
+    selectedRun = run;
+    for (const row of $('pastRunsList').children) row.dataset.selected = String(row.dataset.episodeId === run.episode_id);
+    cloud?.select(run.episode_id);
+    window.yamReplayReview?.openEpisode(run.episode_id, run);
+  }
+  function matchText(run) {
+    const match = run.search_match;
+    if (!match) return '';
+    return [match.exact?.length ? 'Matches: '+match.exact.join(', ') : '',
+      match.related?.length ? 'Related: '+match.related.map(item => `${item.query} → ${item.match}`).join(', ') : '',
+      match.partial ? 'Partial task match — watch replay to verify' : 'Task prompt match — watch replay to verify'].filter(Boolean).join(' · ');
+  }
+  function renderRows(rows) {
+    for (const run of rows) {
+      const row = document.createElement('tr'); row.dataset.episodeId = run.episode_id;
+      row.dataset.selected = String(selectedRun?.episode_id === run.episode_id);
+      const task = document.createElement('td'), button = document.createElement('button');
+      button.type = 'button'; button.className = 'runTaskButton'; button.textContent = run.prompt;
+      button.setAttribute('aria-label', `Open run ${run.episode_index ?? run.episode_id}: ${run.prompt}`);
+      button.addEventListener('click', () => selectRun(run)); task.append(button);
+      const match = matchText(run);
+      if (match) { const note = document.createElement('p'); note.className = 'help runMatch'; note.textContent = match; task.append(note); }
+      row.append(task);
+      const a = run.assessment || {};
+      const cells = [
+        `${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'}`,
+        run.started_at ? new Date(run.started_at*1000).toLocaleString([], {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : 'Date unknown',
+        assessmentText(run), `${a.correct || 0} correct / ${a.incorrect || 0} incorrect`, a.eligibility || 'unlabeled'
+      ];
+      cells.forEach((value, index) => {
+        const cell = document.createElement('td'); cell.textContent = value;
+        if (index === 2) cell.dataset.assessment = a.label || 'unlabeled';
+        if (index === 4) cell.className = 'scoreEligibility';
+        row.append(cell);
+      });
+      $('pastRunsList').append(row);
+    }
+  }
+  function renderScores(scores) {
+    $('pastRunsScores').replaceChildren();
+    for (const score of scores || []) {
+      const line = document.createElement('p'), name = document.createElement('strong');
+      name.textContent = `${score.model === '__unrecorded__' ? 'Model not recorded' : score.model} · ${score.version === 'unknown' ? 'version unknown' : score.version}`;
+      const rate = score.denominator ? `${Math.round(score.rate*100)}% · ${score.successes}/${score.denominator} included successes` : 'No scored runs · 0/0';
+      line.append(name, document.createTextNode(` — ${rate} · ${score.unlabeled} unlabeled · ${score.excluded} excluded${score.provisional ? ` · ${score.provisional} provisional` : ''}`));
+      $('pastRunsScores').append(line);
+    }
+  }
+  function renderView() {
+    $('pastRunsTable').hidden = historyView !== 'table';
+    $('pastRunsCloud').hidden = historyView !== 'cloud';
+    $('pastRunsTableView').setAttribute('aria-pressed', String(historyView === 'table'));
+    $('pastRunsCloudView').setAttribute('aria-pressed', String(historyView === 'cloud'));
+    if (historyView === 'cloud') {
+      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun);
+      cloud?.setRuns(catalogRows, selectedRun?.episode_id);
+      for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
+    }
+  }
   async function load(reset = false) {
     if (loading || !historyRobot) return;
     const generation = historyGeneration;
     loading = true; $('morePastRuns').disabled = $('refreshPastRuns').disabled = true;
+    clearTimeout(cloudTimer);
     $('pastRunsStatus').textContent = 'Loading past runs…';
     try {
       const searchQuery = historySearch ? `&q=${encodeURIComponent(historySearch)}` : '';
-      const modelQuery = historyModel ? `&model=${encodeURIComponent(historyModel)}` : '';
-      const response = await fetch(`/api/past-runs?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
+      const modelQuery = historyModels.map(model => `&model=${encodeURIComponent(model)}`).join('');
+      const response = await fetch(`/api/run-catalog?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}&view=${historyView}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
       if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
       const data = await response.json();
       if (generation !== historyGeneration) return;
       if (Array.isArray(data.models) && $('pastRunsModel')) {
-        const choices = ['', ...data.models];
-        if (historyModel && !choices.includes(historyModel)) choices.push(historyModel);
+        const choices = ['', ...new Set([...data.models, ...historyModels])];
         $('pastRunsModel').replaceChildren(...choices.map(model => {
           const option = document.createElement('option'); option.value = model;
           option.textContent = model === '__unrecorded__' ? 'Model not recorded' : model || 'All models';
+          option.selected = model ? historyModels.includes(model) : !historyModels.length;
           return option;
         }));
-        $('pastRunsModel').value = historyModel;
+        $('pastRunsModelSummary').textContent = historyModels.length ? `Models: ${historyModels.join(', ')}` : 'Models: All models';
       }
-      if (reset) { stopPreview(); previewViews.splice(0).forEach(dispose => dispose()); $('pastRunsList').replaceChildren(); }
-      for (const run of data.runs) {
-        const li = document.createElement('li'), button = document.createElement('button');
-        button.type = 'button'; button.className = 'pastRunCard';
-        button.setAttribute('aria-label', `Watch run ${run.episode_index}: ${run.prompt}`);
-        const video = document.createElement('video');
-        video.preload = 'metadata'; video.muted = true; video.playsInline = true; video.loop = true;
-        function startPreview() {
-          if (dialog.open || zeroSecondVideo(run.video_duration_s) || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-          stopPreview();
-          preview = video;
-          video.defaultPlaybackRate = video.playbackRate = playbackSource(run, false).rate;
-          video.play().catch(() => {});
-        }
-        button.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') startPreview(); });
-        button.addEventListener('focus', () => { if (button.matches(':focus-visible')) startPreview(); });
-        button.addEventListener('blur', () => { if (preview === video) stopPreview(); });
-        button.addEventListener('pointerleave', () => { if (preview === video) stopPreview(); });
-        video.addEventListener('loadedmetadata', () => {
-          if (zeroSecondVideo(video.duration)) { showEmptyRun(); return; }
-          if (Number.isFinite(video.duration) && video.duration > .2) video.currentTime = Math.min(1, video.duration/2);
-        }, {once:true});
-        video.tabIndex = -1; video.setAttribute('aria-hidden', 'true');
-        const title = document.createElement('span'); title.className = 'pastRunLabel';
-        const robotName = {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods SO101', 'robot-abecb4cd868ab24b':'SO101'}[run.robot_id || 'yam-1'] || run.robot_id;
-        title.textContent = `${robotName} · ${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : '#'+run.episode_index} · ${new Date(run.started_at*1000).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
-        if (run.model) title.textContent += ` · ${run.model}`;
-        const prompt = document.createElement('span'); prompt.className = 'pastRunPrompt'; prompt.textContent = run.prompt;
-        const watch = document.createElement('span'); watch.className = 'pastRunWatch'; watch.textContent = '▶ Watch replay';
-        const outcome = document.createElement('span'); outcome.className = 'pastRunLabel';
-        outcome.textContent = run.result || 'Unknown';
-        outcome.dataset.result = run.result || 'Unknown';
-        const errors = document.createElement('span'); errors.className = 'pastRunLabel';
-        errors.textContent = 'Errors: ' + (run.errors || 'None recorded');
-        const ending = document.createElement('span'); ending.className = 'pastRunLabel';
-        ending.textContent = 'Ending reason: ' + (run.ending_reason || run.result_reason || 'Not recorded');
-        const reasonDetails = document.createElement('details');
-        const reasonSummary = document.createElement('summary');
-        reasonSummary.className = 'pastRunLabel';
-        outcome.style.display = 'inline';
-        outcome.style.padding = '0';
-        const reasonLabel = document.createElement('span');
-        reasonLabel.textContent = 'Show reason';
-        reasonLabel.style.marginLeft = '12px';
-        reasonLabel.style.textDecoration = 'underline';
-        reasonSummary.append(outcome, reasonLabel);
-        reasonSummary.style.cursor = 'pointer';
-        reasonDetails.append(reasonSummary, ending);
-        if (run.errors) reasonDetails.append(errors);
-        button.append(title, prompt, video, watch); button.addEventListener('click', () => openRun(run)); li.append(button); window.yamAspireLineage?.history(li, run);
-        if (run.search_match) {
-          const match = document.createElement('p'); match.className = 'pastRunMatch help';
-          const reasons = [];
-          if (run.search_match.exact.length) reasons.push('Matched: ' + run.search_match.exact.join(', '));
-          if (run.search_match.related.length) reasons.push('Related: ' + run.search_match.related.map(pair => `${pair.query} → ${pair.match}`).join(', '));
-          if (run.search_match.partial) reasons.push('Partial task match');
-          match.textContent = reasons.join(' · '); li.append(match);
-        }
-        const disposeView = window.yamRecordingView?.(video, run.camera_order, run.video_layout);
-        if (disposeView) previewViews.push(disposeView);
-        const liveButton = document.createElement('button');
-        liveButton.type = 'button';
-        liveButton.disabled = run.original_available === false;
-        liveButton.textContent = liveButton.disabled ? 'Live speed processing…' : 'Live speed';
-        liveButton.setAttribute('aria-label', `Watch run ${run.episode_index} at live speed with pauses`);
-        liveButton.addEventListener('click', () => openRun(run, true));
-        li.append(reasonDetails, liveButton);
-        $('pastRunsList').append(li);
-        function showEmptyRun() {
-          if (preview === video) stopPreview();
-          run.video_duration_s = 0;
-          liveButton.remove();
-          const card = document.createElement('div'); card.className = 'pastRunCard';
-          watch.textContent = 'Run lasted 0 time';
-          card.append(title, prompt, watch);
-          button.replaceWith(card);
-          video.removeAttribute('src'); video.load();
-        }
-        if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
-        else video.src = run.video_url;
-      }
+      if (reset) { $('pastRunsList').replaceChildren(); catalogRows = []; }
+      catalogRows.push(...data.runs);
+      if (historyView === 'table') renderRows(data.runs);
+      renderScores(data.scores);
+      renderView();
       next = data.next_offset;
-      $('morePastRuns').hidden = next === null;
-      const hasRuns = $('pastRunsList').children.length > 0;
-      const summary = historySearch
-        ? hasRuns ? `${data.total ?? $('pastRunsList').children.length} matching videos · closest task prompts first.` : 'No matching videos. Try an object, such as apple or cup, or a shorter task.'
-        : historyModel
-        ? hasRuns ? `${data.total ?? $('pastRunsList').children.length} runs · newest first.` : 'No published runs for this model. Choose another model or All models.'
-        : hasRuns ? '' : 'No published runs yet.';
+      $('morePastRuns').hidden = historyView === 'cloud' || next == null;
+      const hasRuns = data.total > 0;
+      let summary = historySearch
+        ? hasRuns ? `${data.total} matching videos · ${historyView === 'table' ? 'closest task prompts first.' : 'positions stay fixed.'}` : 'No matching videos. Try an object, such as apple or cup, or a shorter task.'
+        : hasRuns ? `${data.total} runs${historyView === 'table' ? ' · newest first.' : '.'}` : historyModels.length ? 'No published runs for these models. Choose another model or All models.' : 'No published runs yet.';
+      if (historyView === 'cloud') {
+        const drawn = data.runs.filter(run => run.xyz).length;
+        summary += ` ${drawn} mapped runs shown${data.sampled ? `; display limited to the newest ${data.display_limit}. Use Table to reach every run.` : '.'} Scores use all ${data.total} filtered runs.`;
+        if (data.cloud?.status !== 'ready') {
+          summary += data.cloud?.status === 'error' ? ' Semantic indexing unavailable; use Table. Retrying in one minute.' : ' Building semantic task coordinates in the background; use Table while it indexes.';
+          cloudTimer = setTimeout(() => load(true), data.cloud?.status === 'error' ? 60000 : 3000);
+        }
+        $('taskCloudVersion').textContent = data.cloud?.version ? `Map: ${data.cloud.version}` : 'Map is being prepared.';
+      }
       $('pastRunsStatus').textContent = summary + (data.stale ? ' Showing saved results; the archive is temporarily unavailable.' : '');
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
-  window.yamReplayHistory = {openRun, refresh: () => load(true)};
+  window.yamReplayHistory = {openRun, selectRun, refresh: () => load(true)};
   $('refreshPastRuns').addEventListener('click', () => load(true));
+  window.addEventListener('yam-assessment-changed', () => load(true));
   $('morePastRuns').addEventListener('click', () => load());
   function searchPastRuns(query) {
     historySearch = query.trim();
     historyGeneration++; loading = false; next = 0;
-    stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
     $('pastRunsList').replaceChildren(); $('morePastRuns').hidden = true;
     $('clearPastRunsSearch').hidden = !historySearch;
     load(true);
@@ -528,12 +518,24 @@ function createRunLaunchGuard() {
     if (!$('pastRunsQuery').value) searchPastRuns('');
   });
   $('pastRunsModel')?.addEventListener('change', () => {
-    historyModel = $('pastRunsModel').value;
+    const values = Array.from($('pastRunsModel').selectedOptions, option => option.value);
+    historyModels = values.includes('') && historyModels.length ? [] : values.filter(Boolean);
     searchPastRuns(historySearch);
   });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
+  for (const view of ['table', 'cloud']) $(view === 'table' ? 'pastRunsTableView' : 'pastRunsCloudView').addEventListener('click', () => {
+    if (historyView === view) return;
+    historyView = view;
+    try { localStorage.setItem('yam-past-runs-view', view); } catch (_) {}
+    historyGeneration++; loading = false; next = 0; renderView(); load(true);
+  });
+  $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
+  $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));
+  $('zoomTaskCloudOut').addEventListener('click', () => cloud?.zoom(1/1.2));
+  $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));
+  $('taskCloudNext').addEventListener('click', () => cloud?.step(1));
+  $('taskCloudOpen').addEventListener('click', () => cloud?.open());
+  renderView();
   window.addEventListener('blupe-robot-selected', event => {
-    stopPreview();
     historyRobot = event.detail; historyGeneration++; loading = false; next = 0;
     const selectedName = $('robotSelector')?.selectedOptions?.[0]?.textContent ||
       {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods Bimanual SO101', 'robot-abecb4cd868ab24b':'SO101'}[historyRobot] || historyRobot;
@@ -1551,6 +1553,7 @@ function createRunLaunchGuard() {
     }
     updateSavedKey(state.saved_key_providers);
     window.yamAnalytics?.observe(state);
+    window.yamRunAssessment?.observe(state, selectedRobot, csrf);
     window.yamReplayReview?.observe(state, selectedRobot, csrf);
     $('whatsRunning').textContent = state.whats_running?.length
       ? state.whats_running.map(run => `${run.runner_name || 'Anonymous'} · ${run.task || 'Task unavailable'}${run.status === 'preparing' ? ' (preparing)' : ''}`).join('\n')

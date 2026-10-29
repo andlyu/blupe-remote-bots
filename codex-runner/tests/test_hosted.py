@@ -94,6 +94,8 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
                                        provider_factory=provider_factory)
         from remote_yam.past_runs import RunNames
         self.app.run_names = RunNames(self.app.root/'names.sqlite3')
+        from remote_yam.run_assessments import RunAssessments
+        self.app.run_assessments = RunAssessments(self.app.root/'assessments.sqlite3')
 
     async def test_private_transport_is_attached_before_queue_and_closed_after_stop(self):
         _,visitor=self.app.new_visitor()

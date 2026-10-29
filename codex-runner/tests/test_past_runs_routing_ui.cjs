@@ -4,68 +4,21 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf8').split('\n})();')[0]+'\n})();';
-test('hover previews are muted, exclusive, and stop on exit, modal open, or robot switch', async () => {
-  const nodes = new Map(), listeners = {};
-  const element = () => ({
-    listeners:{}, children:[], dataset:{}, style:{}, open:false, plays:0, pauses:0,
-    addEventListener(name,fn){this.listeners[name]=fn}, after(){}, setAttribute(){}, removeAttribute(){},
-    append(...items){this.children.push(...items)}, appendChild(item){this.children.push(item)}, replaceChildren(){this.children=[]},
-    play(){this.plays++;return Promise.resolve()}, pause(){this.pauses++},
-    showModal(){this.open=true}, close(){this.open=false;this.listeners.close?.()}, load(){}
-  });
-  const document = {addEventListener(name,fn){listeners[name]=fn},
-    getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element};
-  const run = {episode_index:1, prompt:'Move block', camera_order:[], started_at:0,
-    video_url:'https://example.com/previews/run.mp4', compressed:true};
-  vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},URLSearchParams,encodeURIComponent,
-    fetch:async()=>({ok:true,json:async()=>({runs:[run,{...run,compressed:false},{...run,replay_speed:2,preview_speed:10}],next_offset:null})})});
-  listeners['blupe-robot-selected']({detail:'yam-1'});
-  await new Promise(setImmediate);
-  const cards = nodes.get('pastRunsList').children.map(li=>li.children[0]);
-  const [first,second] = cards.map(card=>card.children[2]);
-  cards[0].listeners.pointerenter({pointerType:'touch'});
-  assert.equal(first.plays,0);
-  cards[0].listeners.pointerenter({pointerType:'mouse'});
-  assert.equal(first.plays,1);assert.equal(first.muted,true);assert.equal(first.loop,true);assert.equal(first.playbackRate,1);
-  cards[1].listeners.pointerenter({pointerType:'mouse'});
-  assert.equal(first.pauses,1);assert.equal(second.playbackRate,10);
-  cards[1].listeners.pointerleave();assert.equal(second.pauses,1);
-  cards[2].listeners.pointerenter({pointerType:'mouse'});
-  const dream=cards[2].children.find(child=>child.preload==='metadata');
-  assert.equal(dream.playbackRate,.2);assert.equal(dream.src,run.video_url);
-  cards[0].listeners.pointerenter({pointerType:'mouse'});
-  cards[0].listeners.click();assert.equal(first.pauses,2);assert.equal(nodes.get('pastRunDialog').open,true);
-  cards[1].listeners.pointerenter({pointerType:'mouse'});assert.equal(second.plays,1);
-  nodes.get('pastRunDialog').close();
-  cards[0].listeners.pointerenter({pointerType:'mouse'});
-  document.hidden=true;listeners.visibilitychange();assert.equal(first.pauses,3);
-  document.hidden=false;cards[0].listeners.pointerenter({pointerType:'mouse'});
-  listeners['blupe-robot-selected']({detail:'so101'});assert.equal(first.pauses,4);
-  await new Promise(setImmediate);
-});
-test('history waits for robot selection and ignores a previous robot response', async () => {
-  const nodes = new Map(), listeners = {}, requests = [];
-  const element = () => ({style:{},appendChild(){},addEventListener(){},after(){},replaceChildren(){},removeAttribute(){},dataset:{},open:false});
-  const document = {addEventListener(){},getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement:element};
-  vm.runInNewContext(source, {document,window:{addEventListener(name,fn){listeners[name]=fn}},URLSearchParams,encodeURIComponent,
-    fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))}});
-  assert.equal(requests.length,0);
-  listeners['blupe-robot-selected']({detail:'robot-3652c537a175cbae'});
-  assert.match(requests[0].url,/robot_id=robot-3652c537a175cbae/);
-  assert.match(nodes.get('datasetViewer').src,/lerobot-visualize-dataset\.hf\.space\/andlyu\/Public-MakerMods-SO101-runs\/episode_0$/);
-  assert.match(nodes.get('datasetLink').href,/visualize_dataset\?path=.*Public-MakerMods-SO101-runs/);
-  assert.equal(requests[0].options.headers['X-Blupe-Robot'],'robot-3652c537a175cbae');
-  listeners['blupe-robot-selected']({detail:'so101'});
-  assert.match(requests[1].url,/offset=0&robot_id=so101/);
-  requests[0].resolve({ok:true,json:async()=>({runs:[],next_offset:12})});
-  await new Promise(setImmediate);
-  assert.equal(nodes.get('pastRunsStatus').textContent,'Loading past runs…');
-  assert.equal(nodes.get('refreshPastRuns').disabled,true);
-  requests[1].resolve({ok:true,json:async()=>({runs:[],next_offset:null})});
-  nodes.get('pastRunsList').children=[];
-  await new Promise(setImmediate);
-  assert.equal(nodes.get('pastRunsStatus').textContent,'No published runs yet.');
-  assert.equal(nodes.get('refreshPastRuns').disabled,false);
+test('Table loads lightweight metadata, waits for robot selection and ignores a previous robot response', async () => {
+  const c = require('./helpers/past-runs.cjs')();
+  assert.equal(c.requests.length,0);
+  c.events['blupe-robot-selected']({detail:'robot-3652c537a175cbae'});
+  assert.match(c.requests[0].url,/api\/run-catalog.*robot_id=robot-3652c537a175cbae/);
+  assert.match(c.nodes.get('datasetViewer').src,/Public-MakerMods-SO101-runs/);
+  c.events['blupe-robot-selected']({detail:'so101'});
+  c.answer(c.requests[0],[],100,101); await c.flush();
+  assert.equal(c.nodes.get('pastRunsStatus').textContent,'Loading past runs…');
+  const run={episode_id:'ep_one',prompt:'Move block',started_at:1,model:'M'};
+  c.answer(c.requests[1],[run]);await c.flush();
+  const row=c.nodes.get('pastRunsList').children[0];
+  assert.equal(row.tag,'tr');assert.equal(row.children.length,6);
+  assert.equal(row.children[0].children.length,1);
+  row.children[0].children[0].emit('click');assert.equal(c.opened[0].id,'ep_one');
 });
 
  test('robot switching uses browser history even with a local history function', async () => {
