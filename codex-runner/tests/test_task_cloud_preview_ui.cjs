@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 function setup(){
- const source=fs.readFileSync(path.join(__dirname,'../static/task-cloud.js'),'utf8'),loads=[],videos=[],layouts=[];
+ const source=fs.readFileSync(path.join(__dirname,'../static/task-cloud.js'),'utf8'),loads=[],videos=[],layouts=[],timers=new Map();let timerId=0;
  const make=()=>({children:[],events:{},plays:0,pauses:0,attributes:{},
   append(...nodes){this.children.push(...nodes)},replaceChildren(){this.children=[]},
   addEventListener(name,fn){this.events[name]=fn},emit(name){this.events[name]?.()},
@@ -9,7 +9,7 @@ function setup(){
  const media=make(),title={},status={},root={hidden:true,dataset:{},style:{},offsetWidth:260,offsetHeight:250,
   querySelector(selector){return selector.endsWith('Media')?media:selector.endsWith('Title')?title:status}};
  const window={},document={createElement(){const video=make();videos.push(video);return video}};
- vm.runInNewContext(source,{window,document,AbortController});
+ vm.runInNewContext(source,{window,document,AbortController,setTimeout(fn){timers.set(++timerId,fn);return timerId},clearTimeout(id){timers.delete(id)}});
  let allowed=true,reduced=false;
  const preview=window.yamTaskCloud.createPreview(root,{
   loadRun(run,signal){return new Promise((resolve,reject)=>loads.push({run,signal,resolve,reject}))},
@@ -17,7 +17,7 @@ function setup(){
   layout(video,roles,layout){const call={video,roles,layout,disposed:false};layouts.push(call);return()=>call.disposed=true},
   canPlay:()=>allowed,reducedMotion:()=>reduced});
  const point={x:980,y:530,width:1000,height:540};
- return{preview,root,media,title,status,videos,loads,layouts,point,allow:v=>allowed=v,reduce:v=>reduced=v,flush:()=>new Promise(setImmediate)};
+ return{preview,root,media,title,status,videos,loads,layouts,timers,point,allow:v=>allowed=v,reduce:v=>reduced=v,flush:()=>new Promise(setImmediate)};
 }
 const run=id=>({episode_id:id,prompt:'Task '+id});
 const detail=id=>({...run(id),video_url:'https://example.com/previews/'+id+'.mp4',camera_order:['observer','left','top','right'],video_layout:'observer-focus',compressed:true});
@@ -46,4 +46,14 @@ test('truthful unavailable, zero-duration, reduced-motion and media-error states
  assert.equal(c.videos[0].plays,0);assert.match(c.status.textContent,/reduced motion/);
  c.videos[0].emit('error');assert.match(c.status.textContent,/unavailable/);
  c.allow(false);await c.preview.show(run('ep_d'),c.point);assert.equal(c.loads.length,3);assert.equal(c.root.hidden,true);
+});
+test('native preparation polls lazily, plays only when ready, and cancels retries on exit',async()=>{
+ const c=setup();let showing=c.preview.show(run('ep_a'),c.point);
+ c.loads[0].resolve({...run('ep_a'),video_status:'processing'});await c.flush();
+ assert.equal(c.status.textContent,'Preparing recorded video…');assert.equal(c.videos.length,0);
+ [...c.timers.values()][0]();await c.flush();assert.equal(c.loads.length,2);
+ c.loads[1].resolve(detail('ep_a'));await showing;assert.equal(c.videos[0].plays,1);
+ showing=c.preview.show(run('ep_b'),c.point);c.loads[2].resolve({...run('ep_b'),video_status:'processing'});await c.flush();
+ c.preview.hide();await showing;assert.equal(c.root.hidden,true);assert.equal(c.loads[2].signal.aborted,true);
+ assert.equal(c.loads.length,3,'Cancelled native preparation cannot fetch or play a later recording');
 });

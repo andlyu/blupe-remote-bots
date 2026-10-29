@@ -413,6 +413,12 @@ def main() -> None:
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--no-share-conversation", action="store_true", help="Keep model conversation local instead of publishing it to the public playground")
     parser.add_argument("--legacy-ui", action="store_true", help="Use the older developer monitor instead of the shared playground UI")
+    parser.add_argument('--station-local', action='store_true', help='Private native station UI over loopback')
+    parser.add_argument('--recording-root', help='Durable station app state and local model logs')
+    parser.add_argument('--station-provider', choices=('openai','codex'), default='openai')
+    parser.add_argument('--station-api-key-file', help='Existing private station API-mode credential file')
+    parser.add_argument('--station-episodes-root', action='append', help='Read-only native EpisodeRecorder root; repeat for multiple roots')
+    parser.add_argument('--station-media-cache', help='App-owned native replay MP4 cache (defaults under recording-root)')
     parser.add_argument("--aspire-config", help="Station configuration for Codex-generated ASPIRE programs")
     control = parser.add_mutually_exclusive_group()
     control.add_argument("--allow-hardware-control", dest="allow_hardware_control", action="store_true", default=True, help="Allow command submission (the default); execution safety checks still apply")
@@ -421,6 +427,19 @@ def main() -> None:
     parser.add_argument("--check-provider", action="store_true", help="Test OpenAI model access without connecting to the robot")
     parser.add_argument("--check-provider-sim", action="store_true", help="Test two Astra API calls through the gateway and simulated motors")
     args = parser.parse_args()
+    if args.station_local:
+        if args.legacy_ui or args.aspire_config or not args.recording_root or not args.station_episodes_root:
+            parser.error('--station-local requires --recording-root and --station-episodes-root')
+        from station_playground import loopback_origin
+        try:
+            loopback_origin(args.session_api)
+            loopback_origin(args.camera_origin)
+        except ValueError as error:
+            parser.error(str(error))
+        if args.codex_login and args.station_provider != 'codex':
+            parser.error('Codex login requires --station-provider codex')
+        args.provider = args.station_provider
+        args.no_share_conversation = True
     if args.aspire_config:
         if args.legacy_ui:
             parser.error('--aspire-config uses the shared playground UI')
@@ -467,7 +486,10 @@ def main() -> None:
         print("OpenAI model gpt-6-astra responded successfully. No robot connection was made.")
         return
     if not args.legacy_ui:
-        from local_playground import serve
+        if args.station_local:
+            from station_playground import serve
+        else:
+            from local_playground import serve
         serve(args)
         return
     session_api = (

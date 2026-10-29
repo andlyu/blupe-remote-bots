@@ -418,11 +418,11 @@ function createRunLaunchGuard() {
         li.dataset.episodeId = run.episode_id;
         li.dataset.selected = String(selectedRun?.episode_id === run.episode_id);
         button.type = 'button'; button.className = 'pastRunCard';
-        button.setAttribute('aria-label', `Watch run ${run.episode_index}: ${run.prompt}`);
+        button.setAttribute('aria-label', `Watch run ${run.episode_index ?? run.episode_id}: ${run.prompt}`);
         const video = document.createElement('video');
         video.preload = 'metadata'; video.muted = true; video.playsInline = true; video.loop = true;
         function startPreview() {
-          if (dialog.open || zeroSecondVideo(run.video_duration_s) || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+          if (!run.video_url || dialog.open || zeroSecondVideo(run.video_duration_s) || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
           stopPreview();
           preview = video;
           video.defaultPlaybackRate = video.playbackRate = playbackSource(run, false).rate;
@@ -472,13 +472,17 @@ function createRunLaunchGuard() {
           if (run.search_match.partial) reasons.push('Partial task match');
           match.textContent = reasons.join(' · '); li.append(match);
         }
-        const disposeView = window.yamRecordingView?.(video, run.camera_order, run.video_layout);
-        if (disposeView) previewViews.push(disposeView);
+        let disposeView = window.yamRecordingView?.(video, run.camera_order, run.video_layout);
+        previewViews.push(() => disposeView?.());
         const liveButton = document.createElement('button');
         liveButton.type = 'button';
-        liveButton.disabled = run.original_available === false;
-        liveButton.textContent = liveButton.disabled ? 'Live speed processing…' : 'Live speed';
-        liveButton.setAttribute('aria-label', `Watch run ${run.episode_index} at live speed with pauses`);
+        function liveState() {
+          liveButton.disabled = run.original_available === false;
+          liveButton.textContent = !liveButton.disabled ? 'Live speed' : run.video_status === 'processing'
+            ? 'Live speed processing…' : 'Live speed unavailable';
+        }
+        liveState();
+        liveButton.setAttribute('aria-label', `Watch run ${run.episode_index ?? run.episode_id} at live speed with pauses`);
         liveButton.addEventListener('click', () => selectRun(run, true));
         const version = document.createElement('span'); version.className = 'pastRunLabel';
         version.textContent = 'Model version: ' + (run.model_version || 'unknown'); reasonDetails.append(version);
@@ -496,7 +500,35 @@ function createRunLaunchGuard() {
           video.removeAttribute('src'); video.load();
         }
         if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
-        else video.src = run.video_url;
+        else if (run.video_url) video.src = run.video_url;
+        else watch.textContent = run.video_status === 'processing' ? 'Preparing replay… · View run' : 'View run details';
+        if (run.video_status === 'processing') {
+          const request = new AbortController(); let timer;
+          previewViews.push(() => {clearTimeout(timer);request.abort();});
+          async function prepare() {
+            try {
+              if (document.hidden) return;
+              const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(run.robot_id)}`,
+                {signal:request.signal,cache:'no-store',headers:{'X-Blupe-Robot':run.robot_id}});
+              if (!response.ok) throw new Error('Replay preparation unavailable');
+              const data = await response.json();
+              if (request.signal.aborted) return;
+              const detail = data.runs?.find(row => row.episode_id === run.episode_id);
+              if (!detail) return;
+              Object.assign(run,detail);
+              liveState();
+              if (run.video_url) {
+                disposeView?.(); disposeView = window.yamRecordingView?.(video,run.camera_order,run.video_layout);
+                video.src = run.video_url; watch.textContent = '▶ Watch replay';
+              } else if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
+              else if (run.video_status !== 'processing') watch.textContent = 'View run details';
+            } catch (_) { /* Retry transient preparation failures without losing loaded pages. */ }
+            finally {
+              if (!request.signal.aborted && run.video_status === 'processing') timer = setTimeout(prepare,3000);
+            }
+          }
+          timer = setTimeout(prepare,3000);
+        }
       }
   }
   function renderScores(scores) {
@@ -630,7 +662,7 @@ function createRunLaunchGuard() {
     const selectedName = $('robotSelector')?.selectedOptions?.[0]?.textContent ||
       {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods Bimanual SO101', 'robot-abecb4cd868ab24b':'SO101'}[historyRobot] || historyRobot;
     $('allEpisodesTitle').textContent = `All ${selectedName} episodes`;
-    const visualizerRepo = {
+    const visualizerRepo = document.body?.dataset.stationLocal === 'true' ? null : {
       'yam-1': 'andlyu/Public-YAM-runs',
       'robot-3652c537a175cbae': 'andlyu/Public-MakerMods-SO101-runs'
     }[historyRobot];
@@ -2547,6 +2579,19 @@ function createRunLaunchGuard() {
         $('provider').append(grootOption);
       }
       if (session.local_runner) { $('runAstra').hidden = true; $('runClaude').hidden = true; $('runGroot').hidden = true; }
+      if (session.station_local) {
+        const stationProvider = session.station_provider || 'codex';
+        $('provider').replaceChildren(Object.assign(document.createElement('option'), {value:stationProvider,textContent:session.station_provider_label || 'Astra'}));
+        $('provider').value = stationProvider;
+        $('shareConversation').checked = false; $('shareConversation').disabled = true;
+        $('replay').hidden = true; $('openSubscriptionInstructions').hidden = true; $('playground-guide').hidden = true;
+        document.title = 'BluPe · Jetson Playground';
+        if ($('stationModelConnection') && stationProvider === 'openai') $('stationModelConnection').textContent = session.station_api_key_ready
+          ? 'Astra API key saved on this Jetson · model access must be verified'
+          : 'Astra API setup: run blupe-playground --set-api-key in a Jetson terminal.';
+        providerChanged(false); $('model').value = session.station_model || 'gpt-6-astra';
+        window.yamModelPicker?.providerChanged({fixed:true});
+      }
       const entryModel = playgroundEntryModel(location.search, $('provider').options, session);
       if (entryModel) $('provider').value = entryModel.provider;
       if (entryModel || (!session.local_runner && !session.joint_policy)) providerChanged(false);
