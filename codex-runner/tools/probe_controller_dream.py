@@ -24,6 +24,8 @@ def main():
     parser.add_argument('--sdk-python', required=True)
     parser.add_argument('--work-dir', required=True, type=Path)
     parser.add_argument('--provider', choices=MODELS, default='dream')
+    parser.add_argument('--max-requests', type=int, choices=range(1, 4), default=3,
+                        help='Bound requests, including provider-warming replies (default: 3)')
     parser.add_argument('--prompt', default='Hold the current pose.')
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
@@ -40,7 +42,7 @@ def main():
         checkpoint=MODELS[args.provider][0], execution_location='controller',
         state_route='loopback_native_operator', image_route='loopback_existing_camera_relay',
         command_clients_created=0, commands_submitted=0, predictions=0,
-        phases=[], camera_sets=[], result='in_progress')
+        max_requests=args.max_requests, phases=[], camera_sets=[], result='in_progress')
 
     def save():
         path = args.work_dir / 'receipt.json'
@@ -52,16 +54,18 @@ def main():
         source = CameraFrameSource('http://127.0.0.1:8089')
 
         def capture_for_policy(self, observation, **kwargs):
+            started = time.monotonic()
             frames = self.source.capture_for_policy(observation, **kwargs)
-            receipt['camera_sets'].append([frame.summary() for frame in frames])
+            receipt['camera_sets'].append(dict(duration_s=time.monotonic()-started,
+                                               frames=[frame.summary() for frame in frames]))
             receipt['camera_sets'] = receipt['camera_sets'][-12:]
             return frames
 
     class Worker(DreamWorker):
         def call(self, command, **kwargs):
             if command == 'predict':
-                if receipt['predictions']:
-                    raise RuntimeError('One-prediction budget exhausted')
+                if receipt['predictions'] >= args.max_requests:
+                    raise RuntimeError('Probe request budget exhausted')
                 inputs()  # Confirm native state is still initialized and fresh.
                 receipt['predictions'] += 1
             started = time.monotonic()
@@ -73,6 +77,8 @@ def main():
                     'error_type', 'code', 'reason', 'phase', 'protocol_category', 'http_status',
                     'cause_type', 'transport_stage', 'timing')}
             save()
+            if command == 'predict' and not reply['ok'] and receipt['predictions'] >= args.max_requests:
+                raise RuntimeError('Probe request budget exhausted')
             return reply
 
     adapter = pool = None
@@ -86,6 +92,10 @@ def main():
             robot_id=config['robot_id'], observation_source=inputs,
             camera_source=Cameras(), gateway_max_step_deg=9, worker_factory=pool.factory)
         adapter.cancelled = stop.is_set
+        def interaction(kind, message, **details):
+            if kind == 'policy_timing' and details.get('stage') == 'selected_observation_capture':
+                receipt['selected_capture'] = details
+        adapter.interaction_sink = interaction
         points = adapter.build_trajectory(args.prompt, inputs(), 0)
         inputs()
         receipt.update(result='real_prediction_converted_without_submission',
@@ -95,7 +105,7 @@ def main():
         if str(error) in {'Live probe requires initialized physical feedback',
                           'Controller measured joints are unavailable',
                           'Controller robot identity is unavailable or changed',
-                          'One-prediction budget exhausted'}:
+                          'Probe request budget exhausted'}:
             receipt['condition'] = str(error)
     finally:
         stop.set()

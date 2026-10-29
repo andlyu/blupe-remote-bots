@@ -45,8 +45,10 @@ YAM_DREAM_BLOCKWISE_IK=1 /path/to/sdk/bin/python tools/probe_controller_dream.py
 ```
 
 The neutral default prompt is `Hold the current pose.` The probe prepares both
-SDK checkpoints with synthetic inputs, then makes at most one real beta
-prediction. It converts and validates the result without submission. A private
+SDK checkpoints with synthetic inputs, then makes at most three beta requests
+(including provider-warming replies), stopping after one converted prediction.
+`--max-requests 1` selects a strict single-call diagnostic. It converts and
+validates the result without submission. A private
 receipt contains input source/timing, camera hashes/timestamps, SDK timing,
 waypoint counts and zero submitted commands. It contains no credential, prompt,
 raw image/state or waypoint arrays. Physical task performance, lease admission,
