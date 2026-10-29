@@ -50,7 +50,7 @@ def model_display_name(provider):
         if match:
             return match[1].title() + ' ' + match[2] + ('.' + match[3] if match[3] else '')
         return model or "Claude"
-    return {"groot": "GR00T", "local_raise_lower": "Built-in policy"}.get(name,
+    return {"groot": "GR00T", "molmoact2": "MolmoAct2", "dreamzero": "DreamZero", "local_raise_lower": "Built-in policy"}.get(name,
         'Astra' if not model or model == 'gpt-6-astra' else model)
 
 
@@ -145,7 +145,7 @@ class HostedRunner:
                  max_sessions: int = 32, idle_seconds: float = 1800,
                  lifetime_seconds: float = 7200, api_factory=None,
                  provider_factory=None, api_depth_provider_factory=None, use_api_depth=False, extra_providers=None, chat_database=None, share_conversation=True,
-                 groot_key_file="", groot_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None, recording_root=None, operator_status_origin=None):
+                 groot_key_file="", groot_config=None, runpod_key_file="", runpod_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None, recording_root=None, operator_status_origin=None):
         parsed = urlsplit(public_origin)
         if (not parsed.hostname or parsed.path not in {"", "/"} or parsed.query
                 or parsed.fragment or parsed.username or parsed.password):
@@ -215,6 +215,25 @@ class HostedRunner:
         self.use_api_depth = use_api_depth
         self.extra_providers = dict(extra_providers or {})
         self.camera_source = CameraFrameSource(camera_origin, camera_names=self.camera_names)
+        self.runpod_providers = {}
+        if runpod_key_file and robot_id == 'yam-1' and self.hardware == 'yam' and self.joint_counts == (6, 6):
+            from remote_yam.yam_runpod_policy import YAMRunpodAdapter, MODELS
+            if not {'top', 'left', 'right'}.issubset(self.camera_names):
+                raise ValueError('YAM1 joint policies require all three camera roles')
+            for name, spec in (runpod_config or {}).items():
+                if name not in MODELS or not isinstance(spec, dict) or not spec.get('endpoint'):
+                    raise ValueError('Invalid YAM1 RunPod policy configuration')
+                selected = MODELS[name]
+                def factory(model, directory, name=name, endpoint=spec['endpoint'], selected=selected):
+                    if model not in ('', selected['model']):
+                        raise RequestError(400, 'Unknown YAM1 checkpoint')
+                    return YAMRunpodAdapter(Path(runpod_key_file).expanduser().read_text().strip(),
+                        provider=name, endpoint=endpoint, robot_id=self.robot_id,
+                        camera_source=CameraFrameSource(camera_origin, camera_names=('top', 'left', 'right')))
+                self.extra_providers[name] = factory
+                self.runpod_providers[name] = dict(label=selected['label'], model=selected['model'],
+                    default_run_duration_s=120,
+                    help='YAM1 joint policy using the overhead and wrist cameras. GPU preparation can take several minutes.')
         self.visitors: dict[str, Visitor] = {}
         self.monitor_api = self.api_factory()
         self.dream_providers = {}
@@ -665,7 +684,7 @@ class HostedRunner:
                                'claude': await asyncio.to_thread(subscription_status, 'claude'), 'claude_model': CLAUDE_MODEL}
             from remote_yam.system_prompts import catalog as system_prompt_catalog
             await self.json(send, 200, {**local_setup, **application_setup,
-                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label,
+                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers,
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "dream_providers": self.dream_providers if self.dream_worker_ready() else {},
                                       **await self.chat_setup(visitor),

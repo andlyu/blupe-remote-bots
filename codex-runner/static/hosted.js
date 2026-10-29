@@ -1698,8 +1698,8 @@ function createRunLaunchGuard() {
       message(failureInChat && state.error === taskFailure.reason ? '' : state.error || state.execution_blocked_reason, true);
     else if (state.feedback_warning) message(state.feedback_warning);
     else if ($('message').textContent.startsWith('Motion paused while refreshing robot status:')) message('Robot status confirmed. Continuing the run.');
-    else if (state.provider?.provider === 'groot' && state.provider.warmup === 'warming') message('In the robot queue · warming GR00T GPU…');
-    else if (state.provider?.provider === 'groot' && state.provider.warmup === 'failed') message('GR00T GPU startup failed. Leave the queue and try again.', true);
+    else if (['groot','molmoact2','dreamzero'].includes(state.provider?.provider) && state.provider.warmup === 'warming') message('In the robot queue · warming ' + (configuredProviders[state.provider.provider]?.label || 'GR00T') + ' GPU…');
+    else if (['groot','molmoact2','dreamzero'].includes(state.provider?.provider) && state.provider.warmup === 'failed') message((configuredProviders[state.provider.provider]?.label || 'GR00T') + ' GPU startup failed. Leave the queue and try again.', true);
     else if (state.provider?.vision?.retry?.state === 'retrying') message(state.provider.vision.retry.message, state.provider.vision.retry.cause === 'No image');
     else if (state.provider?.vision?.retry?.state === 'failed') message(state.provider.vision.retry.message, true);
     else if (state.provider?.vision?.retry?.state === 'recovered' && /^(Waiting for next |No image)/.test($('message').textContent)) message('Camera feeds recovered. Continuing the run.');
@@ -2523,7 +2523,7 @@ function createRunLaunchGuard() {
       window.yamModelPicker?.reset();
       configureLocalRunDialog(!!session.local_runner);
       $('provider').innerHTML = originalProviderMarkup;
-      configuredProviders = {...(session.configured_providers || {}), ...(session.dream_providers || {})};
+      configuredProviders = {...(session.configured_providers || {}), ...(session.dream_providers || {}), ...(session.runpod_providers || {})};
       $('geminiCallingMode').value = 'sparse';
       for (const [value, spec] of Object.entries(configuredProviders)) {
         const option = Object.assign(document.createElement('option'), {value, textContent:spec.label});
