@@ -117,6 +117,7 @@ class Visitor:
     subscription_prompts: dict[str, str] = field(default_factory=dict)
     visitor_chat: object | None = field(default=None, repr=False)
     retired: bool = False
+    retain_recordings: bool = False
     assessment_session: str = field(default_factory=lambda: secrets.token_urlsafe(32), repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -133,7 +134,7 @@ class Visitor:
         worker = self.controller._worker
         if worker is not None:
             worker.join(timeout=50)
-        if not self.controller.busy():
+        if not self.retain_recordings and not self.controller.busy():
             shutil.rmtree(self.directory, ignore_errors=True)
 
 
@@ -144,7 +145,7 @@ class HostedRunner:
                  max_sessions: int = 32, idle_seconds: float = 1800,
                  lifetime_seconds: float = 7200, api_factory=None,
                  provider_factory=None, api_depth_provider_factory=None, use_api_depth=False, extra_providers=None, chat_database=None, share_conversation=True,
-                 groot_key_file="", groot_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None):
+                 groot_key_file="", groot_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None, recording_root=None, operator_status_origin=None):
         parsed = urlsplit(public_origin)
         if (not parsed.hostname or parsed.path not in {"", "/"} or parsed.query
                 or parsed.fragment or parsed.username or parsed.password):
@@ -253,6 +254,7 @@ class HostedRunner:
         self.observation = None
         self.queue = None
         self.operator_auto_queue = None
+        self.operator_status_origin = operator_status_origin
         from remote_yam.past_runs import PastRuns
         from remote_yam.run_history import run_models
         self.past_runs = PastRuns(robot_id=None, model_reader=lambda: run_models(self.submission_log.path))
@@ -260,19 +262,24 @@ class HostedRunner:
         self.cleanups = set()
         self.frame_cache = {}
         self.frame_locks = {name: threading.Lock() for name in self.camera_names}
-        self.root = Path(tempfile.mkdtemp(prefix="yam-web-"))
+        self.retain_recordings = recording_root is not None
+        if self.retain_recordings and not (development and parsed.hostname == "127.0.0.1"):
+            raise ValueError("Durable station recordings require loopback hosting")
+        self.root = Path(recording_root).expanduser().resolve() if self.retain_recordings else Path(tempfile.mkdtemp(prefix="yam-web-"))
+        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.root.chmod(0o700)
+        metadata_root = self.root if self.retain_recordings else ROOT / "data"
         from remote_yam.chat_history import ChatHistory
         self.chat_history = ChatHistory(chat_database or self.root / "chat.sqlite3")
         self.reactions = Reactions()
-        self.social_database = Path(os.environ.get('YAM_SOCIAL_DATABASE', ROOT / 'data/run-socials.sqlite3'))
+        self.social_database = Path(os.environ.get('YAM_SOCIAL_DATABASE', metadata_root / 'run-socials.sqlite3'))
         from remote_yam.past_runs import RunNames
-        self.run_names = RunNames(os.environ.get('YAM_RUN_NAMES_DATABASE', ROOT / 'data/run-names.sqlite3'))
-        self.submission_log = SubmissionLog(os.environ.get("YAM_SUBMISSION_DATABASE", ROOT / "data/queue-submissions.sqlite3"))
+        self.run_names = RunNames(os.environ.get('YAM_RUN_NAMES_DATABASE', metadata_root / 'run-names.sqlite3'))
+        self.submission_log = SubmissionLog(os.environ.get("YAM_SUBMISSION_DATABASE", metadata_root / "queue-submissions.sqlite3"))
         from remote_yam.run_assessments import RunAssessments
         from remote_yam.task_cloud import TaskCloud
-        self.run_assessments = RunAssessments(os.environ.get('YAM_ASSESSMENT_DATABASE', ROOT / 'data/run-assessments.sqlite3'))
-        self.task_cloud = TaskCloud(os.environ.get('YAM_TASK_CLOUD_DATABASE', ROOT / 'data/task-cloud.sqlite3'))
+        self.run_assessments = RunAssessments(os.environ.get('YAM_ASSESSMENT_DATABASE', metadata_root / 'run-assessments.sqlite3'))
+        self.task_cloud = TaskCloud(os.environ.get('YAM_TASK_CLOUD_DATABASE', metadata_root / 'task-cloud.sqlite3'))
         self.remembered_names = set()
 
     async def public_extension(self, scope, receive, send, headers):
@@ -349,12 +356,12 @@ class HostedRunner:
         if len(self.visitors) >= self.max_sessions:
             raise RequestError(503, "All browser sessions are busy. Please try again shortly.")
         capability = secrets.token_urlsafe(32)
-        directory = self.root / secrets.token_hex(16)
-        directory.mkdir(mode=0o700)
+        directory = self.root / ("recordings" if self.retain_recordings else secrets.token_hex(16))
+        directory.mkdir(mode=0o700, exist_ok=self.retain_recordings)
         visitor = Visitor(EphemeralController(
             LoggedSessionAPI(self.api_factory(), self.submission_log), hardware_control_enabled=self.hardware_control,
             recording_root=directory, robot_id=self.robot_id, joint_counts=self.joint_counts,
-            share_conversation=self.share_conversation), directory)
+            share_conversation=self.share_conversation), directory, retain_recordings=self.retain_recordings)
         self.visitors[capability] = visitor
         return capability, visitor
 
@@ -378,7 +385,7 @@ class HostedRunner:
 
     def refresh_monitor(self):
         from remote_yam.operator_status import read_auto_queue
-        self.operator_auto_queue = read_auto_queue() if self.hardware_control and self.robot_id == "yam-1" else None
+        self.operator_auto_queue = (read_auto_queue(self.operator_status_origin) if self.operator_status_origin else read_auto_queue()) if self.hardware_control and self.robot_id == "yam-1" else None
         try:
             self.observation = self.monitor_api.get_robot_observation(self.robot_id)
         except Exception:
@@ -441,7 +448,7 @@ class HostedRunner:
                     await asyncio.gather(*(asyncio.to_thread(v.close) for v in visitors))
                     if self.cleanups:
                         await asyncio.gather(*self.cleanups)
-                    if not any(v.controller.busy() for v in visitors):
+                    if not self.retain_recordings and not any(v.controller.busy() for v in visitors):
                         shutil.rmtree(self.root, ignore_errors=True)
                     await send({"type": "lifespan.shutdown.complete"})
                     return
@@ -563,6 +570,7 @@ class HostedRunner:
                 result = {'runs': selected, 'models': choices, 'scores': scores, 'total': len(rows),
                           'next_offset': offset+len(selected) if view == 'table' and offset+len(selected) < len(rows) else None,
                           'stale': catalog.get('stale', False), 'cloud': cloud,
+                          'source': getattr(self.past_runs, 'source', 'public'),
                           'display_limit': limit, 'sampled': view == 'cloud' and len(rows) > limit}
             except Exception:
                 raise RequestError(503, 'Run catalog is unavailable. Select Refresh to retry.') from None

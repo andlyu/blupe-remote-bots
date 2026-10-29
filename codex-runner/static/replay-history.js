@@ -126,6 +126,9 @@
         loadMine(); window.yamReplayHistory.refresh();
         return;
       }
+      if (run?.video_status === 'unavailable') {
+        ready(); $('pastRunError').textContent = 'Recorded replay is unavailable. Try again later; run details are still available.'; return;
+      }
       if (run?.video_duration_s === 0) {
         processingRuns.delete(request.id);
         ready(); $('pastRunError').textContent = 'This run has no recorded video.';

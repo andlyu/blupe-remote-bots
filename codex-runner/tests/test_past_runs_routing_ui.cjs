@@ -87,3 +87,24 @@ test('Cloud lazily requests only its preview detail and clears media scope on se
  stopped=c.cloudPreview.hides;c.nodes.get('pastRunsTableView').emit('click');assert.ok(c.cloudPreview.hides>stopped);assert.equal(options.canPlay(),false);
  stopped=c.cloudPreview.hides;c.events['blupe-robot-selected']({detail:'other'});assert.ok(c.cloudPreview.hides>stopped);
 });
+
+test('native preparation updates its block without losing loaded pages and aborts stale detail requests',async()=>{
+ const c=require('./helpers/past-runs.cjs')();c.document.body={dataset:{stationLocal:'true'}};
+ c.events['blupe-robot-selected']({detail:'yam-1'});
+ assert.equal(c.nodes.get('datasetViewer').src,undefined,'Native view never assigns the hosted viewer');
+ const run={episode_id:'ep_one',robot_id:'yam-1',prompt:'Native task',started_at:1,
+   video_status:'processing',video_url:null,camera_order:['top','left','right'],original_available:false};
+ c.answer(c.requests[0],[run],12,13);await c.flush();
+ const block=c.nodes.get('pastRunsList').children[0],card=block.children[0];
+ const video=card.children.find(child=>child.tag==='video');
+ assert.equal(video.src,undefined);card.emit('pointerenter',{pointerType:'mouse'});assert.equal(video.plays,0);
+ c.nodes.get('morePastRuns').emit('click');c.answer(c.requests[1],[{...run,episode_id:'ep_two'}]);await c.flush();
+ assert.equal(c.nodes.get('pastRunsList').children.length,2);
+ const poll=[...c.timers.values()][0];poll();
+ c.answer(c.requests[2],[{...run,video_status:'ready',video_url:'/api/native-runs/ep_one/real.mp4',original_available:true}]);await c.flush();
+ assert.equal(c.nodes.get('pastRunsList').children.length,2);assert.match(video.src,/native-runs/);
+ const pending=[...c.timers.values()][1];pending();const request=c.requests[3];
+ c.events['blupe-robot-selected']({detail:'other'});assert.equal(request.options.signal.aborted,true);
+ c.answer(request,[{...run,video_status:'ready',video_url:'stale.mp4'}]);await c.flush();
+ assert.equal(c.nodes.get('pastRunsList').children.length,0);
+});

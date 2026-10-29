@@ -99,3 +99,6 @@ must provide its stable account identity via `assessment_user`. Keep that adapte
 in its owning application. Run the private `scripts/check_repo_ownership.py` and
 hosted integration tests before landing a private hook or submodule pin. This
 shared change does not deploy, merge, or operate a physical robot.
+
+Native Jetson station mode uses the same UI and assessment/index contracts with a
+read-only native catalog and loopback media routes. See [Native station Past Runs](NATIVE-PAST-RUNS.md) for the published launcher, durable state, package and ARM validation contract.

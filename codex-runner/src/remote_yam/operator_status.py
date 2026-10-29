@@ -4,10 +4,17 @@ import time
 from urllib.request import urlopen
 
 
-def read_auto_queue():
+def read_auto_queue(origin=None):
     # Fixed loopback destination, never supplied by a visitor. No controls exposed.
     try:
-        with urlopen('http://127.0.0.1:18096/api/status', timeout=1) as response:
+        if origin is not None:
+            from urllib.parse import urlsplit
+            parsed = urlsplit(origin)
+            if (parsed.scheme != 'http' or parsed.hostname != '127.0.0.1' or parsed.username or parsed.password
+                    or parsed.path not in ('','/') or parsed.query or parsed.fragment):
+                return None
+            parsed.port
+        with urlopen((origin or 'http://127.0.0.1:18096').rstrip('/') + '/api/status', timeout=1) as response:
             raw = response.read(65537)
         if len(raw) > 65536:
             return None

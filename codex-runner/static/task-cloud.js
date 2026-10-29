@@ -45,8 +45,23 @@
       root.dataset.episodeId = run.episode_id; root.hidden = false;
       title.textContent = run.prompt; status.textContent = 'Loading video…'; position();
       try {
-        const detail = await loadRun(run, request.signal);
+        let detail;
+        for (let attempt = 0; attempt < 60; attempt++) {
+          detail = await loadRun(run, request.signal);
+          if (version !== generation || !canPlay()) return;
+          if (detail?.video_status !== 'processing') break;
+          status.textContent = 'Preparing recorded video…'; position();
+          await new Promise((resolve,reject) => {
+            const signal = request.signal;
+            const abort = () => {clearTimeout(timer); reject(new Error('Preview cancelled'));};
+            const timer = setTimeout(() => {signal.removeEventListener('abort',abort);resolve();},1000);
+            signal.addEventListener('abort',abort,{once:true});
+          });
+        }
         if (version !== generation || !canPlay()) return;
+        if (detail?.video_status === 'processing') {
+          status.textContent = 'Video is still preparing. Open run for details.'; position(); return;
+        }
         if (!detail?.video_url || detail.video_duration_s === 0) {
           status.textContent = 'No preview available. Open run for details.'; return;
         }
