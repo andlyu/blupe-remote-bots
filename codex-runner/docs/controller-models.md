@@ -52,6 +52,9 @@ Codex/sponsored Astra and Claude/sponsored Claude aliases share their respective
 provider families. An ASPIRE policy is not an Astra registration. Model, robot
 and catalog readiness updates recompute Automatic; status polling supplies the
 latest public controller catalog without making any provider request.
+Controller-available Dream checkpoints appear in the ordinary model picker even
+while the optional hosted SDK is preparing; the browser merges those public
+controller descriptors into its local menu without changing the API default.
 
 BLUPE runner remains an explicit choice and survives model/robot/readiness
 updates. Explicit Robot controller offers the selected robot's installed models

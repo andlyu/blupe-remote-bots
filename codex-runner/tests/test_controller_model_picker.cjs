@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const {test} = require('node:test');
-const {controllerPayload,automaticControllerModel,createControllerModelPicker} = require('../static/controller-model-picker.js');
+const {controllerPayload,automaticControllerModel,createControllerModelPicker,controllerDreamChoices} = require('../static/controller-model-picker.js');
 const fixed = {provider:'dream_flash',model:'dreamlabs/dream-1-beta-flash',available:true};
 assert.deepEqual(controllerPayload(fixed,'dream_flash','',''), {executor:'controller',controller_model:'dream_flash',provider:fixed.provider,model:fixed.model,api_key:'',use_api_depth:false});
 const custom = {provider:'custom',user_endpoint:true,available:true};
@@ -12,6 +12,15 @@ console.log('Controller model selection preserves registered checkpoints and val
 
 const astra={provider:'openai',model:'gpt-6-astra',label:'Astra',available:true};
 const beta={provider:'dream',model:'dreamlabs/dream-1-beta',label:'Dream-1 beta',available:true};
+test('controller Dream choices do not depend on optional hosted SDK preparation',()=>{
+  const rows={dream_one:beta,dream_flash:{...fixed,label:'Flash'},notReady:{...beta,available:false},
+    other:{...astra},custom:{provider:'dream',model:'arbitrary',label:'User endpoint',available:true,custom:true}};
+  assert.deepEqual(controllerDreamChoices(rows,{}),{dream:{model:beta.model,label:beta.label},
+    dream_flash:{model:fixed.model,label:'Flash'}});
+  assert.deepEqual(controllerDreamChoices({dream_one:{...beta,available:false}},{}),{});
+  const configured={dream:{model:beta.model,label:'Hosted label',motion_cap:{gateway_step_deg:9}}};
+  assert.deepEqual(controllerDreamChoices(rows,configured).dream,configured.dream);
+});
 function fixture() {
   const nodes={};
   const $=id=>nodes[id] ||= {value:'',disabled:false,required:false,hidden:false,

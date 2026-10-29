@@ -1,5 +1,13 @@
 /* Execution routing is independent from the existing runner's model picker. */
 (function(root) {
+  function controllerDreamChoices(models, hosted) {
+    const direct = {};
+    for (const row of Object.values(models || {})) {
+      if (row.available && !row.custom && ['dream','dream_flash'].includes(row.provider))
+        direct[row.provider] = {model:row.model,label:row.label};
+    }
+    return {...direct, ...(hosted || {})};
+  }
   function automaticControllerModel(models, provider, model) {
     const family = name => ({codex:'openai',guest_astra:'openai',
       claude:'anthropic',guest_claude:'anthropic',guest_gemini:'gemini'}[name] || name);
@@ -72,5 +80,6 @@
     };
   }
   root.createControllerModelPicker = createControllerModelPicker;
-  if (typeof module !== 'undefined') module.exports = {controllerPayload, automaticControllerModel, createControllerModelPicker};
+  root.controllerDreamChoices = controllerDreamChoices;
+  if (typeof module !== 'undefined') module.exports = {controllerPayload, automaticControllerModel, createControllerModelPicker, controllerDreamChoices};
 })(typeof window !== 'undefined' ? window : globalThis);

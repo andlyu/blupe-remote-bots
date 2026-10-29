@@ -2520,6 +2520,7 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      session.dream_providers = window.controllerDreamChoices?.(session.controller_models, session.dream_providers) || session.dream_providers;
       controllerModels?.configure(session.controller_models);
       window.yamReplayEmail.configure(session.replay_email, csrf);
       window.yamReactions?.reset(session.reaction_cursor);
