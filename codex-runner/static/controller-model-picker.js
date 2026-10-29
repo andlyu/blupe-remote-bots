@@ -1,5 +1,12 @@
 /* Execution routing is independent from the existing runner's model picker. */
 (function(root) {
+  function automaticControllerModel(models, provider, model) {
+    const family = name => ({codex:'openai',guest_astra:'openai',
+      claude:'anthropic',guest_claude:'anthropic',guest_gemini:'gemini'}[name] || name);
+    return Object.entries(models || {}).find(([, row]) => row.available &&
+      !row.custom && !row.user_endpoint && row.model === model.trim() &&
+      family(row.provider) === family(provider));
+  }
   function controllerPayload(spec, id, endpoint, model) {
     if (!spec || !spec.available) throw new Error(spec?.reason || 'Controller model is unavailable on this robot.');
     const payload = {executor:'controller', controller_model:id, provider:spec.provider,
@@ -14,39 +21,56 @@
     return payload;
   }
   function createControllerModelPicker($, changed) {
-    let models = {};
-    const selected = () => $('executionLocation').value === 'controller';
-    const spec = () => models[$('controllerModel').value];
+    let models = {}, signature = null;
+    const manual = () => $('executionLocation').value === 'controller';
+    const automatic = () => automaticControllerModel(models, $('provider').value, $('model').value);
+    const choice = () => manual() ? [$('controllerModel').value, models[$('controllerModel').value]]
+      : $('executionLocation').value === 'auto' ? automatic() : null;
+    const selected = () => manual() || !!choice();
     function sync() {
-      const controller = selected(), item = spec();
-      $('controllerModelSettings').hidden = !controller;
+      const controller = selected(), item = choice()?.[1];
+      $('controllerModelSettings').hidden = !manual();
       $('controllerEndpointSettings').hidden = !controller || !item?.user_endpoint;
       $('controllerEndpoint').required = $('controllerEndpointModel').required = controller && !!item?.user_endpoint;
+      $('executionLocation').querySelector('[value="auto"]').textContent = automatic()
+        ? 'Automatic · robot controller' : 'Automatic · BLUPE runner';
       $('controllerExecutionHelp').textContent = controller
-        ? item?.available ? 'The adapter runs on this robot’s controller and calls the model directly.' : item?.reason || 'No controller model is installed.'
-        : 'The existing BLUPE runner collects observations and calls the model.';
-      $('provider').disabled ||= controller;
-      $('model').disabled ||= controller;
+        ? item?.available ? item.label + ' runs on this robot’s controller and calls the model directly.' : item?.reason || 'Choose an available controller model.'
+        : 'The existing BLUPE runner collects observations and calls the selected model.';
+      // Automatic mode keeps the ordinary model picker usable.
+      $('provider').disabled ||= manual();
+      $('model').disabled ||= manual();
       $('apiKey').disabled ||= controller;
       if (controller) $('apiKey').required = false;
     }
-    $('executionLocation').addEventListener('change', () => { changed(); sync(); });
-    $('controllerModel').addEventListener('change', sync);
+    $('executionLocation').addEventListener('change', () => {
+      if (manual() && automatic()) $('controllerModel').value = automatic()[0];
+      changed(); sync();
+    });
+    $('controllerModel').addEventListener('change', () => { changed(); sync(); });
     return {selected, sync,
-      label:() => spec()?.label || 'Controller model',
+      label:() => choice()?.[1]?.label || 'Controller model',
       configure(rows) {
+        const next = JSON.stringify(rows || {});
+        if (signature === next) { sync(); return; }
+        signature = next;
+        const previous = $('controllerModel').value;
         models = rows || {};
-        $('executionLocation').value = 'runner';
-        $('executionLocation').querySelector('[value="controller"]').disabled = !Object.keys(models).length;
+        if (!['auto','runner','controller'].includes($('executionLocation').value)) $('executionLocation').value = 'auto';
+        $('executionLocation').querySelector('[value="controller"]').disabled = !Object.values(models).some(row => row.available);
         $('controllerModel').replaceChildren(...Object.entries(models).map(([id, row]) =>
-          Object.assign(document.createElement('option'), {value:id, textContent:row.label + (row.available ? '' : ' — unavailable'), disabled:!row.available})));
-        $('controllerEndpoint').value = ''; $('controllerEndpointModel').value = '';
+          Object.assign($('controllerModel').ownerDocument.createElement('option'), {value:id, textContent:row.label + (row.available ? '' : ' — unavailable'), disabled:!row.available})));
+        $('controllerModel').value = previous && models[previous] ? previous
+          : manual() && previous ? '' : automatic()?.[0] || Object.keys(models).find(id => models[id].available) || '';
         sync();
       },
-      payload() { return selected() ? controllerPayload(spec(), $('controllerModel').value,
-        $('controllerEndpoint').value, $('controllerEndpointModel').value) : {}; }
+      payload() {
+        const row = choice();
+        return selected() ? controllerPayload(row?.[1], row?.[0],
+          $('controllerEndpoint').value, $('controllerEndpointModel').value) : {};
+      }
     };
   }
   root.createControllerModelPicker = createControllerModelPicker;
-  if (typeof module !== 'undefined') module.exports = {controllerPayload};
+  if (typeof module !== 'undefined') module.exports = {controllerPayload, automaticControllerModel, createControllerModelPicker};
 })(typeof window !== 'undefined' ? window : globalThis);

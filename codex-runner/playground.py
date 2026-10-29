@@ -845,6 +845,7 @@ class HostedRunner:
             if self.queue is not None:
                 controller.update_queue_snapshot(self.queue)
             state = controller.status()
+            state['controller_models'] = self.controller_model_catalog()
             # Only the owner receives local setup instructions after a login expires
             # during a run. No subprocess or live request is made by status polling.
             state['subscription_setup'] = None

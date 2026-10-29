@@ -712,7 +712,7 @@ function createRunLaunchGuard() {
   let claudeModel = 'claude-opus-5-5';
   let configuredProviders = {};
   const controllerModels = $('executionLocation') && window.createControllerModelPicker?.($, () => {
-    providerChanged(); buttons(); applyModelName(lastLive);
+    buttons(); applyModelName(lastLive);
   });
   window.yamRunDuration = createProviderRunDuration($('runDuration'));
   let aspireRunAvailable = false;
@@ -800,7 +800,7 @@ function createRunLaunchGuard() {
     ['executionLocation','controllerModel','controllerEndpoint','controllerEndpointModel'].forEach(id => {
       if ($(id)) $(id).disabled = active || submitting || ended;
     });
-    controllerModels?.sync();
+    updateSavedKey(); controllerModels?.sync();
     $('prompt').disabled = !csrf || ended || submitting || (active && !window.yamRuntimeSteering?.available);
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
@@ -1106,10 +1106,10 @@ function createRunLaunchGuard() {
     let modelStorage; try { modelStorage = localStorage; } catch (_) {}
     window.yamModelPicker = window.createBlupeModelPicker({$, api, storage:modelStorage,
       context:() => robotGeneration + ':' + csrf, changed:() => {
-        applyModelName(lastLive); document.dispatchEvent(new Event('blupe-model-changed'));
+        buttons(); applyModelName(lastLive); document.dispatchEvent(new Event('blupe-model-changed'));
       }});
   }
-  $('provider').addEventListener('change', () => { providerChanged(); updateAspireSetupGuidance(); applyModelName(lastLive); window.yamAnalytics?.selected($('provider').value, $('model').value.trim()); });
+  $('provider').addEventListener('change', () => { providerChanged(); buttons(); updateAspireSetupGuidance(); applyModelName(lastLive); window.yamAnalytics?.selected($('provider').value, $('model').value.trim()); });
   $('automaticRetryLimit').addEventListener('change',()=>{
     try {const limit=aspireRetryLimit($('automaticRetryLimit').value);localStorage.setItem('yam-aspire-retry-limit:'+selectedRobot,String(limit));}
     catch(error) {if(error instanceof RangeError) message(error.message,true);}
@@ -1676,6 +1676,7 @@ function createRunLaunchGuard() {
       : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
+    if (state.controller_models) controllerModels?.configure(state.controller_models);
     window.yamRuntimeSteering?.update(state);
     if (state.subscription_setup?.setup_prompt) {
       const failure = `${state.session_id}:${state.error}`;
@@ -2531,12 +2532,13 @@ function createRunLaunchGuard() {
       $('shareConversation').disabled = !conversationSharingAllowed;
       $('useApiDepth').dataset.available = session.local_runner && session.api_depth?.available ? 'true' : '';
       $('useApiDepth').checked = session.api_depth?.enabled === true;
-      aspireRunAvailable = aspireConfiguredRun(session);
+      aspireRunAvailable = false;
       $('apiDepthSettings').hidden = !$('useApiDepth').dataset.available;
       window.yamModelPicker?.reset();
       configureLocalRunDialog(!!session.local_runner);
       $('provider').innerHTML = originalProviderMarkup;
       configuredProviders = {...(session.configured_providers || {}), ...(session.dream_providers || {}), ...(session.runpod_providers || {})};
+      delete configuredProviders.aspire;
       $('geminiCallingMode').value = 'sparse';
       for (const [value, spec] of Object.entries(configuredProviders)) {
         const option = Object.assign(document.createElement('option'), {value, textContent:spec.label});
@@ -2566,8 +2568,8 @@ function createRunLaunchGuard() {
         $('runAstra').hidden = !session.codex;
         $('runClaude').hidden = !session.claude;
         if(aspireRunAvailable) $('provider').prepend(Object.assign(document.createElement('option'), {value:'aspire',textContent:'ASPIRE · Codex/Astra'}));
-        $('provider').value = aspireRunAvailable && (!session.default_provider || session.default_provider === 'codex')
-          ? 'aspire' : session.default_provider || (session.codex ? 'codex' : 'claude');
+        $('provider').value = session.default_provider && session.default_provider !== 'aspire'
+          ? session.default_provider : (session.codex ? 'codex' : 'claude');
         $('runnerName').value ||= aspireRunAvailable ? 'Aspire Code integration Map' : 'Local runner';
         document.title = 'BluPe · Local runner';
         providerChanged();

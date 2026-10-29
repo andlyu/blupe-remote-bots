@@ -1,6 +1,6 @@
 # Controller-direct model execution
 
-The existing runner route remains the default. An omitted `executor` or JSON
+The existing runner route remains the API default. An omitted `executor` or JSON
 `null` uses the current local/hosted runner adapter, observations and commands.
 Controller selection creates a separate instance of the same provider adapter
 on the selected robot's controller host. The model stays at its provider.
@@ -45,8 +45,19 @@ client.start_model(provider="openai", model="gpt-6-astra", prompt="Your task",
 # Retain this client for status() and stop(); an uncertain start is never retried.
 ```
 
-The browser's Model execution control offers BLUPE runner or Robot controller,
-then the selected robot's installed models and custom protocol. Normal hosted
+The browser's Model execution control defaults to Automatic. It uses Robot
+controller when the ordinary model picker matches an available registration by
+exact model ID and provider family; otherwise it uses the existing BLUPE runner.
+Codex/sponsored Astra and Claude/sponsored Claude aliases share their respective
+provider families. An ASPIRE policy is not an Astra registration. Model, robot
+and catalog readiness updates recompute Automatic; status polling supplies the
+latest public controller catalog without making any provider request.
+
+BLUPE runner remains an explicit choice and survives model/robot/readiness
+updates. Explicit Robot controller offers the selected robot's installed models
+and custom protocol. An explicitly retained controller model that becomes
+unavailable is rejected clearly rather than substituted. Custom endpoint drafts
+survive catalog refreshes and are never selected automatically. Normal hosted
 email, guest allowance and ownership checks still apply. Hosted subscription
 transports are never attached to controller policy objects.
 
@@ -123,7 +134,9 @@ Astra via Codex, Opus via Claude, and Gemini 4 Argon. DreamZero is absent from
 the active configuration and is not added by this rollout. XLab is a managed
 session service, ASPIRE uses its distinct managed worker, and Reset bin is a
 native recorded/reset policy. Those are retained on their existing routes;
-they cannot be presented as Responses endpoints without an inference-only
+ASPIRE is removed from selectable browser offerings while its existing internal
+integration is retained. XLab is unchanged. These managed services cannot be
+presented as Responses endpoints without an inference-only
 adapter contract. Their separate services do not block lightweight deployment.
 
 Private deployment receipts describe which registrations are actually installed,
