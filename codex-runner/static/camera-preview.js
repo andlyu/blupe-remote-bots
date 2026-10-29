@@ -12,9 +12,15 @@
     tiles.forEach((tile, i) => {
       if (tile.dataset.frameSource === 'video' || tile.dataset.frameSource === 'snapshot') return;
       const role = tile.dataset.cameraRole;
-      const rect = hd ? ({observer:[0,0,width*3/4,height],left:[width*3/4,0,width/4,height/3],top:[width*3/4,height/3,width/4,height/3],right:[width*3/4,height*2/3,width/4,height/3]})[role]
+      let rect = hd ? ({observer:[0,0,width*3/4,height],left:[width*3/4,0,width/4,height/3],top:[width*3/4,height/3,width/4,height/3],right:[width*3/4,height*2/3,width/4,height/3]})[role]
         : [(i%2)*width/2, Math.floor(i/2)*height/2, width/2, height/2];
       if (!rect) return;
+      if (robot === 'robot-ba8413962083809c') {
+        // Match live framing so the startup still has no encoded black bars.
+        const inset = Math.round(rect[2] * (role === 'observer' ? 280/1920 : 82/640));
+        const top = role === 'observer' ? Math.round(rect[3] * 12/1080) : 0;
+        rect = [rect[0]+inset, rect[1]+top, rect[2]-2*inset, rect[3]-top];
+      }
       tile.width = rect[2]; tile.height = rect[3];
       tile.getContext('2d', {alpha:false}).drawImage(image, ...rect, 0, 0, rect[2], rect[3]);
       tile.dataset.frameSource = 'preview';

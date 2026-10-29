@@ -111,12 +111,12 @@ test('a wrapping camera footer cannot alternate side and bottom thumbnails each 
     layouts.push(h.viewer.dataset.detailLayout + ':' + h.values.get('--console-camera-width') + ':' + h.values.get('--console-viewport-height'));
   }
   assert.equal(new Set(layouts).size, 1, 'camera width must converge instead of changing footer wrapping every frame');
-  assert.equal(h.viewer.dataset.detailLayout, 'below');
+  assert.equal(h.viewer.dataset.detailLayout, 'side');
 });
 
-test('bottom thumbnails use the camera column width without consuming the chat column', () => {
+test('side thumbnails stay inside the camera column without consuming the chat column', () => {
   const h = wrappingFooterHarness(2000);
   h.frame();
-  assert.equal(h.viewer.dataset.detailLayout, 'below');
+  assert.equal(h.viewer.dataset.detailLayout, 'side');
   assert.equal(h.values.get('--console-camera-width'), '1244px');
 });

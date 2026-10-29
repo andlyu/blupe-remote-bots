@@ -1999,6 +1999,14 @@ function createRunLaunchGuard() {
     atlas.width = 1280; atlas.height = 720;
     const context = atlas.getContext('2d', {alpha:false});
     const contexts = tiles.map(tile => tile.getContext('2d', {alpha:false}));
+    function contentRect(role, rect) {
+      if (selectedRobot !== 'robot-ba8413962083809c') return rect;
+      // Robo-house centers its native images in padded 16:9 atlas tiles.
+      // Remove only those fixed stream borders, including the diagnostic row.
+      const inset = Math.round(rect[2] * (role === 'observer' ? 280/1920 : 82/640));
+      const top = role === 'observer' ? Math.round(rect[3] * 12/1080) : 0;
+      return [rect[0]+inset, rect[1]+top, rect[2]-2*inset, rect[3]-top];
+    }
     const labels = [...document.querySelectorAll('[data-sync-status]')];
     const stopExpanding = cameraExpansion(video, tiles);
     let callback, lastMediaTime = -1, lastPaint = -Infinity, stopped = false, frame = 0;
@@ -2053,8 +2061,9 @@ function createRunLaunchGuard() {
             await snapshot.decode();
             if (!pending || stopped || frame || document.hidden || selectedRobot !== snapshotRobot) return;
             const width = snapshot.naturalWidth || 640, height = snapshot.naturalHeight || 360;
-            tile.width = width; tile.height = height;
-            contexts[i].drawImage(snapshot, 0, 0, width, height);
+            const rect = contentRect(role, [0, 0, width, height]);
+            tile.width = rect[2]; tile.height = rect[3];
+            contexts[i].drawImage(snapshot, ...rect, 0, 0, rect[2], rect[3]);
             tile.dataset.frameSource = 'snapshot';
           } catch { /* Let the live stream finish connecting if the still fails. */ }
           finally { stop(); }
@@ -2086,8 +2095,9 @@ function createRunLaunchGuard() {
         if (frame === 1) stopSnapshots.forEach(stop => stop());
         tiles.forEach((tile, i) => {
           const role = tile.dataset.cameraRole;
-          const rect = hd ? ({observer:[0,0,1920,1080],left:[1920,0,640,360],top:[1920,360,640,360],right:[1920,720,640,360]})[role]
+          const frameRect = hd ? ({observer:[0,0,1920,1080],left:[1920,0,640,360],top:[1920,360,640,360],right:[1920,720,640,360]})[role]
             : [(i%2)*width/2, Math.floor(i/2)*height/2, width/2, height/2];
+          const rect = contentRect(role, frameRect);
           if (tile.width !== rect[2]) tile.width = rect[2];
           if (tile.height !== rect[3]) tile.height = rect[3];
           contexts[i].drawImage(atlas, ...rect, 0, 0, rect[2], rect[3]);
@@ -3041,7 +3051,7 @@ function bindQuickTaskDraft(prompt, quick) {
     workspace.style.setProperty('--console-viewport-height', viewportHeight + 'px');
     workspace.style.setProperty('--console-camera-width', width + 'px');
     workspace.style.setProperty('--console-camera-height', cameraHeight + 'px');
-    viewer.dataset.detailLayout = 'below';
+    viewer.dataset.detailLayout = four && window.innerWidth > 740 ? 'side' : 'below';
   }
   let cameraFitFrame = null;
   function scheduleCameraFit() {
