@@ -1,5 +1,6 @@
 """Read-only, bounded public dataset catalog. No visitor artifacts or credentials."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import json
 import math
 import re
@@ -234,6 +235,27 @@ class RunNames:
                 'model_version':recorded_model(configuration.get('model_version')),
                 'episode_index':None, 'video_status':'processing', 'video_url':None,
                 'video_duration_s':None, 'camera_order':[]}
+
+    def catalog(self):
+        """Trusted public run receipts, including videos awaiting publication."""
+        if not self.path.exists():
+            return []
+        with closing(sqlite3.connect(self.path)) as db:
+            if not db.execute("SELECT name FROM sqlite_master WHERE name='run_metadata'").fetchone():
+                return []
+            rows = db.execute('SELECT episode_id,robot_id,task,started_at FROM run_metadata').fetchall()
+            configurations = dict(db.execute('SELECT episode_id,configuration FROM run_configuration')) if db.execute(
+                "SELECT name FROM sqlite_master WHERE name='run_configuration'").fetchone() else {}
+        result = []
+        for eid, robot, task, started in rows:
+            if (not robot or not task or not isinstance(started, (int,float)) or not math.isfinite(started)
+                    or ' '.join(task.split()).casefold().rstrip('.') == 'raise and lower both arms for three cycles'):
+                continue
+            config = json.loads(configurations.get(eid, '{}'))
+            result.append(dict(episode_id=eid, robot_id=robot, prompt=task, started_at=started,
+                model=recorded_model(config.get('model')), model_version=recorded_model(config.get('model_version')),
+                episode_index=None, video_status='processing', video_url=None, video_duration_s=None, camera_order=[]))
+        return result
 
     def remember_metadata(self, episode_id, robot_id, task, started_at, configuration=None):
         if not re.fullmatch(r'ep_[A-Za-z0-9_-]+', episode_id or ''):

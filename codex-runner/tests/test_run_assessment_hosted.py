@@ -98,3 +98,48 @@ class AssessmentHostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((code,body['total'],body['scores'][0]['denominator']),(200,0,0))
         self.assertEqual(body['scores'][0]['model'],'M')
         self.assertIsNone(body['scores'][0]['rate'])
+
+    async def test_recent_labeled_run_appears_in_cloud_before_archive_upload(self):
+        import time
+        self.app.run_assessments=RunAssessments(self.app.root/'recent-label.sqlite3')
+        self.app.past_runs.rows=[];self.app.past_runs.updated=time.monotonic()
+        self.app.run_names.remember_metadata('ep_recent','yam-1','Move cup',123,{'model':'M'})
+        self.app.run_names.remember_metadata('ep_other_robot','other-robot','Other task',124)
+        self.app.run_assessments.register('ep_recent','runner',ended=True)
+        self.app.run_assessments.assess('ep_recent','Success',0,'runner')
+        self.app.task_cloud=Mock()
+        self.app.task_cloud.snapshot.side_effect=lambda rows:{'status':'ready','version':'test','coordinates':{}}
+        code,body=await self.catalog('view=cloud&robot_id=yam-1')
+        self.assertEqual(code,200)
+        self.assertEqual(body['total'],1)
+        self.assertEqual(body['runs'][0]['assessment']['label'],'Success')
+        self.assertEqual(body['runs'][0]['video_status'],'processing')
+        self.app.past_runs.rows=[{'episode_id':'ep_recent','robot_id':'yam-1','prompt':'Archived task','started_at':123,'episode_index':9}]
+        code,body=await self.catalog('view=cloud&robot_id=yam-1')
+        self.assertEqual(body['total'],1)
+        self.assertEqual(body['runs'][0]['prompt'],'Archived task')
+        self.assertNotIn('video_status',body['runs'][0])
+
+    async def test_community_votes_require_session_known_ended_run_and_unlabeled_result(self):
+        import time
+        self.app.run_assessments=RunAssessments(self.app.root/'community.sqlite3')
+        self.app.past_runs.rows=[{'episode_id':'ep_archive','robot_id':'yam-1','prompt':'Move cup','started_at':1,'episode_index':1}]
+        self.app.past_runs.updated=time.monotonic()
+        voter=await self.session()
+        payload={'episode_id':'ep_archive','operation':'outcome_vote','label':'Success'}
+        self.assertEqual((await self.call('/api/run-assessment',method='POST',payload=payload))[0],401)
+        code,body,_=await self.call('/api/run-assessment',method='POST',payload=payload,**voter)
+        self.assertEqual(code,200)
+        self.assertEqual(body['community'],{'success':1,'failure':0,'label':'Success'})
+        self.assertEqual(body['my_outcome_vote'],'Success')
+        code,catalog=await self.catalog('view=table')
+        self.assertEqual(catalog['runs'][0]['assessment']['community']['label'],'Success')
+        payload['episode_id']='ep_unknown'
+        self.assertEqual((await self.call('/api/run-assessment',method='POST',payload=payload,**voter))[0],400)
+        self.app.run_names.remember_metadata('ep_live','yam-1','Active run',2)
+        self.app.run_assessments.register('ep_live','owner',ended=False)
+        payload['episode_id']='ep_live'
+        self.assertEqual((await self.call('/api/run-assessment',method='POST',payload=payload,**voter))[0],400)
+        self.app.run_assessments.register('ep_live','owner',ended=True)
+        self.app.run_assessments.assess('ep_live','Failure',0,'owner')
+        self.assertEqual((await self.call('/api/run-assessment',method='POST',payload=payload,**voter))[0],400)

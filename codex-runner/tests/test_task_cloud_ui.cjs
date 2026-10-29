@@ -53,3 +53,13 @@ test('pointer and keyboard previews track the point, clear on exit/drag/reset, a
  c.cloud.step(1);assert.equal(c.previews.at(-1).run,run);
  c.cloud.setRuns([]);assert.equal(c.previews.at(-1).run,null);
 });
+
+test('community consensus colors unlabeled runs while ties and disputed runner labels remain hollow',()=>{
+ const c=setup();
+ assert.equal(c.outcome({assessment:{label:null,ended:true,community:{label:'Success'}}}),'Success');
+ assert.equal(c.outcome({assessment:{label:null,ended:true,community:{label:'Failure'}}}),'Failure');
+ assert.equal(c.outcome({assessment:{label:null,ended:true,community:{label:null}}}),'Unscored');
+ assert.equal(c.outcome({assessment:{label:null,ended:false,community:{label:'Success'}}}),'Unscored');
+ assert.equal(c.outcome({assessment:{label:'Failure',eligibility:'included',community:{label:'Success'}}}),'Failure');
+ assert.equal(c.outcome({assessment:{label:'Failure',eligibility:'excluded',community:{label:'Success'}}}),'Unscored');
+});

@@ -15,8 +15,11 @@
     const perspective = Math.min(width,height)*2.6*zoom/Math.max(.8,3+depth);
     return {x:width/2+x*perspective,y:height/2-y*perspective,depth};
   }
-  const outcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
-    ? run.assessment.label : 'Unscored';
+  const outcome = run => {
+    const a = run.assessment || {};
+    if (a.label) return a.eligibility === 'included' && ['Success','Failure'].includes(a.label) ? a.label : 'Unscored';
+    return a.ended !== false && ['Success','Failure'].includes(a.community?.label) ? a.community.label : 'Unscored';
+  };
   // A single lazy media owner. Every transition invalidates pending detail/play
   // promises and tears down the old element and camera-layout frame callbacks.
   function createPreview(root, {loadRun, source, layout, canPlay = () => true, reducedMotion = () => false}) {
@@ -81,7 +84,7 @@
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
     function description(run) {
       const a = run.assessment || {};
-      return `${run.prompt} · ${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'} · ${outcome(run)} · Runner label: ${a.label || 'Unlabeled'} · ${a.correct || 0} correct / ${a.incorrect || 0} incorrect · ${a.eligibility || 'unlabeled'} · ${run.episode_id}`;
+      return `${run.prompt} · ${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'} · ${outcome(run)} · Runner label: ${a.label || 'Unlabeled'} · ${a.correct || 0} correct / ${a.incorrect || 0} incorrect · ${a.eligibility || 'unlabeled'}${!a.label ? ` · Community: ${a.community?.label || 'No agreed result'} (${a.community?.success || 0} success / ${a.community?.failure || 0} failure votes)` : ''} · ${run.episode_id}`;
     }
     function focus(run) {
       focusText.textContent = run ? description(run) : 'No runs match these filters. Choose another model or clear search.';

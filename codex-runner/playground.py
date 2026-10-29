@@ -345,6 +345,15 @@ class HostedRunner:
             self.run_assessments.register(eid, visitor.assessment_session, self.assessment_user(visitor),
                 ended=state.get('status') not in ACTIVE | {'idle'})
 
+    def outcome_voting_allowed(self, episode_id):
+        pending = self.run_names.pending(episode_id, self.robot_id)
+        if pending:
+            state = self.run_assessments.summaries().get(episode_id)
+            if state is not None:
+                return bool(state['ended'])
+        catalog = self.past_runs.page(metadata=True, robot_id=self.robot_id)
+        return any(row['episode_id'] == episode_id for row in catalog['runs'])
+
     def new_visitor(self):
         if len(self.visitors) >= self.max_sessions:
             raise RequestError(503, "All browser sessions are busy. Please try again shortly.")
@@ -528,7 +537,11 @@ class HostedRunner:
                 # Index all known tasks together, regardless of request filters.
                 catalog = await asyncio.to_thread(self.past_runs.page, metadata=True)
                 overlay = await asyncio.to_thread(self.run_assessments.summaries)
-                all_rows = catalog['runs']
+                receipts = await asyncio.to_thread(self.run_names.catalog)
+                # Archive rows win when a local receipt has finished publishing.
+                merged = {r['episode_id']: r for r in receipts}
+                merged.update({r['episode_id']: r for r in catalog['runs']})
+                all_rows = sorted(merged.values(), key=lambda r: r.get('started_at') or 0, reverse=True)
                 rows = [dict(r, assessment=overlay.get(r['episode_id'], RunAssessments.summary()))
                         for r in all_rows if (not query.get('robot_id') or r['robot_id'] == query['robot_id'][0])]
                 choices = sorted({r.get('model') or '__unrecorded__' for r in rows}, key=str.casefold)
@@ -550,7 +563,10 @@ class HostedRunner:
                 limit = 10000 if view == 'cloud' else 12
                 selected = rows[:limit] if view == 'cloud' else rows[offset:offset+limit]
                 if view == 'table':
-                    selected = await asyncio.to_thread(self.past_runs.details_for, selected)
+                    published = [r for r in selected if r.get('video_status') != 'processing']
+                    details = await asyncio.to_thread(self.past_runs.details_for, published) if published else []
+                    enriched = {r['episode_id']: r for r in details}
+                    selected = [enriched.get(r['episode_id'], r) for r in selected]
                     names = await asyncio.to_thread(self.run_names.names)
                     outcomes = await asyncio.to_thread(self.run_names.results)
                     speeds = await asyncio.to_thread(self.run_names.replay_speeds)
@@ -683,7 +699,11 @@ class HostedRunner:
                 try:
                     await asyncio.to_thread(self.remember_runner, visitor)
                     await asyncio.to_thread(self.remember_assessment_owner, visitor)
-                    if operation == 'assess':
+                    public_ended = await asyncio.to_thread(self.outcome_voting_allowed, eid) if operation in {'read','outcome_vote'} else False
+                    if operation == 'outcome_vote':
+                        await asyncio.to_thread(self.run_assessments.vote_outcome, eid, payload.get('label'),
+                            visitor.assessment_session, ended=public_ended)
+                    elif operation == 'assess':
                         await asyncio.to_thread(self.run_assessments.assess, eid, payload.get('label'),
                             payload.get('revision'), visitor.assessment_session, self.assessment_user(visitor))
                     elif operation == 'vote':
@@ -692,7 +712,7 @@ class HostedRunner:
                     elif operation != 'read':
                         raise ValueError('Unknown assessment operation')
                     result = await asyncio.to_thread(self.run_assessments.detail, eid,
-                        visitor.assessment_session, self.assessment_user(visitor))
+                        visitor.assessment_session, self.assessment_user(visitor), public_ended=public_ended)
                 except PermissionError as exc:
                     raise RequestError(403, str(exc)) from None
                 except AssessmentConflict as exc:

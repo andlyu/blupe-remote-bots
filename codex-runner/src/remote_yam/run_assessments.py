@@ -42,6 +42,9 @@ class RunAssessments:
                     run_id TEXT NOT NULL, revision INTEGER NOT NULL,
                     reviewer TEXT NOT NULL, vote INTEGER NOT NULL,
                     updated_at REAL NOT NULL, PRIMARY KEY(run_id,revision,reviewer));
+                CREATE TABLE IF NOT EXISTS outcome_votes (
+                    run_id TEXT NOT NULL, reviewer TEXT NOT NULL, label TEXT NOT NULL,
+                    updated_at REAL NOT NULL, PRIMARY KEY(run_id,reviewer));
                 CREATE TABLE IF NOT EXISTS assessment_vote_events (
                     run_id TEXT NOT NULL, revision INTEGER NOT NULL,
                     reviewer TEXT NOT NULL, vote INTEGER, created_at REAL NOT NULL);
@@ -115,6 +118,25 @@ class RunAssessments:
             db.execute('INSERT INTO assessment_vote_events VALUES(?,?,?,?,?)',
                        (run_id, revision, reviewer, vote, now))
 
+    def vote_outcome(self, run_id, label, session, *, ended=False):
+        if label not in (None, 'Success', 'Failure'):
+            raise ValueError('Choose Success, Failure, or remove your vote')
+        if not ended:
+            raise ValueError('Only known, ended runs can receive outcome votes')
+        with self.database() as db:
+            db.execute('BEGIN IMMEDIATE')
+            current = db.execute('SELECT r.ended,a.label FROM assessment_runs r LEFT JOIN assessments a '
+                'ON a.run_id=r.run_id AND a.revision=r.revision WHERE r.run_id=?', (run_id,)).fetchone()
+            if current and (not current['ended'] or current['label']):
+                raise ValueError('Outcome votes are for ended runs without a runner label')
+            reviewer = identity(session)
+            if label is None:
+                db.execute('DELETE FROM outcome_votes WHERE run_id=? AND reviewer=?', (run_id,reviewer))
+            else:
+                db.execute('INSERT INTO outcome_votes VALUES(?,?,?,?) ON CONFLICT(run_id,reviewer) '
+                    'DO UPDATE SET label=excluded.label,updated_at=excluded.updated_at',
+                    (run_id,reviewer,label,time.time()))
+
     def summaries(self):
         with self.database() as db:
             rows = db.execute('''SELECT r.run_id,r.revision,r.ended,a.label,a.created_at,
@@ -123,22 +145,33 @@ class RunAssessments:
                   ON a.run_id=r.run_id AND a.revision=r.revision
                 LEFT JOIN assessment_votes v ON v.run_id=r.run_id AND v.revision=r.revision
                 GROUP BY r.run_id''').fetchall()
-        return {r['run_id']: self.summary(dict(r)) for r in rows}
+            votes = db.execute("SELECT run_id,SUM(label='Success') AS success,SUM(label='Failure') AS failure "
+                               'FROM outcome_votes GROUP BY run_id').fetchall()
+        summaries = {r['run_id']: self.summary(dict(r)) for r in rows}
+        for vote in votes:
+            result = summaries.setdefault(vote['run_id'], self.summary())
+            success, failure = vote['success'], vote['failure']
+            result['community'] = dict(success=success, failure=failure,
+                label='Success' if success > failure else 'Failure' if failure > success else None)
+        return summaries
 
     @staticmethod
     def summary(row=None):
         data = dict(revision=0, label=None, correct=0, incorrect=0, ended=True, created_at=None)
         if row:
             data.update({k: row[k] for k in data if k in row})
+        data['community'] = dict(success=0, failure=0, label=None)
         data['ended'] = bool(data['ended'])
         data['eligibility'] = ('provisional' if not data['ended'] else 'unlabeled' if not data['label']
                                else 'included' if data['correct'] >= data['incorrect'] else 'excluded')
         return data
 
-    def detail(self, run_id, session, user=None):
+    def detail(self, run_id, session, user=None, *, public_ended=False):
         summary = self.summaries().get(run_id, self.summary())
         with self.database() as db:
             owner = db.execute('SELECT * FROM assessment_runs WHERE run_id=?', (run_id,)).fetchone()
+            outcome = db.execute('SELECT label FROM outcome_votes WHERE run_id=? AND reviewer=?',
+                                 (run_id, identity(session))).fetchone()
             vote = db.execute('SELECT vote FROM assessment_votes WHERE run_id=? AND revision=? AND reviewer=?',
                               (run_id, summary['revision'], identity(session))).fetchone()
             history = db.execute('''SELECT a.revision,a.label,a.created_at,
@@ -146,7 +179,8 @@ class RunAssessments:
                 FROM assessments a LEFT JOIN assessment_votes v
                 ON a.run_id=v.run_id AND a.revision=v.revision WHERE a.run_id=?
                 GROUP BY a.revision ORDER BY a.revision DESC''', (run_id,)).fetchall()
-        return {**summary, 'can_edit': self.can_edit(owner, session, user),
+        return {**summary, 'can_outcome_vote': bool(public_ended and not summary['label'] and summary['ended']),
+                'my_outcome_vote': outcome['label'] if outcome else None, 'can_edit': self.can_edit(owner, session, user),
                 'can_vote': bool(owner and owner['owner_session'] != identity(session)
                                  and summary['label'] and summary['ended']),
                 'my_vote': vote['vote'] if vote else None, 'history': [dict(r) for r in history]}

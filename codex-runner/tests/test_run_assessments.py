@@ -116,3 +116,21 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual((scores()['successes'],scores()['failures'],scores()['denominator']),(1,1,2))
         self.assertEqual(self.store.summaries()['ep_run']['label'],'Success')
         self.assertEqual(self.store.detail('ep_failure','other')['history'][0]['label'],'Failure')
+
+    def test_community_outcome_votes_change_remove_tie_and_never_overwrite_runner_label(self):
+        self.store.vote_outcome('ep_archive','Success','alice',ended=True)
+        self.store.vote_outcome('ep_archive','Success','alice',ended=True)
+        self.store.vote_outcome('ep_archive','Failure','bob',ended=True)
+        tied=self.store.summaries()['ep_archive']
+        self.assertIsNone(tied['label'])
+        self.assertEqual(tied['community'],{'success':1,'failure':1,'label':None})
+        self.store.vote_outcome('ep_archive','Success','bob',ended=True)
+        self.assertEqual(self.store.detail('ep_archive','bob',public_ended=True)['my_outcome_vote'],'Success')
+        self.assertEqual(self.store.summaries()['ep_archive']['community']['success'],2)
+        self.store.vote_outcome('ep_archive',None,'bob',ended=True)
+        self.assertEqual(self.store.summaries()['ep_archive']['community']['success'],1)
+        self.store.register('ep_archive','runner',ended=True)
+        self.store.assess('ep_archive','Failure',0,'runner')
+        with self.assertRaises(ValueError):self.store.vote_outcome('ep_archive','Success','carol',ended=True)
+        self.assertEqual(self.store.summaries()['ep_archive']['label'],'Failure')
+        with self.assertRaises(ValueError):self.store.vote_outcome('ep_unknown','Success','bob',ended=False)

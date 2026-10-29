@@ -495,20 +495,12 @@ function createRunLaunchGuard() {
           button.replaceChildren(title, prompt, watch);
           video.removeAttribute('src'); video.load();
         }
-        if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
+        if (!run.video_url) {
+          video.hidden = true; watch.textContent = 'Recording not published yet';
+          liveButton.disabled = true; liveButton.textContent = 'Recording pending';
+        } else if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
         else video.src = run.video_url;
       }
-  }
-  function renderScores(scores) {
-    $('pastRunsScores').replaceChildren();
-    for (const score of scores || []) {
-      const line = document.createElement('p'), name = document.createElement('strong');
-      name.textContent = `${score.model === '__unrecorded__' ? 'Model not recorded' : score.model} · ${score.version === 'unknown' ? 'version unknown' : score.version}`;
-      const rate = score.denominator ? `${Math.round(score.rate*100)}% · ${score.successes}/${score.denominator} included successes` : 'No scored runs · 0/0';
-      const unscored = score.unlabeled + score.excluded + score.provisional;
-      line.append(name, document.createTextNode(` — ${rate} · ${unscored} unscored${score.provisional ? ` (${score.provisional} provisional)` : ''}`));
-      $('pastRunsScores').append(line);
-    }
   }
   function renderView() {
     $('pastRunsTable').hidden = historyView !== 'table';
@@ -536,8 +528,10 @@ function createRunLaunchGuard() {
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
     }
   }
+  let reloadPending = false;
   async function load(reset = false) {
-    if (loading || !historyRobot) return;
+    if (loading) { reloadPending ||= reset; return; }
+    if (!historyRobot) return;
     const generation = historyGeneration;
     loading = true; $('morePastRuns').disabled = $('refreshPastRuns').disabled = true;
     if (reset) stopPreview();
@@ -563,7 +557,6 @@ function createRunLaunchGuard() {
       if (reset) { clearBlocks(); catalogRows = []; }
       catalogRows.push(...data.runs);
       if (historyView === 'table') renderBlocks(data.runs);
-      renderScores(data.scores);
       renderView();
       next = data.next_offset;
       $('morePastRuns').hidden = historyView === 'cloud' || next == null;
@@ -573,7 +566,7 @@ function createRunLaunchGuard() {
         : hasRuns ? `${data.total} runs${historyView === 'table' ? ' · newest first.' : '.'}` : historyModels.length ? 'No published runs for these models. Choose another model or All models.' : 'No published runs yet.';
       if (historyView === 'cloud') {
         const drawn = data.runs.filter(run => run.xyz).length;
-        summary += ` ${drawn} mapped runs shown${data.sampled ? `; display limited to the newest ${data.display_limit}. Use Table to reach every run.` : '.'} Scores use all ${data.total} filtered runs.`;
+        summary += ` ${drawn} mapped runs shown${data.sampled ? `; display limited to the newest ${data.display_limit}. Use Table to reach every run.` : '.'}`;
         if (data.cloud?.status !== 'ready') {
           summary += data.cloud?.status === 'error' ? ' Semantic indexing unavailable; use Table. Retrying in one minute.' : ' Building semantic task coordinates in the background; use Table while it indexes.';
           cloudTimer = setTimeout(() => load(true), data.cloud?.status === 'error' ? 60000 : 3000);
@@ -582,7 +575,7 @@ function createRunLaunchGuard() {
       }
       $('pastRunsStatus').textContent = summary + (data.stale ? ' Showing saved results; the archive is temporarily unavailable.' : '');
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
-    finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
+    finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; if (reloadPending) { reloadPending = false; load(true); } } }
   }
   window.yamReplayHistory = {openRun, selectRun, refresh: () => load(true)};
   $('refreshPastRuns').addEventListener('click', () => load(true));

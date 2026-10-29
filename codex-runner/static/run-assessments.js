@@ -8,7 +8,7 @@
   const empty = () => ({revision:0,label:null,correct:0,incorrect:0,eligibility:'unlabeled',can_edit:false,can_vote:false,history:[]});
   const issued = new Map();
   let requestSequence = 0;
-  const groups = ['liveAssessmentControls','replayAssessmentControls','replayVoteControls'];
+  const groups = ['liveAssessmentControls','replayAssessmentControls','replayVoteControls','replayOutcomeVoteControls'];
   function render() {
     for (const [target, scope] of [['live',live],['replay',replay]]) {
       const data = scope?.assessment || empty(), controls = $(target+'AssessmentControls');
@@ -18,7 +18,18 @@
         button.setAttribute('aria-pressed', String((button.dataset.label || null) === data.label));
       }
       if (target === 'replay') {
-        $('replayAssessmentSummary').textContent = `${data.label || 'Not completed'} · ${data.correct} correct / ${data.incorrect} incorrect · ${data.eligibility === 'included' ? 'Included in score' : data.eligibility === 'excluded' ? 'Excluded from score; original label retained' : data.eligibility === 'provisional' ? 'Provisional — run in progress' : 'Unlabeled — not scored'}`;
+        $('replayAssessmentSummary').textContent = `${data.label || 'Not completed'} · ${data.correct} correct / ${data.incorrect} incorrect · ${data.eligibility === 'included' ? 'Runner result' : data.eligibility === 'excluded' ? 'Disputed; original runner label retained' : data.eligibility === 'provisional' ? 'Provisional — run in progress' : 'No runner label'}`;
+        const community = data.community || {success:0,failure:0,label:null};
+        if (!data.label) $('replayAssessmentSummary').textContent =
+          `No runner label · Community: ${community.label || 'No agreed result'} · ${community.success} success / ${community.failure} failure votes`;
+        const outcomes = $('replayOutcomeVoteControls');
+        if (outcomes) {
+          outcomes.hidden = !data.can_outcome_vote || data.can_edit;
+          for (const button of outcomes.querySelectorAll('button')) {
+            button.disabled = busy || !data.can_outcome_vote || (!button.dataset.label && !data.my_outcome_vote);
+            button.setAttribute('aria-pressed', String(!!button.dataset.label && button.dataset.label === data.my_outcome_vote));
+          }
+        }
         $('replayVoteControls').hidden = !data.can_vote;
         for (const button of $('replayVoteControls').querySelectorAll('button')) {
           button.disabled = busy || !data.can_vote || (!button.dataset.vote && data.my_vote == null);
@@ -47,7 +58,7 @@
   }
   async function refresh(scope, force = false) {
     if (busy && !force) return;
-    try { await request(scope); }
+    try { return await request(scope); }
     catch(error) { if (scope === replay) $('replayAssessmentStatus').textContent = error.message; }
   }
   async function mutate(scope, fields, target) {
@@ -64,18 +75,18 @@
       await refresh(scope, true);
     } finally { busy = false; render(); }
   }
-  for (const id of groups) $(id).addEventListener('click', event => {
+  for (const id of groups) $(id)?.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button || button.disabled) return;
     const target = id === 'liveAssessmentControls' ? 'live' : 'replay';
     mutate(target === 'live' ? live : replay, id === 'replayVoteControls'
       ? {operation:'vote',vote:button.dataset.vote ? Number(button.dataset.vote) : null}
-      : {operation:'assess',label:button.dataset.label || null}, target);
+      : {operation:id === 'replayOutcomeVoteControls' ? 'outcome_vote' : 'assess',label:button.dataset.label || null}, target);
   });
   window.yamRunAssessment = {
     showReplay(run) {
       replay = {id:run.episode_id,assessment:run.assessment || empty()};
-      $('replayAssessmentStatus').textContent = 'Review whether the runner’s label is correct. Votes apply to this assessment revision.';
+      $('replayAssessmentStatus').textContent = 'Vote Success or Failure when there is no runner label, or review an existing label.';
       render(); refresh(replay);
     },
     observe(state, selectedRobot, csrf) {
@@ -87,7 +98,17 @@
       // runner sees the live result controls; old results remain in replay.
       const visible = !!state.session_id && active.has(state.status);
       $('liveAssessment').hidden = !visible;
-      if (!visible) return;
+      if (!visible) {
+        if (live?.id && live.id === state.episode_id && active.has(live.status)) {
+          live.status = state.status;
+          const ended = live;
+          // Hide controls immediately, then publish the finalized saved result.
+          refresh(ended).then(data => {
+            if (data) window.dispatchEvent(new CustomEvent('yam-assessment-changed', {detail:ended.id}));
+          });
+        }
+        return;
+      }
       const changed = live?.id !== state.episode_id || live?.status !== state.status;
       if (changed) {
         live = {id:state.episode_id,status:state.status,assessment:live?.id === state.episode_id ? live.assessment : empty()};

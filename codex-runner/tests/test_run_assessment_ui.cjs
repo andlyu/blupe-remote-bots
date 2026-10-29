@@ -5,7 +5,7 @@ function setup(){
   addEventListener(name,fn){this.listeners[name]=fn},setAttribute(name,value){this.attributes[name]=value},
   querySelectorAll(){return this.children},replaceChildren(...children){this.children=children},closest(){return this}});
  const node=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)};
- for(const id of ['liveAssessmentControls','replayAssessmentControls'])node(id).children=['','Failure','Success'].map(label=>Object.assign(element(),{dataset:{label}}));
+ for(const id of ['liveAssessmentControls','replayAssessmentControls','replayOutcomeVoteControls'])node(id).children=['','Failure','Success'].map(label=>Object.assign(element(),{dataset:{label}}));
  node('replayVoteControls').children=['1','-1',''].map(vote=>Object.assign(element(),{dataset:{vote}}));
  const window={dispatchEvent:event=>events.push(event)};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../static/run-assessments.js'),'utf8'),{
@@ -32,7 +32,7 @@ test('controls stay visible during running and runner can save without Stop; lat
  api.showReplay({episode_id:'ep_own'});
  c.answer(c.requests.at(-1),{...c.data,revision:1,label:'Success',eligibility:'included'});await c.flush();
  assert.equal(c.node('replayAssessmentControls').hidden,false);assert.equal(c.node('replayVoteControls').hidden,true);
- assert.match(c.node('replayAssessmentSummary').textContent,/Success.*Included in score/);
+ assert.match(c.node('replayAssessmentSummary').textContent,/Success.*Runner result/);
 });
 test('review buttons identify correctness, send revision and support vote removal',async()=>{
  const c=setup(),api=c.window.yamRunAssessment;api.observe({status:'idle'},'yam-1','reviewer');api.showReplay({episode_id:'ep_other'});
@@ -69,4 +69,28 @@ test('spectators, queued sessions and ended runners never see live result contro
   const c=setup();c.window.yamRunAssessment.observe({session_id:'own',episode_id:'ep_own',status},'yam-1','csrf');
   assert.equal(c.node('liveAssessment').hidden,false,status);
  }
+});
+
+test('unlabeled replay lets visitors vote Success or Failure and shows consensus counts',async()=>{
+ const c=setup(),api=c.window.yamRunAssessment;api.observe({status:'idle'},'yam-1','csrf');api.showReplay({episode_id:'ep_archive'});
+ c.answer(c.requests[0],{...c.data,can_edit:false,can_vote:false,can_outcome_vote:true,ended:true,eligibility:'unlabeled',community:{success:0,failure:0,label:null}});await c.flush();
+ const group=c.node('replayOutcomeVoteControls');assert.equal(group.hidden,false);
+ const success=group.children[2];group.listeners.click({target:success});
+ assert.deepEqual(JSON.parse(c.requests[1].options.body),{episode_id:'ep_archive',operation:'outcome_vote',label:'Success',revision:0});
+ c.answer(c.requests[1],{...c.data,can_edit:false,can_outcome_vote:true,community:{success:1,failure:0,label:'Success'},my_outcome_vote:'Success'});await c.flush();
+ assert.match(c.node('replayAssessmentSummary').textContent,/Community: Success.*1 success \/ 0 failure/);
+ assert.equal(success.attributes['aria-pressed'],'true');assert.equal(c.events.at(-1).type,'yam-assessment-changed');
+});
+
+test('ending a live run refreshes its finalized label and updates the cloud while hiding controls',async()=>{
+ const c=setup(),api=c.window.yamRunAssessment;
+ api.observe({session_id:'own',episode_id:'ep_own',status:'running'},'yam-1','csrf');
+ c.answer(c.requests[0],{...c.data,label:'Success',revision:1});await c.flush();
+ api.observe({session_id:'own',episode_id:'ep_own',status:'stopped'},'yam-1','csrf');
+ assert.equal(c.node('liveAssessment').hidden,true);
+ assert.equal(JSON.parse(c.requests[1].options.body).episode_id,'ep_own');
+ c.answer(c.requests[1],{...c.data,label:'Success',revision:1,ended:true,eligibility:'included'});await c.flush();
+ assert.equal(c.events.at(-1).type,'yam-assessment-changed');
+ api.observe({session_id:'own',episode_id:'ep_own',status:'stopped'},'yam-1','csrf');
+ assert.equal(c.requests.length,2,'finalization is emitted once per live-to-ended transition');
 });
