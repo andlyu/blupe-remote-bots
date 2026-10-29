@@ -84,14 +84,6 @@
   </div>
   </div>
   <div class="cameraFooter">
-  <section id="liveAssessment" class="runnerAssessment" aria-labelledby="liveAssessmentTitle" hidden>
-    <h3 id="liveAssessmentTitle">Your assessment</h3>
-    <div id="liveAssessmentControls" class="assessmentControls" role="group" aria-label="Your assessment">
-      <button type="button" data-label="" aria-pressed="true">Not completed</button><button type="button" data-label="Failure" aria-pressed="false">Failed</button><button type="button" data-label="Success" aria-pressed="false">Succeeded</button>
-    </div>
-    <p id="liveAssessmentStatus" class="help" role="status">Your label is provisional until the run ends.</p>
-    <p id="assessmentWindow" class="help" role="status" hidden>Video review opens in five seconds. You can edit your assessment later.</p>
-  </section>
   <div class="cameraDetails">
   <div class="cameraStatusLine"><p id="station" role="status" aria-live="polite">Checking / unavailable</p><span id="status" hidden class="tag">Connecting</span><p id="publicRunError" class="publicRunError" role="status" aria-live="polite" hidden></p></div>
     <aside id="yourQueue" class="panel robotQueue" tabindex="-1">      <span id="queueSummary" role="status">Queue · connecting…</span><ol id="queue" hidden><li>Waiting for queue information</li></ol>
@@ -102,6 +94,15 @@
     </aside>
   </div>
   <div class="cameraSocialControls">
+  <section id="liveAssessment" class="assessmentToolbar" aria-label="Run result" hidden>
+    <div id="liveAssessmentControls" class="assessmentControls" role="group" aria-label="Your assessment">
+      <button type="button" data-label="" aria-label="Neutral" title="Neutral — unscored" aria-pressed="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+      <button type="button" data-label="Failure" aria-label="Failure" title="Failure" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      <button type="button" data-label="Success" aria-label="Success" title="Success" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>
+    </div>
+    <p id="liveAssessmentStatus" class="visuallyHidden" role="status">Your label is provisional until the run ends.</p>
+    <p id="assessmentWindow" class="visuallyHidden" role="status" hidden>Video review opens in five seconds. You can edit your assessment later.</p>
+  </section>
   <div id="chatPopupStage" class="chatPopupStage" aria-hidden="true"></div>
 <div id="reactionDock" class="reactionDock" role="group" aria-label="React with everyone watching">
   <div id="reactionStage" class="reactionStage" aria-hidden="true"></div>
@@ -340,7 +341,7 @@
   <p id="pastRunPrompt"></p><p id="pastRunDetails" class="help"></p>
   <section id="replayAssessment" class="runnerAssessment" aria-labelledby="replayAssessmentTitle">
     <h3 id="replayAssessmentTitle">Runner assessment</h3><p id="replayAssessmentSummary" role="status"></p>
-    <div id="replayAssessmentControls" class="assessmentControls" role="group" aria-label="Edit your assessment" hidden><button type="button" data-label="" aria-pressed="true">Not completed</button><button type="button" data-label="Failure" aria-pressed="false">Failed</button><button type="button" data-label="Success" aria-pressed="false">Succeeded</button></div>
+    <div id="replayAssessmentControls" class="assessmentControls" role="group" aria-label="Edit your assessment" hidden><button type="button" data-label="" aria-pressed="true">Neutral</button><button type="button" data-label="Failure" aria-pressed="false">Failure</button><button type="button" data-label="Success" aria-pressed="false">Success</button></div>
     <div id="replayVoteControls" class="assessmentControls" role="group" aria-label="Review the runner assessment" hidden><button type="button" data-vote="1" aria-pressed="false">Assessment correct</button><button type="button" data-vote="-1" aria-pressed="false">Assessment incorrect</button><button type="button" data-vote="">Remove my vote</button></div>
     <p id="replayAssessmentStatus" class="help" role="status"></p>
     <details><summary>Assessment revision history</summary><ol id="assessmentHistory"></ol></details>

@@ -2031,6 +2031,14 @@ function createRunLaunchGuard() {
     atlas.width = 1280; atlas.height = 720;
     const context = atlas.getContext('2d', {alpha:false});
     const contexts = tiles.map(tile => tile.getContext('2d', {alpha:false}));
+    function contentRect(role, rect) {
+      if (selectedRobot !== 'robot-ba8413962083809c') return rect;
+      // Robo-house centers its native images in padded 16:9 atlas tiles.
+      // Remove only those fixed stream borders, including the diagnostic row.
+      const inset = Math.round(rect[2] * (role === 'observer' ? 280/1920 : 82/640));
+      const top = role === 'observer' ? Math.round(rect[3] * 12/1080) : 0;
+      return [rect[0]+inset, rect[1]+top, rect[2]-2*inset, rect[3]-top];
+    }
     const labels = [...document.querySelectorAll('[data-sync-status]')];
     const stopExpanding = cameraExpansion(video, tiles);
     let callback, lastMediaTime = -1, lastPaint = -Infinity, stopped = false, frame = 0;
@@ -2085,8 +2093,9 @@ function createRunLaunchGuard() {
             await snapshot.decode();
             if (!pending || stopped || frame || document.hidden || selectedRobot !== snapshotRobot) return;
             const width = snapshot.naturalWidth || 640, height = snapshot.naturalHeight || 360;
-            tile.width = width; tile.height = height;
-            contexts[i].drawImage(snapshot, 0, 0, width, height);
+            const rect = contentRect(role, [0, 0, width, height]);
+            tile.width = rect[2]; tile.height = rect[3];
+            contexts[i].drawImage(snapshot, ...rect, 0, 0, rect[2], rect[3]);
             tile.dataset.frameSource = 'snapshot';
           } catch { /* Let the live stream finish connecting if the still fails. */ }
           finally { stop(); }
@@ -2118,8 +2127,9 @@ function createRunLaunchGuard() {
         if (frame === 1) stopSnapshots.forEach(stop => stop());
         tiles.forEach((tile, i) => {
           const role = tile.dataset.cameraRole;
-          const rect = hd ? ({observer:[0,0,1920,1080],left:[1920,0,640,360],top:[1920,360,640,360],right:[1920,720,640,360]})[role]
+          const frameRect = hd ? ({observer:[0,0,1920,1080],left:[1920,0,640,360],top:[1920,360,640,360],right:[1920,720,640,360]})[role]
             : [(i%2)*width/2, Math.floor(i/2)*height/2, width/2, height/2];
+          const rect = contentRect(role, frameRect);
           if (tile.width !== rect[2]) tile.width = rect[2];
           if (tile.height !== rect[3]) tile.height = rect[3];
           contexts[i].drawImage(atlas, ...rect, 0, 0, rect[2], rect[3]);
@@ -3075,32 +3085,36 @@ function bindQuickTaskDraft(prompt, quick) {
   function fitCameras() {
     const viewer = $('liveViewer'), four = viewer.dataset.layout === 'observer-focus';
     const aspect = four ? 640/324 : 16/9;
-    if (window.innerWidth <= 740) {
-      const width = visuals.clientWidth;
-      workspace.style.removeProperty('height');
-      workspace.style.removeProperty('--console-camera-width');
-      workspace.style.setProperty('--console-camera-height', (four ? width/aspect + (width-12)/aspect/3 + 6 : width/aspect) + 'px');
-      viewer.dataset.detailLayout = 'below'; return;
-    }
+    // Desktop CSS fits cameras, their footer, and chat inside this height.
+    // Document position stays constant while scrolling. Footer wrapping only
+    // adjusts grid rows; it never changes column widths or thumbnail placement.
+    const width = Math.max(100, visuals.clientWidth);
+    const cameraHeight = four ? width/aspect + (width-12)/aspect/3 + 6 : width/aspect;
     const documentTop = workspace.getBoundingClientRect().top + window.scrollY;
-    workspace.style.height = Math.max(160, window.innerHeight - documentTop - 18) + 'px';
-    const height = Math.max(100, workspace.clientHeight - document.querySelector('.cameraFooter').offsetHeight - 8);
-    const available = Math.max(100, workspace.clientWidth - Math.max(320, workspace.clientWidth*.25) - 16);
-    const side = four && available/height > 2.35;
-    const ideal = four ? side ? (height*4/3 - 4)*aspect + 6 : (height-6+4/aspect)*aspect*3/4 : height*aspect;
-    const width = Math.min(available, ideal);
-    const cameraHeight = four ? side ? ((width-6)/aspect + 4)*3/4 : width/aspect + (width-12)/aspect/3 + 6 : width/aspect;
+    const viewportHeight = Math.max(0, window.innerHeight - documentTop - 16);
+    workspace.style.removeProperty('height');
+    workspace.style.setProperty('--console-viewport-height', viewportHeight + 'px');
     workspace.style.setProperty('--console-camera-width', width + 'px');
     workspace.style.setProperty('--console-camera-height', cameraHeight + 'px');
-    viewer.dataset.detailLayout = side ? 'side' : 'below';
+    viewer.dataset.detailLayout = four && window.innerWidth > 740 ? 'side' : 'below';
   }
-  const sizing = new ResizeObserver(fitCameras);
+  let cameraFitFrame = null;
+  function scheduleCameraFit() {
+    if (cameraFitFrame !== null) return;
+    // ResizeObserver must not change the geometry it is currently observing.
+    // Share one layout update across resize and camera-layout notifications.
+    cameraFitFrame = window.requestAnimationFrame(() => {
+      cameraFitFrame = null;
+      fitCameras();
+    });
+  }
+  const sizing = new ResizeObserver(scheduleCameraFit);
   sizing.observe(workspace); sizing.observe(document.querySelector('.cameraFooter'));
   if ($('collectionProgress')) sizing.observe($('collectionProgress'));
-  new MutationObserver(fitCameras).observe($('liveViewer'), {attributes:true,attributeFilter:['data-layout']});
+  new MutationObserver(scheduleCameraFit).observe($('liveViewer'), {attributes:true,attributeFilter:['data-layout']});
   provider.addEventListener('change', updateComposer);
   document.addEventListener('blupe-model-changed', updateComposer);
-  window.addEventListener('resize', fitCameras);
+  window.addEventListener('resize', scheduleCameraFit);
   updateComposer(); sizePrompt(); fitCameras();
 })();
 

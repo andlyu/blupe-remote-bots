@@ -59,3 +59,11 @@ test('unrecognized robot and invalid image sizes leave normal startup available'
   const invalid=harness();invalid.images[0].naturalWidth=640;await invalid.images[0].onload();
   assert.equal(invalid.draws.length,0);
 });
+
+test('Robo-house startup preview uses the same unpadded live camera crops',async()=>{
+  const h=harness('?robot_id=robot-ba8413962083809c');
+  h.images[0].naturalWidth=2560;h.images[0].naturalHeight=1080;
+  await h.images[0].onload();
+  assert.deepEqual(Array.from(h.draws.find(d=>d.role==='observer').args.slice(1)),[280,12,1360,1068,0,0,1360,1068]);
+  assert.deepEqual(Array.from(h.draws.find(d=>d.role==='left').args.slice(1)),[2002,0,476,360,0,0,476,360]);
+});

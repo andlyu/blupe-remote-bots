@@ -6,7 +6,7 @@ const path = require('node:path');
 const source = fs.readFileSync(process.env.YAM_TEST_HOSTED_JS || path.join(__dirname, '../static/hosted.js'), 'utf8');
 const panels = source.slice(source.indexOf('  function synchronizedPanels('), source.indexOf('  function camera(image)'));
 
-function harness({ready = false, hd = false, marker = null, roles = ['top','observer','left','right'], snapshots = roles} = {}) {
+function harness({ready = false, hd = false, marker = null, roles = ['top','observer','left','right'], snapshots = roles, robot = 'yam-1'} = {}) {
   const draws = [], images = [], timers = new Map(), labels = [];
   let callback, id = 0, now = 0;
   const tiles = roles.map(role => ({
@@ -30,7 +30,7 @@ function harness({ready = false, hd = false, marker = null, roles = ['top','obse
   const context = {
     performance: {now: () => now},
     cameraExpansion: () => () => {},
-    cameraNames:snapshots, selectedRobot: 'yam-1', Date: marker ? {now:()=>1791614135000} : Date, encodeURIComponent, video,
+    cameraNames:snapshots, selectedRobot: robot, Date: marker ? {now:()=>1791614135000} : Date, encodeURIComponent, video,
     label: {textContent: 'Loading video'},
     setTimeout(fn) {timers.set(++id, fn); return id;}, clearTimeout(id) {timers.delete(id);},
     requestAnimationFrame(fn) {callback = fn; return 1;}, cancelAnimationFrame() {callback = null;},
@@ -206,4 +206,14 @@ test('8 fps presentation does not drift down when display refreshes miss exact d
     h.paint(17);
   }
   assert.equal(h.tiles[0].dataset.presentedFrame, '9', 'initial frame plus eight updates per second');
+});
+
+test('Robo-house live camera canvases exclude encoded black borders',()=>{
+  const h=harness({ready:true,hd:true,robot:'robot-ba8413962083809c'});
+  const crop=role=>Array.from(h.draws.find(d=>d.role===role).args.slice(1));
+  assert.deepEqual(crop('observer'),[280,12,1360,1068,0,0,1360,1068]);
+  assert.deepEqual(crop('left'),[2002,0,476,360,0,0,476,360]);
+  assert.deepEqual(crop('top'),[2002,360,476,360,0,0,476,360]);
+  assert.deepEqual(crop('right'),[2002,720,476,360,0,0,476,360]);
+  assert(h.draws.slice(1).every(draw=>draw.args[0]===h.atlas));
 });

@@ -28,6 +28,8 @@ test('controls stay visible during running and runner can save without Stop; lat
  c.answer(write,{...c.data,revision:1,label:'Success'});await c.flush();
  assert.equal(button.attributes['aria-pressed'],'true');assert.equal(c.events[0].type,'yam-assessment-changed');
  api.observe({session_id:'own',episode_id:'ep_own',status:'stopped'},'yam-1','csrf');
+ assert.equal(c.node('liveAssessment').hidden,true);
+ api.showReplay({episode_id:'ep_own'});
  c.answer(c.requests.at(-1),{...c.data,revision:1,label:'Success',eligibility:'included'});await c.flush();
  assert.equal(c.node('replayAssessmentControls').hidden,false);assert.equal(c.node('replayVoteControls').hidden,true);
  assert.match(c.node('replayAssessmentSummary').textContent,/Success.*Included in score/);
@@ -40,4 +42,31 @@ test('review buttons identify correctness, send revision and support vote remova
  assert.deepEqual(JSON.parse(c.requests[1].options.body),{episode_id:'ep_other',operation:'vote',vote:null,revision:3});
  c.answer(c.requests[1],{...c.data,revision:3,label:'Failure',can_edit:false,can_vote:true,eligibility:'included',my_vote:null});await c.flush();
  assert.equal(c.node('replayVoteControls').children[2].disabled,true);
+});
+test('compact controls surface save errors and clear the error when retried',async()=>{
+ const c=setup();c.window.yamRunAssessment.observe({session_id:'own',episode_id:'ep_own',status:'running'},'yam-1','csrf');
+ c.answer(c.requests[0],c.data);await c.flush();
+ const button=c.node('liveAssessmentControls').children[1],status=c.node('liveAssessmentStatus');
+ c.node('liveAssessmentControls').listeners.click({target:{closest:()=>button}});
+ c.answer(c.requests[1],{error:'Assessment could not be saved. Try again.'},false);await c.flush();
+ assert.equal(status.dataset.error,'true');assert.match(status.textContent,/could not be saved/);
+ c.answer(c.requests[2],c.data);await c.flush();
+ assert.equal(button.disabled,false);
+ c.node('liveAssessmentControls').listeners.click({target:button});
+ assert.equal(status.dataset.error,'false');
+ c.answer(c.requests[3],{...c.data,revision:1,label:'Failure'});await c.flush();
+ assert.equal(button.attributes['aria-pressed'],'true');
+});
+test('spectators, queued sessions and ended runners never see live result controls',()=>{
+ for(const status of ['idle','queued','stopped','failed','completed']){
+  const c=setup();c.window.yamRunAssessment.observe({session_id:'old',episode_id:'ep_old',status,public_run:{status:'running',episode_id:'ep_somebody_else'}},'yam-1','csrf');
+  assert.equal(c.node('liveAssessment').hidden,true,status);
+  assert.equal(c.requests.length,0,'hidden controls must not query an old result');
+ }
+ const c=setup();c.window.yamRunAssessment.observe({status:'running',public_run:{status:'running'}},'yam-1','csrf');
+ assert.equal(c.node('liveAssessment').hidden,true,'a public running session is not proof of ownership');
+ for(const status of ['preparing','running']){
+  const c=setup();c.window.yamRunAssessment.observe({session_id:'own',episode_id:'ep_own',status},'yam-1','csrf');
+  assert.equal(c.node('liveAssessment').hidden,false,status);
+ }
 });
