@@ -449,8 +449,8 @@ def install(hardware, **settings):
                 self.dream_executor.cancel()
             return super().action(action, *args, **kwargs)
 
-        def status(self):
-            status = super().status()
+        def status(self, *args, **kwargs):
+            status = super().status(*args, **kwargs)
             if hasattr(self, 'dream_executor'):
                 executor = self.dream_executor
                 status['controller_executors'] = {'dream_one': executor.status()}
