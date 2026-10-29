@@ -103,6 +103,12 @@ explicit availability. Supported reusable adapter implementations are Dream-1,
 Dream-1 Flash, Codex/Astra, Claude/Opus, Gemini/Argon, GR00T, MolmoAct2 and the
 Responses protocol. Provider keys reference private host-local files. CLI
 adapters reuse the host's existing login; authentication is never copied.
+Subscription runners continue to require ChatGPT login. A controller-owned
+Codex registration can explicitly enable `existing_cli_auth` to reuse an already
+authenticated local CLI API-key login. The CLI reads its own credentials;
+the adapter never reads/copies the auth file or key. Its public configuration
+reports `existing_cli_api_key` and API billing. This does not change subscription
+runner defaults or forward credentials through a run request.
 
 Dream uses a separate Python 3.12 SDK and prepared CPU IK pool; the native
 operator keeps its existing environment. GR00T/MolmoAct2 require Pillow only

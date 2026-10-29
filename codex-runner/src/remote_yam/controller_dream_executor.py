@@ -457,6 +457,7 @@ def install(hardware, **settings):
                 if executor.model_runtime:
                     status['controller_executors']['controller'] = executor.status()
                     status['controller_models'] = executor.model_runtime.catalog
+                    status['robot_id'] = executor.model_runtime.robot_id
             return status
 
         def stop(self):

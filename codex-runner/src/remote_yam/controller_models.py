@@ -150,7 +150,7 @@ class ControllerModels:
         elif kind in {'codex', 'claude'}:
             if kind == 'codex':
                 from .codex_policy import CodexAdapter
-                adapter = CodexAdapter(spec['model'], **kwargs)
+                adapter = CodexAdapter(spec['model'], existing_cli_auth=spec.get('existing_cli_auth', False), **kwargs)
             else:
                 from .claude_policy import ClaudeAdapter
                 adapter = ClaudeAdapter(spec['model'], **kwargs)

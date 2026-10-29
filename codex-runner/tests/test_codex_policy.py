@@ -64,6 +64,30 @@ class CodexPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Sign in first'):
                 CodexAdapter()
 
+    def test_controller_can_reuse_existing_cli_api_login_without_reading_or_returning_its_key(self):
+        def result(args, **kwargs):
+            return subprocess.CompletedProcess(args,0,'codex-cli 0.154.0' if '--version' in args
+                else 'Logged in using an API key: private-value','')
+        with patch('remote_yam.codex_policy.codex_binary',return_value='/bin/codex'), \
+             patch('remote_yam.codex_policy.subprocess.run',side_effect=result), \
+             patch('remote_yam.codex_policy.check_codex_storage'):
+            self.assertFalse(codex_status()['ready'])
+            status=codex_status(allow_existing_api_key=True)
+            self.assertTrue(status['ready'])
+            self.assertEqual(status['authentication'],'existing_cli_api_key')
+            self.assertNotIn('private-value',json.dumps(status))
+            provider=CheckAdapter(existing_cli_auth=True)
+        self.addCleanup(provider._workspace.cleanup)
+        captured=[]
+        def execute(command,*args):
+            captured.append(command)
+            return events(decision())
+        with patch.object(provider,'_execute',side_effect=execute):
+            with self.assertRaises(PolicyComplete):provider.build_trajectory('Hold.',check_observation(),0)
+        self.assertIn('forced_login_method="api"',captured[0])
+        self.assertNotIn('forced_login_method="chatgpt"',captured[0])
+        self.assertTrue(provider.public_config()['api_billing'])
+
     def test_environment_drops_api_keys_and_session_capabilities(self):
         with patch.dict(os.environ, {'OPENAI_API_KEY':'secret', 'CODEX_API_KEY':'secret2', 'ASTRA_API_KEY':'secret3',
                                      'CODEX_ACCESS_TOKEN':'secret4', 'YAM_LEASE':'secret5', 'HOME':'/tmp/home'}, clear=True):
