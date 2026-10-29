@@ -2,8 +2,7 @@
 (() => {
   'use strict';
   let robot = '', image = null, generation = 0, requestedAt = 0;
-  const selected = () => window.yamApplication?.defaultRobot
-    || new URLSearchParams(location.search).get('robot_id') || 'yam-1';
+  const selected = () => document.getElementById('robotSelector')?.value;
   function paint(targetRobot, tiles) {
     if (targetRobot !== robot || !image || performance.now() - requestedAt > 5000) return;
     const width = image.naturalWidth, height = image.naturalHeight;
@@ -68,9 +67,10 @@
     if (event.detail !== robot) load(event.detail);
   });
   function start() {
-    // MakerMods has its own default/selection; do not preload YAM on that page.
-    if (location.pathname !== '/' && !new URLSearchParams(location.search).has('robot_id')) return;
-    load(selected());
+    // The selector resolves catalog order, explicit links and dedicated pages.
+    // Read it here too in case this async script missed the selection event.
+    const resolved = selected();
+    if (resolved && resolved !== robot) load(resolved);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true});
   else start();

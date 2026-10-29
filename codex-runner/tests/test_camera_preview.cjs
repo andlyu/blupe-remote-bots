@@ -2,7 +2,7 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
 const source = fs.readFileSync(__dirname + '/../static/camera-preview.js', 'utf8');
 
-function harness(search = '') {
+function harness(search = '', {selectedRobot = new URLSearchParams(search).get('robot_id') || 'yam-1', readyState = 'complete', defaultRobot} = {}) {
   let now = 200;
   const images = [], draws = [], listeners = {}, viewer = {dataset:{}};
   const tiles = ['top','observer','left','right'].map(role => {
@@ -11,13 +11,62 @@ function harness(search = '') {
     return {dataset:{cameraRole:role},setAttribute(){},closest:()=>figure,
       getContext:()=>({drawImage:(...args)=>draws.push({role,args})})};
   });
+  const selector = {value:selectedRobot};
   const context = {location:{search,pathname:'/'},URLSearchParams,performance:{now:()=>now},
     requestAnimationFrame:fn=>fn(),Image:class {constructor(){images.push(this);this.naturalWidth=1280;this.naturalHeight=540;}async decode(){}},
-    window:{addEventListener:(name,fn)=>listeners[name]=fn},document:{readyState:'complete',hidden:false,
-      querySelectorAll:()=>tiles,getElementById:()=>viewer}};
+    window:{yamApplication:{defaultRobot},addEventListener:(name,fn)=>listeners[name]=fn},document:{readyState,hidden:false,
+      addEventListener:(name,fn)=>listeners[name]=fn,
+      querySelectorAll:()=>tiles,getElementById:id=>id==='robotSelector'?selector:viewer}};
   vm.runInNewContext(source,context);
-  return {context,images,draws,tiles,viewer,listeners,time:v=>now=v};
+  return {context,images,draws,tiles,viewer,selector,listeners,time:v=>now=v};
 }
+
+test('unresolved home waits for robot selection before requesting or painting a preview',async()=>{
+  const h=harness('',{selectedRobot:''});
+  assert.equal(h.images.length,0);
+  assert.equal(h.draws.length,0);
+  h.selector.value='robot-ba8413962083809c';
+  h.listeners['blupe-robot-selected']({detail:h.selector.value});
+  assert.equal(h.images.length,1);
+  assert.equal(h.images[0].src,'/synchronized/preview.jpg?robot_id=robot-ba8413962083809c');
+  await h.images[0].onload();
+  assert.equal(h.draws.length,4);
+});
+
+test('URL and dedicated defaults do not preload a robot before the selector resolves',()=>{
+  for (const options of [{selectedRobot:''},{selectedRobot:'',defaultRobot:'yam-1'}]) {
+    assert.equal(harness('?robot_id=yam-1',options).images.length,0);
+  }
+});
+
+test('selection before DOMContentLoaded is not requested twice',()=>{
+  const h=harness('',{selectedRobot:'',readyState:'loading'});
+  h.selector.value='robot-ba8413962083809c';
+  h.listeners['blupe-robot-selected']({detail:h.selector.value});
+  h.listeners.DOMContentLoaded();
+  assert.equal(h.images.length,1);
+});
+
+test('async preview script can recover an already resolved selection',()=>{
+  const h=harness('?robot_id=yam-1',{selectedRobot:'robot-ba8413962083809c'});
+  assert.equal(h.images.length,1);
+  assert.equal(h.images[0].src,'/synchronized/preview.jpg?robot_id=robot-ba8413962083809c');
+});
+
+test('DOMContentLoaded still waits when the catalog has not resolved',()=>{
+  const h=harness('',{selectedRobot:'',readyState:'loading'});
+  h.listeners.DOMContentLoaded();
+  assert.equal(h.images.length,0);
+  h.selector.value='robot-ba8413962083809c';
+  h.listeners['blupe-robot-selected']({detail:h.selector.value});
+  assert.equal(h.images.length,1);
+});
+
+test('unresolved picker renders a neutral loading option',()=>{
+  const html=fs.readFileSync(__dirname+'/../static/hosted.html','utf8');
+  const select=html.match(/<select id="robotSelector"[^>]*>([\s\S]*?)<\/select>/)[1];
+  assert.match(select, /<option value="">Loading robots…<\/option>/);
+});
 
 test('cached composite paints before session setup and reuses the correct HD crops',async()=>{
   const h=harness();
