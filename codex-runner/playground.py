@@ -570,9 +570,12 @@ class HostedRunner:
                     await asyncio.to_thread(self.task_cloud.schedule, all_rows)
                     cloud = await asyncio.to_thread(self.task_cloud.snapshot, all_rows)
                     coordinates = cloud.pop('coordinates')
+                    speeds = await asyncio.to_thread(self.run_names.replay_speeds)
                     for r in rows:
                         r['task_id'] = task_key(r['prompt'])
                         r['xyz'] = coordinates.get(r['task_id'])
+                        if r['episode_id'] in speeds:
+                            r['replay_speed'] = speeds[r['episode_id']]
                 limit = 10000 if view == 'cloud' else 12
                 selected = rows[:limit] if view == 'cloud' else rows[offset:offset+limit]
                 if view == 'table':

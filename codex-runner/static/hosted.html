@@ -23,7 +23,7 @@
 <body class="playgroundConsole"><main><div class="runnerContent">
   <div class="playgroundHeader">
     <section class="intro">
-      <div class="playgroundTitle"><h1><span class="consoleWordmark">BluPe</span> <span class="consoleProduct">Playground</span></h1><a class="playgroundApiLink" href="https://github.com/andlyu/blupe-remote-yam" target="_blank" rel="noopener noreferrer">API</a></div>
+      <div class="playgroundTitle"><h1><span class="consoleWordmark">BluPe</span> <span class="consoleProduct">Playground</span></h1><a class="playgroundApiLink" href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md" target="_blank" rel="noopener noreferrer">API</a></div>
       <p id="simulationNotice" class="eyebrow" hidden>Local simulation · no physical robot connected</p>
     </section>
     <nav class="robotNavigation" aria-label="Robot selection"><label for="robotSelector">Robot</label><select id="robotSelector" disabled><option>YAM</option></select><span id="robotSelectorStatus" class="help" role="status"></span></nav>
@@ -211,6 +211,7 @@
           <input id="apiKey" type="password" required autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="4096" placeholder="Paste a dedicated API key here" aria-describedby="apiKeyLinks">
           <p class="help" id="apiKeyLinks">Generate new key <a id="apiKeyCreate" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">here</a><br>Make sure you have <span id="apiKeyCreditProvider">OpenAI</span> credits <a id="apiKeyBilling" href="https://platform.openai.com/account/billing/overview" target="_blank" rel="noopener noreferrer">here</a></p>
         </div>
+        <p id="customEndpointSetup" class="help" hidden>Connect your own policy server. <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md#custom-end-point" target="_blank" rel="noopener noreferrer">Set up a custom end-point</a></p>
         <div id="codexSetup" hidden><p id="codexStatus" class="help" role="status"></p><button type="button" id="codexCheck">Check Codex connection</button><p class="help">First-time sign-in: <code>./run.sh --codex-login --provider codex</code></p></div>
         <div id="claudeSetup" hidden><p id="claudeStatus" class="help" role="status"></p><button type="button" id="claudeCheck">Check Claude connection</button><p class="help">First-time sign-in: <code>./run.sh --claude-login --provider claude</code></p></div>
 

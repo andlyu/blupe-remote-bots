@@ -479,14 +479,39 @@ class PastRuns:
                 from .run_search import rank_runs
                 available = rank_runs(available, query)
             if metadata:
-                # No episode JSON, recordings, or media URLs in the full catalog.
-                return {'runs': [dict(r) for r in available], 'next_offset': None,
+                # Ready viewing-index hints need no per-episode fetch or media IO.
+                # Assessment/result detail still loads separately when opening a run.
+                result = []
+                for row in available:
+                    item = dict(row)
+                    hint = self._preview_hint(row['episode_id'])
+                    if hint:
+                        item['preview'] = hint
+                    result.append(item)
+                return {'runs': result, 'next_offset': None,
                         'stale': stale, 'total': len(available), 'models': models}
             selected = ([r for r in available if r['episode_id'] == episode_id]
                         if episode_id is not None else available[offset:offset+12])
             result = self._with_details(selected)
             return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
                     'stale': stale, 'total': len(available), 'models': models}
+
+    def _preview_hint(self, episode_id):
+        preview = (self.viewing.get(episode_id) or {}).get('preview')
+        if not isinstance(preview, dict):
+            return None
+        speed, duration = preview.get('speed'), preview.get('duration_s')
+        if (type(speed) not in (int, float) or not math.isfinite(speed) or not 1 <= speed <= 10
+                or type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0):
+            return None
+        cameras = preview.get('camera_order', ['left', 'top', 'right'])
+        if (not isinstance(cameras, list) or not 1 <= len(cameras) <= 4
+                or any(camera not in ('left', 'top', 'right', 'observer') for camera in cameras)):
+            return None
+        layout = preview.get('layout')
+        return {'video_url': BASE + f'viewing/{episode_id}.mp4', 'compressed': True,
+                'preview_speed': speed, 'video_duration_s': duration,
+                'camera_order': cameras, 'video_layout': layout if isinstance(layout, str) else None}
 
     def details_for(self, rows):
         """Enrich only the visible recording blocks, keeping full scores metadata-only."""

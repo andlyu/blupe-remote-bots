@@ -124,6 +124,28 @@ class PastRunsTests(unittest.TestCase):
         self.assertTrue(catalog.page()['stale'])
 
 class ViewingFirstTests(unittest.TestCase):
+    def test_catalog_hints_use_only_ready_index_media_without_episode_fetches(self):
+        reads = []
+        viewing = {'episode_id':'ep_ready', 'started_at':2, 'task':'Move block',
+                   'api_key':'private', 'preview':{'speed':10, 'duration_s':2,
+                    'camera_order':['top','left','right'], 'layout':'observer-focus', 'token':'private'}}
+        def read(path):
+            reads.append(path)
+            if path == 'meta/blupe_viewing.jsonl':
+                return json.dumps(viewing)
+            if path.startswith('meta/'):
+                return ''
+            self.fail('Metadata catalog must not request episode files')
+        catalog = PastRuns(read)
+        row = catalog.page(metadata=True)['runs'][0]
+        self.assertEqual(row['preview']['video_url'],
+                         'https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/viewing/ep_ready.mp4')
+        self.assertEqual(row['preview']['video_duration_s'],2)
+        self.assertNotIn('private',json.dumps(row))
+        for value in [0, -1, float('nan'), True, None]:
+            catalog.viewing['ep_ready']['preview']['duration_s'] = value
+            self.assertNotIn('preview',catalog.page(metadata=True)['runs'][0])
+
     def test_preview_visible_before_archive_then_deduplicated(self):
         viewing={'episode_id':'ep_new','started_at':2,'task':'Move block','outcome':'user_requested',
                  'preview':{'speed':10,'duration_s':2,'camera_order':['top','observer','left','right']}}
