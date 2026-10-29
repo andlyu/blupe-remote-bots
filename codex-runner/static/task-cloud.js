@@ -17,12 +17,69 @@
   }
   const outcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
     ? run.assessment.label : 'Unscored';
-  // A single lazy media owner. Every transition invalidates pending detail/play
-  // promises and tears down the old element and camera-layout frame callbacks.
+  // Three paused players at most: the active preview plus nearby/recent points.
+  // Keep their buffers on pointer exit; explicit hide releases the entire cache.
   function createPreview(root, {loadRun, source, layout, canPlay = () => true, reducedMotion = () => false}) {
     const media = root.querySelector('.taskCloudPreviewMedia'), title = root.querySelector('.taskCloudPreviewTitle');
     const status = root.querySelector('.taskCloudPreviewState');
+    const cache = new Map(), key = run => `${run.robot_id || ''}:${run.episode_id}`;
     let current = null, generation = 0, request = null, video = null, dispose = null, anchor = null;
+    const state = (entry, message) => {if (current === entry) {status.textContent = message; position();}};
+    function release(entry) {
+      entry.controller?.abort();
+      if (entry.video) {entry.video.pause(); entry.video.removeAttribute('src'); entry.video.load();}
+      cache.delete(entry.key);
+    }
+    function entryFor(run) {
+      const id = key(run);
+      let entry = cache.get(id);
+      if (entry && entry !== current && Date.now()-entry.created > 60000) {release(entry); entry = null;}
+      if (!entry) entry = {key:id,run,created:Date.now(),checked:0};
+      cache.delete(id); cache.set(id,entry);
+      for (const candidate of cache.values()) {
+        if (cache.size <= 3) break;
+        if (candidate !== current && candidate !== entry) release(candidate);
+      }
+      return entry;
+    }
+    async function prepare(entry) {
+      if (entry.video) return entry.detail;
+      if (entry.pending) return entry.pending;
+      const controller = new AbortController(); entry.controller = controller;
+      entry.pending = (async () => {
+        const detail = entry.run.preview?.video_url ? entry.run.preview : await loadRun(entry.run,controller.signal);
+        if (controller.signal.aborted || cache.get(entry.key) !== entry) return null;
+        entry.checked = Date.now(); entry.detail = detail;
+        if (detail?.video_status === 'processing' || !detail?.video_url || detail.video_duration_s === 0) return detail;
+        const recording = {...entry.run,...detail}, playback = source(recording);
+        const clip = entry.video = document.createElement('video');
+        clip.defaultMuted = clip.muted = true; clip.playsInline = true; clip.loop = true;
+        clip.preload = reducedMotion() ? 'metadata' : 'auto';
+        clip.setAttribute('muted',''); clip.setAttribute('playsinline','');
+        clip.setAttribute('aria-hidden','true'); clip.tabIndex = -1;
+        clip.addEventListener('playing', () => state(entry,'Playing muted preview · Open run for full replay'));
+        clip.addEventListener('waiting', () => state(entry,'Buffering video…'));
+        clip.addEventListener('error', () => {
+          state(entry,'Video unavailable. Open run to retry.');
+          if (cache.get(entry.key) === entry) release(entry);
+        });
+        clip.addEventListener('loadedmetadata', () => {if (current === entry) position();});
+        clip.src = playback.url; clip.defaultPlaybackRate = clip.playbackRate = playback.rate;
+        return detail;
+      })();
+      try {return await entry.pending;}
+      finally {if (entry.controller === controller) entry.pending = null;}
+    }
+    function warm(runs) {
+      if (!canPlay() || reducedMotion() || window.navigator?.connection?.saveData) return;
+      const wanted = new Set(runs.slice(0,2).map(key));
+      for (const entry of cache.values()) if (entry !== current && entry.pending && !wanted.has(entry.key)) release(entry);
+      for (const run of runs.slice(0,2)) {
+        const entry = entryFor(run);
+        if (entry.detail?.video_status === 'processing' && Date.now()-entry.checked < 1000) continue;
+        void prepare(entry).catch(() => {if (cache.get(entry.key) === entry) release(entry);});
+      }
+    }
     function position() {
       if (!anchor) return;
       const width = root.offsetWidth, height = root.offsetHeight;
@@ -30,16 +87,21 @@
       root.style.left = Math.max(8, Math.min(anchor.width-width-8, x))+'px';
       root.style.top = Math.max(8, Math.min(anchor.height-height-8, anchor.y-24))+'px';
     }
-    function hide() {
-      generation++; request?.abort(); request = null; current = null; anchor = null;
-      if (video) {video.pause(); dispose?.(); video.removeAttribute('src'); video.load();}
+    function park() {
+      generation++; request?.abort(); request = null;
+      if (current && !current.video) release(current);
+      current = null; anchor = null;
+      if (video) {video.pause(); dispose?.();}
       video = null; dispose = null; media.replaceChildren(); root.hidden = true;
       delete root.dataset.episodeId;
     }
+    function hide() {park(); for (const entry of cache.values()) release(entry);}
     async function show(run, point) {
-      if (!run || !canPlay()) {hide(); return;}
-      if (current === run.episode_id) {anchor = point; position(); return;}
-      hide(); current = run.episode_id; anchor = point;
+      if (!canPlay()) {hide(); return;}
+      if (!run) {park(); return;}
+      if (current?.key === key(run)) {anchor = point; position(); return;}
+      park(); current = entryFor(run); anchor = point;
+      const entry = current;
       const version = generation;
       request = new AbortController();
       root.dataset.episodeId = run.episode_id; root.hidden = false;
@@ -47,7 +109,7 @@
       try {
         let detail;
         for (let attempt = 0; attempt < 60; attempt++) {
-          detail = await loadRun(run, request.signal);
+          detail = await prepare(entry);
           if (version !== generation || !canPlay()) return;
           if (detail?.video_status !== 'processing') break;
           status.textContent = 'Preparing recorded video…'; position();
@@ -65,19 +127,11 @@
         if (!detail?.video_url || detail.video_duration_s === 0) {
           status.textContent = 'No preview available. Open run for details.'; return;
         }
-        const recording = {...run,...detail}, playback = source(recording);
-        video = document.createElement('video');
+        const recording = {...run,...detail};
+        video = entry.video;
         const clip = video;
-        clip.defaultMuted = clip.muted = true; clip.playsInline = true; clip.loop = true; clip.preload = 'metadata';
-        clip.setAttribute('muted',''); clip.setAttribute('playsinline','');
-        clip.setAttribute('aria-hidden','true'); clip.tabIndex = -1;
         media.append(clip); dispose = layout?.(clip, recording.camera_order, recording.video_layout);
         const state = message => {if (version === generation) {status.textContent = message; position();}};
-        clip.addEventListener('playing', () => state('Playing muted preview · Open run for full replay'));
-        clip.addEventListener('waiting', () => state('Buffering video…'));
-        clip.addEventListener('error', () => state('Video unavailable. Open run to retry.'));
-        clip.addEventListener('loadedmetadata', position);
-        clip.src = playback.url; clip.defaultPlaybackRate = clip.playbackRate = playback.rate;
         position();
         if (reducedMotion()) state('Preview paused for reduced motion. Open run to play.');
         else await clip.play().catch(error => state(error.name === 'NotAllowedError'
@@ -86,9 +140,9 @@
         if (version === generation) status.textContent = 'Video unavailable. Open run to retry.';
       }
     }
-    return {show,hide};
+    return {show,hide,warm};
   }
-  function create(canvas, focusText, onSelect, onPreview = () => {}) {
+  function create(canvas, focusText, onSelect, onPreview = () => {}, onWarm = () => {}) {
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
@@ -156,7 +210,7 @@
     }
     function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight} : null);}
     function clearPreview() {hover=null;preview(null);}
-    function previewFocused() {const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;preview(point);schedule();}
+    function previewFocused() {const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
     function zoom(factor) {clearPreview();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
     function reset() {clearPreview();yaw=-.3;pitch=.2;magnification=1;schedule();}
     function open() {if(rows[focused]) {clearPreview();selected=rows[focused].episode_id;focus(rows[focused]);onSelect(rows[focused]);schedule();}}
@@ -179,6 +233,11 @@
           yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));last=[event.clientX,event.clientY];schedule();
         }
       } else {
+        if (event.pointerType !== 'touch') {
+          const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
+          onWarm(points.map(p=>({point:p,distance:Math.hypot(p.x-x,p.y-y)})).filter(p=>p.distance<100)
+            .sort((a,b)=>a.distance-b.distance).slice(0,2).map(p=>p.point.run));
+        }
         const point=hit(event)[0];
         if(hover!==point?.run.episode_id) {hover=point?.run.episode_id;focus(point?.run || rows[focused]);canvas.style.cursor=point?'pointer':'grab';preview(event.pointerType === 'touch' ? null : point);schedule();}
       }

@@ -340,6 +340,15 @@ function createRunLaunchGuard() {
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
   let preview = null, cloudPreview = null;
+  const readyMedia = new Map();
+  const mediaKey = run => `${run.robot_id || historyRobot}:${run.episode_id}`;
+  function rememberMedia(run) {
+    if (!run.video_url || run.video_status === 'processing' || run.video_duration_s === 0) return;
+    const detail = Object.fromEntries(['video_url','video_duration_s','camera_order','video_layout',
+      'compressed','preview_speed','replay_speed'].filter(name => run[name] !== undefined).map(name => [name,run[name]]));
+    const key = mediaKey(run); readyMedia.delete(key); readyMedia.set(key,{detail,at:Date.now()});
+    while (readyMedia.size > 48) readyMedia.delete(readyMedia.keys().next().value);
+  }
   const previewViews = [];
   function stopPreview() {
     if (preview) preview.pause();
@@ -551,11 +560,15 @@ function createRunLaunchGuard() {
       cloudPreview ||= window.yamTaskCloud?.createPreview?.($('taskCloudPreview'), {
         async loadRun(run, signal) {
           const robot = historyRobot;
+          const cached = readyMedia.get(mediaKey(run));
+          if (cached && Date.now()-cached.at < 60000) return cached.detail;
           const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(robot)}`,
             {signal,cache:'no-store',headers:{'X-Blupe-Robot':robot}});
           if (!response.ok) throw new Error('Video unavailable');
           const data = await response.json();
-          return data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === robot);
+          const detail = data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === robot);
+          if (detail && !signal.aborted && robot === historyRobot) rememberMedia(detail);
+          return detail;
         },
         source: run => playbackSource(run, false),
         layout: (...args) => window.yamRecordingView?.(...args),
@@ -563,7 +576,7 @@ function createRunLaunchGuard() {
         reducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       });
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
-        (run, point) => cloudPreview?.show(run, point));
+        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm(runs));
       cloud?.setRuns(catalogRows, selectedRun?.episode_id);
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
     }
@@ -593,6 +606,11 @@ function createRunLaunchGuard() {
         $('pastRunsModelSummary').textContent = historyModels.length ? `Models: ${historyModels.join(', ')}` : 'Models: All models';
       }
       if (reset) { clearBlocks(); catalogRows = []; }
+      for (const run of data.runs) {
+        rememberMedia(run);
+        const cached = readyMedia.get(mediaKey(run));
+        if (historyView === 'cloud' && cached && Date.now()-cached.at < 60000) run.preview = cached.detail;
+      }
       catalogRows.push(...data.runs);
       if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
@@ -658,6 +676,7 @@ function createRunLaunchGuard() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
   window.addEventListener('blupe-robot-selected', event => {
     clearBlocks();
+    readyMedia.clear();
     historyRobot = event.detail; historyGeneration++; loading = false; next = 0;
     const selectedName = $('robotSelector')?.selectedOptions?.[0]?.textContent ||
       {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods Bimanual SO101', 'robot-abecb4cd868ab24b':'SO101'}[historyRobot] || historyRobot;
@@ -2874,9 +2893,9 @@ function bindQuickTaskDraft(prompt, quick) {
   const advanced = document.createElement('details'); advanced.id = 'advancedModelOptions';
   const summary = document.createElement('summary'); summary.textContent = 'More options'; advanced.append(summary);
   for (const child of [...options.children]) {
-    if (child !== duration && child !== $('effortField') && child !== $('geminiCallingModeField') && child !== $('dreamMotionSettings')) advanced.append(child);
+    if (child !== duration && child !== $('effortField') && child !== $('geminiCallingModeField') && child !== $('dreamMotionSettings') && child !== $('customEndpointSetup')) advanced.append(child);
   }
-  options.prepend(pickerHeader, $('effortField'), $('geminiCallingModeField'), $('dreamMotionSettings'));
+  options.prepend(pickerHeader, $('customEndpointSetup'), $('effortField'), $('geminiCallingModeField'), $('dreamMotionSettings'));
   options.append(advanced);
   function modelChoice(option, selectedId) {
     if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
@@ -2912,6 +2931,7 @@ function bindQuickTaskDraft(prompt, quick) {
         value:option.value + ':' + id,
         provider:option.value,label:modelChoice(option,id).label,id}));
     });
+    choices.push({value:'custom_endpoint_setup',provider:'custom_endpoint_setup',label:'Custom end-point…',id:''});
     const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
     if (model.dataset.options !== signature) {
       model.replaceChildren(...choices.map(option => {
@@ -2960,6 +2980,14 @@ function bindQuickTaskDraft(prompt, quick) {
     const picker = event.currentTarget, selected = picker.selectedOptions[0];
     const selectedId = selected?.dataset.model;
     const nextProvider = selected?.dataset.provider || picker.value;
+    if (nextProvider === 'custom_endpoint_setup') {
+      const setup = $('customEndpointSetup');
+      setup.hidden = false;
+      setup.querySelector('a').click();
+      // This is a setup link, not an unconfigured runnable provider.
+      updateComposer();
+      return;
+    }
     if (nextProvider !== provider.value) {
       provider.value = nextProvider;
       provider.dispatchEvent(new Event('change', {bubbles:true}));

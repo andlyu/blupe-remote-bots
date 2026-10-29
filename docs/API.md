@@ -520,6 +520,104 @@ independent backend client. The ready-made UI has no arbitrary model-upload fiel
 The existing [depth example](../codex-runner/examples/astra_depth.py) shows a
 concrete integration, with its own setup and qualification requirements.
 
+## Custom end-point
+
+Choose **Custom end-point…** in the playground's model selector to open this
+setup guide. Host inference on your own policy server, then connect it through
+a configured runner. MolmoAct2 uses this arrangement: the server predicts action
+chunks, while the runner handles observations, queueing, execution and feedback.
+
+The menu item opens documentation and keeps your current model selected. It does
+not submit an endpoint or start a run. Once your adapter is installed and exposed
+by the runner, select its configured model to run it.
+
+### MolmoAct2 endpoint contract
+
+The existing [YAMRunpodAdapter](../codex-runner/src/remote_yam/yam_runpod_policy.py)
+uses an HTTPS base URL such as `https://<deployment>.api.runpod.ai`. It calls
+`GET /health` and `POST /act`, sending `Authorization: Bearer <service-key>` to
+both. The endpoint and key are runner configuration; keep the service key in a
+private file on that machine. It is not a BluPe session capability.
+
+For the existing **YAM1 MolmoAct2** adapter, `/health` returns:
+
+```json
+{
+  "ok": true,
+  "robot_id": "yam-1",
+  "model": "allenai/MolmoAct2-BimanualYAM",
+  "revision": "8dcbed66f2380e4393189c303ea72488eb9e63c2",
+  "cuda_available": true,
+  "device": "cuda:0",
+  "action_dim": 14,
+  "num_actions": 30,
+  "norm_tag": "yam_dual_molmoact2",
+  "action_units": "radians",
+  "gripper_units": "normalized_0_closed_1_open"
+}
+```
+
+The runner checks this identity and readiness before joining the robot queue.
+GPU preparation happens before the robot run timer starts.
+
+`POST /act` receives this object shape; angle and image values below are
+illustrative placeholders for the fresh observation supplied by the runner:
+
+```json
+{
+  "robot_id": "yam-1",
+  "instruction": "Place the green block on the plate",
+  "state": [0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5],
+  "images": {"top": "<base64 JPEG>", "left": "<base64 JPEG>", "right": "<base64 JPEG>"},
+  "action_units": "radians",
+  "gripper_units": "normalized_0_closed_1_open"
+}
+```
+
+Each camera image is a base64-encoded RGB JPEG resized to **640 × 360**. State
+order is **six left-arm joint radians, left gripper, six right-arm joint radians,
+right gripper**. Grippers use `0` closed through `1` open.
+
+The response repeats `robot_id`, `model`, `revision`, `device`, `action_units`
+and `gripper_units` from the health identity, plus `actions`: exactly **30 rows
+of 14 finite numbers** in the same arm/gripper order. Targets are absolute arm
+radians with normalized grippers at 30 Hz. The runner selects every third target
+for the Session API's 10 Hz trajectory and converts arm angles to degrees.
+It rejects mismatched identities, units, dimensions and out-of-range MolmoAct2
+grippers before dispatch.
+
+In an existing YAM1 runner deployment, supply these constructor settings:
+
+```python
+runpod_key_file="/private/path/to/policy-service-key",
+runpod_config={
+    "molmoact2": {"endpoint": "https://<deployment>.api.runpod.ai"}
+},
+```
+
+These are `HostedRunner` configuration arguments, not browser fields or launcher
+flags. The configured MolmoAct2 adapter currently accepts RunPod hostnames and
+the pinned checkpoint above on `yam-1`. DreamZero uses the same transport with
+its own identity, normalization tag and 24-action horizon; do not substitute its
+contract for MolmoAct2's.
+
+### Other custom policies
+
+For a different model, host or robot, implement the runner's provider interface
+and register it through `HostedRunner(extra_providers=...)`, following the
+existing configured adapters. A `build_trajectory(prompt, observation,
+first_step_id)` implementation returns Session API waypoints; an
+`infer(prompt, observation)` implementation returns a runner command for local
+IK. Retain the controller's observation and execution-feedback loop.
+
+The hosted playground currently rejects arbitrary browser-supplied `endpoint`
+values. Merely renaming a model or pasting a URL does not install an adapter.
+Use the [shared runner](../codex-runner/README.md), the
+[provider interface](../codex-runner/src/remote_yam/providers.py) and
+[MolmoAct2 adapter](../codex-runner/src/remote_yam/yam_runpod_policy.py) as the
+implementation references. Model-server radians are distinct from the public
+Session API's degree-valued trajectories described above.
+
 ### Local runner API and configured execution
 
 Runner `/api/*` routes belong to the process you launch, not to the public Session
