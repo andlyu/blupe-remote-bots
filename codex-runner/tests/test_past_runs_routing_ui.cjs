@@ -108,3 +108,18 @@ test('native preparation updates its block without losing loaded pages and abort
  c.answer(request,[{...run,video_status:'ready',video_url:'stale.mp4'}]);await c.flush();
  assert.equal(c.nodes.get('pastRunsList').children.length,0);
 });
+
+test('unavailable native replay never promises ongoing live-speed processing and details remain usable',async()=>{
+ const c=require('./helpers/past-runs.cjs')();c.events['blupe-robot-selected']({detail:'yam-1'});
+ const run={episode_id:'ep_one',robot_id:'yam-1',prompt:'Native task',started_at:1,
+   video_status:'unavailable',video_url:null,camera_order:[],original_available:false};
+ c.answer(c.requests[0],[run,{...run,episode_id:'ep_two',video_status:'processing'}]);await c.flush();
+ const blocks=c.nodes.get('pastRunsList').children;
+ const live=block=>block.children.find(child=>child.tag==='button' && child!==block.children[0]);
+ assert.equal(live(blocks[0]).textContent,'Live speed unavailable');assert.equal(live(blocks[0]).disabled,true);
+ blocks[0].children[0].emit('click');assert.equal(c.opened[0].id,'ep_one');
+ assert.equal(live(blocks[1]).textContent,'Live speed processing…');
+ [...c.timers.values()][0]();c.answer(c.requests[1],[{...run,episode_id:'ep_two'}]);await c.flush();
+ assert.equal(live(blocks[1]).textContent,'Live speed unavailable');assert.equal(live(blocks[1]).disabled,true);
+ assert.equal(blocks[1].children[0].children.find(child=>child.className==='pastRunWatch').textContent,'View run details');
+});

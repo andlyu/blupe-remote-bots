@@ -476,8 +476,12 @@ function createRunLaunchGuard() {
         previewViews.push(() => disposeView?.());
         const liveButton = document.createElement('button');
         liveButton.type = 'button';
-        liveButton.disabled = run.original_available === false;
-        liveButton.textContent = liveButton.disabled ? 'Live speed processing…' : 'Live speed';
+        function liveState() {
+          liveButton.disabled = run.original_available === false;
+          liveButton.textContent = !liveButton.disabled ? 'Live speed' : run.video_status === 'processing'
+            ? 'Live speed processing…' : 'Live speed unavailable';
+        }
+        liveState();
         liveButton.setAttribute('aria-label', `Watch run ${run.episode_index ?? run.episode_id} at live speed with pauses`);
         liveButton.addEventListener('click', () => selectRun(run, true));
         const version = document.createElement('span'); version.className = 'pastRunLabel';
@@ -512,10 +516,10 @@ function createRunLaunchGuard() {
               const detail = data.runs?.find(row => row.episode_id === run.episode_id);
               if (!detail) return;
               Object.assign(run,detail);
+              liveState();
               if (run.video_url) {
                 disposeView?.(); disposeView = window.yamRecordingView?.(video,run.camera_order,run.video_layout);
                 video.src = run.video_url; watch.textContent = '▶ Watch replay';
-                liveButton.disabled = run.original_available === false; liveButton.textContent = 'Live speed';
               } else if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
               else if (run.video_status !== 'processing') watch.textContent = 'View run details';
             } catch (_) { /* Retry transient preparation failures without losing loaded pages. */ }
