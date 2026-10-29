@@ -96,3 +96,23 @@ class AssessmentTests(unittest.TestCase):
         public=json.dumps(self.store.detail('ep_run','other'))
         for value in ['owner_session','owner_user','author_session','reviewer','runner']:
             self.assertNotIn(value,public)
+
+    def test_hollow_categories_omit_both_counts_and_vote_changes_restore_original_label(self):
+        self.label()
+        self.store.register('ep_failure','runner',ended=True)
+        self.store.assess('ep_failure','Failure',0,'runner')
+        self.store.register('ep_unlabeled','runner',ended=True)
+        def scores():
+            return score_models([{'model':'M','assessment':summary}
+                                 for summary in self.store.summaries().values()])[0]
+        self.assertEqual((scores()['successes'],scores()['failures'],scores()['denominator']),(1,1,2))
+        self.vote('reviewer',-1)
+        self.store.vote('ep_failure',1,-1,'reviewer')
+        score=scores()
+        self.assertEqual((score['successes'],score['failures'],score['denominator'],score['rate']),(0,0,0,None))
+        self.assertEqual((score['excluded'],score['unlabeled']),(2,1))
+        self.vote('tie',1)
+        self.store.vote('ep_failure',1,None,'reviewer')
+        self.assertEqual((scores()['successes'],scores()['failures'],scores()['denominator']),(1,1,2))
+        self.assertEqual(self.store.summaries()['ep_run']['label'],'Success')
+        self.assertEqual(self.store.detail('ep_failure','other')['history'][0]['label'],'Failure')

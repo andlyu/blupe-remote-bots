@@ -53,11 +53,29 @@ video previews, two-line task text, hover/focus behavior, reason/details and
 live-speed replay actions. A small runner-assessment/review line augments each
 block; recorded model version is available in its existing details. Full task
 text remains in the accessible replay action and replay. Both views select into
-the same replay/processing surface. Cloud fetches recording detail on selection;
+the same replay/processing surface. Cloud fetches recording detail lazily for the
+hovered or keyboard-focused point and on full replay selection;
 Table retains preview information for only its visible blocks. Blocks remain
 keyboard accessible and stack in one column on phones. Cloud supports drag/pinch,
 wheel, rotation keys,
 zoom/reset buttons, keyboard run cycling, and per-attempt replay access.
+
+Cloud uses dots throughout: eligible Success is filled green, eligible Failure is
+filled red, and unscored runs are hollow. Unlabeled and vote-excluded runs share
+the hollow treatment and contribute to neither score count. A labeled run regains
+its original green/red fill when votes restore eligibility; the label, revisions
+and exclusion reasons remain in replay details. Text equivalents and the legend
+describe these states, and per-model summaries combine the unscored counts.
+
+A compact preview near the hovered/focused point uses the real recording source,
+saved camera layout and existing playback-speed helper. It plays muted and loops;
+loading, buffering, blocked playback and unavailable video are explicit. Reduced
+motion suppresses autoplay. Only one preview is alive: changing points aborts the
+previous detail request and removes its paused media/layout callbacks, and stale
+responses cannot replace the current point. Leaving, rotating/zooming, opening
+replay, changing filters/views/robot, and hiding the page clear it. Keyboard focus
+and Previous/Next support previews; Enter opens replay and Escape dismisses the
+preview. Touch interaction retains the existing full replay access.
 
 During a run, the three human assessment controls are visible. Labels are
 provisional. At termination the existing recorder begins V0 preparation; the UI

@@ -45,8 +45,9 @@ into the index directory's `task-model/` cache. A missing dependency, offline fi
 load, or indexing failure produces an explicit Cloud error and keeps Table usable.
 Retry occurs at most once a minute. Production may prewarm by calling
 `TaskCloud(path).index(PastRuns(robot_id=None).page(metadata=True)['runs'])` in its
-existing environment before serving traffic. The Cloud catalog never fetches episode detail or recording media; selection
-uses the existing replay API. Table enriches only 12 visible recording blocks
+existing environment before serving traffic. The Cloud catalog never fetches episode detail or recording media; only
+the hovered/focused point and full replay selection use the existing detail API.
+Hover owns one muted recording and cancels stale detail/playback work. Table enriches only 12 visible recording blocks
 with the incumbent preview metadata, independently of complete-data scoring.
 
 Persist `YAM_ASSESSMENT_DATABASE` and `YAM_TASK_CLOUD_DATABASE` in the deployment's
@@ -62,3 +63,6 @@ Every drawn attempt is individually reachable with Previous/Next and keyboard
 brackets, including exact duplicates. Small deterministic episode-ID offsets are
 visual disambiguation only. Rotation/zoom never change cached task coordinates.
 Scores always use the complete filtered dataset before either display limit.
+Eligible Success/Failure runs are green/red filled dots. Unlabeled and excluded
+runs are the same hollow, unscored visual group; details retain the original label
+and exclusion reasons. Eligibility changes only the fill, never coordinates.

@@ -339,11 +339,13 @@ function createRunLaunchGuard() {
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
-  let preview = null;
+  let preview = null, cloudPreview = null;
   const previewViews = [];
   function stopPreview() {
     if (preview) preview.pause();
     preview = null;
+    cloud?.clearPreview?.();
+    cloudPreview?.hide();
   }
   function clearBlocks() {
     stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
@@ -503,7 +505,8 @@ function createRunLaunchGuard() {
       const line = document.createElement('p'), name = document.createElement('strong');
       name.textContent = `${score.model === '__unrecorded__' ? 'Model not recorded' : score.model} · ${score.version === 'unknown' ? 'version unknown' : score.version}`;
       const rate = score.denominator ? `${Math.round(score.rate*100)}% · ${score.successes}/${score.denominator} included successes` : 'No scored runs · 0/0';
-      line.append(name, document.createTextNode(` — ${rate} · ${score.unlabeled} unlabeled · ${score.excluded} excluded${score.provisional ? ` · ${score.provisional} provisional` : ''}`));
+      const unscored = score.unlabeled + score.excluded + score.provisional;
+      line.append(name, document.createTextNode(` — ${rate} · ${unscored} unscored${score.provisional ? ` (${score.provisional} provisional)` : ''}`));
       $('pastRunsScores').append(line);
     }
   }
@@ -513,7 +516,22 @@ function createRunLaunchGuard() {
     $('pastRunsTableView').setAttribute('aria-pressed', String(historyView === 'table'));
     $('pastRunsCloudView').setAttribute('aria-pressed', String(historyView === 'cloud'));
     if (historyView === 'cloud') {
-      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun);
+      cloudPreview ||= window.yamTaskCloud?.createPreview?.($('taskCloudPreview'), {
+        async loadRun(run, signal) {
+          const robot = historyRobot;
+          const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(robot)}`,
+            {signal,cache:'no-store',headers:{'X-Blupe-Robot':robot}});
+          if (!response.ok) throw new Error('Video unavailable');
+          const data = await response.json();
+          return data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === robot);
+        },
+        source: run => playbackSource(run, false),
+        layout: (...args) => window.yamRecordingView?.(...args),
+        canPlay: () => historyView === 'cloud' && !document.hidden && !dialog.open,
+        reducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      });
+      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
+        (run, point) => cloudPreview?.show(run, point));
       cloud?.setRuns(catalogRows, selectedRun?.episode_id);
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
     }
@@ -522,6 +540,7 @@ function createRunLaunchGuard() {
     if (loading || !historyRobot) return;
     const generation = historyGeneration;
     loading = true; $('morePastRuns').disabled = $('refreshPastRuns').disabled = true;
+    if (reset) stopPreview();
     clearTimeout(cloudTimer);
     $('pastRunsStatus').textContent = 'Loading past runs…';
     try {
@@ -2712,7 +2731,9 @@ window.yamRecordingView = function(video, roles, layout) {
   video.addEventListener('pause', cancel);
   const visibility = () => { if (document.hidden) video.pause(); };
   document.addEventListener('visibilitychange', visibility);
-  const observer = new IntersectionObserver(entries => { if (!entries[0].isIntersecting && !video.controls) video.pause(); });
+  // A new composite starts hidden until its first decoded frame. That initial
+  // non-intersection must not interrupt a lazily started preview's play promise.
+  const observer = new IntersectionObserver(entries => { if (!canvas.hidden && !entries[0].isIntersecting && !video.controls) video.pause(); });
   observer.observe(canvas);
   return () => {
     stopped = true; cancel(); observer.disconnect(); canvas.remove();
