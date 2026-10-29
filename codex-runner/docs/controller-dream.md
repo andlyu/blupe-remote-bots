@@ -14,6 +14,11 @@ Stop, authorization loss or a changed lease discards the result. The caller must
 use the existing Home/readiness lifecycle and forward the existing trajectory
 completed/adjusted/failed callbacks. A prepared `DreamWorkerPool.factory` can be
 passed as `worker_factory`, retaining the existing both-form SDK preparation.
+Pass the installed profile's `cameras` mapping (left/top/right integer relay
+aliases) to bind inference to its local snapshot endpoints. This avoids stale
+native camera defaults when an installation wrapper imports the operator before
+loading the profile. Native observations and their public camera transport stay
+unchanged.
 
 `controller_dream_executor.install(hardware, **settings)` composes the binding
 after the installed operator's calibration/recovery wrappers. Settings are

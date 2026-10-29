@@ -84,17 +84,23 @@ class NativeControllerDream:
     """
     def __init__(self, operator, *, robot_id, credentials, python, directory,
                  provider='dream', camera_origin='http://127.0.0.1:8089',
+                 cameras=None,
                  gateway_max_step_deg=9, adapter_factory=DreamAdapter,
                  worker_factory=DreamWorker, dispatch=None):
         self.operator, self.robot_id = operator, robot_id
         self.cancel = threading.Event()
         self.operation = threading.RLock()
         self.pending = None
+        self.camera_origin = loopback_origin(camera_origin)
+        if cameras is not None and (set(cameras) != {'left', 'top', 'right'} or any(
+                type(v) is not int or v < 0 for v in cameras.values())):
+            raise ValueError('Require the controller profile camera aliases')
+        self.cameras = dict(cameras) if cameras is not None else None
         self.dispatch = dispatch or operator.api_handle_joint_trajectory
         self.adapter = adapter_factory(provider=provider, model=MODELS[provider][0],
             credentials=credentials, python=python, directory=directory,
             robot_id=robot_id, observation_source=self.observation,
-            camera_source=CameraFrameSource(loopback_origin(camera_origin)),
+            camera_source=CameraFrameSource(self.camera_origin),
             gateway_max_step_deg=gateway_max_step_deg, worker_factory=worker_factory)
 
     def context(self):
@@ -113,6 +119,12 @@ class NativeControllerDream:
                 raise RuntimeError('Dream controller identity changed')
             observation = dict(op._api_observation_locked())
             observation['jetson_id'] = self.robot_id
+            # A wrapper can import the native module before its profile sets
+            # camera globals. Keep direct inference on the explicit profile's
+            # existing relay aliases, independent of public observation URLs.
+            if self.cameras is not None:
+                observation['images'] = {role: {'url': f'{self.camera_origin}/{device}/snapshot.jpg'}
+                    for role, device in self.cameras.items()}
             return observation
 
     def predict(self, prompt):

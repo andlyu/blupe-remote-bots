@@ -99,6 +99,34 @@ def test_native_submission_uses_existing_handler_current_lease_and_step_once():
     with pytest.raises(RuntimeError): adapter.submit()
 
 
+def test_profile_cameras_override_early_import_defaults_without_changing_native_observation():
+    op, _, packets = bound()
+    measured = dict(observed_at=123., left_joints_deg=[1.]*6,
+        images={role: {'url': f'http://127.0.0.1:8089/{device}'}
+                for role, device in dict(left=10, top=16, right=4).items()})
+    op._api_observation_locked = lambda: measured
+    cameras = dict(left=6, top=12, right=18)
+    adapter = NativeControllerDream(op, robot_id='robohouse', credentials='unused', python='unused',
+        directory='unused', adapter_factory=Policy, cameras=cameras)
+    cameras['left'] = 99
+    observation = adapter.observation()
+    assert observation['images'] == {role: {'url': f'http://127.0.0.1:8089/{device}/snapshot.jpg'}
+        for role, device in dict(left=6, top=12, right=18).items()}
+    assert observation['observed_at'] == measured['observed_at']
+    assert observation['left_joints_deg'] == measured['left_joints_deg']
+    assert measured['images']['left']['url'].endswith('/10')
+    assert not packets
+
+
+@pytest.mark.parametrize('cameras', [dict(left=6, top=12), dict(left=True, top=12, right=18),
+                                   dict(left=-1, top=12, right=18)])
+def test_invalid_profile_camera_aliases_fail_before_worker_or_capture(cameras):
+    op, _, _ = bound()
+    with pytest.raises(ValueError, match='profile camera aliases'):
+        NativeControllerDream(op, robot_id='robohouse', credentials='unused', python='unused',
+            directory='unused', cameras=cameras)
+
+
 def test_dispatch_does_not_hold_operator_lock_before_native_hardware_lock():
     op, adapter, packets = bound()
     acquired = []

@@ -58,7 +58,9 @@ def setup(native_handler=None, adapter_factory=Adapter):
         final['step_id'] = payload['waypoints'][-1]['step_id'] + 1
         op.api_client.send(final)
         op.api_last_step = final['step_id'] - 1
-        op.api_client.send(dict(common, type='trajectory_result', status='completed', step_id=op.api_last_step))
+        # Installed native record leaves its optional result step_id absent;
+        # exact progress and the settled next observation prove completion.
+        op.api_client.send(dict(common, type='trajectory_result', status='completed'))
         return []
     op.api_handle_joint_trajectory = execute
     def native(*args, **kwargs):
@@ -152,6 +154,21 @@ def test_completed_without_all_progress_fails_closed_and_stops_native_lease():
     assert sent[-1]['message'] == 'Controller Dream execution failed'
 
 
+def test_explicit_wrong_completion_cursor_still_fails_after_all_progress():
+    def wrong_cursor(op, payload):
+        common = {k:payload[k] for k in ('session_id', 'episode_id', 'lease_id', 'trajectory_id')}
+        op.api_client.send(dict(common, type='trajectory_result', status='accepted'))
+        op.api_client.send(dict(common, type='trajectory_progress', step_id=0))
+        op.api_client.send(dict(common, type='observation', step_id=1, settled=True,
+            left_joints_deg=[1.]*6, right_joints_deg=[2.]*6))
+        op.api_client.send(dict(common, type='trajectory_result', status='completed', step_id=99))
+        return []
+    op, executor, request, submitted, sent, adapters = setup(native_handler=wrong_cursor)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    assert not op.api_authorized and adapters[0].completed == 0
+
+
 def test_failed_notification_cannot_prevent_local_native_stop():
     def incomplete(op, payload):
         return [dict(payload, type='trajectory_result', status='completed', step_id=0)]
@@ -160,6 +177,41 @@ def test_failed_notification_cannot_prevent_local_native_stop():
     executor.request(request)
     assert finish(executor) == 'failed'
     assert not op.api_authorized
+
+
+@pytest.mark.parametrize('code,expected', [('noncontiguous_step_id', 'noncontiguous_step_id'),
+                                         ('private payload or credential', None)])
+def test_native_rejection_retains_only_bounded_diagnostics(code, expected):
+    def reject(op, payload):
+        return [dict(payload, type='trajectory_result', status='rejected', code=code,
+                     message='private native exception text')]
+    op, executor, request, submitted, sent, adapters = setup(native_handler=reject)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    failure = executor.status()['failure']
+    assert failure == dict(stage='executing', error_type='RuntimeError',
+                           native_status='rejected', native_code=expected)
+    assert sent[-1]['details'] == failure
+    assert 'private' not in str(failure)
+    assert not op.api_authorized
+
+
+def test_provider_refusal_survives_native_stop_without_raw_error_or_payload():
+    class Refused(Adapter):
+        def build_trajectory(self, *args):
+            self.interaction_sink('model_failure', 'private provider text',
+                error_type='DreamServerError', code='DA-2000', reason='rate_limited',
+                phase='predict', credentials='secret', payload={'private': 'image'})
+            raise RuntimeError('private SDK exception')
+    op, executor, request, submitted, sent, adapters = setup(adapter_factory=Refused)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    failure = executor.status()['failure']
+    assert failure['provider']['reason'] == 'rate_limited'
+    assert failure['provider']['error_type'] == 'DreamServerError'
+    assert 'private' not in str(failure) and 'secret' not in str(failure)
+    assert sent[-1]['details'] == failure
+    assert not op.api_authorized and not submitted
 
 
 def test_premature_final_observation_is_not_accepted_after_later_progress():
@@ -182,11 +234,32 @@ def test_native_workspace_hold_requires_evidence_and_fresh_prediction():
         op.api_last_step = payload['waypoints'][-1]['step_id']
         return [dict(payload, type='trajectory_result', status='rejected',
             code='left_tip_outside_workspace', details=dict(recoverable=True,
-                workspace_recovery='held', hold='measured_position', next_step_id=1, executed_waypoints=0))]
+                workspace_recovery='held', hold='measured_position', next_step_id=1, executed_waypoints=0)),
+            dict({k:payload[k] for k in ('session_id', 'episode_id', 'lease_id')},
+                 type='observation', step_id=1, settled=True,
+                 left_joints_deg=[0.]*6, right_joints_deg=[0.]*6)]
     op, executor, request, submitted, sent, adapters = setup(native_handler=held)
     executor.request(request)
     assert finish(executor) == 'completed'
     assert adapters[0].failed == 1 and adapters[0].completed == 0
+
+
+@pytest.mark.parametrize('change', [dict(recoverable=False), dict(next_step_id=2),
+                                  dict(executed_waypoints=1), dict(hold='unverified')])
+def test_workspace_observation_cannot_excuse_unverified_hold(change):
+    def held(op, payload):
+        details = dict(recoverable=True, workspace_recovery='held', hold='measured_position',
+                       next_step_id=1, executed_waypoints=0)
+        details.update(change)
+        return [dict(payload, type='trajectory_result', status='rejected',
+                     code='left_tip_outside_workspace', details=details),
+                dict({k:payload[k] for k in ('session_id', 'episode_id', 'lease_id')},
+                     type='observation', step_id=1, settled=True)]
+    op, executor, request, submitted, sent, adapters = setup(native_handler=held)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    assert not op.api_authorized
+    assert adapters[0].failed == adapters[0].completed == 0
 
 
 def test_installed_operator_constructs_before_api_client_is_attached():
