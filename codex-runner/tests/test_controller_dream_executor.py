@@ -162,6 +162,23 @@ def test_failed_notification_cannot_prevent_local_native_stop():
     assert not op.api_authorized
 
 
+@pytest.mark.parametrize('code,expected', [('noncontiguous_step_id', 'noncontiguous_step_id'),
+                                         ('private payload or credential', None)])
+def test_native_rejection_retains_only_bounded_diagnostics(code, expected):
+    def reject(op, payload):
+        return [dict(payload, type='trajectory_result', status='rejected', code=code,
+                     message='private native exception text')]
+    op, executor, request, submitted, sent, adapters = setup(native_handler=reject)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    failure = executor.status()['failure']
+    assert failure == dict(stage='executing', error_type='RuntimeError',
+                           native_status='rejected', native_code=expected)
+    assert sent[-1]['details'] == failure
+    assert 'private' not in str(failure)
+    assert not op.api_authorized
+
+
 def test_premature_final_observation_is_not_accepted_after_later_progress():
     def out_of_order(op, payload):
         context = {k:payload[k] for k in ('session_id','episode_id','lease_id','trajectory_id')}

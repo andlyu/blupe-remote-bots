@@ -16,6 +16,23 @@ from .dream_worker_pool import DreamWorkerPool
 
 CONTEXT = ('session_id', 'episode_id', 'lease_id')
 TERMINAL = {'completed', 'cancelled', 'failed'}
+NATIVE_FAILURE_CODES = {
+    'operator_not_authorized', 'authority_revoked', 'command_in_flight',
+    'trajectory_id_conflict', 'position_fetch_busy', 'safety_guardrails_unavailable',
+    'workspace_return_failed', 'left_tip_outside_workspace', 'right_tip_outside_workspace',
+    'adjacent_delta_limit', 'joint_velocity_limit', 'joint_settle_timeout',
+    'predicted_collision', 'collision_checker_failed', 'collision_checker_unavailable',
+    'forward_kinematics_failed', 'forward_kinematics_unavailable', 'physical_execution_failure',
+    'invalid_dispatched_at', 'invalid_gateway_time', 'invalid_trajectory_cadence',
+    'invalid_trajectory_id', 'invalid_trajectory_payload', 'invalid_trajectory_type',
+    'invalid_waypoint', 'lease_mismatch', 'missing_trajectory_fields', 'missing_waypoint_fields',
+    'noncontiguous_step_id', 'stale_trajectory', 'future_trajectory', 'empty_trajectory',
+    'trajectory_too_long', 'unexpected_trajectory_fields', 'unexpected_waypoint_fields',
+    'unsupported_trajectory_cadence', 'unsupported_trajectory_schema',
+    *{f'{prefix}joint_{joint}_outside_limits' for prefix in ('', 'start_') for joint in range(12)},
+    *{f'{side}_gripper_delta_limit' for side in ('left', 'right')},
+    *{f'invalid_{side}_{field}' for side in ('left', 'right') for field in ('joints', 'gripper', 'gripper_start')},
+}
 
 
 class DreamControllerExecutor:
@@ -39,6 +56,7 @@ class DreamControllerExecutor:
         self.packets = self.waypoints = 0
         self.predictions = self.predicted_waypoints = 0
         self.trajectory = None
+        self.failure = None
         self.owned_receipts = deque(maxlen=8192)
         self._send = operator.api_client.send
         operator.api_client.send = self.send
@@ -69,6 +87,7 @@ class DreamControllerExecutor:
         with self.lock:
             return dict(state=self.state, packets=self.packets, waypoints=self.waypoints,
                         predictions=self.predictions, predicted_waypoints=self.predicted_waypoints,
+                        failure=deepcopy(self.failure),
                         worker=self.pool.status())
 
     def request(self, payload):
@@ -108,6 +127,7 @@ class DreamControllerExecutor:
             self.state = 'preparing'
             self.packets = self.waypoints = 0
             self.predictions = self.predicted_waypoints = 0
+            self.failure = None
             self.thread = threading.Thread(target=self._run,
                 args=(deepcopy(prepared), payload['operation'] == 'predict'),
                 daemon=True, name='controller-dream')
@@ -168,9 +188,16 @@ class DreamControllerExecutor:
                     return
                 with self.lock:
                     self.waypoints += executed
-        except Exception:
+        except Exception as error:
             if not self._cancelled():
                 with self.lock:
+                    result = (self.trajectory or {}).get('result') or {}
+                    self.failure = dict(stage=self.state,
+                        error_type=type(error).__name__ if type(error) in
+                            (RuntimeError, ValueError, TypeError, KeyError, AttributeError) else 'other',
+                        native_status=result.get('status') if result.get('status') in
+                            {'rejected', 'aborted', 'completed'} else None,
+                        native_code=result.get('code') if result.get('code') in NATIVE_FAILURE_CODES else None)
                     self.state = 'failed'
                 # Native Stop is immediate even if the runner disconnects before
                 # polling this failure. Its normal notification closes the lease.
@@ -178,7 +205,7 @@ class DreamControllerExecutor:
                 try:
                     self._send(dict(schema_version=1, type='safety_abort', **context,
                         code='controller_executor_failed', message='Controller Dream execution failed',
-                        step_id=max(0, self.operator.api_last_step), observed_at=time.time(), details={}))
+                        step_id=max(0, self.operator.api_last_step), observed_at=time.time(), details=self.failure))
                 except Exception:
                     pass
                 # Local cleanup must still run if notification delivery fails.
