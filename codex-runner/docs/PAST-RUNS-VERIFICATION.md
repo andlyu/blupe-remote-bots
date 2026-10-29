@@ -64,12 +64,14 @@ kept out of this scoped change.
 
 ## Integration boundary
 
-The shared code is ready for review. Hosted account ownership needs its existing
-private account adapter wired to `assessment_user`; guest/session behavior already
-works in the shared runner. A concrete private patch was prepared separately and
-`git apply --check` passed against copies of the current private source. The
-private ownership checker currently reports “Shared checkout differs from the
-pin. Test and stage its version bump explicitly.” No private checkout, deployment,
-submodule pin, or production data was changed. Advance only to a published,
+The shared code is ready for review. Hosted account ownership is supplied in a
+separate application PR; the coordinator reports its isolated ownership validation
+passed. That integration does not advance the submodule or deploy and also depends
+on publication of the existing account-login integration. Guest/session ownership
+already works in the shared runner. An earlier read-only check in the incumbent
+private checkout reported “Shared checkout differs from the pin. Test and stage
+its version bump explicitly.” This shared task changed no private checkout,
+production data, deployment, or submodule pin. Advance only to a published,
 reviewed shared commit, install updated requirements, persist/prewarm the index,
-and rerun private ownership and hosted integration checks there.
+and rerun private ownership and hosted integration checks in the integration
+checkout. Do not duplicate the existing hosted account adapter.
