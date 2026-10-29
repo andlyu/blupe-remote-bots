@@ -681,6 +681,10 @@ class HostedRunner:
             if self.secure:
                 cookie_value += "; Secure"
             application_setup, application_headers = await self.session_extension(cookie, visitor)
+            if isinstance(application_setup.get('configured_providers'), dict):
+                application_setup['configured_providers'] = {
+                    name: spec for name, spec in application_setup['configured_providers'].items()
+                    if name not in {'aspire', 'hosted_aspire'}}
             local_setup = {}
             if self.local_codex:
                 from remote_yam.subscription_setup import subscription_status

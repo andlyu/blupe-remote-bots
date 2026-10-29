@@ -11,6 +11,17 @@ class ExecutorHostedTests(unittest.IsolatedAsyncioTestCase):
     call = test_hosted.HostedTests.call
     session = test_hosted.HostedTests.session
 
+    async def test_retired_aspire_offerings_are_hidden_without_changing_other_managed_models(self):
+        async def setup(*args):
+            return {'configured_providers': {
+                'aspire': dict(model='gpt-6-astra', label='ASPIRE'),
+                'hosted_aspire': dict(model='gpt-6-astra', label='Hosted ASPIRE'),
+                'xlab': dict(model='existing', label='XLab')}}, []
+        self.app.session_extension = setup
+        code, result, _ = await self.call('/api/session', method='POST', payload={})
+        self.assertEqual(code, 200)
+        self.assertEqual(set(result['configured_providers']), {'xlab'})
+
     async def test_each_target_can_be_activated_without_restarting_other_model_routes(self):
         p = self.app.root/'controller-models.json'
         self.app.controller_models_file = str(p)

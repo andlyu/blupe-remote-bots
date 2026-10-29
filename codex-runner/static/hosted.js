@@ -2539,6 +2539,7 @@ function createRunLaunchGuard() {
       $('provider').innerHTML = originalProviderMarkup;
       configuredProviders = {...(session.configured_providers || {}), ...(session.dream_providers || {}), ...(session.runpod_providers || {})};
       delete configuredProviders.aspire;
+      delete configuredProviders.hosted_aspire;
       $('geminiCallingMode').value = 'sparse';
       for (const [value, spec] of Object.entries(configuredProviders)) {
         const option = Object.assign(document.createElement('option'), {value, textContent:spec.label});
