@@ -85,11 +85,12 @@ class NativeControllerDream:
     def __init__(self, operator, *, robot_id, credentials, python, directory,
                  provider='dream', camera_origin='http://127.0.0.1:8089',
                  gateway_max_step_deg=9, adapter_factory=DreamAdapter,
-                 worker_factory=DreamWorker):
+                 worker_factory=DreamWorker, dispatch=None):
         self.operator, self.robot_id = operator, robot_id
         self.cancel = threading.Event()
         self.operation = threading.RLock()
         self.pending = None
+        self.dispatch = dispatch or operator.api_handle_joint_trajectory
         self.adapter = adapter_factory(provider=provider, model=MODELS[provider][0],
             credentials=credentials, python=python, directory=directory,
             robot_id=robot_id, observation_source=self.observation,
@@ -154,7 +155,9 @@ class NativeControllerDream:
                 session_id=context[0], episode_id=context[1], lease_id=context[2],
                 trajectory_id='dream-' + uuid.uuid4().hex, dispatched_at=time.time(),
                 cadence_hz=10, waypoints=points)
-            return op.api_handle_joint_trajectory(payload)
+        # The physical handler acquires its hardware lock before op.lock and
+        # revalidates the lease itself. Never invert that order around dispatch.
+        return self.dispatch(payload)
 
     def trajectory_completed(self, observation, waypoint_count):
         self.adapter.trajectory_completed(observation, waypoint_count)

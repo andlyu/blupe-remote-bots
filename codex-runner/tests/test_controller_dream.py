@@ -99,6 +99,23 @@ def test_native_submission_uses_existing_handler_current_lease_and_step_once():
     with pytest.raises(RuntimeError): adapter.submit()
 
 
+def test_dispatch_does_not_hold_operator_lock_before_native_hardware_lock():
+    op, adapter, packets = bound()
+    acquired = []
+    def dispatch(payload):
+        def other_thread():
+            with op.lock:
+                acquired.append(True)
+        thread = threading.Thread(target=other_thread)
+        thread.start()
+        thread.join(.5)
+        assert not thread.is_alive(), 'Native handler was called with operator lock held'
+    adapter.dispatch = dispatch
+    adapter.predict('hold')
+    adapter.submit()
+    assert acquired == [True]
+
+
 @pytest.mark.parametrize('change', ['lease', 'authorization', 'stop'])
 def test_stop_or_ownership_change_discards_prediction(change):
     op, adapter, packets = bound()

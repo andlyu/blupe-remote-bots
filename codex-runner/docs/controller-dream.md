@@ -15,9 +15,59 @@ use the existing Home/readiness lifecycle and forward the existing trajectory
 completed/adjusted/failed callbacks. A prepared `DreamWorkerPool.factory` can be
 passed as `worker_factory`, retaining the existing both-form SDK preparation.
 
-This is an internal adapter binding, without an execution service or public
-model-routing API. It does not install itself into a station's run selection.
-The existing runner instance and Session API route continue independently.
+`controller_dream_executor.install(hardware, **settings)` composes the binding
+after the installed operator's calibration/recovery wrappers. Settings are
+operator configuration, never request-supplied paths or credentials. Its SDK
+pool prepares in the background without opening hardware. The existing native
+prepare hook retains the session task, duration and lease. The policy loop uses
+native trajectory validation, ordered progress and settled completion feedback;
+workspace replacements/holds are returned to the same Dream adapter. Stop and
+lease loss cancel immediately, without waiting for the model or SDK cleanup.
+Only receipts for these local trajectories are consumed in process; existing
+observations, heartbeats, recording and station messages retain their transport.
+
+## Optional request routing
+
+Add `"executor": "dream_one"` to the existing Playground `/api/run` request for
+RoboHouse with provider `dream` and model `dreamlabs/dream-1-beta`. Every other
+field stays the same. An omitted executor or JSON `null` constructs the existing
+runner provider and makes no execution-start request.
+
+```json
+{
+  "provider": "dream",
+  "model": "dreamlabs/dream-1-beta",
+  "prompt": "Move the block into the tray.",
+  "run_duration_s": 120,
+  "executor": "dream_one"
+}
+```
+
+The runner joins the same queue and waits for the normal Home/readiness flow.
+It then uses the existing session capability and execution envelope:
+
+```http
+POST /v1/sessions/{session_id}/executions
+Authorization: Bearer {existing_session_capability}
+Content-Type: application/json
+
+{"schema_version":1,"episode_id":"{episode_id}","lease_id":"{lease_id}","request_id":"{32_lowercase_hex_chars}","executor":"dream_one","operation":"start","payload":{}}
+```
+
+Poll the existing `/executions/{request_id}` response for completion. `start`
+acknowledges loop startup rather than waiting for the full task. Further `status`
+requests use fresh request IDs and return bounded phase/count/readiness metadata.
+`predict` runs one converted prediction with zero native submissions; use a
+separate lease for this diagnostic. The controller always takes the task from
+`prepare_session`; it rejects alternate prompts, motion targets and SDK settings
+in the execution payload. A lease cannot mix Dream with another executor.
+Repeated start requests for the same lease never create a second loop. The
+existing session Stop endpoint remains the cancellation path.
+
+The low-level execution endpoint requires a named executor. The omitted/null
+default belongs to the run request/caller, which skips this endpoint entirely.
+Installing shared code alone does not activate a station; the Session API must
+allow the executor and the operator must install its hook before use.
 
 ## No-motion controller probe
 
