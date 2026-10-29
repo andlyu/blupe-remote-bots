@@ -1,6 +1,7 @@
 import base64
 import io
 import math
+import os
 import threading
 import time
 import sys
@@ -737,6 +738,38 @@ class DreamClient:
         [str(tmp_path/v/'jax') for v in ('visitor-one','visitor-two')])
 
 
+@pytest.mark.parametrize('override,expected', [(None, '1'), ('3', '3')])
+def test_sdk_child_sets_blas_threads_before_import_and_preserves_parent(tmp_path, monkeypatch, override, expected):
+    sdk = tmp_path/'sdk'; sdk.mkdir()
+    (sdk/'dream.py').write_text('''
+import json, os
+from pathlib import Path
+# Read at SDK import, before the worker imports NumPy. A late setting fails.
+Path(os.environ['TEST_THREAD_RECEIPT']).write_text(json.dumps({
+    'threads': os.environ.get('OPENBLAS_NUM_THREADS'), 'pid': os.getpid()}))
+__version__='1.0.0'
+class DreamClient:
+    def policy(self, config): pass
+    def close(self): pass
+''')
+    monkeypatch.setenv('PYTHONPATH', str(sdk))
+    receipt = tmp_path/'threads.json'
+    monkeypatch.setenv('TEST_THREAD_RECEIPT', str(receipt))
+    if override is None:
+        monkeypatch.delenv('OPENBLAS_NUM_THREADS', raising=False)
+    else:
+        monkeypatch.setenv('OPENBLAS_NUM_THREADS', override)
+    worker = DreamWorker(sys.executable, tmp_path/'synthetic-credentials', tmp_path/'worker')
+    try:
+        assert worker.call('configure', checkpoint='dreamlabs/dream-1-beta')['ok']
+    finally:
+        worker.close()
+    imported = json.loads(receipt.read_text())
+    assert imported['threads'] == expected
+    assert imported['pid'] != os.getpid()
+    assert os.environ.get('OPENBLAS_NUM_THREADS') == override
+
+
 def test_worker_process_protocol_closes_session_and_hides_key(tmp_path, monkeypatch):
     fake = tmp_path / 'sdk'
     fake.mkdir()
@@ -873,7 +906,7 @@ def test_unknown_oserror_subtype_cannot_export_arbitrary_class_or_reason(tmp_pat
 
 
 @pytest.mark.parametrize('fail',[False,True])
-def test_worker_renews_only_http_channel_preserving_model_session_and_history(tmp_path,monkeypatch,fail):
+def test_worker_reuses_http_and_cleans_failed_channel_without_replaying(tmp_path,monkeypatch,fail):
     sdk=tmp_path/'sdk';sdk.mkdir();trace=tmp_path/'transport.jsonl'
     (sdk/'dream.py').write_text('''
 import json,os,ssl
@@ -894,7 +927,7 @@ class DreamClient:
     def get_action(self,commanded=None):
         channel=self._policy._transport
         self.record('predict',session_id=self.session_id,frames=list(self.frames),connected=channel.connected)
-        if channel.connected or os.environ['TEST_HTTP_FAIL']=='yes':
+        if os.environ['TEST_HTTP_FAIL']=='yes' and len(self.frames)==2:
             try:raise ssl.SSLEOFError(8,'private address and payload')
             except ssl.SSLError as cause:raise DreamProtocolError('private endpoint') from cause
         channel.connected=True;self.session_id='same-model-session'
@@ -911,11 +944,14 @@ class DreamClient:
         assert worker.call('configure',checkpoint='dreamlabs/dream-1-beta')['ok']
         def predict(n):return worker.call('predict',ticks=[dict(timestamp=n,frames={},observation={'prompt':str(n)})])
         if fail:
-            reply=predict(1)
+            assert predict(1)['ok']
+            reply=predict(2)
             assert not reply['ok'] and reply['cause_type']=='SSLEOFError'
             assert reply['protocol_category']=='connection_failure'
-            assert reply['http_connection_policy']=='fresh_per_exchange'
+            assert reply['http_connection_policy']=='reuse_until_reset_or_failure'
             assert 'private' not in json.dumps(reply)
+            assert len(trace.read_text().splitlines())==3  # policy + two calls, no retry
+            assert predict(3)['ok']
         else:
             assert all(predict(n)['ok'] for n in (1,2,3))
             assert worker.call('reset')['ok']
@@ -924,8 +960,8 @@ class DreamClient:
     records=[json.loads(line) for line in trace.read_text().splitlines()]
     predictions=[r for r in records if r['kind']=='predict']
     assert len([r for r in records if r['kind']=='policy'])==1
-    assert len(predictions)==(1 if fail else 4)  # No extra inference retry.
-    assert all(r['connected'] is False for r in predictions)
+    assert len(predictions)==(3 if fail else 4)  # No extra inference retry.
+    assert [r['connected'] for r in predictions]==([False,True,False] if fail else [False,True,True,False])
     if not fail:
         assert [r['session_id'] for r in predictions]==[None,'same-model-session','same-model-session',None]
         assert [r['frames'] for r in predictions]==[['1'],['1','2'],['1','2','3'],['4']]

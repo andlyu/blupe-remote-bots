@@ -172,15 +172,28 @@ class NativeControllerDream:
         return self.dispatch(payload)
 
     def trajectory_completed(self, observation, waypoint_count):
-        self.adapter.trajectory_completed(observation, waypoint_count)
+        callback = getattr(self.adapter, 'trajectory_completed', None)
+        if callable(callback):
+            callback(observation, waypoint_count)
 
     def trajectory_adjusted(self, details):
-        self.adapter.trajectory_adjusted(details)
+        callback = getattr(self.adapter, 'trajectory_adjusted', None)
+        if callable(callback):
+            callback(details)
 
     def trajectory_failed(self, *args, **kwargs):
-        self.adapter.trajectory_failed(*args, **kwargs)
+        callback = getattr(self.adapter, 'trajectory_failed', None)
+        if callable(callback):
+            callback(*args, **kwargs)
 
     def close(self):
         self.cancel.set()
         self.pending = None
-        self.adapter.close_transport()
+        close = getattr(self.adapter, 'close_transport', None)
+        if callable(close):
+            close()
+        workspace = getattr(self.adapter, '_workspace', None)
+        if workspace is not None and callable(getattr(workspace, 'cleanup', None)):
+            workspace.cleanup()
+        if hasattr(self.adapter, '_api_key'):
+            self.adapter._api_key = ''

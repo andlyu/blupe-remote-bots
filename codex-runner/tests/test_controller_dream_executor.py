@@ -268,8 +268,8 @@ def test_installed_operator_constructs_before_api_client_is_attached():
             self.api_client = None
         def attach_api_client(self, client):
             self.api_client = client
-        def status(self):
-            return {'mode':'DISABLED'}
+        def status(self, *, include_diagnostics=True):
+            return {'mode':'DISABLED', 'diagnostics':include_diagnostics}
         def stop(self):
             return 'native stop'
     hardware = SimpleNamespace(base=SimpleNamespace(OperatorSimulator=ExistingOperator),
@@ -279,11 +279,13 @@ def test_installed_operator_constructs_before_api_client_is_attached():
     operator = installed()
     assert operator.api_client is None
     assert 'controller_executors' not in operator.status()
+    assert operator.status(include_diagnostics=False)['diagnostics'] is False
     client = SimpleNamespace(jetson_id=ROBOHOUSE, send=lambda payload: None)
     operator.attach_api_client(client)
     assert operator.dream_executor.preparation_done.wait(1)
     executor = operator.dream_executor
     assert operator.status()['controller_executors']['dream_one']['worker']['ready']
+    assert operator.status(include_diagnostics=False)['diagnostics'] is False
     operator.attach_api_client(client)
     assert operator.dream_executor is executor
     assert operator.stop() == 'native stop'

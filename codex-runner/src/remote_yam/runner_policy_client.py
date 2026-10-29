@@ -64,6 +64,38 @@ class RunnerPolicyClient:
             raise RuntimeError('Visitor now refers to a different run; do not control it with this handle')
         return result
 
+    def start_model(self, *, provider, model, prompt, executor=None, controller_model=None,
+                    custom_endpoint=None, runner_name='API operator', run_duration_s=120,
+                    email=None, api_key=None):
+        """Same admission and retained Run/status/Stop handle for either route.
+
+        A custom endpoint uses an installed protocol and receives no credential
+        values. Explicit runner API keys retain the ordinary non-controller path.
+        """
+        if self.metadata is None:
+            self.connect()
+        from .controller_executor import selected_executor
+        selected_executor(executor, provider=provider, model=model, robot_id=self.robot_id,
+            models=self.metadata.get('controller_models', {}), model_id=controller_model,
+            custom_endpoint=custom_endpoint)
+        payload = dict(provider=provider, model=model, prompt=prompt, runner_name=runner_name,
+                       run_duration_s=run_duration_s, executor=executor)
+        if executor is not None:
+            payload['use_api_depth'] = False
+        if controller_model is not None:
+            payload['controller_model'] = controller_model
+        if custom_endpoint is not None:
+            payload['custom_endpoint'] = custom_endpoint
+        if email is not None:
+            payload['email'] = email
+        if api_key is not None:
+            if executor is not None:
+                raise ValueError('Controller credentials are provisioned on the controller host')
+            payload['api_key'] = api_key
+        result = self._request('/api/run', payload)
+        self.attempt_id = result['attempt_id']
+        return result
+
     def stop(self):
         self.status()  # Validate the retained visitor/attempt before cancellation.
         return self._request('/api/stop',{})

@@ -142,7 +142,7 @@ def codex_environment():
     return {key: value for key, value in os.environ.items() if key in allowed}
 
 
-def codex_status():
+def codex_status(*, allow_existing_api_key=False):
     """Only return setup state, never raw auth output or account identifiers."""
     binary = codex_binary()
     if not binary:
@@ -155,7 +155,10 @@ def codex_status():
             return {'ready': False, 'state': 'upgrade_required', 'message': INSTALL_HELP}
         login = subprocess.run([binary, 'login', 'status'], capture_output=True,
                                text=True, timeout=5, env=codex_environment())
-        ready = login.returncode == 0 and 'Logged in using ChatGPT' in login.stdout + login.stderr
+        text = login.stdout + login.stderr
+        subscription = 'Logged in using ChatGPT' in text
+        existing_api = allow_existing_api_key and 'Logged in' in text and 'API key' in text and 'Not logged in' not in text
+        ready = login.returncode == 0 and (subscription or existing_api)
         if ready:
             try:
                 check_codex_storage()
@@ -163,7 +166,9 @@ def codex_status():
                 return {'ready': False, 'state': 'storage_unwritable', 'message': STORAGE_HELP}
         return {'ready': ready, 'state': 'ready' if ready else 'login_required',
                 'version': '.'.join(match.groups()),
-                'message': 'Signed in with ChatGPT. Uses your Codex subscription limits.' if ready else LOGIN_HELP}
+                **({'authentication': 'existing_cli_api_key', 'api_billing': True} if ready and not subscription else {}),
+                'message': ('Signed in through the existing local CLI; uses its provider API billing.' if ready and not subscription
+                    else 'Signed in with ChatGPT. Uses your Codex subscription limits.' if ready else LOGIN_HELP)}
     except (OSError, subprocess.SubprocessError):
         return {'ready': False, 'state': 'unavailable',
                 'message': 'Could not check Codex. Run codex login status in the launch terminal.'}
@@ -277,13 +282,14 @@ class CodexAdapter(RoboCurveResponsesAdapter):
     reasoning_effort = 'low'
 
     def __init__(self, model=DEFAULT_MODEL, *, camera_source=None, recording_root=None,
-                 timeout_s=120):
-        setup = codex_status()
+                 timeout_s=120, existing_cli_auth=False):
+        setup = codex_status(allow_existing_api_key=True) if existing_cli_auth else codex_status()
         if not setup['ready']:
             raise RuntimeError(setup['message'])
         if not model.strip():
             raise ValueError('A Codex model is required')
         self.model = model
+        self._authentication = setup.get('authentication', 'chatgpt')
         self._initialize_observation(camera_source)
         self._initialize_policy(recording_root)
         self._binary = codex_binary()
@@ -295,7 +301,8 @@ class CodexAdapter(RoboCurveResponsesAdapter):
     def public_config(self):
         return {**super().public_config(), 'api_key_configured': False,
                 **({'launch_route':self.launch_route} if getattr(self,'launch_route',None) else {}),
-                'authentication': 'chatgpt', 'transport': 'codex_exec',
+                'authentication': getattr(self, '_authentication', 'chatgpt'), 'transport': 'codex_exec',
+                **({'api_billing': True} if getattr(self, '_authentication', '') == 'existing_cli_api_key' else {}),
                 'codex_connected': True, 'reasoning_effort': self.reasoning_effort}
 
     def _post_json(self, payload):
@@ -339,7 +346,7 @@ class CodexAdapter(RoboCurveResponsesAdapter):
             command += ['resume', self._thread_id]
         command += ['--ignore-user-config', '--skip-git-repo-check', '--json',
                     '--model', self.model, '--output-schema', str(schema),
-                    '-c', 'forced_login_method="chatgpt"', '-c', 'model_provider="openai"',
+                    '-c', 'forced_login_method=' + ('"api"' if getattr(self, '_authentication', '') == 'existing_cli_api_key' else '"chatgpt"'), '-c', 'model_provider="openai"',
                     '-c', f'model_reasoning_effort="{self.reasoning_effort}"',
                     '-c', 'features.fast_mode=true',
                     '-c', 'service_tier=' + ('"fast"' if self.response_speed == 'fast' else '"default"'),

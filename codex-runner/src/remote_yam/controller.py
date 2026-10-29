@@ -1061,11 +1061,18 @@ class RunnerController(HomeSceneStartup):
             # capability and never bypasses the Session API or robot executor.
             context = dict(session_id=session_id, episode_id=episode_id, lease_id=lease_id,
                            robot_id=self._robot_id)
-            cancelled = lambda: (self._stop_event.is_set() or self._provider is not provider)
+            cancelled = lambda: self._provider_cancelled(provider)
             result = session_policy(prompt, provider_observation, self._session_api, context, cancelled)
-            if not cancelled():
-                self.stop('user_requested' if isinstance(result, dict) and
-                          result.get('state') == 'cancelled' else 'policy_complete')
+            if cancelled():
+                with self._lock:
+                    deadline = self._deadline_cancelled_session == session_id
+                if deadline:
+                    # Use the run loop's existing timeout reconciliation before
+                    # its event consumer can read the queued terminal lifecycle.
+                    raise RuntimeError('Controller policy duration reached')
+                return
+            self.stop('user_requested' if isinstance(result, dict) and
+                      result.get('state') == 'cancelled' else 'policy_complete')
             return
         trajectory_builder = getattr(provider, "build_trajectory", None)
         if getattr(self._session_api, "supports_trajectories", False) is True:

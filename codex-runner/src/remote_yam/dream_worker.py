@@ -7,11 +7,18 @@ import math
 import os
 from pathlib import Path
 import re
+import select
 import signal
 import sys
 
 os.environ['DREAM_LOG'] = 'off'
 os.environ.setdefault('LOGURU_LEVEL', 'WARNING')
+# These small trajectory factorizations run alongside JAX and the station's
+# camera/control processes. Six-thread BLAS took 2.30s versus 0.117s with one
+# thread on YAM1, with outputs matching to 1.3e-13rad. Configure only this SDK
+# child, before NumPy/SciPy import; preserve an explicit operator override.
+# See docs/refs/dreamlabs/CPU-THREADS.md and OpenBLAS's startup-variable contract.
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 os.environ.setdefault('JAX_COMPILATION_CACHE_DIR', str(Path(os.environ['DREAM_WORK_DIR']) / 'jax'))
 if os.environ.get('YAM_DREAM_BLOCKWISE_IK', '0') == '1':
     # JAX's supported precision switch is process-wide, before SDK/JAX import.
@@ -82,7 +89,7 @@ def error_response(error, *, phase=None, timing=None):
                             'SSLV3_ALERT_BAD_RECORD_MAC', 'CERTIFICATE_VERIFY_FAILED',
                             'WRONG_VERSION_NUMBER'} else None,
                         transport_stage=transport_stage, protocol_trace=trace,
-                        http_connection_policy='fresh_per_exchange')
+                        http_connection_policy='reuse_until_reset_or_failure')
     if isinstance(timing, dict):
         safe = {key: value for key, value in timing.items()
                 if key in {'rtt_ms', 'request_bytes', 'response_bytes', 'serve_infer_ms', 'gateway_ms', 'network_ms'}
@@ -129,13 +136,44 @@ def protocol_trace(error):
 
 def close_http_connection(client):
     # Pinned SDK1.0.0 _drop closes HTTP/TLS only; it retains PolicyClient's
-    # model-session ID, smoother, observation window and compiled IK. A reused
-    # Linux/OpenSSL3.0 socket can raise SSLEOFError during a write, which the
-    # SDK's narrow stale-connection retry does not handle. Avoid reuse rather
-    # than retrying an ambiguously processed inference. See refs/python/HTTP-TLS.
+    # model-session ID, smoother, observation window and compiled IK. Reuse
+    # healthy channels within a run; reset and failed predictions discard them.
+    # Never add an inference retry after an ambiguous TLS failure.
     transport = getattr(getattr(client, '_policy', None), '_transport', None)
     if transport is not None:
         transport._drop()
+
+
+def prepare_http_connection(client):
+    """Replace a closed idle socket before sending, without replaying inference.
+
+    SDK1.0.0 does not recognize SSLEOFError as a stale-connection failure.
+    CPython3.12 ssl's nonblocking notes require reading through TLS control
+    records: select readability alone cannot distinguish them from closure.
+    No response is outstanding here; any application bytes are also unexpected.
+    """
+    transport = getattr(getattr(client, '_policy', None), '_transport', None)
+    connection = getattr(transport, '_connection', None)
+    sock = getattr(connection, 'sock', None)
+    if sock is None:
+        return
+    try:
+        if isinstance(sock, ssl.SSLSocket):
+            timeout = sock.gettimeout()
+            try:
+                sock.setblocking(False)
+                try:
+                    sock.recv(1)
+                except (ssl.SSLWantReadError, BlockingIOError):
+                    # Control records consumed, with no EOF or application data.
+                    return
+            finally:
+                sock.settimeout(timeout)
+        elif not select.select([sock], [], [], 0)[0]:
+            return
+    except (OSError, ValueError):
+        pass  # Invalid/closed socket; the next exchange must connect afresh.
+    transport._drop()
 
 
 def reset_episode(client):
@@ -300,12 +338,13 @@ def main():
             phase = 'predict'
             request_started = True
             with stage(spans, 'sdk_get_action'):
-                close_http_connection(client)
                 try:
+                    prepare_http_connection(client)
                     with sdk_trace.prediction(command.get('first_step_id')):
                         action = client.get_action(commanded=command.get('commanded'))
-                finally:
+                except BaseException:
                     close_http_connection(client)
+                    raise
             return {'action': action, 'timing': client.last_timing}
         raise ValueError('Unknown worker command')
 

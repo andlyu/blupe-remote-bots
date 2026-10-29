@@ -11,6 +11,7 @@
   <!-- application-head -->
   <script src="/static/stream-health.js" defer></script>
   <script src="/static/model-picker.js" defer></script>
+  <script src="/static/controller-model-picker.js" defer></script>
   <script src="/static/system-prompt.js" defer></script>
   <script src="/static/reactions.js" defer></script>
   <script src="/static/replay-email.js" defer></script>
@@ -150,6 +151,17 @@
           <p id="steeringDelivery" class="help" role="status" aria-live="polite"></p>
         </div>
         <details id="runSettings"><summary>Settings</summary>
+        <label for="executionLocation">Model execution</label>
+        <select id="executionLocation"><option value="auto">Automatic · BLUPE runner</option><option value="runner">BLUPE runner</option><option value="controller" disabled>Robot controller</option></select>
+        <p id="controllerExecutionHelp" class="help">The existing BLUPE runner collects observations and calls the model.</p>
+        <div id="controllerModelSettings" hidden>
+          <label for="controllerModel">Controller model or protocol</label><select id="controllerModel"></select>
+          <div id="controllerEndpointSettings" hidden>
+            <label for="controllerEndpoint">Your inference endpoint</label><input id="controllerEndpoint" type="url" maxlength="2048" placeholder="https://your-service.example/v1/responses" autocomplete="off">
+            <label for="controllerEndpointModel">Your model ID</label><input id="controllerEndpointModel" maxlength="128" spellcheck="false" autocomplete="off">
+            <p class="help">Responses-compatible tools and RGB input. The controller calls your public HTTPS endpoint directly without sending an API key. Use your own authenticated proxy if your service requires a key.</p>
+          </div>
+        </div>
         <label for="provider">Provider or policy</label>
         <select id="provider"><option value="openai" selected>ChatGPT</option><option value="anthropic">Claude</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option></select>
         <div id="modelSettings">
