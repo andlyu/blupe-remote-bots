@@ -28,22 +28,23 @@ function harness() {
 
 test('desktop camera column keeps its full width and scrolling cannot inflate it',()=>{
   const h=harness();h.fit();
-  const cameraHeight=parseFloat(h.values.get('--console-camera-height'));
+  const viewportHeight=parseFloat(h.values.get('--console-viewport-height'));
   assert.equal(h.values.has('height'),false);
   assert.equal(h.values.get('--console-camera-width'),'1136px');
   assert.equal(h.viewer.dataset.detailLayout,'below');
-  assert(cameraHeight>h.window.innerHeight,'large observer preserves its aspect ratio with lower thumbnails');
+  assert.equal(h.workspace.documentTop+viewportHeight+16,h.window.innerHeight,'workspace and footer fit above the bottom screen edge');
   for (const scroll of [500,2000,50000,0]) {
     h.window.scrollY=scroll;h.fit();
-    assert.equal(parseFloat(h.values.get('--console-camera-height')),cameraHeight);
+    assert.equal(parseFloat(h.values.get('--console-viewport-height')),viewportHeight);
   }
 });
 
-test('an asynchronously displayed banner cannot change the desktop camera layout',()=>{
+test('a banner above the workspace reduces the height budget without moving lower cameras to the side',()=>{
   const h=harness();h.workspace.documentTop=68;h.fit();
-  const initial=h.values.get('--console-camera-height');
+  const initial=parseFloat(h.values.get('--console-viewport-height'));
   h.workspace.documentTop+=118;h.fit();
-  assert.equal(h.values.get('--console-camera-height'),initial);
+  assert.equal(parseFloat(h.values.get('--console-viewport-height')),initial-118);
+  assert.equal(h.viewer.dataset.detailLayout,'below');
   assert.equal(h.values.has('height'),false);
 });
 
@@ -53,4 +54,14 @@ test('phone cameras remain above chat and discard desktop fixed sizing',()=>{
   assert.equal(h.values.get('--console-camera-width'),'354px');
   assert.equal(h.viewer.dataset.detailLayout,'below');
   assert(parseFloat(h.values.get('--console-camera-height'))<300);
+});
+
+test('common desktop heights keep the complete workspace inside the viewport',()=>{
+  const h=harness();h.workspace.documentTop=92;
+  for(const height of [500,650,768,868,1080]){
+    h.window.innerHeight=height;h.fit();
+    assert.equal(parseFloat(h.values.get('--console-viewport-height'))+92+16,height);
+    assert.equal(h.values.get('--console-camera-width'),'1136px');
+    assert.equal(h.viewer.dataset.detailLayout,'below');
+  }
 });

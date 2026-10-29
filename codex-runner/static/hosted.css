@@ -665,9 +665,9 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole #robotSelectorStatus:empty{display:none}
 .playgroundConsole .playgroundIntro{display:none}
 .playgroundConsole .openVisitorChat{position:static;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex:none;box-shadow:none;background:var(--surface);border-color:var(--line);padding:10px 16px;min-height:44px;border-radius:10px;font-size:13px}
-.playgroundConsole .watchLayout,.playgroundConsole .watchLayout.conversationClosed{display:grid;grid-template-columns:minmax(0,4.5fr) minmax(0,1fr);grid-template-areas:"video chat";gap:16px;height:auto;min-height:0;margin-bottom:40px}
-.playgroundConsole .watchLayout>.watchVisuals{grid-area:video;display:grid;grid-template-rows:auto auto;align-content:start;gap:8px;min-height:0;width:100%}
-.playgroundConsole .watchVisuals>.videoPanel{grid-area:auto;min-height:0;align-self:start;height:var(--console-camera-height,100%)}
+.playgroundConsole .watchLayout,.playgroundConsole .watchLayout.conversationClosed{display:grid;grid-template-columns:minmax(0,4.5fr) minmax(0,1fr);grid-template-areas:"video chat";gap:16px;height:var(--console-viewport-height,calc(100dvh - 108px));min-height:0;margin-bottom:40px}
+.playgroundConsole .watchLayout>.watchVisuals{grid-area:video;display:grid;grid-template-rows:minmax(0,1fr) auto;align-content:start;gap:8px;min-height:0;width:100%}
+.playgroundConsole .watchVisuals>.videoPanel{grid-area:auto;min-height:0;align-self:start;height:100%}
 .playgroundConsole .cameraDetails>.cameraStatusLine{grid-area:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;font-size:12px;min-height:28px;padding-top:4px;text-align:left}
 .playgroundConsole .cameraStatusLine p{margin:0}
 .playgroundConsole .cameraDetails>#yourQueue{grid-area:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0;padding:0 0 8px;border:0;border-radius:0;background:none;font-size:12px;color:var(--muted)}
@@ -698,7 +698,7 @@ body.cameraExpanded{overflow:hidden}
 .playgroundConsole #liveViewer #liveRunControls{display:none}
 .playgroundConsole #liveViewer>.viewerCue{display:none}
 .playgroundConsole #liveViewer .syncTilePicture,.playgroundConsole #liveViewer .modelCameraPicture{height:100%;overflow:hidden}
-.playgroundConsole #liveViewer canvas,.playgroundConsole #liveViewer .modelCameraPicture img{width:100%;height:111.111%;max-height:none;aspect-ratio:auto;object-fit:fill;transform:translateY(-10%)}
+.playgroundConsole #liveViewer canvas,.playgroundConsole #liveViewer .modelCameraPicture img{width:100%;height:111.111%;max-height:none;aspect-ratio:auto;object-fit:contain;transform:translateY(-10%)}
 .playgroundConsole #liveViewer .modelCameraBadge{display:none}
 /* Float the shared task entry inside the main camera without resizing it. */
 .playgroundConsole .quickTaskEntry{display:flex;align-items:center;gap:6px;min-width:0;min-height:0;height:56px;max-height:none;padding:5px;border:1px solid #ffffff4d;border-radius:14px;background:var(--surface);box-shadow:0 4px 20px #10201926;backdrop-filter:blur(3px)}
@@ -719,7 +719,7 @@ body.cameraExpanded{overflow:hidden}
 }
 .playgroundConsole .expandCamera{opacity:0;transition:opacity .15s;border-radius:6px}
 .playgroundConsole .syncTile:hover .expandCamera,.playgroundConsole .syncTile:focus-within .expandCamera{opacity:1}
-.playgroundConsole .watchInteraction{grid-area:chat;contain:none;display:flex;flex-direction:column;min-width:0;min-height:400px;height:var(--console-camera-height,100%);border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
+.playgroundConsole .watchInteraction{grid-area:chat;contain:none;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
 .playgroundConsole .taskChatHeading{flex:none;padding:20px 20px 12px}
 .playgroundConsole .taskChatHeading h2{font-size:17px;line-height:24px;font-weight:750;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;margin:0}
 .playgroundConsole #taskHeaderPrompt{font-weight:400}

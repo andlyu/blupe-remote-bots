@@ -3030,12 +3030,15 @@ function bindQuickTaskDraft(prompt, quick) {
   function fitCameras() {
     const viewer = $('liveViewer'), four = viewer.dataset.layout === 'observer-focus';
     const aspect = four ? 640/324 : 16/9;
-    // CSS reserves the narrow right column for chat. Use only the camera
-    // column's width so footer wrapping and scroll position cannot feed back
-    // into camera sizing. The smaller views always stay below the observer.
+    // Desktop CSS fits cameras, their footer, and chat inside this height.
+    // Document position stays constant while scrolling. Footer wrapping only
+    // adjusts grid rows; it never changes column widths or thumbnail placement.
     const width = Math.max(100, visuals.clientWidth);
     const cameraHeight = four ? width/aspect + (width-12)/aspect/3 + 6 : width/aspect;
+    const documentTop = workspace.getBoundingClientRect().top + window.scrollY;
+    const viewportHeight = Math.max(0, window.innerHeight - documentTop - 16);
     workspace.style.removeProperty('height');
+    workspace.style.setProperty('--console-viewport-height', viewportHeight + 'px');
     workspace.style.setProperty('--console-camera-width', width + 'px');
     workspace.style.setProperty('--console-camera-height', cameraHeight + 'px');
     viewer.dataset.detailLayout = 'below';

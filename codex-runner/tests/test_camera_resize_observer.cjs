@@ -48,6 +48,7 @@ test('camera observation never changes observed geometry during observer deliver
   h.flush();
   assert.equal(h.values.has('height'), false);
   assert.equal(h.values.get('--console-camera-width'), '1037px');
+  assert.equal(h.values.get('--console-viewport-height'), '816px');
 });
 
 test('a burst of resize and camera-layout notifications shares one animation frame', () => {
@@ -70,6 +71,7 @@ test('a later resize reads the new camera column width in the queued frame', () 
   h.visuals.clientWidth = 900;
   h.flush();
   assert.equal(h.values.get('--console-camera-width'), '900px');
+  assert.equal(h.values.get('--console-viewport-height'), '616px');
   h.window.innerWidth = 390;
   h.workspace.clientWidth = 354;
   h.visuals.clientWidth = 354;
@@ -106,7 +108,7 @@ test('a wrapping camera footer cannot alternate side and bottom thumbnails each 
   const h = wrappingFooterHarness(), layouts = [];
   for (let i = 0; i < 8; i++) {
     h.frame();
-    layouts.push(h.viewer.dataset.detailLayout + ':' + h.values.get('--console-camera-width'));
+    layouts.push(h.viewer.dataset.detailLayout + ':' + h.values.get('--console-camera-width') + ':' + h.values.get('--console-viewport-height'));
   }
   assert.equal(new Set(layouts).size, 1, 'camera width must converge instead of changing footer wrapping every frame');
   assert.equal(h.viewer.dataset.detailLayout, 'below');
