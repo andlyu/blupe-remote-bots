@@ -1,6 +1,7 @@
 import base64
 import io
 import math
+import os
 import threading
 import time
 import sys
@@ -735,6 +736,38 @@ class DreamClient:
     assert [row['work'] for row in rows] == [str(tmp_path/v) for v in ('visitor-one','visitor-two')]
     assert [row['cache'] for row in rows] == ([str(shared)]*2 if configured else
         [str(tmp_path/v/'jax') for v in ('visitor-one','visitor-two')])
+
+
+@pytest.mark.parametrize('override,expected', [(None, '1'), ('3', '3')])
+def test_sdk_child_sets_blas_threads_before_import_and_preserves_parent(tmp_path, monkeypatch, override, expected):
+    sdk = tmp_path/'sdk'; sdk.mkdir()
+    (sdk/'dream.py').write_text('''
+import json, os
+from pathlib import Path
+# Read at SDK import, before the worker imports NumPy. A late setting fails.
+Path(os.environ['TEST_THREAD_RECEIPT']).write_text(json.dumps({
+    'threads': os.environ.get('OPENBLAS_NUM_THREADS'), 'pid': os.getpid()}))
+__version__='1.0.0'
+class DreamClient:
+    def policy(self, config): pass
+    def close(self): pass
+''')
+    monkeypatch.setenv('PYTHONPATH', str(sdk))
+    receipt = tmp_path/'threads.json'
+    monkeypatch.setenv('TEST_THREAD_RECEIPT', str(receipt))
+    if override is None:
+        monkeypatch.delenv('OPENBLAS_NUM_THREADS', raising=False)
+    else:
+        monkeypatch.setenv('OPENBLAS_NUM_THREADS', override)
+    worker = DreamWorker(sys.executable, tmp_path/'synthetic-credentials', tmp_path/'worker')
+    try:
+        assert worker.call('configure', checkpoint='dreamlabs/dream-1-beta')['ok']
+    finally:
+        worker.close()
+    imported = json.loads(receipt.read_text())
+    assert imported['threads'] == expected
+    assert imported['pid'] != os.getpid()
+    assert os.environ.get('OPENBLAS_NUM_THREADS') == override
 
 
 def test_worker_process_protocol_closes_session_and_hides_key(tmp_path, monkeypatch):

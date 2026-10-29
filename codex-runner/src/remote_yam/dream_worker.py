@@ -13,6 +13,12 @@ import sys
 
 os.environ['DREAM_LOG'] = 'off'
 os.environ.setdefault('LOGURU_LEVEL', 'WARNING')
+# These small trajectory factorizations run alongside JAX and the station's
+# camera/control processes. Six-thread BLAS took 2.30s versus 0.117s with one
+# thread on YAM1, with outputs matching to 1.3e-13rad. Configure only this SDK
+# child, before NumPy/SciPy import; preserve an explicit operator override.
+# See docs/refs/dreamlabs/CPU-THREADS.md and OpenBLAS's startup-variable contract.
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 os.environ.setdefault('JAX_COMPILATION_CACHE_DIR', str(Path(os.environ['DREAM_WORK_DIR']) / 'jax'))
 if os.environ.get('YAM_DREAM_BLOCKWISE_IK', '0') == '1':
     # JAX's supported precision switch is process-wide, before SDK/JAX import.

@@ -17,3 +17,6 @@ Our bridge follows the documented YAM embodiment block and EEF `solve: traj` con
 
 Pinned private API/source contract, activation and numerical limits:
 [BLOCKWISE-GRAM.md](BLOCKWISE-GRAM.md).
+
+Dedicated SDK subprocess BLAS defaults, explicit overrides and the measured
+YAM1 thread-contention regression: [CPU-THREADS.md](CPU-THREADS.md).
