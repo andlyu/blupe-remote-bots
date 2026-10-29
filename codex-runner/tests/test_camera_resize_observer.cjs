@@ -73,3 +73,44 @@ test('a later resize reads fresh viewport dimensions in the queued frame', () =>
   assert.equal(h.values.has('height'), false);
   assert.equal(h.values.has('--console-camera-width'), false);
 });
+
+function wrappingFooterHarness(viewportHeight = 854) {
+  const frames = [], values = new Map([['--console-camera-width', '1244px']]);
+  let resize;
+  const viewer = {dataset: {layout: 'observer-focus', detailLayout: 'side'}};
+  const footer = {get offsetHeight() {
+    return parseFloat(values.get('--console-camera-width')) < 1000 ? 273 : 199;
+  }};
+  const workspace = {clientWidth: 1680, clientHeight: 768,
+    getBoundingClientRect: () => ({top: 68}),
+    style: {setProperty: (key, value) => values.set(key, value), removeProperty: key => values.delete(key)},
+  };
+  Object.defineProperty(workspace.style, 'height', {set(value) {workspace.clientHeight = parseFloat(value);}});
+  const window = {innerWidth: 1728, innerHeight: viewportHeight, scrollY: 0,
+    requestAnimationFrame(callback) {frames.push(callback); return frames.length;},
+  };
+  vm.runInNewContext(source.slice(start, end), {window, workspace, visuals: {clientWidth: 1244},
+    $: id => id === 'liveViewer' ? viewer : null,
+    document: {querySelector: () => footer},
+    ResizeObserver: class {constructor(callback) {resize = callback;} observe() {}},
+    MutationObserver: class {observe() {}},
+  });
+  return {viewer, values, frame() {resize([]); frames.shift()();}};
+}
+
+test('a wrapping camera footer cannot alternate side and bottom thumbnails each frame', () => {
+  const h = wrappingFooterHarness(), layouts = [];
+  for (let i = 0; i < 8; i++) {
+    h.frame();
+    layouts.push(h.viewer.dataset.detailLayout + ':' + h.values.get('--console-camera-width'));
+  }
+  assert.equal(new Set(layouts).size, 1, 'camera width must converge instead of changing footer wrapping every frame');
+  assert.equal(h.viewer.dataset.detailLayout, 'side');
+});
+
+test('bottom thumbnails use the full available width when there is enough height', () => {
+  const h = wrappingFooterHarness(1300);
+  h.frame();
+  assert.equal(h.viewer.dataset.detailLayout, 'below');
+  assert.equal(h.values.get('--console-camera-width'), '1244px');
+});
