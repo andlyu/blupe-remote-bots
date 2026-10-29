@@ -171,9 +171,16 @@ Medium, High, Extra High and Max. Reasoning effort is separate from inference sp
 
 Open **+ → Model** to select a model from the provider's current catalog or enter
 an explicit model ID. OpenAI supports Astra (`gpt-6-astra`) and GPT 6.1 or newer,
-including `gpt-6.1-sol`. Claude supports **Opus or Haiku 5.5 or newer**. The same release
+including `gpt-6.1-sol` and `gpt-6.1-terra`. Terra appears in the model menu and
+uses the existing OpenAI API or Codex subscription adapter. Codex requires
+**CLI 0.159.0 or later** for GPT 6.1 Terra; update the CLI before selecting it.
+Astra remains the default. Claude supports **Opus or Haiku 5.5 or newer**. The same release
 limits apply to manually entered IDs; older models and other Claude families
 are rejected before joining the queue.
+
+Share [Terra in the playground](https://playground.blupe.io/?model=terra) to open
+with `gpt-6.1-terra` selected. `?model=gpt-6.1-terra` also works, and the link can
+include `robot_id` to select a robot. Opening a model link never starts a run.
 
 The catalog loads when you choose a provider. **Refresh models** fetches it again;
 reopening settings also refreshes lists older than five minutes. New matching

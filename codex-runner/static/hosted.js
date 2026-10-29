@@ -4,6 +4,7 @@ function playgroundEntryModel(search, options, session = {}) {
   if (session.station_local) return null;
   const requested = (new URLSearchParams(search).get('model') || '').trim().toLowerCase();
   const aliases = {dream:'dream', 'dream-1':'dream', 'dreamlabs/dream-1-beta':'dream',
+    terra:'terra', 'gpt-6.1-terra':'terra',
     astra:'astra', 'gpt-6-astra':'astra', argon:'argon', 'gemini-4-argon':'argon'};
   const name = Object.hasOwn(aliases, requested) ? aliases[requested] : (session.local_runner ? null : 'dream');
   if (!name) return null;
@@ -14,6 +15,7 @@ function playgroundEntryModel(search, options, session = {}) {
     return provider ? {provider, model} : null;
   };
   const astra = () => select('gpt-6-astra', ['guest_astra', 'codex', 'openai']);
+  if (name === 'terra') return select('gpt-6.1-terra', ['guest_astra', 'codex', 'openai']);
   return (name === 'dream' ? select('dreamlabs/dream-1-beta', ['dream'])
     : name === 'argon' ? select('gemini-4-argon', ['guest_gemini', 'gemini']) : astra())
     || (session.local_runner ? null : astra());

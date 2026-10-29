@@ -26,6 +26,8 @@ def baseline_models(provider):
     ids = [DEFAULTS[provider]]
     if provider in ('anthropic', 'claude'):
         ids.append('claude-haiku-5-5')
+    elif provider in ('openai', 'codex'):
+        ids.append('gpt-6.1-terra')
     return [{'id': identifier, 'label': identifier} for identifier in ids]
 
 

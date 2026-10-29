@@ -1,31 +1,253 @@
-# BluPe Robot API
+# Robot API
 
-Connect your own model to real robot arms. Your code reads camera images and
-robot feedback, calls your model, and submits its next motion through the API.
-The playground UI is a client of this same service; using the API does not
-require the UI or a particular model provider.
+Connect your model to real robot arms. Read camera images and measured joint
+state, run your policy on your computer or model service, and send its next
+motion through BluPe. The playground uses this same Session API.
 
-## Start with a read-only request
+Prefer the ready-made playground? [Run it locally](local-playground.md) or
+[open the playground](https://playground.blupe.io/).
 
-Base URL: `https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com`
+## Quick start
+
+Start with public, read-only requests. These do not join a queue or move a robot.
+No BluPe credential or model API key is required.
 
 ```bash
 export BLUPE_API="https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com"
-curl -fsS "$BLUPE_API/v1/robots"
-curl -fsS "$BLUPE_API/v1/robots/yam-1/queue"
-curl -fsS "$BLUPE_API/v1/robots/yam-1/observation"
+curl --fail-with-body "$BLUPE_API/v1/robots"
+curl --fail-with-body "$BLUPE_API/v1/robots/yam-1/queue"
+curl --fail-with-body "$BLUPE_API/v1/robots/yam-1/observation"
 ```
 
-These calls do not join the queue or move the arms. The queue reports station
-availability; the observation contains measured robot state and camera URLs.
-Fetch the returned camera URLs for JPEG images. Unavailable or stale cameras can
-return an error rather than an old frame.
+The queue reports station connection and availability. An empty queue or a
+successful `/health` response does not mean the robot is ready. The observation
+contains measured joint state, readiness/safety fields, timestamps, and camera
+URLs. Fetch the returned image URLs to see the scene.
 
-[Live JSON request and response schemas](https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com/v1/contracts)
-describe the exact payloads. This is a JSON-schema contract endpoint, not an
-OpenAPI/Swagger page.
+Base URL: `https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com`
+
+The [live v1 JSON schemas](https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com/v1/contracts)
+define request and response fields. This endpoint returns JSON Schema, rather
+than an OpenAPI/Swagger interface. Deployment-specific bounds can change; check
+that contract when building a client. Examples below target ordinary v1 sessions.
+The public read contract was checked on October 25, 2026.
+
+## Choose a robot
+
+Use `GET /v1/robots` for registered IDs, then read that robot's queue and
+observation. Registration does not establish availability. Discovery includes
+calibration links when configured; it does not currently include complete joint
+layouts, joint limits, or a machine-readable motion capability profile.
+
+The current connected stations are the two YAM rigs below, checked on October 25,
+2026. Use one of these IDs for the examples in this guide.
+
+| Robot | Robot ID | Left / right arm joints | Camera roles |
+| --- | --- | --- | --- |
+| YAM | `yam-1` | 6 / 6 | `left`, `top`, `right` |
+| Robo-house YAM | `robot-ba8413962083809c` | 6 / 6 | `left`, `top`, `right` |
+
+Andrew's single SO101 and MakerMods Bimanual SO101 are currently offline and are
+not included as available stations. Their IDs can still appear in discovery.
+A registered ID or bundled runner profile does not mean that hardware is online.
+
+**Connected does not mean ready for motion.** Both YAM rigs reported
+`available: false` and `mode: "DISABLED"` at this check. Before requesting a turn,
+read the selected robot's live queue and observation; follow its readiness and
+session feedback rather than treating this table as a live status display.
+
+Both current rigs use six joint angles per arm, in **degrees**, with independent
+grippers. Their station geometry and calibrated limits differ; use the profile
+for the selected robot. Never mirror or pad an arm.
+
+See [robot selection and profiles](../codex-runner/docs/MULTI-ROBOT.md) and the
+camera calibration below. Cartesian frames, workspace bounds, calibration, and
+hardware execution checks must match the selected robot.
+
+The shared runner also contains SO101 and [MakerArm integration profiles](../codex-runner/docs/MAKERARM.md)
+for separately configured hardware. Those profiles describe client support,
+not additional currently connected stations. A single-arm integration sends the
+absent arm as `[]` and omits its gripper.
+
+## Authentication
+
+Public monitoring and session creation require no BluPe account credential.
+Creating a session returns an opaque **session capability** for that session's
+HTTP requests and event WebSocket:
+
+```http
+Authorization: Bearer <session_capability>
+Content-Type: application/json
+```
+
+Keep the capability in your backend process. Do not put it in URLs, page source,
+source control, or logs. It is returned at creation, not by later status reads.
+The Python client stores and attaches it for you.
+
+A **lease ID** identifies the current grant of robot control. It is distinct
+from the capability, and accompanies motion requests together with the episode
+ID. Queued sessions may not have an episode or lease yet.
+
+Your model-provider API key or subscription login authenticates inference with
+your provider. Keep it separate from BluPe requests. Your policy performs
+inference and inverse kinematics in your own process or service; ordinary
+trajectory requests contain motion data, not provider credentials or weights.
+
+## Session lifecycle
+
+Your program joins the selected queue, waits for control and fresh feedback,
+then repeats **observe → infer → submit → wait for execution**. When finished,
+it sends Stop to release the session.
+
+### Create a session
+
+`POST /v1/sessions` creates a real queue entry. Example request body:
+
+```json
+{
+  "schema_version": 1,
+  "robot_id": "yam-1",
+  "prompt": "Place the green block on the plate",
+  "run_duration_s": 300
+}
+```
+
+Ordinary sessions default to **300 seconds**, with a supported range of
+**60–600 seconds**. The live schema also describes conditional extended durations
+for `provider: "dream"` or `"dream_flash"`; those are provider-specific sessions,
+not a way to extend an ordinary trajectory run. Use the duration and conditions
+supported by the selected runner and deployment.
+
+Optional creation fields include `runner_name`, `email`, `email_run_video`, and
+`public_conversation`. A video-email request requires an email address; delivery
+also depends on the runner/hosted integration. See [video email behavior](../codex-runner/docs/RUN-VIDEO-EMAIL.md).
+
+HTTP 201 returns `session_id`, `session_capability`, `status`, `position`,
+`episode_id`, `lease_id`, `lease_expires_at`, `latest_observation_step`, and
+`events_url`. Episode/lease fields may be null while queued. Save the creation
+response privately. Session creation has no idempotency key: do not automatically
+create another session after an ambiguous response.
+
+### Wait for control
+
+Open the returned event path on the same API host, using `wss://` and the Bearer
+header in the WebSocket handshake. The Python `open_events()` method demonstrates
+this. Browser WebSockets cannot set that header; use a backend client.
+
+A normal lifecycle is `queued → preparing → running → complete → resetting`.
+Other terminal outcomes include `stopped`, `timed_out`, `disconnected`, and
+`safety_aborted`. Treat `resetting` as terminal for the client. Being queued or
+receiving a lease alone does not establish physical readiness. Wait for fresh
+measured, homed/settled hardware feedback and inspect safety/readiness fields.
+
+Events carry `schema_version`, `event_id`, `type`, `timestamp`, `session_id`,
+`episode_id`, and `payload`:
+
+| Event type | What to track |
+| --- | --- |
+| `snapshot`, `queue_update` | Status, queue position, episode, lease, and active trajectory |
+| `lifecycle` | `payload.state` and transition reason |
+| `observation` | Measured joints, grippers, timestamp, and images in `payload` |
+| `trajectory_result` | Correlated packet `accepted`, `rejected`, `completed`, or `aborted` |
+| `trajectory_progress` | Executed waypoint `step_id` for a trajectory |
+| `heartbeat` | Gateway lease renewal; this is a server-to-client event |
+| `episode`, `error` | Results or structured failures |
+
+A new subscription starts with a snapshot and may replay the newest observation
+and trajectory result (`payload.replayed: true`). It is not a complete event
+history. Match episode, lease, trajectory, and step IDs; replayed state must not
+trigger duplicate motion. Use observation pagination or the episode trace for
+retained history. The next observation follows the last executed waypoint's ID.
+
+The station gateway renews the lease; there is no client REST heartbeat route.
+A closed WebSocket does not itself stop the session. On a connection failure,
+pause command generation, reconnect to the same session, and reconcile its
+snapshot/trace before continuing. Request Stop if you cannot recover safely.
+
+### Send a trajectory
+
+Send `POST /v1/sessions/{session_id}/trajectories` only after your session has
+control and its previous packet has finished. The following illustrates the
+**wire format only**. Its zero angles are placeholders, not a hardware motion
+recipe. Compute targets from fresh feedback and the selected robot's profile.
+
+```json
+{
+  "schema_version": 1,
+  "episode_id": "ep_example",
+  "lease_id": "lease_example",
+  "trajectory_id": "trajectory_example_0",
+  "cadence_hz": 10.0,
+  "waypoints": [
+    {
+      "step_id": 0,
+      "left_joints_deg": [0, 0, 0, 0, 0, 0],
+      "right_joints_deg": [0, 0, 0, 0, 0, 0],
+      "left_gripper": 0.5,
+      "right_gripper": 0.5
+    }
+  ]
+}
+```
+
+- Use finite degree values and the exact arm lengths for your robot. Independent
+  grippers are optional, from `0` (closed) to `1` (open).
+- Cadence is exactly `10.0` Hz. Each packet contains **1–300 waypoints**.
+- Start waypoint IDs at `0`, keep them contiguous within a packet, and continue
+  across packets. Only one packet may be active at a time.
+- Give new packets unique trajectory IDs. Retrying requires the **same ID and
+  identical body**. Changed content under an existing ID causes a conflict.
+- The shared runner caps a session at 3,000 accepted waypoints. Server budgets
+  can differ by deployment/session type. The live schema currently allows a
+  wider step-ID range; that field range alone is not a guaranteed motion budget.
+- Planning, inference, execution, and settling consume the run duration. A
+  waypoint budget does not extend the deadline. Gateway limits still apply.
+
+HTTP 202 with `accepted: true` means **dispatched**, not physically executed.
+Follow the matching gateway acceptance and ordered progress, its final settled
+measured observation, and `completed` result before planning another packet.
+A rejection or abort requires reconciliation; an aborted packet may have moved
+through some waypoints. Do not treat network failure as proof that no motion
+occurred. The bundled controller performs these correlations and reconnect
+recovery, including trace checks when progress events were missed.
+
+The public wire API accepts joint trajectories. Cartesian targets and model tool
+calls in the runner are converted locally; they are not separate public motion
+endpoints. The old `/actions` route is rejected.
+
+### Stop and retrieve results
+
+`POST /v1/sessions/{session_id}/stop`, using the session capability and JSON:
+
+```json
+{"reason": "user_requested"}
+```
+
+Use `policy_complete` when your policy has finished. Stop also cancels a queued
+session. A completed packet retains the session for your next model call; send
+Stop when the task ends. There is no public `/done` route. Model-reported success
+is not independent verification that the physical task succeeded.
+
+A Stop response reports API session state; it is not independent confirmation of
+physical Hold or a promise about a return-home path. Follow measured station
+feedback. The gateway controls physical stopping/reset behavior.
+
+Read `/episode` for metadata and `/episode/trace` for actions, measured
+observations, progress/results, errors, and lifecycle. Observation pages accept
+`after_step_id` (initially `-1`) and `limit` (1–100), and return `has_more` and
+`next_after_step_id`. Trace retention is configurable, one hour after completion
+by default in the server implementation. Check `available_until` and download
+needed results promptly; an expired trace returns 410.
+
+API traces are separate from model-conversation logs and recorded videos.
+The runner saves local logs/recordings. Published recordings appear in
+[Public-YAM-runs](https://huggingface.co/datasets/andlyu/Public-YAM-runs) and
+[Public-MakerMods-SO101-runs](https://huggingface.co/datasets/andlyu/Public-MakerMods-SO101-runs)
+where recording/upload is configured. A robot registration does not guarantee
+recording or immediate video availability.
 
 ## Camera intrinsics and extrinsics
+
 
 Camera calibration is available through public, read-only requests. No API key,
 queue entry, or active session is required. Start with `GET /v1/robots`: robots
@@ -68,8 +290,9 @@ are in **meters**. Camera optical axes are **x right, y down, z forward**;
 arm-base axes are **x forward, y left, z up**. Read the returned
 `transform_convention`, `camera_axes`, and `base_axes` with each calibration.
 
-The current YAM RGB calibration uses `opencv_brown_conrady`, with coefficients
-`[k1, k2, p1, p2, k3]`, and reports `rectified: false`. Account for distortion
+Read the returned distortion model. YAM packages support OpenCV Brown-Conrady
+(`opencv_brown_conrady`, coefficients `[k1, k2, p1, p2, k3]`) and RealSense
+factory profiles (`realsense_factory`, with `depth_intrinsics`). Account for distortion
 when projecting or unprojecting pixels. Cropping or resizing an image requires
 adjusting its intrinsics. Calibration maps a pixel to a ray; determining a 3D
 point also requires depth, triangulation, or a known surface.
@@ -143,120 +366,207 @@ else:
     print("Right wrist to right base:", T_right_base_wrist)
 ```
 
-### Optional depth and calibration quality
+## RGB-D observations
 
-Depth availability is **per camera**: check `cameras.{role}.depth.available`
-on each calibration response. When true, `depth.bundle_url` provides paired
-RGB and depth as `rgbd-npz-v1`: an NPZ with `rgb` (uint8 H×W×3), `depth_m`
-(float32 H×W), and `metadata` (a scalar JSON string). Load it with
-`numpy.load(..., allow_pickle=False)` and check its `calibration_id` and
-`captured_at`. Depth is aligned to color and measures optical Z in meters;
-zero means missing. `depth.image_url` provides a 16-bit PNG in millimeters.
-Requests return `503` when no fresh depth frame is available. Use the bundle
-when RGB/depth pairing matters; separate image requests may return different
-captures. An RGB-only camera can still provide intrinsics and extrinsics.
+Depth availability is **per camera**. Read its `depth` object in the calibration
+response. `available` describes fresh data now; an advertised `on_demand: true`
+URL can request a capture even when `available` is false. Prefer advertised URLs
+over assuming every robot/camera supports depth.
 
-Inspect `quality.status`, `quality.failures`, and the validation residuals
-before relying on a calibration. `operator_selected: true` records an explicit
-selection for experiments; it does not mean a rejected fit passed validation.
-Calibration and pose responses use `Cache-Control: no-store`.
+| Representation | Contents and use |
+| --- | --- |
+| `depth.bundle_url` / `.rgbd.npz` | Paired RGB-D in `rgbd-npz-v1`: `rgb` uint8 H×W×3, `depth_m` float32 H×W, and scalar JSON `metadata` |
+| `depth.native_bundle_url` / `.rgbd-native.zip` | Advertised `rgbd-jpeg-z16-png-v1` bundle with JPEG RGB, bit-exact sensor depth, and metadata |
+| `depth.image_url` / `.depth.png` | 16-bit depth PNG in millimeters; separate RGB/depth requests may select different captures |
+| `depth.raw_bundle_url` / `.rgbd-raw.npz` | Original-array download when advertised; use its separate age/transfer policy |
+| `depth.request_url` / `.rgbd?compression=compressed` | Negotiated compressed/native representation, when advertised; `compression=none` selects the raw representation |
 
-## Connect a model
+Legacy NPZ reads use `numpy.load(..., allow_pickle=False)`. Check camera/robot
+identity, `calibration_id`, dimensions, and `captured_at`. Aligned depth measures
+color-camera optical Z in **meters**; zero/NaN indicate missing measurements.
+A surface point is not automatically a valid gripper target.
 
-The easiest starting point is the [shared runner](../codex-runner/README.md).
-Adapt a [provider](../codex-runner/src/remote_yam/providers.py) to call your model
-while retaining the runner's camera handling, queue lifecycle, motion validation,
-feedback checks and Stop handling. A custom model integration requires code;
-the UI does not currently offer an arbitrary model-upload field.
+Missing or stale depth returns **204 No Content**, an empty body, and
+`X-Camera-Error: no_image`; do not try to parse it as NPZ/PNG. Retry observation
+reads within your run deadline and honor cancellation. RGB JPEG reads can return
+**503** for missing fresh frames. Wrist-pose reads use their own 503 JSON error.
+Unknown/unconfigured resources can return 404. Successful image/depth responses
+carry capture timestamps; camera/calibration responses use `Cache-Control: no-store`.
 
-For a separate client, use the existing
-[Python HTTP client](../codex-runner/src/remote_yam/session.py) as a reference.
-Keep model inference in your own process or service. The robot API receives
-validated motion requests, not your model's credentials or weights.
+The standard public depth freshness window is five seconds. The shared moving
+policy applies a tighter two-second bound unless feedback confirms the robot is
+stopped, and hardware policy captures must follow their settled-feedback cutoff.
+Different cameras are not hardware synchronized. Check source timestamps rather
+than substituting download time.
 
-## Session lifecycle
-
-1. Create a session with `POST /v1/sessions`. This requests an actual turn in the
-   shared robot queue. Example JSON:
-   ```json
-   {"schema_version": 1, "robot_id": "yam-1", "prompt": "Place the green block on the plate", "run_duration_s": 300}
-   ```
-   The default duration is 300 seconds; the supported range is 60–600 seconds.
-2. Keep the returned `session_id` and `session_capability` private. Authenticate
-   subsequent session HTTP requests with
-   `Authorization: Bearer <session_capability>`. The capability also authenticates
-   the session event WebSocket; the Python client demonstrates its headers.
-3. Follow the returned `events_url` or poll the session until it is active. Being
-   queued does not authorize motion. Use the active session's episode and lease
-   identifiers, and wait for fresh, ready robot feedback before issuing commands.
-4. Read observations and images, call your model, then submit a trajectory. Use
-   the live `joint_trajectory_request` schema and the Python client's
-   `submit_trajectory` method for field layout and joint counts. Trajectories use
-   a 10 Hz cadence; robot-specific limits and gateway validation still apply.
-   Wait for execution feedback before planning the next motion.
-5. End the session with `POST /v1/sessions/{id}/stop` and JSON
-   `{"reason":"user_requested"}` (or `policy_complete` when the task is finished).
-   Stop also cancels a queued session.
+Inspect `quality.status`, `quality.failures`, and validation residuals before
+relying on geometry. `operator_selected: true` records an experimental selection;
+it does not turn a rejected or experimental fit into validated calibration.
+See the [RGB-D contract](../codex-runner/docs/api-depth-contract.md),
+[native bundle format](../codex-runner/docs/native-depth-contract.md), and
+[Astra depth example](../codex-runner/docs/astra-depth-example.md).
 
 ## Endpoint reference
 
-All paths below are relative to the base URL. Session routes require the capability.
+Paths are relative to the Session API origin. `sid` means your session ID.
+Session HTTP and WebSocket routes require that session's Bearer capability.
 
-| Method | Path | Purpose |
+| Method | Path | Access / purpose |
 | --- | --- | --- |
-| GET | `/v1/contracts` | JSON payload schemas |
-| GET | `/v1/robots` | Registered robot IDs |
-| GET | `/v1/robots/{robot_id}/queue` | Public queue and station readiness |
-| GET | `/v1/robots/{robot_id}/observation` | Current station feedback and camera URLs |
-| GET | `/v1/robots/{robot_id}/calibration` | Public camera intrinsics, fixed extrinsics, mount transforms, and quality |
-| GET | `/v1/robots/{robot_id}/camera-poses` | Public current camera-to-base poses from settled hardware feedback |
-| GET | `/v1/robots/{robot_id}/cameras/{role}.jpg` | Public latest RGB image (`top`, `left`, or `right`) |
-| GET | `/v1/robots/{robot_id}/cameras/{role}.rgbd.npz` | Public paired RGB-D, when this camera has fresh depth |
-| GET | `/v1/robots/{robot_id}/cameras/{role}.depth.png` | Public 16-bit depth image in millimeters, when available |
-| POST | `/v1/sessions` | Create a session and request a queue position |
-| GET | `/v1/sessions/{id}` | Session state, position and active lease |
-| WebSocket | `/v1/sessions/{id}/events` | Session lifecycle and execution events |
-| GET | `/v1/sessions/{id}/observations?after_step_id=-1&limit=100` | Recorded observation page |
-| POST | `/v1/sessions/{id}/trajectories` | Submit a validated joint trajectory |
-| POST | `/v1/sessions/{id}/stop` | Stop or cancel the session |
-| GET | `/v1/sessions/{id}/episode` | Episode metadata |
-| GET | `/v1/sessions/{id}/episode/trace` | Episode trace |
+| GET | `/health` | Public service health; not robot readiness |
+| GET | `/v1/contracts` | Public JSON Schema bundle |
+| GET | `/v1/robots` | Public registered robot IDs and calibration links |
+| GET | `/v1/robots/{robot_id}/queue` | Public queue and station availability |
+| GET | `/v1/queue?robot_id=yam-1` | Compatibility queue route; defaults to `yam-1` |
+| GET | `/v1/robots/{robot_id}/observation` | Public latest station feedback and camera URLs |
+| WS | `/v1/robots/{robot_id}/events` | Public station status stream |
+| GET | `/v1/robots/{robot_id}/calibration` | Public static intrinsics/extrinsics and quality |
+| GET | `/v1/robots/{robot_id}/camera-poses` | Public current poses from settled hardware feedback |
+| GET | `/v1/robots/{robot_id}/cameras/{role}.jpg` | Public latest RGB JPEG |
+| GET | `/v1/robots/{robot_id}/cameras/{role}.rgbd.npz` | Public paired RGB-D when configured |
+| GET | `/v1/robots/{robot_id}/cameras/{role}.rgbd-native.zip` | Public native bundle when advertised |
+| GET | `/v1/robots/{robot_id}/cameras/{role}.rgbd-raw.npz` | Public original arrays when advertised |
+| GET | `/v1/robots/{robot_id}/cameras/{role}.rgbd?compression=compressed` | Public negotiated bundle when advertised |
+| GET | `/v1/robots/{robot_id}/cameras/{role}.depth.png` | Public 16-bit depth PNG when configured |
+| POST | `/v1/sessions` | Public session creation; requests a real queue entry |
+| GET | `/v1/sessions/{sid}` | Session status, lease, and active trajectory |
+| WS | `/v1/sessions/{sid}/events` | Session snapshots, observations, execution events |
+| GET | `/v1/sessions/{sid}/observations?after_step_id=-1&limit=100` | Paginated retained observations |
+| POST | `/v1/sessions/{sid}/trajectories` | Submit a joint trajectory; HTTP 202 |
+| POST | `/v1/sessions/{sid}/stop` | Stop or cancel your session |
+| GET | `/v1/sessions/{sid}/episode` | Episode metadata and retention |
+| GET | `/v1/sessions/{sid}/episode/trace` | Retained execution trace |
+| POST | `/v1/sessions/{sid}/public-conversation` | Replace or withdraw an opt-in public text snapshot |
 
-The legacy `/actions` route is rejected by the current service; use trajectories.
-Different robots have different joint layouts. Select the matching profile in the
-runner instead of assuming every robot has two six-joint arms.
+The client retains a `call_operator()` helper, but the public router has no
+`/operator` endpoint. Use Stop; the playground's Call Operator button displays
+contact information. Station publisher/operator credentials and routes are
+separate from this developer control API.
 
-## Streaming model messages to public viewers
+## Errors and retries
 
-The local playground publishes readable model messages automatically. Use its
-**Share conversation on the public playground** setting or launch with
-`--no-share-conversation` to opt out. This setting affects conversation text,
-not robot recordings or the public queue/task.
+Session JSON errors use this envelope:
 
-For your own policy loop, send snapshots after each visible model message:
-
-```http
-POST /v1/sessions/{session_id}/public-conversation
-Authorization: Bearer <session_capability>
-Content-Type: application/json
-
-{"public_conversation":{"model":"My model","messages":[{"role":"user","content":"Stack the blocks"},{"role":"assistant","content":"Picking up the green block."}]}}
+```json
+{
+  "error": {
+    "code": "invalid_session_state",
+    "message": "a trajectory is already active for this session",
+    "status": 409
+  }
+}
 ```
 
-Each snapshot replaces the previous one; retries do not duplicate messages.
-`GET /v1/robots/{robot_id}/queue` returns it as `public_run` once the session is
-assigned, and the public playground renders it. Use only public plain text:
-never include API keys, private context, image bytes or raw provider payloads.
-Limits: 64 messages, 8,000 characters per message, 64,000 total characters, and
-an 80-character model label. Roles: `user`, `assistant`, `tool`, `system`, or
-`developer`. Send `{"public_conversation":null}` to withdraw the shared snapshot.
-Custom API clients opt in explicitly; omitting this field does not publish text.
+Camera binary endpoints can return plain text or an empty body instead. Check
+HTTP status and content type before decoding a response.
 
+| Status | Meaning / response |
+| --- | --- |
+| 400 | Invalid fields, shape, values, or protocol version; correct the request |
+| 403 | Missing/invalid capability, or invalid/expired episode or lease context |
+| 404 | Unknown session, robot, route, or unconfigured resource |
+| 409 | Invalid state, active packet, sequencing, or idempotency conflict; reconcile state |
+| 410 | Retained episode data expired |
+| 429 | Rate limit; respect the deployment's limits before retrying |
+| 502 / 503 / 504 | Contact/service problem; execution state may be uncertain |
 
-## Deterministic environment resets
+The bundled HTTP transport retries reads and stable-ID trajectory submissions up
+to **three total attempts**, with 1- and 2-second pauses, for transient contact
+failures. It does not automatically retry creation or Stop. It surfaces other
+HTTP errors rather than blindly retrying them. The local server's default rate
+budget is 900 accepted waypoints per minute; deployment hooks can change it.
 
-For the importable recorded box replay, measured cube pick/place and combined
-reset implementation, selector setup and Run/status/Stop clients, see
-[Environment resets](../codex-runner/docs/resets.md). Station recordings, calibration, goals and
-credentials remain deployment configuration. Availability is advertised by the
-configured runner; no public `/v1/reset` endpoint is implied.
+After an uncertain dispatch, retain the original ID/body and inspect the session
+and trace. Never assign a new ID just to retry the same motion. The controller
+reconnects the same session and verifies missed completion against recorded
+acceptance, ordered progress, and final feedback. A network failure does not
+prove that a command was rejected or that no motion occurred.
+
+## Python client and custom policies
+
+The importable client lives in `codex-runner/src/remote_yam/session.py`.
+From the repository root, this example performs only a public queue GET:
+
+```bash
+PYTHONPATH=codex-runner/src python3 - <<'PYTHON'
+from remote_yam.session import HttpSessionAPI
+
+api = HttpSessionAPI(
+    "https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com",
+    robot_id="yam-1",
+    joint_counts=(6, 6),
+    supports_trajectories=True,
+)
+queue = api.get_queue_snapshot()
+print("Queued:", len(queue["entries"]))
+print([(s["connected"], s["available"]) for s in queue["stations"]])
+PYTHON
+```
+
+Set **`supports_trajectories=True` explicitly** for direct controller integration.
+This is a client configuration switch, not automatic capability discovery. The
+normal playground already enables it. Actual control also needs
+`websocket-client`; the launcher installs the runner dependencies.
+
+For a model integration, start with the [shared runner](../codex-runner/README.md)
+and [provider interface](../codex-runner/src/remote_yam/providers.py). A provider's
+`infer(prompt, observation)` returns a runner command for local IK; a
+`build_trajectory(prompt, observation, first_step_id)` hook can supply waypoints.
+[RunnerController](../codex-runner/src/remote_yam/controller.py) owns queue,
+feedback, completion, retry/reconnect, and Stop handling.
+
+Use the [Python transport](../codex-runner/src/remote_yam/session.py) for an
+independent backend client. The ready-made UI has no arbitrary model-upload field.
+The existing [depth example](../codex-runner/examples/astra_depth.py) shows a
+concrete integration, with its own setup and qualification requirements.
+
+### Local runner API and configured execution
+
+Runner `/api/*` routes belong to the process you launch, not to the public Session
+API. They use a visitor cookie and `X-YAM-Runner-Token` CSRF value from
+`POST /api/session`. Run/status/Stop clients must retain the same visitor.
+[RunnerPolicyClient](../codex-runner/src/remote_yam/runner_policy_client.py)
+implements this for configured policies. See [environment resets](../codex-runner/docs/resets.md)
+for supported configuration and current physical qualification.
+
+There is no generic public `/v1/reset` route. The server source also implements
+lease-bound `/v1/sessions/{sid}/executions` and result reads for specific installed
+executors. These are deployment-specific extensions, absent from the public JSON
+Schema bundle; confirm the installed executor and contract before using them.
+They do not accept arbitrary uploaded policy code.
+
+## Public data and conversation sharing
+
+Robot recordings and published task information can be public. Keep private
+context out of tasks and opt-in shared text. Recording/upload behavior depends
+on the selected station and runner.
+
+Direct API clients opt into readable model-message publication explicitly.
+Omitting `public_conversation` does not publish a model conversation. To share
+one, use the session capability with `POST /v1/sessions/{sid}/public-conversation`:
+
+```json
+{
+  "public_conversation": {
+    "model": "My model",
+    "messages": [
+      {"role": "user", "content": "Stack the blocks"},
+      {"role": "assistant", "content": "Picking up the green block."}
+    ]
+  }
+}
+```
+
+Each snapshot replaces the previous one; retries do not append duplicate
+messages. Assigned sessions can appear as `public_run` in the robot queue
+response. Limits are 64 messages, 8,000 characters per message, 64,000 total
+characters, and an 80-character model label. Roles are `user`, `assistant`,
+`tool`, `system`, or `developer`. Send `{"public_conversation": null}` to withdraw
+the snapshot. Never include credentials, private history, raw provider payloads,
+or image bytes.
+
+The local playground enables sharing by default. Uncheck **Share conversation on
+the public playground** before Run, or launch with `--no-share-conversation`, to
+keep those messages local. This does not disable robot recordings or remove task
+information already published through the playground/archive. Raw local model
+logs and the opt-in public plain-text snapshot are separate artifacts.

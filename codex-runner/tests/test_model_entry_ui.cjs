@@ -43,6 +43,21 @@ test('Argon share links select the existing sponsored route and compose with rob
   }
 });
 
+test('Terra share links select the exact model through available existing routes', () => {
+  for (const value of ['terra', 'Terra', 'gpt-6.1-terra']) {
+    assert.deepEqual(entry('?robot_id=yam-1&model=' + value, choices('dream','guest_astra','openai')),
+      {provider:'guest_astra', model:'gpt-6.1-terra'});
+  }
+  assert.deepEqual(entry('?model=terra', choices('codex','openai'), {local_runner:true}),
+    {provider:'codex', model:'gpt-6.1-terra'});
+  assert.deepEqual(entry('?model=terra', choices('openai')),
+    {provider:'openai', model:'gpt-6.1-terra'});
+  assert.equal(entry('?model=terra', choices('dream',{value:'guest_astra',disabled:true})), null);
+  assert.equal(entry('?model=terra', choices('codex'), {local_runner:true,
+    configured_providers:{codex:{model:'gpt-6-astra'}}}), null);
+  assert.equal(entry('?model=terra', choices('codex'), {station_local:true}), null);
+});
+
 test('unknown and unavailable models fall back to available Astra, never enabling a provider', () => {
   for (const query of ['?model=unknown', '?model=__proto__', '?model=', '?model=argon']) {
     assert.deepEqual(entry(query, choices('guest_astra', {value:'guest_gemini', disabled:true})),
@@ -88,6 +103,11 @@ test('startup sets provider and model together, overriding an old saved model wi
   vm.runInNewContext(block, {...context});
   assert.equal(nodes.provider.value, 'guest_gemini');
   assert.equal(nodes.model.value, 'gemini-4-argon');
+  context.location.search='?model=terra';
+  vm.runInNewContext(block, {...context});
+  assert.equal(nodes.provider.value, 'openai');
+  assert.equal(nodes.model.value, 'gpt-6.1-terra');
+  assert.equal(selections.at(-1), 'gpt-6.1-terra');
   // The link is an initial choice only; normal provider changes remain possible.
   nodes.provider.value='openai';context.providerChanged();
   assert.equal(nodes.provider.value,'openai');
