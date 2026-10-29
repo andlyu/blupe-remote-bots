@@ -116,15 +116,21 @@ test('Cloud reuses recent ready Table media without retaining assessment data',a
  assert.equal(detailFromCache.video_url,row.video_url);assert.equal(detailFromCache.replay_speed,2);
  assert.equal(detailFromCache.assessment,undefined,'Media reuse does not cache votes or labels');
 });
-test('Custom end-point opens setup once and preserves the model and fallback link across input/change',()=>{
+test('Custom end-point becomes the active provider and focuses its input without navigating',()=>{
  const full=fs.readFileSync(path.join(__dirname,'../static/hosted.js'),'utf8');
  const handler=full.match(/function selectModelChoice\(event\) \{[^]*?\n  \}/)[0];
- const provider={value:'dream'},actual={dataset:{provider:'dream',model:'dream-model'}};
- const picker={selectedOptions:[{dataset:{provider:'custom_endpoint_setup'}}]};let clicks=0,updates=0;
- const setup={hidden:true,querySelector:()=>({click(){clicks++}})};
- const nodes={customEndpointSetup:setup,modelSettings:{hidden:true}};
- const select=vm.runInNewContext('('+handler+')',{$:id=>nodes[id],provider,
-  updateComposer(){updates++;picker.selectedOptions=[actual]},options:{matches:()=>false},window:{}});
+ let changes=0,focus=0,opened=0;
+ const provider={value:'dream',dispatchEvent(){changes++}};
+ const picker={selectedOptions:[{dataset:{provider:'custom_endpoint'}}]};
+ const nodes={modelSettings:{hidden:true},customEndpoint:{focus(){focus++}}};
+ const select=vm.runInNewContext('('+handler+')',{$:id=>nodes[id],provider,Event:class{},
+  updateComposer(){},showComposerOptions(value){assert.equal(value,true);opened++},
+  options:{matches:()=>false},window:{}});
  select({currentTarget:picker});select({currentTarget:picker});
- assert.equal(clicks,1);assert.equal(provider.value,'dream');assert.equal(setup.hidden,false);assert.equal(updates,2);
+ assert.equal(provider.value,'custom_endpoint');assert.equal(changes,1);
+ assert.equal(focus,2);assert.equal(opened,2);
+ assert.ok(!handler.includes('.click()'),'Selecting a provider never opens documentation');
+ const html=fs.readFileSync(path.join(__dirname,'../static/hosted.html'),'utf8');
+ assert.match(html, /id="customEndpoint"[^]*?id="customEndpointHelp"[^]*?docs\/API\.md#custom-end-point/);
+ assert.match(full,/payload\.endpoint = \$\('customEndpoint'\)\.value\.trim\(\)/);
 });

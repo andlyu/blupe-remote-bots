@@ -687,7 +687,7 @@ class HostedRunner:
                                'claude': await asyncio.to_thread(subscription_status, 'claude'), 'claude_model': CLAUDE_MODEL}
             from remote_yam.system_prompts import catalog as system_prompt_catalog
             await self.json(send, 200, {**local_setup, **application_setup,
-                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers,
+                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers, "custom_endpoint_enabled": self.robot_id == "yam-1" and self.hardware == "yam" and self.joint_counts == (6,6),
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "dream_providers": self.dream_providers if self.dream_worker_ready() else {},
                                       **await self.chat_setup(visitor),
@@ -1059,7 +1059,7 @@ class HostedRunner:
             if not isinstance(runner_name, str) or not 1 <= len(runner_name.strip()) <= 32 or any(ord(c) < 32 for c in runner_name):
                 raise RequestError(400, 'Enter a name of 1–32 characters')
             if name not in ({"local_raise_lower", "openai", "astra", "anthropic"} | ({"codex"} if self.local_codex else set())
-                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | ({'dream'} if controller_provider else set()):
+                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | ({"custom_endpoint"} if self.robot_id == "yam-1" and self.hardware == "yam" and self.joint_counts == (6,6) else set()) | ({'dream'} if controller_provider else set()):
                 raise RequestError(400, "Choose a supported provider")
             if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000:
                 raise RequestError(400, "Enter a task of up to 4,000 characters")
@@ -1071,9 +1071,11 @@ class HostedRunner:
                     model = selected_model(name, model)
                 except ValueError as exc:
                     raise RequestError(400, str(exc)) from None
-            if controller_provider is None and name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)) and (not isinstance(key, str) or not 8 <= len(key) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key)):
+            if controller_provider is None and name not in ({"local_raise_lower", "codex", "claude", "groot", "custom_endpoint"} | set(self.extra_providers)) and (not isinstance(key, str) or not 8 <= len(key) <= 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key)):
                 raise RequestError(400, "Enter your provider API key")
-            if payload.get("endpoint"):
+            if name == 'custom_endpoint' and (not isinstance(key, str) or len(key) > 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key)):
+                raise RequestError(400, 'Enter a valid endpoint bearer key or leave it blank')
+            if name != 'custom_endpoint' and payload.get("endpoint"):
                 raise RequestError(400, "Provider endpoints are configured by the service")
             if name == "astra" and not self.astra_endpoint:
                 raise RequestError(400, "Astra is not configured on this service")
@@ -1101,6 +1103,13 @@ class HostedRunner:
                         task=prompt, selected_executable=depth_route['program'])
                 else:
                     provider = self.api_depth_provider_factory(name, key, model, visitor.directory)
+            elif name == 'custom_endpoint':
+                from remote_yam.custom_endpoint_policy import CustomEndpointAdapter
+                try:
+                    provider = CustomEndpointAdapter(key, endpoint=payload.get('endpoint'),
+                        camera_source=self.camera_source, robot_id=self.robot_id)
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
             elif name in self.extra_providers:
                 provider = self.extra_providers[name](model, visitor.directory)
             elif name == 'groot':
@@ -1257,7 +1266,7 @@ class HostedRunner:
                 print('[contacts] save_failed error_type=' + type(exc).__name__, flush=True)
                 visitor.controller._session_api.note(
                     'contact_save_failed', {'error_type': type(exc).__name__}, visitor.runner_session_id)
-            if controller_provider is None and not paid and name not in ({"local_raise_lower", "codex", "claude", "groot"} | set(self.extra_providers)):
+            if controller_provider is None and not paid and name not in ({"local_raise_lower", "codex", "claude", "groot", "custom_endpoint"} | set(self.extra_providers)):
                 visitor.saved_keys[name] = key
             current = visitor.controller.status()
             return {"ok": True, "saved_key_providers": sorted(visitor.saved_keys),

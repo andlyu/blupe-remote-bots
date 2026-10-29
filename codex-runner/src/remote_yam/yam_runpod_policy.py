@@ -29,6 +29,9 @@ MODELS = {
 
 
 class YAMRunpodAdapter:
+    health_mismatch = 'YAM1 checkpoint contract/CUDA mismatch'
+    readiness_timeout = 'YAM1 GPU did not become ready within twenty minutes'
+
     def __init__(self, api_key, *, provider, endpoint, camera_source, robot_id):
         if robot_id != 'yam-1':
             raise ValueError('This checkpoint is configured only for YAM1')
@@ -40,8 +43,11 @@ class YAMRunpodAdapter:
         if (location.scheme != 'https' or not re.fullmatch(r'[a-z0-9]+\.api\.runpod\.ai', location.netloc)
                 or location.path not in ('', '/') or location.query or location.fragment):
             raise ValueError('A configured RunPod endpoint is required')
+        self._initialize(api_key, provider, MODELS[provider], endpoint, camera_source)
+
+    def _initialize(self, api_key, provider, spec, endpoint, camera_source):
         self.provider_name = provider
-        self.spec = MODELS[provider]
+        self.spec = spec
         self.model = self.spec['model']
         self._endpoint = endpoint.rstrip('/')
         self._api_key = api_key.strip()
@@ -77,6 +83,15 @@ class YAMRunpodAdapter:
                 and value.get('action_units') == 'radians'
                 and value.get('gripper_units') == GRIPPER_UNITS)
 
+    def _device_valid(self, value):
+        return value.get('device') == 'cuda:0'
+
+    def _health_matches(self, health):
+        return (self._identity(health) and health.get('ok') and health.get('cuda_available')
+                and self._device_valid(health) and health.get('action_dim') == 14
+                and health.get('num_actions') == self.spec['num_actions']
+                and health.get('norm_tag') == self.spec['norm_tag'])
+
     def start_preparation(self, cancelled):
         if self._thread is not None:
             return
@@ -102,13 +117,10 @@ class YAMRunpodAdapter:
         while not cancelled():
             try:
                 health = self._json('/health')
-                if not (self._identity(health) and health.get('ok') and health.get('cuda_available')
-                        and health.get('device') == 'cuda:0' and health.get('action_dim') == 14
-                        and health.get('num_actions') == self.spec['num_actions']
-                        and health.get('norm_tag') == self.spec['norm_tag']):
+                if not self._health_matches(health):
                     if health.get('ok'):
                         self._ready.clear()
-                        self._failure = 'YAM1 checkpoint contract/CUDA mismatch'
+                        self._failure = self.health_mismatch
                         self._warm_state = 'failed'
                         return
                     raise RuntimeError('YAM1 checkpoint is preparing')
@@ -118,10 +130,12 @@ class YAMRunpodAdapter:
                 delay = 30
             except RuntimeError:
                 self._ready.clear()
+                if self._failure:
+                    return
                 self._warm_state = 'warming'
                 delay = 5
                 if time.monotonic() >= deadline:
-                    self._failure = 'YAM1 GPU did not become ready within twenty minutes'
+                    self._failure = self.readiness_timeout
                     self._warm_state = 'failed'
                     return
             until = time.monotonic() + delay
@@ -179,7 +193,7 @@ class YAMRunpodAdapter:
         reason = None
         if not self._identity(result):
             reason = 'checkpoint_identity_or_units'
-        elif result.get('device') != 'cuda:0':
+        elif not self._device_valid(result):
             reason = 'cuda_device'
         elif not isinstance(rows, list) or len(rows) != self.spec['num_actions']:
             reason = 'action_horizon'

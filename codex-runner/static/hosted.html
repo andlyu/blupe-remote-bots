@@ -151,7 +151,7 @@
         </div>
         <details id="runSettings"><summary>Settings</summary>
         <label for="provider">Provider or policy</label>
-        <select id="provider"><option value="openai" selected>ChatGPT</option><option value="anthropic">Claude</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option></select>
+        <select id="provider"><option value="openai" selected>ChatGPT</option><option value="anthropic">Claude</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option><option value="custom_endpoint" hidden disabled>Custom end-point</option></select>
         <div id="modelSettings">
           <label for="model">Model</label>
           <input id="model" value="gpt-6-astra" list="availableModels" maxlength="128" spellcheck="false" autocapitalize="none" aria-describedby="modelCatalogStatus">
@@ -211,7 +211,14 @@
           <input id="apiKey" type="password" required autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="4096" placeholder="Paste a dedicated API key here" aria-describedby="apiKeyLinks">
           <p class="help" id="apiKeyLinks">Generate new key <a id="apiKeyCreate" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">here</a><br>Make sure you have <span id="apiKeyCreditProvider">OpenAI</span> credits <a id="apiKeyBilling" href="https://platform.openai.com/account/billing/overview" target="_blank" rel="noopener noreferrer">here</a></p>
         </div>
-        <p id="customEndpointSetup" class="help" hidden>Connect your own policy server. <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md#custom-end-point" target="_blank" rel="noopener noreferrer">Set up a custom end-point</a></p>
+        <div id="customEndpointSetup" hidden>
+          <label for="customEndpoint">End-point URL</label>
+          <input id="customEndpoint" type="url" pattern="https://.+" maxlength="2048" placeholder="https://policy.example.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="customEndpointHelp" disabled>
+          <p id="customEndpointHelp" class="help"><a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md#custom-end-point" target="_blank" rel="noopener noreferrer">Endpoint format and examples</a></p>
+          <label for="customEndpointKey">Bearer key (optional)</label>
+          <input id="customEndpointKey" type="password" maxlength="4096" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="customEndpointKeyHelp" disabled>
+          <p id="customEndpointKeyHelp" class="help">Sent only to your endpoint. Leave blank if your server does not require authentication.</p>
+        </div>
         <div id="codexSetup" hidden><p id="codexStatus" class="help" role="status"></p><button type="button" id="codexCheck">Check Codex connection</button><p class="help">First-time sign-in: <code>./run.sh --codex-login --provider codex</code></p></div>
         <div id="claudeSetup" hidden><p id="claudeStatus" class="help" role="status"></p><button type="button" id="claudeCheck">Check Claude connection</button><p class="help">First-time sign-in: <code>./run.sh --claude-login --provider claude</code></p></div>
 

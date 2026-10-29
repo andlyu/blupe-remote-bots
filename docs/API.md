@@ -522,14 +522,69 @@ concrete integration, with its own setup and qualification requirements.
 
 ## Custom end-point
 
-Choose **Custom end-point…** in the playground's model selector to open this
-setup guide. Host inference on your own policy server, then connect it through
-a configured runner. MolmoAct2 uses this arrangement: the server predicts action
-chunks, while the runner handles observations, queueing, execution and feedback.
+Choose **Custom end-point** in the playground's model selector, then enter your
+policy server's HTTPS base URL. The **Endpoint format and examples** link directly
+below the field opens this guide. Enter an optional bearer key if your server
+requires one. Selecting the option does not start a run; enter a task and choose
+Run when ready. The URL stays in the current page when you switch models; the key
+is cleared when you switch away and is not saved as a reusable provider key.
 
-The menu item opens documentation and keeps your current model selected. It does
-not submit an endpoint or start a run. Once your adapter is installed and exposed
-by the runner, select its configured model to run it.
+This option currently supports **YAM1** with two six-joint arms and top/left/right
+cameras. The runner sends observations and executes validated action chunks;
+your endpoint supplies inference. It uses the same observation and action format
+as MolmoAct2, without requiring a particular checkpoint or GPU.
+
+### Custom server contract
+
+Use a public HTTPS base URL on port 443, for example
+`https://policy.example.com` or `https://policy.example.com/yam`. The runner appends
+`/health` and `/act` to that base path. URLs cannot contain credentials, a query,
+or a fragment. Private, loopback, link-local and other non-public IP addresses are
+rejected at connection time; redirects are not followed. Endpoint calls happen
+from the runner, so browser CORS headers are unnecessary.
+
+`GET /health` must return HTTP 200 and a JSON object:
+
+```json
+{
+  "ok": true,
+  "robot_id": "yam-1",
+  "action_dim": 14,
+  "num_actions": 30,
+  "action_units": "radians",
+  "gripper_units": "normalized_0_closed_1_open"
+}
+```
+
+Return `"ok": false` while loading. The runner waits for readiness before joining
+the robot queue, for up to twenty minutes. `POST /act` receives the request shown
+below and must return HTTP 200 with:
+
+```json
+{
+  "robot_id": "yam-1",
+  "action_units": "radians",
+  "gripper_units": "normalized_0_closed_1_open",
+  "actions": [["<14 numeric targets per row; exactly 30 rows>"]]
+}
+```
+
+The action example is a shape placeholder, not a runnable response. Supply
+**30 rows of 14 finite numbers**, representing 30 Hz absolute targets: six left
+joint radians, left gripper, six right joint radians, right gripper. Grippers
+must stay in `[0, 1]`. The runner takes rows 3, 6, …, 30 for 10 Hz execution,
+converts joint radians to degrees, and retains the gateway's motion limits.
+Invalid units, dimensions, values or grippers reject the entire chunk. Extra
+metadata such as `model`, `revision` and `device` is allowed; this generic option
+does not certify checkpoint identity. A server implementing the MolmoAct2
+contract below also satisfies this format.
+
+The optional key is sent as `Authorization: Bearer <your-key>` to both routes.
+It belongs to your endpoint; the runner does not send its configured MolmoAct2
+service key. Responses are limited to 8 MiB; health requests time out after 30
+seconds and action requests after 12 seconds. Keep your server reachable and
+warm enough for that action timeout. Run, Stop and queue controls use the normal
+playground session, rather than a direct browser connection to the policy server.
 
 ### MolmoAct2 endpoint contract
 
@@ -595,24 +650,24 @@ runpod_config={
 },
 ```
 
-These are `HostedRunner` configuration arguments, not browser fields or launcher
-flags. The configured MolmoAct2 adapter currently accepts RunPod hostnames and
+These are `HostedRunner` configuration arguments for the service-owned model,
+separate from the visitor-owned **Custom end-point** fields. The configured MolmoAct2 adapter currently accepts RunPod hostnames and
 the pinned checkpoint above on `yam-1`. DreamZero uses the same transport with
 its own identity, normalization tag and 24-action horizon; do not substitute its
 contract for MolmoAct2's.
 
 ### Other custom policies
 
-For a different model, host or robot, implement the runner's provider interface
+For a different action format, horizon or robot, implement the runner's provider interface
 and register it through `HostedRunner(extra_providers=...)`, following the
 existing configured adapters. A `build_trajectory(prompt, observation,
 first_step_id)` implementation returns Session API waypoints; an
 `infer(prompt, observation)` implementation returns a runner command for local
 IK. Retain the controller's observation and execution-feedback loop.
 
-The hosted playground currently rejects arbitrary browser-supplied `endpoint`
-values. Merely renaming a model or pasting a URL does not install an adapter.
-Use the [shared runner](../codex-runner/README.md), the
+Browser-supplied `endpoint` values are accepted only for the `custom_endpoint`
+provider with the contract above; other providers retain service-owned endpoints.
+For additional protocols, use the [shared runner](../codex-runner/README.md), the
 [provider interface](../codex-runner/src/remote_yam/providers.py) and
 [MolmoAct2 adapter](../codex-runner/src/remote_yam/yam_runpod_policy.py) as the
 implementation references. Model-server radians are distinct from the public

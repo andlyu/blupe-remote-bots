@@ -813,6 +813,7 @@ function createRunLaunchGuard() {
     $('runGroot').disabled = !csrf || ended || active || submitting;
     $('runAstra').disabled = $('runClaude').disabled = !csrf || ended || active || submitting;
     ['runDuration', 'runnerName', 'email', 'provider', 'model', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
+    ['customEndpoint', 'customEndpointKey'].forEach(id => { $(id).disabled = active || submitting || ended || $('provider').value !== 'custom_endpoint'; });
     $('prompt').disabled = !csrf || ended || submitting || (active && !window.yamRuntimeSteering?.available);
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
@@ -833,6 +834,7 @@ function createRunLaunchGuard() {
   let savedKeyProviders = [];
   function runSetupNeeded() {
     return !$('runnerName').value.trim() ||
+      ($('provider').value === 'custom_endpoint' && !$('customEndpoint').checkValidity()) ||
       (['openai', 'astra', 'anthropic'].includes($('provider').value) && !$('providerFields').hidden &&
        !savedKeyProviders.includes($('provider').value) && !$('apiKey').value.trim());
   }
@@ -967,7 +969,7 @@ function createRunLaunchGuard() {
       event.preventDefault();
       $('runSettings').open = true;
       updateRunLabel();
-      (!$('runnerName').value.trim() ? $('runnerName') : $('apiKey')).focus();
+      (!$('runnerName').value.trim() ? $('runnerName') : $('provider').value === 'custom_endpoint' ? $('customEndpoint') : $('apiKey')).focus();
     }
   });
   $('runForm').addEventListener('invalid', event => {
@@ -996,6 +998,11 @@ function createRunLaunchGuard() {
     updateRunLabel();
   }
   function providerChanged(preview = true) {
+    const customEndpoint = $('provider').value === 'custom_endpoint';
+    $('customEndpointSetup').hidden = !customEndpoint;
+    $('customEndpoint').required = customEndpoint;
+    $('customEndpoint').disabled = $('customEndpointKey').disabled = !customEndpoint;
+    if (!customEndpoint) $('customEndpointKey').value = '';
     const motion = configuredProviders[$('provider').value]?.motion_cap;
     $('dreamMotionSettings').hidden = !motion;
     $('dreamMotionHelp').textContent = 'Larger moves are slowed with extra waypoints, preserving the path and final target.'
@@ -1056,6 +1063,15 @@ function createRunLaunchGuard() {
       if(aspireRunAvailable) openAspireTaskPanel(preview);
       window.yamModelPicker?.providerChanged({fixed:true});
       updateRunLabel();return;
+    }
+    if (customEndpoint) {
+      $('providerFields').hidden = true; $('apiKey').required = false; $('apiKey').value = '';
+      $('model').value = 'custom-endpoint'; $('prompt').readOnly = false;
+      $('codexSetup').hidden = true; $('claudeSetup').hidden = true; $('forget').hidden = true;
+      $('policyHelp').textContent = 'Your policy server receives fresh YAM1 cameras and joint state and returns action targets. Robot checks still apply.';
+      window.yamApplication?.configuredProviderChanged?.({model:'custom-endpoint',label:'Custom end-point'}, applicationContext());
+      window.yamModelPicker?.providerChanged({fixed:true});
+      updateRunLabel(); return;
     }
     const configured = configuredProviders[$('provider').value];
     if (configured) {
@@ -1151,6 +1167,7 @@ function createRunLaunchGuard() {
     if (ended || submitting) return;
     if (window.yamRuntimeSteering?.available) {await window.yamRuntimeSteering.submit();return;}
     if (active) return;
+    if ($('provider').value === 'custom_endpoint' && !$('customEndpoint').reportValidity()) return;
     if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
     if($('provider').value === 'aspire' && !aspireRunAvailable) {message('ASPIRE is unavailable for this robot.',true);return;}
     contactRequested = false;
@@ -1186,6 +1203,7 @@ function createRunLaunchGuard() {
       email: $('email').value.trim(), email_run_video: runVideoEmail.enabled(), share_conversation: $('shareConversation').checked,
       prompt: $('prompt').value, run_duration_s:Number($('runDuration').value)*60, api_key: $('apiKey').value.trim(),
       ...window.yamSystemPrompt?.payload()};
+    if (payload.provider === 'custom_endpoint') {payload.endpoint = $('customEndpoint').value.trim(); payload.api_key = $('customEndpointKey').value.trim();}
     if ($('provider').value === 'aspire') {payload.use_api_depth = true;payload.automatic_retry_limit=aspireRetryLimit($('automaticRetryLimit').value);}
     else if(aspireRunAvailable && payload.provider === 'codex') payload.use_api_depth = false;
     else if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
@@ -2344,7 +2362,7 @@ function createRunLaunchGuard() {
     } catch (error) { if (!error.stale) { renderRobotStatus('unknown'); $('astraStreamState').textContent = 'Reconnecting'; statusPollError = error.message; message(error.message, true); } }
     setTimeout(poll, 1000);
   }
-  window.addEventListener('pagehide', () => { $('apiKey').value = ''; });
+  window.addEventListener('pagehide', () => { $('apiKey').value = ''; $('customEndpointKey').value = ''; });
   const steeringComposer = window.yamRuntimeSteering = createSteeringComposer({
     input:$('prompt'), help:$('steeringHelp'),
     feedback:$('steeringFeedback'), delivery:$('steeringDelivery'), send:api,
@@ -2543,6 +2561,8 @@ function createRunLaunchGuard() {
       configureLocalRunDialog(!!session.local_runner);
       $('provider').innerHTML = originalProviderMarkup;
       configuredProviders = {...(session.configured_providers || {}), ...(session.dream_providers || {}), ...(session.runpod_providers || {})};
+      const customEndpointOption = $('provider').querySelector('[value=custom_endpoint]');
+      customEndpointOption.hidden = customEndpointOption.disabled = !session.custom_endpoint_enabled;
       $('geminiCallingMode').value = 'sparse';
       for (const [value, spec] of Object.entries(configuredProviders)) {
         const option = Object.assign(document.createElement('option'), {value, textContent:spec.label});
@@ -2931,7 +2951,6 @@ function bindQuickTaskDraft(prompt, quick) {
         value:option.value + ':' + id,
         provider:option.value,label:modelChoice(option,id).label,id}));
     });
-    choices.push({value:'custom_endpoint_setup',provider:'custom_endpoint_setup',label:'Custom end-point…',id:''});
     const signature = choices.map(option => option.value + ':' + option.label + ':' + option.id).join('|');
     if (model.dataset.options !== signature) {
       model.replaceChildren(...choices.map(option => {
@@ -2980,14 +2999,6 @@ function bindQuickTaskDraft(prompt, quick) {
     const picker = event.currentTarget, selected = picker.selectedOptions[0];
     const selectedId = selected?.dataset.model;
     const nextProvider = selected?.dataset.provider || picker.value;
-    if (nextProvider === 'custom_endpoint_setup') {
-      const setup = $('customEndpointSetup');
-      setup.hidden = false;
-      setup.querySelector('a').click();
-      // This is a setup link, not an unconfigured runnable provider.
-      updateComposer();
-      return;
-    }
     if (nextProvider !== provider.value) {
       provider.value = nextProvider;
       provider.dispatchEvent(new Event('change', {bubbles:true}));
@@ -2995,6 +3006,10 @@ function bindQuickTaskDraft(prompt, quick) {
     if (selectedId && !$('modelSettings').hidden && selectedId !== $('model').value)
       window.yamModelPicker?.selectModel?.(selectedId);
     updateComposer();
+    if (nextProvider === 'custom_endpoint') {
+      showComposerOptions(true);
+      $('customEndpoint').focus();
+    }
     if (options.matches(':popover-open')) positionModelOptions();
   }
   model.addEventListener('input', selectModelChoice);
