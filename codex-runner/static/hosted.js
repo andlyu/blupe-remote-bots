@@ -3009,6 +3009,11 @@ function bindQuickTaskDraft(prompt, quick) {
     if (nextProvider === 'custom_endpoint') {
       showComposerOptions(true);
       $('customEndpoint').focus();
+      // A customizable select restores its button focus after the change event.
+      // Move into the URL field once that native close behavior has finished.
+      window.requestAnimationFrame?.(() => {
+        if (provider.value === 'custom_endpoint' && options.matches(':popover-open')) $('customEndpoint').focus();
+      });
     }
     if (options.matches(':popover-open')) positionModelOptions();
   }
