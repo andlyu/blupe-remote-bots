@@ -1,0 +1,8 @@
+/* Scope comparison settings to the dedicated research launcher. */
+#cagControls { border: 0; padding: 0; margin: 18px 0 8px; min-width: 0; }
+#cagControls legend { font-family: inherit; font-size: 13px; font-weight: 650; padding: 0; color: var(--ink); }
+#cagControls label { margin: 14px 0 4px; }
+#cagStrengthValue { float: right; font-variant-numeric: tabular-nums; }
+#cagStrength { accent-color: var(--ink); height: 36px; padding: 8px 0; border: 0; background: transparent; }
+#cagStrength:disabled { opacity: .45; }
+#cagControls .help { margin: 8px 0; }

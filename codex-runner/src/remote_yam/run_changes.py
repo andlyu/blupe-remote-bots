@@ -20,6 +20,7 @@ BUILD_HISTORY = build_history()
 def snapshot(provider, prompt, duration):
     config = provider.public_config()
     return {'model': config.get('model'), 'provider': config.get('provider'),
+            **({k:config[k] for k in ('revision','variant','mode','guidance_strength','seed','num_steps','dtype','enable_cuda_graph','robot_id','approach','run_context') if k in config}),
             **({'automatic_retry_limit':config['automatic_retry_limit']} if 'automatic_retry_limit' in config else {}),
             **({k:config[k] for k in ('execution_environment','code_revision_limit') if config.get(k) is not None}),
             **({'launch_route':config['launch_route']} if config.get('launch_route') else {}),
@@ -43,7 +44,7 @@ def changes(previous, current):
         return ['First recorded configuration; no earlier configuration available to compare.']
     notes = []
     for key, label in [('model', 'Model'), ('provider', 'Provider'), ('reasoning', 'Reasoning effort'),
-                       ('response_speed', 'Inference speed'), ('trajectory_speed', 'Trajectory speed'), ('duration_s', 'Run time limit')]:
+                       ('response_speed', 'Inference speed'), ('guidance_strength', 'Guidance strength'), ('variant', 'Guidance variant'), ('trajectory_speed', 'Trajectory speed'), ('duration_s', 'Run time limit')]:
         old, new = previous.get(key), current.get(key)
         if old != new:
             notes.append(f'{label}: {old if old is not None else "not recorded"} → {new if new is not None else "not recorded"}.')
