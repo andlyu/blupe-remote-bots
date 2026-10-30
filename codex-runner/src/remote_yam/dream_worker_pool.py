@@ -12,6 +12,7 @@ import threading
 import time
 
 from .dream_policy import DreamWorker, DreamWorkerUnavailable, MODELS
+from .dream_joint_bounds import joint_bounds, bounds_sha256
 
 LOG = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class DreamWorkerPool:
         self._recovery_delays = tuple(recovery_delays)
         self._recovery_window = recovery_window
         self._prime_timeout = prime_timeout
+        self._joint_bounds = None
         threading.Thread(target=self._maintain, daemon=True, name='dream-worker-recovery').start()
 
     def _credentials_revision(self):
@@ -58,12 +60,22 @@ class DreamWorkerPool:
                 self._recovery_pending = False
             return dict(ready=self._ready and not self._stop.is_set(),
                         busy=self._owner is not None, preparing=self._priming,
+                        joint_bounds_sha256=bounds_sha256(self._joint_bounds) if self._joint_bounds else None,
                         recovery_attempts=len(self._recovery_attempts),
                         recovery_exhausted=self._recovery_exhausted)
 
     def prime(self, *, timeout=360):
         """Deployment calls this before advertising Dream; never from a visitor."""
         return self._prime(timeout=timeout)
+
+    def configure_joint_bounds(self, lower, upper):
+        bounds = joint_bounds(lower, upper)
+        with self._condition:
+            if bounds == self._joint_bounds:
+                return
+            if self._worker is not None or self._priming or self._owner is not None:
+                raise RuntimeError('Configure native bounds before Dream preparation')
+            self._joint_bounds = bounds
 
     def _prime(self, *, timeout, owner=None, recovery=False):
         with self._condition:
@@ -102,9 +114,13 @@ class DreamWorkerPool:
                     raise RuntimeError('Dream preparation cancelled')
                 self._worker = worker
             reply = worker.call('prime', checkpoints=[m[0] for m in MODELS.values()],
-                                cancelled=self._stop.is_set, timeout=timeout)
+                                cancelled=self._stop.is_set, timeout=timeout,
+                                **({'joint_bounds': self._joint_bounds} if self._joint_bounds else {}))
             if not reply['ok'] or reply.get('result', {}).get('fully_ready') is not True:
                 raise RuntimeError('Dream full preparation failed')
+            if (self._joint_bounds and reply['result'].get('joint_bounds_sha256') !=
+                    bounds_sha256(self._joint_bounds)):
+                raise RuntimeError('Dream calibrated bounds were not prepared')
             if recovery:
                 clean = worker.call('release', cancelled=self._stop.is_set, timeout=10)
                 if not clean['ok']:

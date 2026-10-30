@@ -19,6 +19,37 @@ def wait_for(check, timeout=5):
     assert check()
 
 
+def test_native_bounds_survive_replacement_and_require_worker_acknowledgement(tmp_path):
+    from types import SimpleNamespace
+    from remote_yam.dream_joint_bounds import bounds_sha256
+    commands = []
+    class Worker:
+        def __init__(self, *args): self.process = SimpleNamespace(poll=lambda: None)
+        def call(self, kind, **kwargs):
+            commands.append((kind, kwargs))
+            return dict(ok=True, result=dict(fully_ready=True,
+                joint_bounds_sha256=bounds_sha256(kwargs['joint_bounds'])))
+        def close(self): pass
+    credentials = tmp_path/'key'; credentials.write_text('synthetic')
+    pool = DreamWorkerPool('unused', credentials, tmp_path/'worker', worker_factory=Worker)
+    try:
+        pool.configure_joint_bounds([-2.] * 12, [1.5] * 12)
+        pool.prime()
+        with pytest.raises(RuntimeError, match='before Dream preparation'):
+            pool.configure_joint_bounds([-2.] * 12, [1.6] * 12)
+        pool._discard()
+        pool.prime()
+        assert len(commands) == 2 and commands[0][1]['joint_bounds'] == commands[1][1]['joint_bounds']
+        assert pool.status()['joint_bounds_sha256'] == bounds_sha256(commands[0][1]['joint_bounds'])
+        pool._discard()
+        Worker.call = lambda *args, **kwargs: dict(ok=True, result=dict(fully_ready=True))
+        with pytest.raises(RuntimeError, match='bounds were not prepared'):
+            pool.prime()
+        assert not pool.status()['ready']
+    finally:
+        pool.close()
+
+
 @pytest.fixture
 def resident(tmp_path, monkeypatch):
     sdk=tmp_path/'sdk';sdk.mkdir()

@@ -67,6 +67,11 @@ class DreamControllerExecutor:
                              directory=directory, **adapter_settings)
         self.native_factory = native_factory
         self.pool = model_runtime or pool_factory(python, credentials, directory)
+        dream_pool = model_runtime.dream_pool if model_runtime else self.pool
+        bind_bounds = getattr(dream_pool, 'configure_joint_bounds', None)
+        if callable(bind_bounds):
+            config = operator._safety_guardrails._config
+            bind_bounds(config.joint_lower_rad, config.joint_upper_rad)
         self.lock = threading.RLock()
         self.cancelled = threading.Event()
         self.thread = None

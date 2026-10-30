@@ -17,6 +17,27 @@ class Pool:
     def close(self): pass
 
 
+@pytest.mark.parametrize('registered', [False, True])
+def test_executor_binds_native_guard_bounds_before_sdk_prime(registered):
+    order = []
+    class BoundPool(Pool):
+        def configure_joint_bounds(self, lower, upper):
+            order.append(('bounds', list(lower), list(upper)))
+        def prime(self): order.append(('prime',))
+    # Reuse the unit operator, with a fresh executor to verify startup ordering.
+    op, old, *_ = setup()
+    old.preparation_done.wait(1)
+    op._safety_guardrails = SimpleNamespace(_config=SimpleNamespace(
+        joint_lower_rad=[-2.] * 12, joint_upper_rad=[1.5] * 6 + [1.6] * 6))
+    runtime = SimpleNamespace(dream_pool=BoundPool()) if registered else None
+    if runtime:
+        runtime.prime = runtime.dream_pool.prime
+    ex = DreamControllerExecutor(op, robot_id=ROBOHOUSE, credentials='unused', python='unused',
+        directory='unused', pool_factory=BoundPool, model_runtime=runtime)
+    assert ex.preparation_done.wait(1)
+    assert order == [('bounds', [-2.] * 12, [1.5] * 6 + [1.6] * 6), ('prime',)]
+
+
 class Adapter:
     def __init__(self, **kwargs):
         self.kwargs = kwargs

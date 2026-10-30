@@ -274,6 +274,16 @@ def main():
             if (not checkpoints or len(set(checkpoints)) != len(checkpoints)
                     or any(c not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash') for c in checkpoints)):
                 raise ValueError('Unknown prepared checkpoint')
+            bounds_digest = None
+            if command.get('joint_bounds') is not None:
+                if dream.__version__ != '1.0.0':
+                    raise ValueError('Unsupported Dream SDK version')
+                try:
+                    from .dream_joint_bounds import install_trajectory_bounds
+                except ImportError:
+                    from dream_joint_bounds import install_trajectory_bounds
+                with stage(spans, 'ik_native_joint_bounds'):
+                    bounds_digest = install_trajectory_bounds(command['joint_bounds'])
             variants = {}
             for checkpoint in checkpoints:
                 current = client if not clients else dream.DreamClient()
@@ -294,6 +304,7 @@ def main():
             client = None
             return {'sdk_version': dream.__version__, 'fully_ready': True,
                     'checkpoints': checkpoints, 'trajectory_variants': variants,
+                    'joint_bounds_sha256': bounds_digest,
                     'ik_linear_algebra': linear_algebra}
         if kind == 'configure':
             checkpoint = command['checkpoint']
