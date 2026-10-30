@@ -111,28 +111,81 @@ def test_custom_health_and_actions_share_molmoact_observation_and_validation():
         adapter.build_trajectory('Pick up the block', observation, 0)
 
 
-@pytest.mark.parametrize('robot,hardware,enabled', [('yam-1','yam',True), ('robohouse','yam',False),
-    ('yam-1','custom',False)])
-def test_launch_uses_entered_endpoint_without_service_key_or_saved_credentials(robot, hardware, enabled):
+@pytest.mark.parametrize('robot,hardware,joints,cameras', [
+    ('yam-1','yam',(6,6),('top','left','right')),
+    ('robohouse','yam',(6,6),('top','left','right')),
+    ('so101','so101',(5,0),('front',)),
+    ('dual-so101','bimanual_so101',(5,5),('top','left','right')),
+    ('makerarm','makerarm',(6,0),('front',))])
+def test_launch_uses_entered_endpoint_without_service_key_or_saved_credentials(robot, hardware, joints, cameras):
     app = playground.HostedRunner(public_origin='https://robot.example', session_api='https://session.example',
         camera_origin='https://session.example', robot_id=robot, hardware=hardware,
+        joint_counts=joints, camera_names=cameras,
         api_factory=lambda: MockSessionAPI(auto_activate=False))
     _, visitor = app.new_visitor()
     payload = dict(provider='custom_endpoint', endpoint='https://policy.example/yam',
         api_key='visitor-key', prompt='Pick up the block', model='custom-endpoint')
     try:
         with patch.object(CustomEndpointAdapter, 'start_preparation'):
-            if enabled:
-                assert app.launch(visitor, payload)['ok']
-                provider = visitor.controller._provider
-                assert provider._endpoint == payload['endpoint']
-                assert provider._api_key == 'visitor-key'
-                assert not visitor.saved_keys
-                assert not visitor.controller._session_api.action_log
-            else:
-                with pytest.raises(playground.RequestError):
-                    app.launch(visitor, payload)
+            assert app.launch(visitor, payload)['ok']
+            provider = visitor.controller._provider
+            assert provider._endpoint == payload['endpoint']
+            assert provider._api_key == 'visitor-key'
+            assert provider._robot_id == robot
+            assert provider._joint_counts == joints
+            assert provider._camera_names == tuple(app.model_camera_names())
+            assert not visitor.saved_keys
+            assert not visitor.controller._session_api.action_log
     finally:
         visitor.controller.stop()
         visitor.close()
         shutil.rmtree(app.root, ignore_errors=True)
+
+
+@pytest.mark.parametrize('joints,cameras', [((6,6),('top','left','right')),
+    ((5,0),('front',)), ((5,5),('front','left','right')), ((6,0),('front',))])
+def test_custom_selected_robot_profile_shapes_health_observations_and_entire_action_chunk(joints, cameras):
+    import math
+    from remote_yam.cameras import CameraFrame
+    from remote_yam.session import _trajectory_waypoints
+    pinned, _, _ = fixture('molmoact2')
+    jpeg = pinned._camera_source.capture_for_policy({})[0].jpeg
+    source = MagicMock()
+    source.capture_for_policy.return_value = [CameraFrame(name,jpeg,0) for name in (*cameras,'unused')]
+    adapter = CustomEndpointAdapter('',endpoint='https://policy.example',camera_source=source,
+        robot_id='selected-robot',joint_counts=joints,camera_names=cameras)
+    dim = sum(n+1 for n in joints if n)
+    health = dict(ok=True,robot_id='selected-robot',action_dim=dim,num_actions=30,
+        action_units='radians',gripper_units=GRIPPER_UNITS)
+    assert adapter._health_matches(health)
+    assert not adapter._health_matches({**health,'robot_id':'yam-1'})
+    assert not adapter._health_matches({**health,'action_dim':dim+1})
+    observation = dict(robot_id='selected-robot')
+    row = []
+    for side,n in zip(('left','right'),joints):
+        observation[side+'_joints_deg'] = [10]*n
+        if n:
+            observation[side+'_gripper'] = .4
+            row += [.01]*n + [.4]
+    result = dict(robot_id='selected-robot',action_units='radians',gripper_units=GRIPPER_UNITS,
+        actions=[row.copy() for _ in range(30)])
+    adapter._ready.set();adapter._json=MagicMock(return_value=result)
+    points=adapter.build_trajectory('Move the block',observation,4)
+    assert len(_trajectory_waypoints(points,joints)) == 10
+    sent=adapter._json.call_args.args[1]
+    assert sent['robot_id']=='selected-robot' and len(sent['state'])==dim
+    assert set(sent['images'])==set(cameras)
+    assert points[0]['left_joints_deg']==pytest.approx([math.degrees(.01)]*joints[0])
+    assert points[0]['right_joints_deg']==pytest.approx([math.degrees(.01)]*joints[1])
+    if not joints[1]:
+        assert 'right_gripper' not in points[0]
+    result['actions'][0][joints[0]]=1.1
+    with pytest.raises(ValueError,match='gripper_out_of_range'):
+        adapter.build_trajectory('Move the block',observation,4)
+    result['actions'][0]=row[:-1]
+    with pytest.raises(ValueError,match='action_width'):
+        adapter.build_trajectory('Move the block',observation,4)
+    adapter._json.reset_mock()
+    with pytest.raises(ValueError,match='selected-robot'):
+        adapter.build_trajectory('Move the block',{**observation,'robot_id':'other'},4)
+    adapter._json.assert_not_called()

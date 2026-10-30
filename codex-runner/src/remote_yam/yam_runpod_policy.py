@@ -52,6 +52,10 @@ class YAMRunpodAdapter:
         self._endpoint = endpoint.rstrip('/')
         self._api_key = api_key.strip()
         self._camera_source = camera_source
+        self._robot_id = 'yam-1'
+        self._profile_label = 'YAM1'
+        self._joint_counts = (6, 6)
+        self._camera_names = ('top', 'left', 'right')
         self.cancelled = lambda: False
         self.interaction_sink = lambda *args, **kwargs: None
         self._ready = threading.Event()
@@ -156,21 +160,25 @@ class YAMRunpodAdapter:
         return waited
 
     def build_trajectory(self, prompt, observation, first_step_id):
-        if observation.get('robot_id', observation.get('jetson_id')) != 'yam-1':
-            raise ValueError('This checkpoint requires YAM1 observations')
+        if observation.get('robot_id', observation.get('jetson_id')) != self._robot_id:
+            raise ValueError('This policy requires ' + self._profile_label + ' observations')
         if not self._ready.is_set():
             raise RuntimeError('YAM1 policy is not ready')
         state = []
-        for arm in ('left', 'right'):
+        gripper_indices = []
+        for arm, count in zip(('left', 'right'), self._joint_counts):
+            if not count:
+                continue
             joints, gripper = observation[arm + '_joints_deg'], observation[arm + '_gripper']
-            if (len(joints) != 6 or not all(self._number(v) for v in joints)
+            if (len(joints) != count or not all(self._number(v) for v in joints)
                     or not self._number(gripper) or not 0 <= gripper <= 1):
-                raise ValueError('YAM1 requires measured six-joint arms and normalized grippers')
+                raise ValueError('Policy requires measured joints and normalized grippers for the selected robot')
             state.extend(math.radians(v) for v in joints)
+            gripper_indices.append(len(state))
             state.append(gripper)
-        frames = self._camera_source.capture_for_policy(observation, cancelled=self.cancelled)
-        if len(frames) != 3 or {f.name for f in frames} != {'top', 'left', 'right'}:
-            raise ValueError('YAM1 requires top and both wrist cameras')
+        frames = self._capture_policy_frames(observation)
+        if len(frames) != len(self._camera_names) or {f.name for f in frames} != set(self._camera_names):
+            raise ValueError('Policy requires all configured cameras for the selected robot')
         from PIL import Image
         images = {}
         for frame in frames:
@@ -182,7 +190,7 @@ class YAMRunpodAdapter:
             raise RuntimeError('YAM1 policy cancelled')
         started = time.monotonic()
         try:
-            result = self._json('/act', dict(robot_id='yam-1', instruction=prompt, state=state,
+            result = self._json('/act', dict(robot_id=self._robot_id, instruction=prompt, state=state,
                 images=images, action_units='radians', gripper_units=GRIPPER_UNITS))
         finally:
             self.interaction_sink('model_timing', 'YAM1 policy request finished',
@@ -197,12 +205,12 @@ class YAMRunpodAdapter:
             reason = 'cuda_device'
         elif not isinstance(rows, list) or len(rows) != self.spec['num_actions']:
             reason = 'action_horizon'
-        elif any(not isinstance(row, list) or len(row) != 14 for row in rows):
+        elif any(not isinstance(row, list) or len(row) != len(state) for row in rows):
             reason = 'action_width'
         elif any(not all(self._number(v) for v in row) for row in rows):
             reason = 'nonfinite_or_nonnumeric_action'
         if reason is None:
-            grips = [row[i] for row in rows for i in (6, 13)]
+            grips = [row[i] for row in rows for i in gripper_indices]
             projected = sum(not 0 <= value <= 1 for value in grips)
             if self.provider_name == 'dreamzero':
                 # The pinned release decodes continuous relative gripper actions
@@ -211,7 +219,7 @@ class YAMRunpodAdapter:
                 # keep the raw model result intact and never clip arm joints.
                 rows = [list(row) for row in rows]
                 for row in rows:
-                    for index in (6, 13):
+                    for index in gripper_indices:
                         row[index] = min(1., max(0., row[index]))
                 self.interaction_sink('model_response', 'DreamZero action chunk decoded',
                     raw_gripper_min=min(grips), raw_gripper_max=max(grips),
@@ -221,7 +229,7 @@ class YAMRunpodAdapter:
         if reason:
             details = dict(reason=reason)
             if reason == 'gripper_out_of_range':
-                for side, index in [('left', 6), ('right', 13)]:
+                for side, index in zip((side for side, count in zip(('left', 'right'), self._joint_counts) if count), gripper_indices):
                     values = [row[index] for row in rows]
                     details[side + '_gripper_min'] = min(values)
                     details[side + '_gripper_max'] = max(values)
@@ -236,13 +244,21 @@ class YAMRunpodAdapter:
         for target in targets:
             if self.cancelled():
                 raise RuntimeError('YAM1 policy cancelled')
-            left = [math.degrees(v) for v in target[:6]]
-            right = [math.degrees(v) for v in target[7:13]]
-            if not all(math.isfinite(v) for v in left + right):
-                raise ValueError('Targets must convert to finite gateway angles')
-            points.append(dict(step_id=first_step_id + len(points), left_joints_deg=left,
-                right_joints_deg=right, left_gripper=target[6], right_gripper=target[13]))
+            point = dict(step_id=first_step_id + len(points))
+            offset = 0
+            for side, count in zip(('left', 'right'), self._joint_counts):
+                joints = [math.degrees(v) for v in target[offset:offset + count]]
+                if not all(math.isfinite(v) for v in joints):
+                    raise ValueError('Targets must convert to finite gateway angles')
+                point[side + '_joints_deg'] = joints
+                if count:
+                    point[side + '_gripper'] = target[offset + count]
+                    offset += count + 1
+            points.append(point)
         return points
+
+    def _capture_policy_frames(self, observation):
+        return self._camera_source.capture_for_policy(observation, cancelled=self.cancelled)
 
     @staticmethod
     def _number(value):
