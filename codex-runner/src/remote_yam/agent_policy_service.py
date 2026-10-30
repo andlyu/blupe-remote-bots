@@ -2,6 +2,7 @@
 from copy import deepcopy
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import threading
@@ -182,7 +183,7 @@ def configure(app, origin, token_file, model):
         return
     if not origin or not token_file:
         raise ValueError('Configure both YAM_AGENT_POLICY_ORIGIN and YAM_AGENT_POLICY_TOKEN_FILE')
-    if app.hardware != 'yam':
+    if app.hardware != 'yam' or app.robot_id != os.environ.get('YAM_AGENT_POLICY_ROBOT_ID', 'yam-1'):
         return
     token = Path(token_file).read_text().strip()
     for enabled in (False, True):

@@ -31,6 +31,10 @@ class AgentServiceTests(unittest.TestCase):
             two=app.extra_providers['agent_as_policy_memo']('',Path(root))
             self.assertNotEqual(one.namespace,two.namespace)  # even with one shared recordings directory
             with self.assertRaises(ValueError): app.extra_providers['agent_as_policy_memo']('foreign-model',Path(root))
+            other=SimpleNamespace(root=Path(root),hardware='yam',robot_id='robot-ba8413962083809c',extra_providers={})
+            configure(other,'http://127.0.0.1:8798',str(token),'gpt-6-astra')
+            self.assertEqual(other.extra_providers,{})
+            self.assertEqual(other.agent_policy_public_config,{})
 
     def test_packet_completion_and_worker_finish_use_existing_controller_cursor(self):
         provider=self.provider();requests=[]

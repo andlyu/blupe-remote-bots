@@ -25,6 +25,7 @@ Configure a shared Playground version containing `remote_yam.agent_policy_servic
 export YAM_AGENT_POLICY_ORIGIN=http://127.0.0.1:8798
 export YAM_AGENT_POLICY_TOKEN_FILE=/private/path/agp-worker-token
 export YAM_AGENT_POLICY_MODEL=gpt-6-astra
+export YAM_AGENT_POLICY_ROBOT_ID=yam-1
 ```
 
 The existing launcher then advertises **Agent as Policy** and **Agent as Policy +
