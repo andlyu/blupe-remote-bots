@@ -8,7 +8,8 @@ from .dream_overlap import OverlapLoop, PlanRejected
 
 def recoverable(error):
     code = getattr(error, 'code', '')
-    return (code in {'left_tip_outside_workspace', 'right_tip_outside_workspace'}
+    return (code in {'left_tip_outside_workspace', 'right_tip_outside_workspace',
+                     'adjacent_delta_limit', 'joint_velocity_limit'}
             or code.startswith('joint_') and code.endswith('_outside_limits'))
 
 
