@@ -482,7 +482,3 @@ journal. Only episode/model IDs are projected from that private journal.
 that session while it is active; a new session starts with empty personal history.
 Email lookup and persistent browser history are not used. `/api/my-runs` accepts
 only pagination; the server selects the session-owned episode IDs.
-
-## Agent as Policy and MEMO
-
-Connect the independent [agp-remote-yam service](https://github.com/andlyu/agp-remote-yam) with `YAM_AGENT_POLICY_ORIGIN` and `YAM_AGENT_POLICY_TOKEN_FILE`. The worker supplies coding-agent packets while this runner owns queue, lease, execution, completion and Stop. See [configuration and protocol](docs/AGENT-AS-POLICY-MEMO.md).
