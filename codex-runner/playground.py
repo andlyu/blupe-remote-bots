@@ -687,7 +687,8 @@ class HostedRunner:
                                'claude': await asyncio.to_thread(subscription_status, 'claude'), 'claude_model': CLAUDE_MODEL}
             from remote_yam.system_prompts import catalog as system_prompt_catalog
             await self.json(send, 200, {**local_setup, **application_setup,
-                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers, "custom_endpoint_enabled": self.robot_id == "yam-1" and self.hardware == "yam" and self.joint_counts == (6,6),
+                                      "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers, "custom_endpoint_enabled": True,
+                                      "custom_endpoint_profile": dict(robot_id=self.robot_id, joint_counts=list(self.joint_counts), cameras=list(self.model_camera_names()), action_dim=sum(count + 1 for count in self.joint_counts if count)),
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
                                       "dream_providers": self.dream_providers if self.dream_worker_ready() else {},
                                       **await self.chat_setup(visitor),
@@ -1059,7 +1060,7 @@ class HostedRunner:
             if not isinstance(runner_name, str) or not 1 <= len(runner_name.strip()) <= 32 or any(ord(c) < 32 for c in runner_name):
                 raise RequestError(400, 'Enter a name of 1–32 characters')
             if name not in ({"local_raise_lower", "openai", "astra", "anthropic"} | ({"codex"} if self.local_codex else set())
-                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | ({"custom_endpoint"} if self.robot_id == "yam-1" and self.hardware == "yam" and self.joint_counts == (6,6) else set()) | ({'dream'} if controller_provider else set()):
+                            | ({"claude"} if self.local_claude else set())) | ({"groot"} if self.groot_key_file else set()) | set(self.extra_providers) | {"custom_endpoint"} | ({'dream'} if controller_provider else set()):
                 raise RequestError(400, "Choose a supported provider")
             if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000:
                 raise RequestError(400, "Enter a task of up to 4,000 characters")
@@ -1082,7 +1083,7 @@ class HostedRunner:
             if name == "local_raise_lower":
                 prompt = "Raise and lower both arms for three cycles."
             claude_supported = self.hardware == 'makerarm' or self.joint_counts in {(5,5), (5,0)}
-            if self.joint_counts != (6,6) and name not in ({'openai'} | ({'codex'} if self.local_codex else set())
+            if self.joint_counts != (6,6) and name not in ({'openai', 'custom_endpoint'} | ({'codex'} if self.local_codex else set())
                     | ({'anthropic'} | ({'claude'} if self.local_claude else set()) if claude_supported else set())):
                 raise RequestError(400, 'This robot requires an OpenAI or supported local Codex runner')
             if name in {'codex', 'claude'}:
@@ -1107,7 +1108,8 @@ class HostedRunner:
                 from remote_yam.custom_endpoint_policy import CustomEndpointAdapter
                 try:
                     provider = CustomEndpointAdapter(key, endpoint=payload.get('endpoint'),
-                        camera_source=self.camera_source, robot_id=self.robot_id)
+                        camera_source=self.camera_source, robot_id=self.robot_id,
+                        joint_counts=self.joint_counts, camera_names=self.model_camera_names())
                 except ValueError as exc:
                     raise RequestError(400, str(exc)) from None
             elif name in self.extra_providers:

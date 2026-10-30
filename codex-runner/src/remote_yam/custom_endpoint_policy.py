@@ -1,4 +1,4 @@
-"""Visitor-owned YAM1 policies using the documented /health and /act contract."""
+"""Visitor-owned joint policies using the documented /health and /act contract."""
 import http.client
 import ipaddress
 import json
@@ -39,9 +39,12 @@ class CustomEndpointAdapter(YAMRunpodAdapter):
     health_mismatch = 'Custom endpoint health contract mismatch'
     readiness_timeout = 'Custom endpoint did not become ready within twenty minutes'
 
-    def __init__(self, api_key, *, endpoint, camera_source, robot_id):
-        if robot_id != 'yam-1':
-            raise ValueError('Custom end-points currently support YAM1 only')
+    def __init__(self, api_key, *, endpoint, camera_source, robot_id,
+                 joint_counts=(6, 6), camera_names=('top', 'left', 'right')):
+        if (not isinstance(robot_id, str) or not robot_id or len(joint_counts) != 2
+                or any(type(count) is not int or count < 0 for count in joint_counts)
+                or not any(joint_counts) or not camera_names):
+            raise ValueError('Custom endpoint requires a selected robot joint and camera profile')
         if (not isinstance(endpoint, str) or not 1 <= len(endpoint) <= 2048
                 or any(c.isspace() or ord(c) < 32 for c in endpoint)):
             raise ValueError('Enter an HTTPS endpoint URL')
@@ -64,6 +67,10 @@ class CustomEndpointAdapter(YAMRunpodAdapter):
         # path of the pinned adapter. Its configured credentials are never read.
         self._initialize(api_key, 'custom_endpoint',
             dict(label='Custom end-point', model='custom-endpoint', num_actions=30), endpoint, camera_source)
+        self._robot_id = robot_id
+        self._profile_label = robot_id
+        self._joint_counts = tuple(joint_counts)
+        self._camera_names = tuple(camera_names)
         self._host = host
         self._base_path = target.path.rstrip('/')
         self._endpoint = endpoint.rstrip('/')
@@ -81,15 +88,20 @@ class CustomEndpointAdapter(YAMRunpodAdapter):
                     api_key_configured=bool(self._api_key))
 
     def _identity(self, value):
-        return (value.get('robot_id') == 'yam-1' and value.get('action_units') == 'radians'
+        return (value.get('robot_id') == self._robot_id and value.get('action_units') == 'radians'
                 and value.get('gripper_units') == GRIPPER_UNITS)
 
     def _device_valid(self, value):
         return True
 
+    def _capture_policy_frames(self, observation):
+        return [frame for frame in super()._capture_policy_frames(observation)
+                if frame.name in self._camera_names]
+
     def _health_matches(self, health):
         return (self._identity(health) and health.get('ok') is True
-                and health.get('action_dim') == 14 and health.get('num_actions') == 30
+                and health.get('action_dim') == sum(count + 1 for count in self._joint_counts if count)
+                and health.get('num_actions') == 30
                 and health.get('control_hz', 30) == 30)
 
     def _json(self, path, payload=None):

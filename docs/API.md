@@ -529,10 +529,12 @@ requires one. Selecting the option does not start a run; enter a task and choose
 Run when ready. The URL stays in the current page when you switch models; the key
 is cleared when you switch away and is not saved as a reusable provider key.
 
-This option currently supports **YAM1** with two six-joint arms and top/left/right
-cameras. The runner sends observations and executes validated action chunks;
-your endpoint supplies inference. It uses the same observation and action format
-as MolmoAct2, without requiring a particular checkpoint or GPU.
+This option appears in the main model list for every available robot, including
+the default Robo-house YAM. The runner sends the selected robot's measured joint
+state and configured model cameras and executes validated action chunks; your
+endpoint supplies inference. The contract uses the same units and chunk timing
+as MolmoAct2, without requiring a particular checkpoint or GPU. Your endpoint
+must support the selected robot's identity and joint layout.
 
 ### Custom server contract
 
@@ -544,6 +546,15 @@ rejected at connection time; redirects are not followed. Endpoint calls happen
 from the runner, so browser CORS headers are unnecessary.
 
 `GET /health` must return HTTP 200 and a JSON object:
+
+The following example is for YAM1. Replace `robot_id` with the selected robot's
+ID and `action_dim` with its number of arm joints plus one gripper per present
+arm. For example, a single SO101 has five joints and one gripper (`action_dim: 6`);
+a bimanual SO101 has two five-joint arms and two grippers (`action_dim: 12`);
+YAM has two six-joint arms and two grippers (`action_dim: 14`). The playground's
+`POST /api/session` response exposes the exact selected layout in
+`custom_endpoint_profile`: `robot_id`, `joint_counts` (left, right), `cameras`,
+and `action_dim`. Use that identity in both health and action responses.
 
 ```json
 {
@@ -570,14 +581,22 @@ below and must return HTTP 200 with:
 ```
 
 The action example is a shape placeholder, not a runnable response. Supply
-**30 rows of 14 finite numbers**, representing 30 Hz absolute targets: six left
-joint radians, left gripper, six right joint radians, right gripper. Grippers
+**30 rows of `action_dim` finite numbers**, representing 30 Hz absolute targets:
+left joint radians, left gripper, right joint radians, right gripper. Omit the
+entire joint-and-gripper group for an absent arm. For YAM, each arm has six
+joints; the example above therefore has 14 values per row. Grippers
 must stay in `[0, 1]`. The runner takes rows 3, 6, …, 30 for 10 Hz execution,
 converts joint radians to degrees, and retains the gateway's motion limits.
 Invalid units, dimensions, values or grippers reject the entire chunk. Extra
 metadata such as `model`, `revision` and `device` is allowed; this generic option
 does not certify checkpoint identity. A server implementing the MolmoAct2
-contract below also satisfies this format.
+contract below also satisfies this format for YAM1.
+
+`POST /act` receives `robot_id`, `instruction`, `state`, `images`, `action_units`
+and `gripper_units`, as in the MolmoAct2 example below. `state` follows the same
+joint-and-gripper order as an action row. `images` contains the camera names in
+`custom_endpoint_profile.cameras`, each as a base64 RGB JPEG resized to 640 × 360.
+The request always uses fresh measured state from the selected robot.
 
 The optional key is sent as `Authorization: Bearer <your-key>` to both routes.
 It belongs to your endpoint; the runner does not send its configured MolmoAct2
