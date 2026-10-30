@@ -930,6 +930,17 @@ body.cameraExpanded{overflow:hidden}
 #composerOptions .modelPickerHeader{align-items:flex-start;gap:8px;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--line)}
 #composerOptions .modelPickerTitle>label,#composerOptions #effortField>label{display:block;margin:0 0 4px;font-size:12px;font-weight:600;color:var(--muted)}
 .playgroundConsole #composerOptions #composerModel{color:var(--ink);font-size:14px;font-weight:600;min-height:36px;padding:0 20px 0 0}
+/* Keep the browser's select behavior while giving the visitor-owned option a quiet cue. */
+@supports (appearance:base-select) and selector(::picker(select)){
+  .playgroundConsole #composerModel,.playgroundConsole #composerModel::picker(select){appearance:base-select}
+  .playgroundConsole #composerOptions #composerModel{display:flex;align-items:center;justify-content:space-between}
+  .playgroundConsole #composerModel::picker(select){min-width:anchor-size(width);max-width:calc(100vw - 24px);max-height:70dvh;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);box-shadow:0 5px 18px #00000014;font:400 14px/1.4 var(--font-ui)}
+  .playgroundConsole #composerModel option{min-height:30px;padding:5px 8px;border-radius:5px;gap:8px;font-weight:400;cursor:pointer}
+  .playgroundConsole #composerModel option[data-provider="custom_endpoint"]{background:color-mix(in srgb,var(--accent) 6%,var(--surface));color:var(--accent);font-weight:600}
+  .playgroundConsole #composerModel option:is(:hover,:focus-visible,:checked){background:var(--accent-soft);color:var(--ink)}
+  .playgroundConsole #composerModel option::checkmark{color:var(--accent)}
+  @media(pointer:coarse){.playgroundConsole #composerModel option{min-height:44px}}
+}
 #composerOptions .reasoningHeading{display:flex;min-height:32px}
 #composerOptions .reasoningHeading strong{font-size:15px;color:var(--accent,var(--ink))}
 .playgroundConsole #composerOptions #resetReasoning,#composerOptions .closeModelOptions{flex:none;width:36px;height:36px;min-height:36px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:22px}
