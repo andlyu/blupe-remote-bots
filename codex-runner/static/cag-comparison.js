@@ -35,10 +35,11 @@
       if (station) station.disabled = true;
       if (session.research_integration?.runs_enabled === false) {
         const paused = document.createElement('p');
-        paused.className = 'help';
+        paused.className = 'cagStatus';
+        paused.id = 'cagStatus';
         paused.setAttribute('role', 'status');
-        paused.textContent = 'GPU inference is paused. You can view cameras and previous runs.';
-        controls.prepend(paused);
+        paused.textContent = 'Completion Aware Guidance with MolmoAct2 · GPU inference is paused. You can view cameras and previous runs.';
+        document.querySelector('.runnerContent').prepend(paused);
       }
       document.title = 'Completion Aware Guidance · MolmoAct2 · BluPe';
       const name = document.getElementById('runnerName');

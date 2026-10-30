@@ -6,3 +6,5 @@
 #cagStrength { accent-color: var(--ink); height: 36px; padding: 8px 0; border: 0; background: transparent; }
 #cagStrength:disabled { opacity: .45; }
 #cagControls .help { margin: 8px 0; }
+
+.cagStatus { margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--line, #d6ded4); border-radius: 12px; color: var(--ink); font-size: 14px; line-height: 1.5; }
