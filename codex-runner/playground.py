@@ -118,6 +118,7 @@ class Visitor:
     visitor_chat: object | None = field(default=None, repr=False)
     retired: bool = False
     retain_recordings: bool = False
+    agent_memory_namespace: str = field(default_factory=lambda: secrets.token_hex(32), repr=False)
     assessment_session: str = field(default_factory=lambda: secrets.token_urlsafe(32), repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -145,7 +146,8 @@ class HostedRunner:
                  max_sessions: int = 32, idle_seconds: float = 1800,
                  lifetime_seconds: float = 7200, api_factory=None,
                  provider_factory=None, api_depth_provider_factory=None, use_api_depth=False, extra_providers=None, chat_database=None, share_conversation=True,
-                 groot_key_file="", groot_config=None, runpod_key_file="", runpod_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None, recording_root=None, operator_status_origin=None):
+                 groot_key_file="", groot_config=None, runpod_key_file="", runpod_config=None, dream_credentials_file="", dream_python="", dream_worker_pool=None, dream_worker_factory=None, dream_worker_ready=None, local_codex=False, local_claude=False, default_provider="openai", robots=None, robot_id="yam-1", camera_names=CAMERA_NAMES, joint_counts=(6,6), hardware=None, policy_camera_names=None, recording_root=None, operator_status_origin=None,
+                 agent_policy_origin=None, agent_policy_token_file=None, agent_policy_model=None):
         parsed = urlsplit(public_origin)
         if (not parsed.hostname or parsed.path not in {"", "/"} or parsed.query
                 or parsed.fragment or parsed.username or parsed.password):
@@ -300,6 +302,11 @@ class HostedRunner:
         self.run_assessments = RunAssessments(os.environ.get('YAM_ASSESSMENT_DATABASE', metadata_root / 'run-assessments.sqlite3'))
         self.task_cloud = TaskCloud(os.environ.get('YAM_TASK_CLOUD_DATABASE', metadata_root / 'task-cloud.sqlite3'))
         self.remembered_names = set()
+        from remote_yam.agent_policy_service import configure as configure_agent_policy
+        configure_agent_policy(self,
+            os.environ.get('YAM_AGENT_POLICY_ORIGIN', '') if agent_policy_origin is None else agent_policy_origin,
+            os.environ.get('YAM_AGENT_POLICY_TOKEN_FILE', '') if agent_policy_token_file is None else agent_policy_token_file,
+            agent_policy_model or os.environ.get('YAM_AGENT_POLICY_MODEL', 'gpt-6-astra'))
 
     async def public_extension(self, scope, receive, send, headers):
         """Optional application endpoints; Host is checked, visitor auth is not."""
@@ -529,7 +536,7 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/run-assessments.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/run-assessments.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/agent-memory.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -675,6 +682,11 @@ class HostedRunner:
             if self.secure:
                 cookie_value += "; Secure"
             application_setup, application_headers = await self.session_extension(cookie, visitor)
+            if self.agent_policy_public_config:
+                from remote_yam.agent_policy_service import memory_identity
+                application_headers = [*application_headers, memory_identity(self, cookie, visitor)]
+            application_setup = dict(application_setup, configured_providers={
+                **self.agent_policy_public_config, **application_setup.get('configured_providers', {})})
             local_setup = {}
             if self.local_codex:
                 from remote_yam.subscription_setup import subscription_status
@@ -1230,6 +1242,9 @@ class HostedRunner:
                 if callable(close):
                     close()
                 raise RequestError(400, str(exc)) from None
+            configure_owner = getattr(provider, 'configure_run_owner', None)
+            if callable(configure_owner):
+                configure_owner(visitor.agent_memory_namespace)
             if provider_transform is not None:
                 provider = provider_transform(provider)
             if launch_route:
