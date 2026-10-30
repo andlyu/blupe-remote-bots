@@ -1701,6 +1701,7 @@ function createRunLaunchGuard() {
       : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
+    window.yamAgentMemory?.render(state.provider);
     window.yamRuntimeSteering?.update(state);
     if (state.subscription_setup?.setup_prompt) {
       const failure = `${state.session_id}:${state.error}`;

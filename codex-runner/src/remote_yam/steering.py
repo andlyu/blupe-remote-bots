@@ -94,3 +94,11 @@ class SteeringInbox:
         with self._lock:
             return [dict(row, state='not_delivered' if not active and row['state'] == 'queued'
                          else row['state']) for row in self._messages]
+
+    def acknowledge(self, request_ids):
+        """Remote coding workers acknowledge delivery in an observation."""
+        with self._lock:
+            for row in self._messages:
+                if row['state'] == 'queued' and row['request_id'] in request_ids:
+                    row.update(state='included', included_at=time.time())
+                    self._emit('steering_included', 'Correction delivered in the agent observation', steering_id=row['id'])

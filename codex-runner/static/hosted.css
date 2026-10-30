@@ -1109,3 +1109,7 @@ body.cameraExpanded{overflow:hidden}
 @media(max-width:620px){#liveAssessment{grid-row:3}}
 
 .pastRunAssessment{margin:8px 0;font-size:12px;line-height:1.6}.playgroundConsole #pastRunsList>li[data-selected="true"]>.pastRunCard{outline:2px solid #567d26;outline-offset:3px}
+
+.agentMemoryPanel{flex-shrink:0;margin:12px 0 16px}
+.agentMemoryPanel summary{cursor:pointer;font-size:14px;font-weight:600}
+.agentMemoryPanel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:12px}
