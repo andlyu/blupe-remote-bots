@@ -35,7 +35,7 @@ class AgentServiceTests(unittest.TestCase):
     def test_packet_completion_and_worker_finish_use_existing_controller_cursor(self):
         provider=self.provider();requests=[]
         responses=[{'id':'b'*32},{'status':'running','packet':{'id':'1','points':[{'step_id':0}]}},
-                   {'status':'completed','outcome':{'summary':'done'}}]
+                   {'status':'completed','outcome':{'status':'done','summary':'done'}}]
         def fetch(path,value=None): requests.append((path,value));return responses.pop(0)
         provider._request=fetch
         self.assertEqual(provider.build_trajectory('task',observation(),0),[{'step_id':0}])
@@ -60,6 +60,16 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(calls[0]['corrections'][0]['text'],'Go above the rim.')
         self.assertEqual(provider.steering.snapshot()[0]['state'],'included')
         self.assertFalse(provider.steering.pending())
+
+    def test_give_up_is_preserved_and_worker_notes_reach_existing_conversation(self):
+        provider=self.provider();provider._run_id='b'*32;events=[]
+        provider.interaction_sink=lambda *args,**kwargs:events.append((args,kwargs))
+        provider._request=lambda *_:dict(status='completed',outcome=dict(status='give_up',summary='Could not verify placement'),
+            events=[dict(id=0,kind='assistant',message='Checking the fresh capture.')])
+        with self.assertRaises(PolicyComplete):provider.build_trajectory('task',observation(),0)
+        self.assertEqual(provider.public_config()['outcome']['status'],'give_up')
+        self.assertEqual(events[0][0][0],'model_response')
+        self.assertEqual(events[0][1]['response'],'Checking the fresh capture.')
 
     def test_memory_identity_survives_new_sessions_and_isolates_other_browsers(self):
         from http.cookies import SimpleCookie

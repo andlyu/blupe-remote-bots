@@ -42,11 +42,13 @@ class AgentPolicyService:
         self._submitted, self._cursor = set(), -1
         self._summary = dict(enabled=memo, version=None, retrieved=[], saved=[])
         self._start_payload = None
+        self.outcome = None
         self._settled_after = None
 
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, display_name=self.display_name,
-                    memo=deepcopy(self._summary), implementation='runtime_coding_agent')
+                    memo=deepcopy(self._summary), implementation='runtime_coding_agent',
+                    outcome=deepcopy(self.outcome), validation='agent_declared_not_independent_physical_validation')
 
     def configure_run_owner(self, namespace):
         if self._run_id is not None or not re.fullmatch(r'[a-f0-9]{64}', namespace):
@@ -113,8 +115,21 @@ class AgentPolicyService:
                 elif event.get('kind') == 'memory_saved':
                     self._summary['saved'] = (self._summary['saved'] + [event.get('memory', {})])[-20:]
                 if self.interaction_sink:
-                    self.interaction_sink(event.get('kind','agent'), event.get('message',''),
-                        **{k:v for k,v in event.items() if k not in ('kind','message','id','time')})
+                    kind = event.get('kind')
+                    message = str(event.get('message', ''))
+                    if kind in ('assistant', 'agent_result'):
+                        self.interaction_sink('model_response', message, response=message)
+                    elif kind not in ('correction_queued', 'correction_delivered'):
+                        if kind == 'tool_call':
+                            message = ('MEMO' if event.get('arm') == 'memo' else 'Robot') + ' request: ' + message
+                        elif kind == 'tool_result':
+                            response = event.get('response') or {}
+                            message = ('MEMO' if event.get('arm') == 'memo' else 'Robot') + ' result: ' + message
+                            if response.get('execution'):
+                                message += ' · measured completion'
+                            elif response.get('ok') is False:
+                                message += ' · ' + str(response.get('error_code', 'failed'))
+                        self.interaction_sink('model_progress', message, progress_type='status')
             packet = result.get('packet')
             if packet:
                 points = packet.get('points')
@@ -125,7 +140,11 @@ class AgentPolicyService:
                 self._submitted.add(packet['id'])
                 return points
             if result.get('status') == 'completed':
-                raise PolicyComplete((result.get('outcome') or {}).get('summary', 'Agent finished'))
+                outcome = result.get('outcome') or {}
+                if outcome.get('status') not in ('done', 'give_up'):
+                    raise RuntimeError('Agent worker returned no valid task outcome')
+                self.outcome = dict(outcome, reason=outcome.get('summary', 'Agent ended'))
+                raise PolicyComplete(self.outcome.get('summary', 'Agent finished'))
             if result.get('status') in ('failed','stopped','interrupted'):
                 raise RuntimeError('Agent worker ended before task completion')
             self._stop.wait(.1)
