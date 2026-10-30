@@ -522,6 +522,11 @@ concrete integration, with its own setup and qualification requirements.
 
 ## Custom end-point
 
+Custom end-point support is a **work in progress**, so expect some issues.
+We're eager to help if you run into trouble. Alternatively, use the
+[local web UI](../README.md#run-the-blupe-playground-locally) to connect your model
+from your own computer.
+
 Choose **Custom end-point** in the playground's model selector, then enter your
 policy server's HTTPS base URL. The **Endpoint format and examples** link directly
 below the field opens this guide. Enter an optional bearer key if your server
