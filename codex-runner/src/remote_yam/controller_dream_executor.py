@@ -7,6 +7,7 @@ all station/session messages continue through its existing Session API client.
 from copy import deepcopy
 from collections import deque
 import math
+import os
 import threading
 import time
 
@@ -56,13 +57,16 @@ def workspace_held(row):
 class DreamControllerExecutor:
     def __init__(self, operator, *, robot_id, credentials, python, directory,
                  pool_factory=DreamWorkerPool, native_factory=NativeControllerDream,
-                 model_runtime=None,
-                 **adapter_settings):
+                 model_runtime=None, overlap=None, **adapter_settings):
         if robot_id not in (ROBOTS if model_runtime else {ROBOHOUSE}) or operator.api_client.jetson_id != robot_id:
             raise ValueError('Executor requires the installed controller identity')
         self.operator = operator
         self.model_runtime, self.model_id = model_runtime, None
         self.selection = None
+        self.overlap = (os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1') if overlap is None else overlap
+        if type(self.overlap) is not bool:
+            raise ValueError('Dream overlap must be boolean')
+        self.overlap_loop = None
         self.settings = dict(robot_id=robot_id, credentials=credentials, python=python,
                              directory=directory, **adapter_settings)
         self.native_factory = native_factory
@@ -108,6 +112,8 @@ class DreamControllerExecutor:
     def status(self):
         with self.lock:
             return dict(state=self.state, packets=self.packets, waypoints=self.waypoints,
+                        execution_mode='overlap_1hz' if self.overlap else 'sequential_chunks',
+                        overlap=self.overlap_loop.status() if self.overlap_loop else None,
                         predictions=self.predictions, predicted_waypoints=self.predicted_waypoints,
                         failure=deepcopy(self.failure),
                         worker=self.pool.status(),
@@ -224,6 +230,10 @@ class DreamControllerExecutor:
             native.adapter.cancelled = self._cancelled
             with self.lock:
                 self.native = native
+            use_overlap = self.overlap and (not self.model_runtime or
+                getattr(native.adapter, 'provider_name', None) == 'dream')
+            if use_overlap:
+                native.adapter.overlap = True
             duration = prepared.get('run_duration_s', 120)
             configure = getattr(native.adapter, 'configure_run_duration', None)
             if callable(configure):
@@ -235,6 +245,14 @@ class DreamControllerExecutor:
             elif callable(getattr(native.adapter, 'start_preparation', None)):
                 native.adapter.start_preparation(self._cancelled)
                 native.adapter.wait_ready(self._cancelled)
+            if use_overlap and not predict_only:
+                from .controller_dream_overlap import run_overlap
+                run_overlap(self, native, prepared)
+                if not self._cancelled():
+                    with self.lock:
+                        self.state = 'completed'
+                return
+
             while not self._cancelled():
                 with self.operator.lock:
                     budget_reached = self.operator.api_last_step + 1 >= getattr(native.adapter,
@@ -407,6 +425,27 @@ class DreamControllerExecutor:
 def install(hardware, **settings):
     """Compose after the station's existing calibration and recovery wrappers."""
     class DreamOperator(hardware.base.OperatorSimulator):
+        def api_station_status_payload(self):
+            result = super().api_station_status_payload()
+            executor = getattr(self, 'dream_executor', None)
+            if executor and executor.overlap and executor.state == 'executing_overlap':
+                result = dict(result, settled=False, homed=False)
+            return result
+
+        def _api_observation_locked(self):
+            result = super()._api_observation_locked()
+            executor = getattr(self, 'dream_executor', None)
+            if executor and executor.overlap and executor.state == 'executing_overlap':
+                result = dict(result, settled=False, homed=False)
+            return result
+
+        def api_handle_joint_trajectory(self, payload):
+            executor = getattr(self, 'dream_executor', None)
+            if executor and executor.overlap and executor.state == 'executing_overlap':
+                with self.lock:
+                    return [self._api_raw_trajectory_result_locked(payload, 'rejected', 'command_in_flight')]
+            return super().api_handle_joint_trajectory(payload)
+
         def attach_api_client(self, client):
             # Native main constructs the operator first, attaches its client,
             # then starts HTTP/transport threads. Bind at that lifecycle hook.

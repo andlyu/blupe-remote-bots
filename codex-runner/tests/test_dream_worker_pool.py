@@ -20,7 +20,9 @@ def wait_for(check, timeout=5):
 
 
 @pytest.fixture
-def resident(tmp_path, monkeypatch):
+def resident(tmp_path, monkeypatch, request):
+    if getattr(request, 'param', None) == 'overlap':
+        monkeypatch.setenv('YAM_DREAM_OVERLAP_1HZ', '1')
     sdk=tmp_path/'sdk';sdk.mkdir()
     trace=tmp_path/'trace.jsonl';hold=tmp_path/'hold';release=tmp_path/'release';fail=tmp_path/'fail-reset'
     (sdk/'dream.py').write_text('''
@@ -49,7 +51,8 @@ class DreamClient:
         self._policy=SimpleNamespace(_ik=SimpleNamespace(traj_ready=event,
             _solver=Solver(),_solve_spec=lambda:SimpleNamespace(solve='traj')))
     def policy(self, config):
-        self.checkpoint=config['checkpoint'];log('policy',checkpoint=self.checkpoint)
+        self.checkpoint=config['checkpoint'];log('policy',checkpoint=self.checkpoint,
+            execution_horizon=config.get('execution_horizon'),sync_above_ms=config.get('sync_above_ms'))
         while Path(os.environ['TEST_HOLD']+'-prime').exists() and not Path(os.environ['TEST_RELEASE']).exists():time.sleep(.01)
         assert config['ik']=={'arm':'yam','head':'eef','solve':'traj'} and config['_record'] is False
     def set_observation(self, frames, state, timestamp):
@@ -94,6 +97,19 @@ def ticks(prompt,timestamp=1):
 
 
 def rows(trace):return [json.loads(line) for line in trace.read_text().splitlines()]
+
+
+@pytest.mark.parametrize('resident', ['overlap'], indirect=True)
+def test_overlap_sdk_preparation_and_configuration_remain_consistent(resident, tmp_path):
+    pool, credentials, trace, *_ = resident
+    worker = pool.factory(sys.executable, credentials, tmp_path/'overlap')
+    assert worker.call('configure', checkpoint=MODELS['dream'][0], overlap=True)['ok']
+    assert worker.call('predict', ticks=ticks('overlap'))['ok']
+    configs = [r for r in rows(trace) if r['kind'] == 'policy']
+    assert len(configs) == 2
+    assert all(r['execution_horizon'] == 20 and r['sync_above_ms'] == 15000 for r in configs)
+    worker.close()
+    wait_for(lambda: not pool.status()['busy'])
 
 
 def test_fully_prepared_process_reuses_both_models_and_resets_every_visitor(resident,tmp_path):

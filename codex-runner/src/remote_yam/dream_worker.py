@@ -246,12 +246,18 @@ def main():
         parts = {'right_arm': [0, 6], 'right_gripper': [6, 7],
                  'left_arm': [7, 13], 'left_gripper': [13, 14]}
         with stage(spans, 'sdk_configure'):
-            client.policy(dict(checkpoint=checkpoint, robot='yam', strict=True,
+            config = dict(checkpoint=checkpoint, robot='yam', strict=True,
                 timeout_ms=15000, action_hz=20, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
                 embodiment={'state': parts, 'action': dict(parts),
                     'video': {role: 'observation.images.' + role
                               for role in ('overhead', 'wrist_l', 'wrist_r')}},
-                _record=False))
+                _record=False)
+            if os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1':
+                # The resident scheduler owns refill timing. Keep SDK seam
+                # smoothing in async mode for every successful request, even
+                # when RTT exceeds the SDK's default 700 ms sync threshold.
+                config.update(execution_horizon=20, sync_above_ms=15000)
+            client.policy(config)
         sdk_trace.install(client)
 
     def handle(command, spans):
@@ -291,6 +297,8 @@ def main():
                     'ik_linear_algebra': linear_algebra}
         if kind == 'configure':
             checkpoint = command['checkpoint']
+            if bool(command.get('overlap', False)) != (os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1'):
+                raise ValueError('Dream worker execution mode differs from its prepared configuration')
             if prepared:
                 if checkpoint not in clients:
                     raise ValueError('Checkpoint was not prepared')

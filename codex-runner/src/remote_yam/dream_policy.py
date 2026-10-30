@@ -206,6 +206,8 @@ class DreamAdapter:
         self._commanded = None
         self._pending_commanded = None
         self.last_probe = None
+        self.overlap = False
+        self.commanded_source = None
         self._capture_sequence = 0
         self._history_generation = 0
         self._worker_recoveries = 0
@@ -287,7 +289,8 @@ class DreamAdapter:
                         worker = self.worker_factory(self.python, self.credentials, self.directory)
                     self._worker = worker
                 with journal_span(self.interaction_sink, 'worker_configure'):
-                    reply = worker.call('configure', checkpoint=self.model, cancelled=self._cancelled, timeout=180)
+                    reply = worker.call('configure', checkpoint=self.model, cancelled=self._cancelled, timeout=180,
+                                        **({'overlap': True} if self.overlap else {}))
                 self._worker_timings(reply)
                 if not reply['ok']:
                     self._failure = 'Dream SDK setup failed (' + reply.get('error_type', 'unknown') + ')'
@@ -584,8 +587,10 @@ class DreamAdapter:
                 except Exception:
                     pass
             try:
+                commanded = (self.commanded_source() if self.overlap and self.commanded_source
+                             else self._commanded)
                 with journal_span(self.interaction_sink, 'worker_predict', first_step_id=first_step_id):
-                    reply = self._worker.call('predict', ticks=ticks, commanded=self._commanded,
+                    reply = self._worker.call('predict', ticks=ticks, commanded=commanded,
                                               first_step_id=first_step_id,
                                               cancelled=self._cancelled)
             except DreamWorkerUnavailable as error:
@@ -621,7 +626,11 @@ class DreamAdapter:
                 baseline = {side+'_joints_deg': [math.degrees(value) for value in measured['state.'+side+'_arm']]
                             for side in ('left', 'right')}
                 baseline.update({side+'_gripper': measured['state.'+side+'_gripper'][0] for side in ('left','right')})
-                points = motion_limited_waypoints(nominal, baseline, self.effective_joint_step_deg, max_commands=self._max_commands)
+                # Overlap consumes a time-indexed plan. Inserting rows would
+                # change that plan's clock; its selected rows use the native
+                # per-waypoint guard instead, including at every chunk seam.
+                points = nominal if self.overlap else motion_limited_waypoints(
+                    nominal, baseline, self.effective_joint_step_deg, max_commands=self._max_commands)
                 self._pending_commanded = {
                     key: [math.radians(value) for value in points[-1][side + '_joints_deg']]
                          + [points[-1][side + '_gripper']]
@@ -634,6 +643,9 @@ class DreamAdapter:
                     effective_motion_cap_deg_per_100ms=self.effective_joint_step_deg,
                     raw_gripper_range=[min(grippers), max(grippers)],
                     gripper_values_clipped=sum(not 0 <= grip <= 1 for grip in grippers))
+                if self.overlap:
+                    self.last_probe['input_monotonic'] = time.monotonic() - (
+                        time.time() - ticks[-1]['observed_at'])
                 if self.interaction_sink:
                     self.interaction_sink('model_timing', 'Dream joint chunk received', **self.last_probe)
                 return points

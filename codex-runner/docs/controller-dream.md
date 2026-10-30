@@ -74,6 +74,37 @@ default belongs to the run request/caller, which skips this endpoint entirely.
 Installing shared code alone does not activate a station; the Session API must
 allow the executor and the operator must install its hook before use.
 
+## Opt-in 1 Hz overlapping execution
+
+On a station already using `dream_one`, the trusted operator service can set
+`YAM_DREAM_OVERLAP_1HZ=1` before startup. The default remains sequential. No browser
+SDK, extra API endpoint, public configuration fields, credentials, or motor
+owner are added. The existing online Run/Stop flow selects the resident loop.
+
+The resident process runs one predictor at a time, starting requests no more
+often than once a second. The motor path consumes the latest valid 10 Hz plan
+independently, through normal `execute` with `wait_for_settle=False` on each
+point. Full remaining plans are checked before installation and every command
+is checked again by the existing geometry, joint, health and cancellation path.
+Dispatch slots remain 100 ms; IPC and snapshot overhead can lower achieved
+control frequency and must be measured in the physical trial.
+
+Each plan retains its measured-input time. A late reply skips elapsed rows,
+and an entirely expired reply is discarded. An exhausted buffer retains the
+last commanded pose while the one outstanding prediction finishes; it never
+replays the chunk or queues catch-up inference calls. Prediction latency,
+replacements, expired chunks and buffer underflow ticks are exposed in executor
+status. One-second requests are a target, not a provider latency guarantee.
+
+The resident SDK is prepared with `execution_horizon=20` and
+`sync_above_ms=15000` in this mode, keeping its seam smoothing consistent with
+moving arms while the controller owns scheduling. Actual commanded joints
+anchor each prediction. Worker recovery retains the mode, and Stop invalidates
+both prediction and motor callbacks before SDK cleanup. Running observations
+do not claim settled completion between points. A production rollout needs
+fresh parked/torque-off preflight and a normal user-started physical trial;
+unit tests alone do not establish physical cadence or manipulation performance.
+
 ## No-motion controller probe
 
 `tools/probe_controller_dream.py` runs on the controller host and exposes no

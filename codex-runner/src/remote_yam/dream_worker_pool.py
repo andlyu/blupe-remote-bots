@@ -7,6 +7,7 @@ No fork of a JAX process and no sharing of an active SDK episode is involved.
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from collections import deque
 import logging
+import os
 from pathlib import Path
 import threading
 import time
@@ -160,7 +161,8 @@ class DreamWorkerPool:
         # Same exclusive owner, fresh SDK session and empty observation window.
         try:
             reply = self._worker.call('configure', checkpoint=checkpoint,
-                                      cancelled=self._stop.is_set, timeout=10)
+                                      cancelled=self._stop.is_set, timeout=10,
+                                      **({'overlap': True} if os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1' else {}))
             if not reply['ok']:
                 raise RuntimeError('Dream recovered worker configuration failed')
         except Exception:
