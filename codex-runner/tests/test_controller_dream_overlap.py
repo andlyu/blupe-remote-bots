@@ -22,13 +22,16 @@ def setup(deny=False):
         return SimpleNamespace(waypoints=points)
     physical = SimpleNamespace(last_command=None, snapshot=lambda: snap)
     def execute(points, **kwargs):
-        assert kwargs['wait_for_settle'] is False
         assert kwargs['cadence_hz'] == 10
         assert kwargs['cancel_event'] is canceled
         approved = kwargs['validate_waypoint'](0, (0.,)*12, points[0])
         commands.append(approved)
         physical.last_command = dict(joints=approved, grippers=(.3, .7))
-        kwargs['on_waypoint'](0)
+        if kwargs.get('on_waypoint'):
+            kwargs['on_waypoint'](0)
+            assert kwargs['wait_for_settle'] is False
+        else:
+            assert kwargs['wait_for_settle'] is True
     physical.execute = execute
     op._physical = physical
     op._safety_guardrails = SimpleNamespace(approve=approve)
@@ -49,9 +52,9 @@ def setup(deny=False):
 def test_overlap_reuses_native_checks_and_counts_only_dispatched_steps():
     executor, native, op, checks, commands = setup()
     run_overlap(executor, native, {'task': 'hold'})
-    assert len(commands) == executor.waypoints == 2
+    assert len(commands) == 3 and executor.waypoints == 2  # final measured settle retains last target
     assert op.api_last_step == 1 and op.api_observation_step == 2
-    assert checks[0][0] == 24 and [c[0] for c in checks[1:]] == [1, 1]
+    assert checks[0][0] == 24 and [c[0] for c in checks[1:]] == [1, 1, 1]
     assert all(c[1]['target_limit_tolerance_rad'] == .001 for c in checks)
     assert executor.overlap_loop.thread.is_alive() is False
     assert native.cancel.is_set()

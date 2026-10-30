@@ -107,7 +107,10 @@ def test_overlap_sdk_preparation_and_configuration_remain_consistent(resident, t
     assert worker.call('predict', ticks=ticks('overlap'))['ok']
     configs = [r for r in rows(trace) if r['kind'] == 'policy']
     assert len(configs) == 2
-    assert all(r['execution_horizon'] == 20 and r['sync_above_ms'] == 15000 for r in configs)
+    beta = next(r for r in configs if r['checkpoint'] == MODELS['dream'][0])
+    flash = next(r for r in configs if r['checkpoint'] == MODELS['dream_flash'][0])
+    assert beta['execution_horizon'] == 20 and beta['sync_above_ms'] == 15000
+    assert flash['execution_horizon'] is None and flash['sync_above_ms'] is None
     worker.close()
     wait_for(lambda: not pool.status()['busy'])
 

@@ -3,7 +3,13 @@ import math
 import time
 import numpy as np
 
-from .dream_overlap import OverlapLoop
+from .dream_overlap import OverlapLoop, PlanRejected
+
+
+def recoverable(error):
+    code = getattr(error, 'code', '')
+    return (code in {'left_tip_outside_workspace', 'right_tip_outside_workspace'}
+            or code.startswith('joint_') and code.endswith('_outside_limits'))
 
 
 def run_overlap(executor, native, prepared):
@@ -37,15 +43,29 @@ def run_overlap(executor, native, prepared):
                                   for v in row[side+'_joints_deg']) for row in points[index:])
             # Validate the remaining plan before installing it, then validate
             # each selected point again against live native feedback at dispatch.
-            op._safety_guardrails.approve(np.asarray(start), targets, cadence_hz=10,
-                                         target_limit_tolerance_rad=.001)
+            try:
+                op._safety_guardrails.approve(np.asarray(start), targets, cadence_hz=10,
+                                             target_limit_tolerance_rad=.001)
+            except Exception as error:
+                if not recoverable(error):
+                    raise
+                native.adapter.trajectory_failed(error.code, 'Native boundary retained the current plan', 0)
+                raise PlanRejected('Dream plan outside native boundary') from error
         return points, origin
 
     def validate(index, previous, waypoint):
         if executor._cancelled():
             raise RuntimeError('Dream overlap lease ended')
-        approved = op._safety_guardrails.approve(np.asarray(previous), (waypoint,), cadence_hz=10,
-                                                target_limit_tolerance_rad=.001)
+        try:
+            approved = op._safety_guardrails.approve(np.asarray(previous), (waypoint,), cadence_hz=10,
+                                                    target_limit_tolerance_rad=.001)
+        except Exception as error:
+            if not recoverable(error):
+                raise
+            # Keep the normal driver's recoverable hold, rather than letting a
+            # geometric rejection become a generic physical-failure torque off.
+            from YAM_control.i2rt_bimanual_adapter import WaypointSafetyRejected
+            raise WaypointSafetyRejected(index, error.code) from error
         return tuple(approved.waypoints[0])
 
     def play(point):
@@ -68,10 +88,17 @@ def run_overlap(executor, native, prepared):
         # The same driver, health checks, runtime geometry guard, command clock,
         # cancellation and recorder command source as ordinary trajectories.
         # Each point retains its 100 ms slot; no inter-chunk settle is requested.
-        op._physical.execute((q,), cadence_hz=10, gripper_waypoints=(grips,),
-            validate_waypoint=validate, on_waypoint=progress,
-            wait_for_settle=False, disable_on_settle_timeout=False,
-            cancel_event=native.cancel)
+        try:
+            op._physical.execute((q,), cadence_hz=10, gripper_waypoints=(grips,),
+                validate_waypoint=validate, on_waypoint=progress,
+                wait_for_settle=False, disable_on_settle_timeout=False,
+                cancel_event=native.cancel)
+        except Exception as error:
+            if not recoverable(error):
+                raise
+            with native.adapter._changed:
+                native.adapter.trajectory_failed(error.code, 'Native boundary held the active plan', 0)
+            raise PlanRejected('Native boundary held the active plan') from error
 
     def predicted(**details):
         with executor.lock:
@@ -85,6 +112,14 @@ def run_overlap(executor, native, prepared):
         executor.state = 'executing_overlap'
     try:
         loop.run()
+        # Settle only once at normal completion. Intermediate dispatch does not
+        # claim measured completion; cancellation uses the existing Stop path.
+        command = op._physical.last_command
+        if not executor._cancelled() and command and loop.waypoints:
+            op._physical.execute((tuple(command['joints']),), cadence_hz=10,
+                gripper_waypoints=(tuple(command['grippers']),), validate_waypoint=validate,
+                settle_tolerance_rad=getattr(op, 'policy_settle_tolerance', .05),
+                wait_for_settle=True, disable_on_settle_timeout=False, cancel_event=native.cancel)
     finally:
         # Inference may still be unwinding; invalidate its transport before a
         # visitor can reuse the resident SDK handle or its smoothing history.

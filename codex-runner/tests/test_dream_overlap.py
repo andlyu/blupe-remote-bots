@@ -27,6 +27,15 @@ def test_expired_or_out_of_order_reply_cannot_replace_a_valid_plan():
     assert buffer.target(2.5) == {'row': 5}
 
 
+def test_boundary_hold_invalidates_an_already_inflight_prediction():
+    buffer = ChunkBuffer()
+    generation = buffer.generation
+    buffer.invalidate()
+    assert not buffer.replace(rows(), 0., 0, .1, generation)
+    assert buffer.target(.1) is None
+    assert buffer.replace(rows(), .1, 1, .1, buffer.generation)
+
+
 def test_input_and_output_are_isolated_from_plan_buffer():
     buffer = ChunkBuffer()
     points = rows()
@@ -112,3 +121,11 @@ def test_model_failure_is_propagated_without_motion():
                        cancelled=lambda: False, budget=10)
     with pytest.raises(ValueError, match='prediction failed'):
         loop.run()
+
+
+def test_no_prediction_after_budget_or_cancellation_already_ended():
+    for budget, cancelled in [(0, False), (10, True)]:
+        loop = OverlapLoop(predict=lambda: pytest.fail('No unused prediction'),
+            play=lambda row: pytest.fail('No unused motion'), cancelled=lambda: cancelled, budget=budget)
+        loop.run()
+        assert loop.thread is None

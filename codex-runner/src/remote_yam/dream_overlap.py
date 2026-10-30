@@ -5,6 +5,10 @@ import threading
 import time
 
 
+class PlanRejected(RuntimeError):
+    """Existing native limits held the plan; ask for fresh measured input."""
+
+
 class ChunkBuffer:
     def __init__(self, *, cadence_hz=10.):
         self.cadence_hz = cadence_hz
@@ -13,12 +17,20 @@ class ChunkBuffer:
         self.sequence = -1
         self.expired = 0
         self.replacements = 0
+        self.generation = 0
 
-    def replace(self, points, origin, sequence, now):
+    def invalidate(self):
+        with self.lock:
+            self.plan = None
+            self.generation += 1
+
+    def replace(self, points, origin, sequence, now, generation=None):
         if (not points or not math.isfinite(origin) or origin > now
                 or type(sequence) is not int):
             raise ValueError('Invalid timed Dream chunk')
         with self.lock:
+            if generation is not None and generation != self.generation:
+                return False
             if sequence <= self.sequence:
                 return False
             self.sequence = sequence
@@ -58,7 +70,10 @@ class OverlapLoop:
         self.buffer = ChunkBuffer()
         self.failure = None
         self.predictions = self.waypoints = self.underflow_ticks = 0
+        self.rejected_plans = 0
         self.latencies = []
+        self.prediction_times = []
+        self.dispatch_times = []
         self.thread = None
 
     def stopped(self):
@@ -69,11 +84,18 @@ class OverlapLoop:
         try:
             while not self.stopped():
                 started = self.clock()
-                points, origin = self.predict()
+                self.prediction_times.append(started)
+                self.prediction_times[:] = self.prediction_times[-100:]
+                generation = self.buffer.generation
+                try:
+                    points, origin = self.predict()
+                except PlanRejected:
+                    points, origin = [], started
+                    self.rejected_plans += 1
                 if self.stopped():
                     return
                 finished = self.clock()
-                installed = self.buffer.replace(points, origin, sequence, finished)
+                installed = bool(points) and self.buffer.replace(points, origin, sequence, finished, generation)
                 self.predictions += 1
                 self.latencies.append(finished - started)
                 self.latencies[:] = self.latencies[-100:]
@@ -86,6 +108,8 @@ class OverlapLoop:
             self.stop.set()
 
     def run(self):
+        if self.budget <= 0 or self.stopped():
+            return
         self.thread = threading.Thread(target=self._predict, daemon=True,
                                        name='dream-overlap-predict')
         self.thread.start()
@@ -102,7 +126,18 @@ class OverlapLoop:
                 if self.stopped():
                     break
                 # play owns normal native cadence/validation, not this thread.
-                self.play(target)
+                try:
+                    self.play(target)
+                except PlanRejected:
+                    # Native dispatch retained its last safe command. Clear the
+                    # old plan and any inference started before that hold.
+                    self.buffer.invalidate()
+                    self.rejected_plans += 1
+                    last = None
+                    self.wait(.01)
+                    continue
+                self.dispatch_times.append(self.clock())
+                self.dispatch_times[:] = self.dispatch_times[-100:]
                 self.waypoints += 1
                 last = target
             if self.failure is not None:
@@ -111,8 +146,14 @@ class OverlapLoop:
             self.stop.set()
 
     def status(self):
+        def rate(stamps):
+            span = stamps[-1]-stamps[0] if len(stamps) > 1 else 0.
+            return (len(stamps)-1)/span if span > 0 else None
         return dict(replan_hz=1/self.period, predictions=self.predictions,
                     waypoints=self.waypoints, underflow_ticks=self.underflow_ticks,
                     expired_chunks=self.buffer.expired,
+                    rejected_plans=self.rejected_plans,
                     chunk_replacements=self.buffer.replacements,
+                    achieved_prediction_hz=rate(self.prediction_times),
+                    achieved_control_hz=rate(self.dispatch_times),
                     prediction_s=self.latencies[-1] if self.latencies else None)

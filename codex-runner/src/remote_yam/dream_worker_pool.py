@@ -162,7 +162,8 @@ class DreamWorkerPool:
         try:
             reply = self._worker.call('configure', checkpoint=checkpoint,
                                       cancelled=self._stop.is_set, timeout=10,
-                                      **({'overlap': True} if os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1' else {}))
+                                      **({'overlap': True} if os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1'
+                                         and checkpoint == 'dreamlabs/dream-1-beta' else {}))
             if not reply['ok']:
                 raise RuntimeError('Dream recovered worker configuration failed')
         except Exception:

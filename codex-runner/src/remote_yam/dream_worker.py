@@ -252,7 +252,7 @@ def main():
                     'video': {role: 'observation.images.' + role
                               for role in ('overhead', 'wrist_l', 'wrist_r')}},
                 _record=False)
-            if os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1':
+            if os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1' and checkpoint == 'dreamlabs/dream-1-beta':
                 # The resident scheduler owns refill timing. Keep SDK seam
                 # smoothing in async mode for every successful request, even
                 # when RTT exceeds the SDK's default 700 ms sync threshold.
@@ -297,7 +297,8 @@ def main():
                     'ik_linear_algebra': linear_algebra}
         if kind == 'configure':
             checkpoint = command['checkpoint']
-            if bool(command.get('overlap', False)) != (os.environ.get('YAM_DREAM_OVERLAP_1HZ') == '1'):
+            if command.get('overlap') is True and (os.environ.get('YAM_DREAM_OVERLAP_1HZ') != '1'
+                    or checkpoint != 'dreamlabs/dream-1-beta'):
                 raise ValueError('Dream worker execution mode differs from its prepared configuration')
             if prepared:
                 if checkpoint not in clients:

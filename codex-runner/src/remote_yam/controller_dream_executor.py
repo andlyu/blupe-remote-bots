@@ -112,7 +112,8 @@ class DreamControllerExecutor:
     def status(self):
         with self.lock:
             return dict(state=self.state, packets=self.packets, waypoints=self.waypoints,
-                        execution_mode='overlap_1hz' if self.overlap else 'sequential_chunks',
+                        overlap_enabled=self.overlap,
+                        execution_mode='overlap_1hz' if self.overlap_loop else 'sequential_chunks',
                         overlap=self.overlap_loop.status() if self.overlap_loop else None,
                         predictions=self.predictions, predicted_waypoints=self.predicted_waypoints,
                         failure=deepcopy(self.failure),
@@ -178,6 +179,7 @@ class DreamControllerExecutor:
             self.state = 'preparing'
             self.packets = self.waypoints = 0
             self.predictions = self.predicted_waypoints = 0
+            self.overlap_loop = None
             self.failure = None
             self.provider_failure = None
             self.thread = threading.Thread(target=self._run,
