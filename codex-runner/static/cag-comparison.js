@@ -44,9 +44,11 @@
       document.title = 'Completion Aware Guidance · MolmoAct2 · BluPe';
       const name = document.getElementById('runnerName');
       const email = document.getElementById('email');
-      name.value = typeof saved.name === 'string' ? saved.name : '';
-      email.value = typeof saved.email === 'string' ? saved.email : '';
+      name.value = typeof saved.name === 'string' ? saved.name : (session.research_identity_defaults?.runner_name || '');
+      email.value = typeof saved.email === 'string' ? saved.email : (session.research_identity_defaults?.email || '');
       email.required = true;
+      const identityHelp = name.parentElement.querySelector('.help');
+      if (identityHelp) identityHelp.textContent = 'Your name and task are shown with your run. Your email stays private.';
       document.querySelector('label[for="email"]').textContent = 'Your email';
       document.getElementById('emailHelp').textContent = 'Confirm your name and email for this run. Both fields are editable; email stays private.';
       const provider = document.getElementById('provider');
