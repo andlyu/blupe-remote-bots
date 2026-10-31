@@ -339,12 +339,23 @@
     <span id="resetRunsStatus" role="status" aria-live="polite"></span>
   </footer>
 </div>
-<dialog id="pastRunDialog" aria-labelledby="pastRunTitle">
+<dialog id="pastRunDialog" class="runSidebar" aria-labelledby="pastRunTitle" aria-modal="false">
   <div class="statusHeader"><h2 id="pastRunTitle">Past run</h2><button id="closePastRun" type="button" aria-label="Close video">Close</button></div>
+  <div class="runSidebarPlayer">
   <div id="replayProcessing" class="replayProcessing" role="status" aria-live="polite" hidden><progress aria-label="Processing replay"></progress><p>Processing your replay. This usually takes about a minute.</p><p class="help">You can close this and run another while it processes.</p></div>
   <div class="recordedPlayer"><video id="pastRunVideo" controls playsinline preload="none"></video></div>
+  </div>
+  <div id="runSidebarBody" class="runSidebarBody">
   <p id="pastRunError" role="status"></p>
   <p id="pastRunPrompt"></p><p id="pastRunDetails" class="help"></p>
+  <section id="similarRuns" aria-labelledby="similarRunsTitle">
+    <h3 id="similarRunsTitle">Similar videos</h3>
+    <p id="similarRunsStatus" class="help" role="status">Select a run to find similar videos.</p>
+    <ol id="similarRunsList" class="similarRunsList"></ol>
+    <button id="moreSimilarRuns" type="button" hidden>Show more similar videos</button>
+    <div id="similarRunsSentinel" aria-hidden="true"></div>
+  </section>
+  <details id="runSidebarDetails" class="runSidebarDetails"><summary>Run details and human assessment</summary>
   <section id="replayAssessment" class="runnerAssessment" aria-labelledby="replayAssessmentTitle">
     <h3 id="replayAssessmentTitle">Runner assessment</h3><p id="replayAssessmentSummary" role="status"></p>
     <div id="replayAssessmentControls" class="assessmentControls" role="group" aria-label="Edit your assessment" hidden><button type="button" data-label="" aria-pressed="true">Not completed</button><button type="button" data-label="Failure" aria-pressed="false">Failed</button><button type="button" data-label="Success" aria-pressed="false">Succeeded</button></div>
@@ -356,6 +367,8 @@
   <p id="replayEmailStatus" class="help" role="status" aria-live="polite"></p>
   <h3>Run totals</h3><p id="pastRunMetricsSummary" class="help"></p>
   <div id="pastRunMetricsChart"></div>
+  </details>
+  </div>
 </dialog>
 
 <dialog id="replayEmailDialog" aria-labelledby="replayEmailTitle">
