@@ -1015,6 +1015,10 @@ class RunnerController(HomeSceneStartup):
             observed_at = float(station.get("observed_at") or 0.0)
         if time.time() - observed_at > 10.0:
             raise RuntimeError("Fresh station safety context is required before inference")
+        if step_id == 0:
+            prefetch = getattr(provider, 'prefetch_observation', None)
+            if callable(prefetch):
+                prefetch(dict(provider_observation, images=deepcopy_dict(station.get('images') or {})))
         if station.get("source") == "hardware":
             with journal_span(timing_sink, 'feedback_reconciliation', step_id=step_id):
                 station = self._reconcile_hardware_feedback(payload, station, require_home=step_id == 0)

@@ -50,7 +50,31 @@
       const identityHelp = name.parentElement.querySelector('.help');
       if (identityHelp) identityHelp.textContent = 'Your name and task are shown with your run. Your email stays private.';
       document.querySelector('label[for="email"]').textContent = 'Your email';
-      document.getElementById('emailHelp').textContent = 'Confirm your name and email for this run. Both fields are editable; email stays private.';
+      document.getElementById('emailHelp').textContent = 'Run confirms these editable details. Your name is shown with the run; email stays private.';
+      const identity = document.createElement('div');
+      identity.id = 'cagRunnerFields';
+      const nameLabel = name.parentElement.querySelector('label');
+      const emailLabel = document.querySelector('label[for="email"]');
+      name.setAttribute('form','runForm'); email.setAttribute('form','runForm');
+      const nameField = document.createElement('div'), emailField = document.createElement('div');
+      nameField.append(nameLabel,name); emailField.append(emailLabel,email);
+      identity.append(nameField,emailField,document.getElementById('emailHelp'));
+      status.before(identity);
+      document.getElementById('runDuration').value = '1';
+      // Confirm the visible fields with the same normal validated Run action.
+      for (const id of ['quickRun','composerSend']) {
+        document.getElementById(id).addEventListener('click', event => {
+          const form=document.getElementById('runForm');
+          if (!runsEnabled || form.classList.contains('runActive')) return;
+          event.preventDefault();event.stopImmediatePropagation();
+          form.requestSubmit(document.getElementById('run'));
+        }, {capture:true});
+      }
+      document.getElementById('runForm').addEventListener('submit', () => {
+        const current=document.getElementById('cagStatus');
+        current.textContent=window.cagProgress({status:'preparing',provider:{warmup:'warming',warmup_elapsed_s:0}},runsEnabled).text;
+        current.dataset.runClickAt=String(Date.now());
+      }, {capture:true});
       const provider = document.getElementById('provider');
       for (const option of [...provider.options]) {
         if (!['molmoact_baseline', 'molmoact_guided'].includes(option.value)) option.remove();
@@ -60,6 +84,7 @@
       update();
     },
     stateChanged(state) {
+      window.cagLiveReplay?.observe(state);
       const progress = window.cagProgress(state, runsEnabled);
       const status = document.getElementById('cagStatus');
       if (status) {

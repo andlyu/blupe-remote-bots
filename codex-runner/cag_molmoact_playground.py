@@ -21,7 +21,7 @@ class CAGPlayground(LocalPlayground):
         self.runs_enabled = runs_enabled
         from remote_yam.quick_replays import QuickReplays
         self.quick_replays = QuickReplays()
-        super().__init__(**kwargs, default_provider='molmoact_baseline', local_codex=False, local_claude=False)
+        super().__init__(**kwargs, default_provider='molmoact_guided', local_codex=False, local_claude=False)
         self.cookie_name += '-cag-' + str(urlsplit(kwargs['public_origin']).port or 443)
         for mode in ('baseline','guided'):
             self.extra_providers['molmoact_'+mode] = lambda model, directory, mode=mode: self.policy(model, mode)
@@ -33,7 +33,7 @@ class CAGPlayground(LocalPlayground):
 
     async def session_extension(self, cookies, visitor):
         metadata, headers=await super().session_extension(cookies,visitor)
-        return {**metadata,'local_runner':True,'default_provider':'molmoact_baseline',
+        return {**metadata,'local_runner':True,'default_provider':'molmoact_guided',
             'research_integration': dict(method='Completion Aware Guidance', variant=VARIANT,
                 experimental=True, human_email_required=True, robot_id='yam-1', runs_enabled=self.runs_enabled),
             'configured_providers': {'molmoact_'+mode:dict(
@@ -43,10 +43,10 @@ class CAGPlayground(LocalPlayground):
 
     def page(self):
         return super().page().replace(b'<title>BluPe', b'<title>CAG + MolmoAct2').replace(b'<!-- application-head -->',
-            b'<link rel="stylesheet" href="/static/cag-comparison.css"><script src="/static/cag-progress.js" defer></script><script src="/static/cag-comparison.js" defer></script>')
+            b'<link rel="stylesheet" href="/static/cag-comparison.css"><script src="/static/cag-progress.js" defer></script><script src="/static/cag-comparison.js" defer></script><script src="/static/cag-live-replay.js" defer></script>')
 
     async def public_extension(self, scope, receive, send, headers):
-        if scope['method']=='GET' and scope['path'] in ('/static/cag-comparison.js','/static/cag-comparison.css','/static/cag-progress.js'):
+        if scope['method']=='GET' and scope['path'] in ('/static/cag-comparison.js','/static/cag-comparison.css','/static/cag-progress.js','/static/cag-live-replay.js'):
             name=scope['path'].removeprefix('/static/')
             content_type='text/css' if name.endswith('.css') else 'application/javascript'
             await self.respond(send,200,(ROOT/'static'/name).read_bytes(),content_type)
@@ -75,6 +75,28 @@ class CAGPlayground(LocalPlayground):
                 row['approach']=config['approach']
                 row['run_context']=config.get('run_context')
         return value
+
+    def decorate_status(self, state):
+        # The station retains a public run after this web visitor expires. Rejoin
+        # that receipt to this integration's durable human/method metadata.
+        from remote_yam.run_errors import public_run_error
+        if public_run_error(state)=='Run reached time limit':
+            state['error']='Run reached time limit'
+        public = state.get('public_run')
+        if not public: return state
+        eid = public.get('episode_id') or public.get('run_id')
+        if not isinstance(eid,str) or not eid.startswith('ep_'): return state
+        row = self.decorate_history({'runs':[{'episode_id':eid}]})['runs'][0]
+        if row.get('approach'):
+            if row.get('runner_name'): public['runner_name']=row['runner_name']
+            public['model_name']=row['approach']
+        error=public_run_error(public)
+        if error=='Run reached time limit':
+            public['error']=error
+            public['events']=[dict(event,kind='lifecycle',message=error)
+                if event.get('kind')=='error' and 'policy_runtime_timeout' in event.get('message','')
+                else event for event in public.get('events',[])]
+        return state
 
     def local_history(self, episode_ids=None):
         # The local replay cache is ready before the remote archive catalog.
@@ -106,13 +128,16 @@ class CAGPlayground(LocalPlayground):
         return True
 
     async def http(self, scope, receive, send):
-        if scope.get('method')!='GET' or scope.get('path')!='/api/past-runs':
+        if scope.get('method')!='GET' or scope.get('path') not in ('/api/past-runs','/api/status'):
             return await super().http(scope,receive,send)
         messages=[]
         async def capture(message):messages.append(message)
         await super().http(scope,receive,capture)
         if messages and messages[0].get('status')==200:
             data=json.loads(b''.join(m.get('body',b'') for m in messages[1:]))
+            if scope['path']=='/api/status':
+                data=await asyncio.to_thread(self.decorate_status,data)
+                return await self.json(send,200,data,[(key,value) for key,value in messages[0].get('headers',[]) if key.lower()==b'set-cookie'])
             data=await asyncio.to_thread(self.decorate_history,data)
             query=parse_qs(scope.get('query_string',b'').decode())
             eid=query.get('episode_id',[None])[0]

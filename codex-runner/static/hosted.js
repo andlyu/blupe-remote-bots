@@ -1572,7 +1572,7 @@ function createRunLaunchGuard() {
     if (contactRequested || (!contactDismissed && state.error?.startsWith('Operator request failed:'))) operatorContact();
     else if (contactDismissed && state.error?.startsWith('Operator request failed:')) { /* Keep dismissed contact information closed. */ }
     else if (state.error || state.execution_blocked_reason)
-      message(failureInChat && state.error === taskFailure.reason ? '' : state.error || state.execution_blocked_reason, true);
+      message(failureInChat && state.error === taskFailure.reason ? '' : state.error || state.execution_blocked_reason, state.error !== 'Run reached time limit');
     else if (state.feedback_warning) message(state.feedback_warning);
     else if ($('message').textContent.startsWith('Motion paused while refreshing robot status:')) message('Robot status confirmed. Continuing the run.');
     else if (state.provider?.provider === 'groot' && state.provider.warmup === 'warming') message('In the robot queue · warming GR00T GPU…');

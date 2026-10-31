@@ -89,3 +89,51 @@ def test_adapter_deadline_cancels_readiness_even_when_caller_only_checks_stop():
     policy._warm_state='released'
     with pytest.raises(RuntimeError,match='cancelled'):
         policy.wait_ready(lambda:False)
+
+
+def test_https_connection_is_reused_and_redirect_never_retried(monkeypatch):
+    p=adapter();connection=Mock()
+    reply=Mock(status=200);reply.read.return_value=b'{"ok":true}'
+    connection.getresponse.return_value=reply
+    factory=Mock(return_value=connection)
+    monkeypatch.setattr('remote_yam.molmoact_policy.http.client.HTTPSConnection',factory)
+    assert p._json('/health')=={'ok':True}
+    assert p._json('/act',{'input':'test'})=={'ok':True}
+    factory.assert_called_once_with('abc123.api.runpod.ai',timeout=30)
+    assert connection.request.call_count==2
+    reply.status=302
+    with pytest.raises(RuntimeError,match='ValueError'):
+        p._json('/act',{})
+    assert connection.request.call_count==3
+    connection.close.assert_called_once()
+    assert p._connection is None
+    assert 'private-key' not in str(p.public_config())
+
+
+def test_prefetched_initial_camera_set_is_bound_to_fresh_leased_observation():
+    import threading,time
+    p=adapter();now=time.time();obs=dict(observation(),observed_at=now,images={})
+    frames=[SimpleNamespace(name=n,jpeg=b'jpeg',source_captured_at=now) for n in ('right','top','left')]
+    requested=threading.Event();release=threading.Event()
+    def capture(*args,**kwargs):
+        requested.set();assert release.wait(1);return frames
+    p._camera_source.capture_for_policy.side_effect=capture
+    p.prefetch_observation(obs)
+    assert requested.wait(1) and not p._prefetch['done'].is_set()
+    release.set()
+    assert p._frames(obs)==frames
+    assert p._camera_source.capture_for_policy.call_count==1
+    assert p._prefetch is None
+
+
+def test_stale_prefetch_is_discarded_and_cancel_blocks_model():
+    import threading,time
+    p=adapter();now=time.time();done=threading.Event();done.set()
+    old=[SimpleNamespace(name=n,jpeg=b'old',source_captured_at=now-10) for n in ('right','top','left')]
+    p._prefetch={'observed_at':now,'done':done,'frames':old}
+    assert p._frames(dict(observation(),observed_at=now))==p._camera_source.capture_for_policy.return_value
+    p._camera_source.capture_for_policy.assert_called_once()
+    p.cancelled=lambda:True;p._json=Mock()
+    with pytest.raises(RuntimeError,match='cancelled'):
+        p.build_trajectory('Pick cup',observation(),0)
+    p._json.assert_not_called()

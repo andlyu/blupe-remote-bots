@@ -1,13 +1,12 @@
 """YAM1-only MolmoAct2 comparison. Queue/controller remains sole robot writer."""
 import base64
 import json
+import http.client
 import math
 import re
 import threading
 import time
-from urllib import request
 from urllib.parse import urlsplit
-from .cameras import NoRedirect
 from .molmoact_protocol import (MODEL, REVISION, CAMERAS, GRIPPER_UNITS,
                                identity, validate_actions, finite_vector, valid_grippers)
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
@@ -47,7 +46,9 @@ class MolmoActAdapter:
         self._ready, self._thread = threading.Event(), None
         self._warm_state, self._failure = 'idle', None
         self._warm_started_at = None
-        self._opener = request.build_opener(NoRedirect)
+        self._connection = None
+        self._http_lock = threading.Lock()
+        self._prefetch = None
 
     def public_config(self):
         return dict(provider=self.provider_name, model=MODEL, revision=REVISION,
@@ -61,14 +62,50 @@ class MolmoActAdapter:
                 else 'MolmoAct2 + CAG-inspired guidance'), run_context=self.run_context)
 
     def _json(self, path, payload=None):
-        req = request.Request(self._endpoint+path,
-            data=None if payload is None else json.dumps(payload, allow_nan=False).encode(),
-            headers={'Authorization':'Bearer '+self._api_key, 'Content-Type':'application/json'})
-        try:
-            with self._opener.open(req, timeout=30) as response:
-                return json.loads(response.read(8*1024*1024))
-        except Exception as exc:
-            raise RuntimeError('MolmoAct2 request failed ('+type(exc).__name__+')') from None
+        # Reuse the verified endpoint connection across health and inference.
+        # Never follow redirects or retry an inference after an ambiguous reply.
+        with self._http_lock:
+            try:
+                if self._connection is None:
+                    self._connection = http.client.HTTPSConnection(urlsplit(self._endpoint).hostname, timeout=30)
+                self._connection.request('GET' if payload is None else 'POST', path,
+                    body=None if payload is None else json.dumps(payload, allow_nan=False).encode(),
+                    headers={'Authorization':'Bearer '+self._api_key, 'Content-Type':'application/json'})
+                response = self._connection.getresponse()
+                body = response.read(8*1024*1024+1)
+                if response.status != 200 or len(body) > 8*1024*1024:
+                    raise ValueError('Invalid inference response')
+                return json.loads(body)
+            except Exception as exc:
+                if self._connection is not None: self._connection.close()
+                self._connection = None
+                raise RuntimeError('MolmoAct2 request failed ('+type(exc).__name__+')') from None
+
+    def prefetch_observation(self, observation):
+        # Camera reads do not use the robot command capability. Overlap the
+        # initial fresh image set with the controller's unchanged feedback gate.
+        if self._prefetch is not None or self.cancelled(): return
+        job = dict(observed_at=observation.get('observed_at'), done=threading.Event())
+        self._prefetch = job
+        def capture():
+            try: job['frames'] = self._camera_source.capture_for_policy(observation, cancelled=self.cancelled)
+            except Exception: pass  # The normal fresh read remains the fallback.
+            finally: job['done'].set()
+        threading.Thread(target=capture, daemon=True, name='molmoact-first-cameras').start()
+
+    def _frames(self, observation):
+        job, self._prefetch = self._prefetch, None
+        if job and job['observed_at'] == observation.get('observed_at'):
+            while not job['done'].wait(.05):
+                if self.cancelled(): raise RuntimeError('MolmoAct2 camera preparation cancelled')
+            frames = job.get('frames', [])
+            stamps = [getattr(frame, 'source_captured_at', None) for frame in frames]
+            observed = observation.get('observed_at')
+            if (len(frames) == 3 and type(observed) in (int,float)
+                    and all(type(stamp) in (int,float) and 0 <= time.time()-stamp <= 2.
+                            and stamp >= observed-.15 for stamp in stamps)):
+                return frames
+        return self._camera_source.capture_for_policy(observation, cancelled=self.cancelled)
 
     @staticmethod
     def _identity(value):
@@ -125,10 +162,13 @@ class MolmoActAdapter:
             if isinstance(g,bool) or not isinstance(g,(int,float)) or not math.isfinite(g) or not 0<=g<=1:
                 raise ValueError('MolmoAct2 needs measured normalized grippers')
             state.extend(math.radians(v) for v in q); state.append(g)
-        frames=self._camera_source.capture_for_policy(observation,cancelled=self.cancelled)
+        capture_started=time.monotonic()
+        frames=self._frames(observation)
+        self.interaction_sink('camera_timing', 'Fresh MolmoAct2 camera set ready', elapsed_s=time.monotonic()-capture_started)
         if len(frames)!=3 or {f.name for f in frames}!=set(CAMERAS):
             raise ValueError('MolmoAct2 needs top and both wrist cameras')
         if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
+        request_started=time.monotonic()
         result=self._json('/act',dict(robot_id='yam-1', instruction=prompt, state=state,
             images={f.name:base64.b64encode(f.jpeg).decode() for f in frames},
             action_units='radians',gripper_units=GRIPPER_UNITS,
@@ -139,7 +179,7 @@ class MolmoActAdapter:
             raise ValueError('MolmoAct2 intervention receipt mismatch')
         rows=validate_actions(result.get('actions'))
         if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
-        self.interaction_sink('model_timing', 'MolmoAct2 prediction', elapsed_s=result.get('inference_seconds'), experiment=experiment)
+        self.interaction_sink('model_timing', 'MolmoAct2 prediction', elapsed_s=result.get('inference_seconds'), request_s=time.monotonic()-request_started, experiment=experiment)
         return self._gateway_trajectory(rows, state, first_step_id)
 
     def _gateway_trajectory(self, rows, measured_state, first_step_id):

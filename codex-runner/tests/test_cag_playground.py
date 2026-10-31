@@ -21,7 +21,7 @@ def app(tmp_path,monkeypatch):
 def test_session_controls_without_key_or_queue(app):
     runner,api=app
     code,body,_=call(runner,'/api/session',{})
-    assert code==200 and body['default_provider']=='molmoact_baseline'
+    assert code==200 and body['default_provider']=='molmoact_guided'
     assert 'molmoact_guided' in body['configured_providers']
     assert 'private-key' not in json.dumps(body)
     assert b'cag-comparison.js' in runner.page()
@@ -222,3 +222,20 @@ def test_current_replay_does_not_wait_for_archive_and_retains_andrew(app):
     assert code==200 and body['runs']==[]
     code,_,_=call(runner,'/api/my-runs',{'episode_ids':['ep_ready']},session)
     assert code==400
+
+
+def test_shared_terminal_status_keeps_person_method_and_neutral_time_limit(app):
+    runner,_=app
+    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
+    runner.run_names.remember('ep_status','Andrew')
+    runner.run_names.remember_metadata('ep_status','yam-1','Put box in bin',1,config)
+    state={'public_run':{'run_id':'ep_status','runner_name':'API caller','status':'stopped','error':'policy_runtime_timeout: Run duration limit reached; parking at zero and disabling torque',
+        'events':[{'kind':'error','message':'policy_runtime_timeout: Run duration limit reached'},{'kind':'error','message':'An actual unrelated fault'}]}}
+    result=runner.decorate_status(state)['public_run']
+    assert result['runner_name']=='Andrew'
+    assert result['model_name']==config['approach']
+    assert result['error']=='Run reached time limit'
+    assert result['events'][0]['kind']=='lifecycle'
+    assert result['events'][1]['kind']=='error'
+    result=runner.decorate_status({'public_run':{'run_id':'ep_status','status':'stopped','error':'Hardware feedback blocked: station_unsafe'}})['public_run']
+    assert result['error']=='Hardware feedback blocked: station_unsafe'
