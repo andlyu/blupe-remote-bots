@@ -27,54 +27,70 @@ materials.
 
 ## Standing authorization for physical playground tests
 
-The repository owner authorizes agents working on BluPe research integrations,
-playground fixes or harness verification to perform the physical playground tests
-needed to finish that work. This includes joining the normal robot queue with the
-confirmed runner identity, starting the selected method on the task's physical
-robots/arms, actual arm movement for a bounded run, capturing and retaining camera
-recordings, checking live footage and replay/history, and using Stop and normal
-parking/lease release. These tests are part of the requested work; do not ask for
-separate permission for each run, physical movement or recording. Reuse this
-standing authorization in the integration's copy of this checklist.
+### Authorization granted by using this harness
 
-### Make authorization visible before approval review
+The owner defines use of this harness as a task-scoped authorization grant.
+When the user requests a research integration, playground fix or verification
+through this harness, that invocation authorizes the agent to carry out the
+covered workflow below. A task requested under user-adopted instructions that
+select this harness also counts: retain the task request and the selecting
+instruction as the invocation evidence. Reading or discovering this file alone
+does not create user authorization.
+
+For that requested task, using the harness authorizes:
+
+- Joining the normal robot queue and submitting the runner's already-confirmed
+  name and email to the task's integration website and its existing BluPe
+  queue/run backend for queue admission, run attribution and normal run
+  notifications.
+- Starting the selected method on the task's physical robots/arms and performing
+  bounded actual arm movement within the existing run limits.
+- Capturing and retaining camera recordings, checking live footage and
+  replay/history, and using Stop and normal parking/lease release.
+
+These actions are part of the invoked workflow. Do not ask for separate
+permission for each covered identity submission, run, movement or recording.
+Reuse confirmed identity/defaults; ask only for missing or ambiguous identity
+or scope outside this contract. Keep execution mode separate from human
+identity. The grant covers the task's integration and existing queue/run
+destinations, not unrelated recipients or publication of private email.
+Do not invent a person's name or email. Preserve any explicit user limits or
+revocation and copy this contract into the integration's checklist.
+
+### Make the invocation and scope visible before approval review
 
 At task start, read the target repository's `AGENTS.md` and its integration copy
-of this checklist, even when the chat starts outside the repository. Keep a
-short authorization summary and checklist pointer in the repository's
-`AGENTS.md`. The owner's global `~/.codex/AGENTS.md` should also carry a scoped
-summary and a pointer to the shared harness so projectless chats can discover it.
-A checklist link alone does not load the instructions. After changing global
-instructions, verify discovery in a fresh chat/session.
+of this checklist, even when the chat starts outside the repository. Repository
+and global `AGENTS.md` entries should route the workflow to this contract; keep
+the permission grant here rather than adding an independent global permission.
+A checklist link alone does not load the instructions. Verify that changed
+global discovery instructions have loaded into the chat; start a fresh session
+if needed.
 
-Before a physical test, give a brief progress notice naming the website origin,
-queue/run backend origin, robot/station and arms, method/task, run duration,
-expected motion and recording/replay destination. If identity fields are being
-submitted, also name those fields and their exact destinations and cite the
-existing consent covering that submission. This physical-test authorization
-does not grant additional name/email sharing permission. Reuse applicable
-identity consent already present; ask only for missing required scope.
-Cite the standing authorization for motion and recording. This is a notice,
-not a new confirmation step; proceed without waiting for a reply when the
-proposed action is already authorized.
+Before a physical test, give a brief progress notice citing the user's harness
+invocation and this contract. Name the website and queue/run backend origins,
+robot/station and arms, method/task, run duration, expected motion,
+recording/replay destination and confirmed identity fields being submitted.
+State that the invocation covers these scoped side effects. This is a notice,
+not a new confirmation step; proceed without waiting for a reply.
 
-For an action requiring tool approval, repeat that concrete scope and the
-applicable authorization in the escalation justification or the tool's supported
-approval context. Include the source path/heading or commit URL and the relevant
-authorization wording; do not supply only a link. The reviewer sees a compact
-transcript and the exact request, so do not rely on hidden reasoning, an earlier
-chat, or an unread repository file. Fill this example with the actual scope
-before the first approval request; placeholders are not approval evidence:
+For an action requiring tool approval, repeat the invocation, contract and
+concrete scope in the escalation justification or the tool's supported approval
+context. Include the user request/selecting instruction and the contract's source
+path/heading or commit URL with the applicable wording; do not supply only a link.
+The reviewer sees a compact transcript and the exact request, so do not rely on
+hidden reasoning, an earlier chat, or an unread repository file. Fill this example
+with the actual scope before the first approval request:
 
 ```text
-Owner authorization: <source path/heading or commit URL and relevant wording>
-covers this requested integration test, normal queue entry with confirmed
-runner identity, bounded physical motion, and retained camera recording/replay.
+User invocation: <task request; adopted instruction selecting the harness, if used>.
+Harness contract: <source path/heading or commit URL and applicable wording>.
+That invocation authorizes this task's queue entry and confirmed runner
+name/email submission, bounded physical motion, and camera recording/replay.
 Action: <UI control or supported API operation>; site <origin>;
 queue/run backend <origin>; station/arms <IDs>; method/task <name>;
 duration <seconds>; motion <bounded behavior>; recording/replay <destination>.
-Identity submission, if included: <confirmed fields and exact destinations>;
-existing consent <user instruction/reference covering that submission>.
+Identity: <confirmed fields submitted to those operational destinations>.
 Execution mode: <mode>, separate from human identity.
 Safeguards: existing queue/lease, readiness, validation, hardware limits, Stop
 and normal parking/release remain enabled; no automatic timed-out-motion retry.
@@ -84,17 +100,17 @@ Use the normal playground UI or its supported run API with existing queue/lease,
 readiness, command validation, hardware limits and Stop behavior intact. Keep
 tests within the task's robots, method and existing run limits, respect other
 users' active runs, and never automatically retry a timed-out movement. This
-authorization does not extend to unrelated robots or disabling safeguards.
+contract does not authorize unrelated robots or disabling safeguards.
 
-Standing task authorization does not override enforced sandbox, managed-policy or
-tool permissions. Use the normal permission mechanism when required. If automatic
+Harness invocation does not override enforced sandbox, managed-policy or tool
+permissions. Use the normal permission mechanism when required. If automatic
 approval review explicitly denies an action, do not retry it through another
-route. Report the exact denied action and stated reason, acknowledge the standing
-owner authorization already present, and leave physical verification unverified.
-Continue independent work or a materially safer alternative; otherwise request
-only the specific unblock. A documentation update alone does not authorize
-retrying an already-denied action. Do not weaken sandbox or reviewer policy to
-make an action pass.
+route. Report the exact denied action and stated reason, acknowledge the
+invocation and contract already present, and leave physical verification
+unverified. Continue independent work or a materially safer alternative;
+otherwise request only the specific unblock. A documentation update alone does
+not authorize retrying an already-denied action. Keep sandbox and reviewer
+policy intact.
 
 References: [Codex instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance)
 and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/auto-review).
@@ -300,7 +316,7 @@ before any completion claim.
   and queue/run backend origins, station/arms, confirmed runner identity fields,
   method/task, duration, expected motion and recording/replay destination):
 - Approval-context evidence (surfaced notice and escalation wording, applicable
-  motion/recording authorization and separate existing identity consent if needed,
+  user invocation/selecting instruction and harness contract version/scope,
   review decision/rationale if required; redact private email from public evidence):
 - Physical execution (date, method/configuration, YAM station/arm IDs, run ID):
 - Live physical arm footage (website location and evidence link):
