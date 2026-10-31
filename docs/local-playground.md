@@ -56,6 +56,22 @@ the serving checkout includes the UI removal; an older branch can restore them.
 Refresh the browser after static HTML/JavaScript changes. Restart the launcher
 after Python changes, using the same port and configuration flags.
 
+The public-queue launcher reads the hosted public **Past Runs Cloud** catalog and
+label sources, including model/version metadata, frozen task coordinates and
+success/failure region highlights. These are read-only public history requests;
+local cookies and subscription credentials are not forwarded. Auto-labeled results
+remain model predictions, separate from human assessments and local assessment
+writes. Custom robot backends and simulations retain their own local catalog/index.
+
+For a normal local visual preview, run `./run-codex.sh --read-only --port 8899`
+from a current shared checkout, then choose **What have people run?**. Keep the
+launcher running. Read-only launches show their mode and disable Run before
+provider checks or queue admission. Relaunch without `--read-only` when you intend
+to run a task, using the normal identity and readiness flow. Old design fixtures may replace history or labels with samples
+and will not show the current public results; use the normal launcher to check
+feature parity. No copied hosted UI tree is needed.
+
+
 For API RGB-D observations and bounded Astra depth queries, see the
 [Astra RGB-D example](../codex-runner/docs/astra-depth-example.md). The local YAM
 Astra setup includes **Use depth from the API**, unchecked by default.
