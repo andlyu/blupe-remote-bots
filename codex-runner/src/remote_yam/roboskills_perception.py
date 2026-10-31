@@ -31,6 +31,32 @@ def quality_summary(quality):
             'failures','unverified','limitations') if k in quality}
 
 
+def _surface_plane(points):
+    """Least-squares shape of selected measured points, not semantic face truth."""
+    points=np.asarray(points,dtype=float)
+    scope=('Best-fit plane of sampled visible depth, not proof of a planar face, '
+           'physical top, contact clearance or calibration accuracy. Normal sign '
+           'is arbitrary: compare abs(dot(unit normals)) within the SAME camera '
+           'and state, checking residuals and principal spans; mixed surfaces can '
+           'have no meaningful single normal.')
+    result=dict(available=False,sample_count=len(points),scope=scope)
+    if points.ndim!=2 or points.shape[1]!=3 or len(points)<9 or not np.isfinite(points).all():
+        return dict(result,reason='At least nine finite measured3D points are required')
+    center=np.mean(points,axis=0)
+    _,singular,axes=np.linalg.svd(points-center,full_matrices=False)
+    principal=singular/np.sqrt(len(points))
+    # One nanometre is a numerical degeneracy guard, not sensor accuracy or a
+    # motion/contact tolerance. A point/line cannot define a surface normal.
+    if principal[1]<=1e-9:return dict(result,reason='Measured points do not span a surface')
+    normal=axes[-1].copy()
+    if normal[np.argmax(np.abs(normal))]<0:normal=-normal
+    residual=(points-center)@normal
+    return dict(result,available=True,center_m=center.tolist(),normal_base=normal.tolist(),
+                rms_residual_m=float(np.sqrt(np.mean(residual**2))),
+                abs_residual_95_m=float(np.quantile(np.abs(residual),.95)),
+                principal_rms_m=principal.tolist())
+
+
 def _project_factory(profile, optical):
     """Invert the SDK-oracle-tested ray convention, as factory hand-eye does.
 
@@ -243,7 +269,7 @@ class RoboSkillsPerception:
             points = np.array([v['points_base_m'][a] if arm is None else v['point_base_m'] for v in samples])
             surfaces[a] = dict(center_m=np.median(points,axis=0).tolist(),
                 lower_m=np.quantile(points,.05,axis=0).tolist(),
-                upper_m=np.quantile(points,.95,axis=0).tolist())
+                upper_m=np.quantile(points,.95,axis=0).tolist(),plane_fit=_surface_plane(points))
         return MeasuredResult(label=label, camera=camera, captured_at=snapshot.metadata['captured_at'],
                     calibration_id=self.report['calibration_id'], pixel_count=selected,
                     valid_depth_count=len(xs), mask_sha256=hashlib.sha256(mask.tobytes()).hexdigest(),
