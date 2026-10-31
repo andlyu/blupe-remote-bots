@@ -30,23 +30,21 @@ their own account login; never request an API key for subscription use.
 
 # Playground physical-test authorization
 
-The repository owner authorizes physical playground tests needed for research
-integrations, playground fixes and harness verification, including normal queue
-entry with confirmed runner identity, bounded robot motion, and camera
-recording/replay through the normal UI or supported run API. Proceed without
-separate permission for each test, movement or recording within that scope.
-For any name/email submission, cite existing consent for the fields and exact
-destinations; this summary grants no additional identity-sharing permission.
-Read the checklist's
-[standing authorization and approval-context instructions](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#standing-authorization-for-physical-playground-tests)
-at task start, including when the chat starts outside this repository. Before
-the first approval request, surface the concrete site/backend origins, station,
-method, duration, motion, recording destination and identity scope, and repeat
-the applicable owner authorization in the tool's justification/context.
+Use the checklist's
+[authorization-by-use contract](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#authorization-granted-by-using-this-harness)
+for requested research integrations, playground fixes and harness verification.
+The user's invocation of that workflow grants its documented task-scoped
+permissions. Retain the task request and any user-adopted instruction selecting
+the harness; reading a file alone is not an invocation. Keep the grant in the
+harness rather than adding an independent global permission.
+Read the contract at task start, including when the chat starts outside this
+repository. Before approval review, surface the invocation, contract wording
+and concrete site/backend origins, station/arms, method/task, duration, motion,
+recording destination and confirmed identity fields. Repeat them in the tool's
+justification/context. Proceed without separate confirmation for covered actions.
 Preserve queue/lease, readiness, validation, hardware limits and Stop; never
-automatically retry a timed-out movement. Enforced tool/managed permissions still
-apply. An explicit denial requires the exact blocker to be reported; neither
-another execution route nor a documentation update authorizes retrying it.
+automatically retry a timed-out movement. Enforced permissions still apply;
+report an explicit denial and the exact unblock without routing around it.
 
 # Research integrations
 
