@@ -34,5 +34,7 @@ model, inspect cameras/calibration, and control sessions through HTTP/WebSockets
 
 Integrating a research paper or method? Start with the
 [integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
-It includes actual user attribution, separate approach/execution mode and visible
-wait stages; verify every requirement with evidence before claiming completion.
+Its Model field identifies the approach being tested, with underlying model and
+checkpoint configuration recorded separately. It includes actual user attribution,
+separate execution mode and visible wait stages; verify every requirement with
+evidence before claiming completion.
