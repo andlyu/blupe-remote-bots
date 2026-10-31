@@ -44,8 +44,17 @@ around it.
 
 # Research integrations
 
-Before integrating a paper or method, read the
-[integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
+For an actionable research-integration request, automatically create a native
+persistent goal or reuse the unfinished goal for that integration in this chat.
+Set the requested integration as the objective and use the existing
+[integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md)
+as its acceptance condition. Keep working and let native idle continuation advance
+unmet requirements; complete only when the checklist is verified with evidence.
+Questions and plan-only requests remain conversational; follow-ups reuse the
+integration goal. Respect native user controls, budgets and genuine blockers,
+preserving progress when stopped. Goal creation does not expand authorization.
+
+Before integrating a paper or method, read that checklist.
 The playground exists for demos and showing people how well approaches work.
 Everything in the playground demo is public by default: website, source,
 runs/results, live demos, recordings, replays/history, simulation outputs and
