@@ -35,8 +35,9 @@ class LocalPlayground(HostedRunner):
             self.extra_providers[name] = factory
         # Only the public-queue launchers join BluPe's public visitor room.
         # Simulations and custom robot backends keep their own chat scope.
-        self.visitor_chat_origin = visitor_chat_origin or (
-            PLAYGROUND if (kwargs.get('session_api') or '').rstrip('/') == PUBLIC_SESSION_API else None)
+        public_queue = (kwargs.get('session_api') or '').rstrip('/') == PUBLIC_SESSION_API
+        self.visitor_chat_origin = visitor_chat_origin or (PLAYGROUND if public_queue else None)
+        self.use_public_run_catalog = public_queue
         if (not self.api_depth_provider_factory and self.local_codex
                 and self.hardware == 'yam' and kwargs.get('session_api')):
             self.api_depth_provider_factory = self.api_depth_provider(kwargs['session_api'])
@@ -130,7 +131,11 @@ class LocalPlayground(HostedRunner):
         streams = [getattr(app, 'video_stream', None) for app in getattr(self, '_fleet_apps', {'self': self}).values()]
         prefixes = tuple('/' + stream['path'] + '/' for stream in streams if stream)
         media = path.startswith(('/synchronized/', '/live-video/')) or bool(prefixes and path.startswith(prefixes))
-        public_history = path == '/api/past-runs'
+        # A public-queue local launch reads the same catalog, coordinates and
+        # label provenance as the hosted viewer. Custom backends keep their own
+        # local index; UI assets and assessment writes remain local in both.
+        public_history = path == '/api/past-runs' or (self.use_public_run_catalog and
+            path in {'/api/run-catalog', '/api/run-labels'})
         quick_replay = bool(re.fullmatch(r'/api/quick-replays/ep_[A-Za-z0-9_-]{1,100}/[0-9a-f]{64}\.mp4', path))
         if not media and not public_history and not quick_replay:
             return await super().http(scope, receive, send)
@@ -153,7 +158,7 @@ class LocalPlayground(HostedRunner):
                 if not part.get('more_body'):
                     break
         query = scope.get('query_string', b'').decode('ascii')
-        if public_history:
+        if public_history and path != '/api/run-labels':
             from urllib.parse import parse_qsl, urlencode
             query = urlencode([(k,v) for k,v in parse_qsl(query) if k != 'robot_id'] + [('robot_id', self.robot_id)])
         url = PLAYGROUND + path + ('?' + query if query else '')
