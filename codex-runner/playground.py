@@ -45,6 +45,8 @@ def model_display_name(provider):
     name, model = provider.get("provider"), str(provider.get("model") or "")
     if provider.get("display_name"):
         return str(provider["display_name"])[:100]
+    if name in {'molmoact_baseline','molmoact_guided'}:
+        return 'MolmoAct2 baseline' if name == 'molmoact_baseline' else 'MolmoAct2 + CAG-inspired guidance'
     if name in {"claude", "anthropic"}:
         match = re.match(r'claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d{1,2})(?!\d))?', model)
         if match:
@@ -749,7 +751,7 @@ class HostedRunner:
                     'step_timings': current.get('step_timings', []),
                     'run_metrics': current.get('run_metrics'),
                     'episode_id': current.get('episode_id'),
-                    'model_name': model_display_name(current.get('provider')),
+                    'model_name': model_display_name(current.get('provider') or current.get('run_configuration')),
                     **({'launch_route':current['provider']['launch_route']} if (current.get('provider') or {}).get('launch_route') else {}),
                     **({'task_progress':current['provider']['task_progress']} if (current.get('provider') or {}).get('task_progress') else {}),
                     **{k: current.get(k) for k in ('run_duration_s', 'run_started_at', 'run_ended_at', 'run_elapsed_s')}}

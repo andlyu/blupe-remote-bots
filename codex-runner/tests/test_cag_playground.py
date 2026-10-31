@@ -159,3 +159,28 @@ def test_stop_during_gpu_startup_never_creates_robot_session(app,monkeypatch):
     visitor=next(iter(runner.visitors.values()))
     wait_for(lambda: not visitor.controller._worker.is_alive())
     api.create_session.assert_not_called()
+
+
+def test_finished_run_keeps_actual_cag_method_and_runner_after_provider_teardown(app,monkeypatch):
+    from remote_yam.molmoact_policy import MolmoActAdapter
+    runner,api=app
+    monkeypatch.setattr(MolmoActAdapter,'prepare_before_session',lambda *args:None)
+    _,_,session=call(runner,'/api/session',{})
+    code,_,_=call(runner,'/api/run',dict(provider='molmoact_guided',prompt='Pick cup',runner_name='Andrew',email='andrew@example.com'),session)
+    assert code==200
+    visitor=next(iter(runner.visitors.values()))
+    wait_for(lambda:visitor.controller.status()['status']=='queued')
+    call(runner,'/api/stop',{},session)
+    visitor.controller._provider=None
+    import asyncio
+    async def get_status():
+        messages=[]
+        async def receive():return {'type':'http.request','body':b''}
+        async def send(value):messages.append(value)
+        await runner({'type':'http','method':'GET','path':'/api/status','query_string':b'',
+            'headers':[(b'host',b'127.0.0.1:8794'),(b'cookie',session[0].encode())]},receive,send)
+        return messages[0]['status'],json.loads(b''.join(x.get('body',b'') for x in messages[1:]))
+    code,state=asyncio.run(get_status())
+    assert code==200
+    assert state['public_run']['runner_name']=='Andrew'
+    assert state['public_run']['model_name']=='MolmoAct2 + CAG-inspired guidance'
