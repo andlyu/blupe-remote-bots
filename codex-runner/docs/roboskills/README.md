@@ -1,5 +1,7 @@
 # RoboSkills on BluPe remote arms
 
+Current depth-fix status: [13/15 checked, timing archive/final acceptance open](verification/2026-10-31-depth-fix-acceptance.md). The physical agent now receives paired RGB-D, calibrated pixel/object-surface measurements and measured feedback. Real grasp/lift/transfer/release/withdrawal was exercised, but no successful stack was verified; task results remain honestly failed/unscored.
+
 Timing contract update (October 30, 2026): the shared harness now requires
 15 seconds after settled startup Home (or documented no-Home robot readiness)
 and 30 seconds after Run/Start excluding evidenced initial queue-admission wait.
@@ -13,8 +15,9 @@ and other-run qualification remain separate. No retest was performed.
 
 The physical provider runs OpenRoboKit's persistent Python agent loop from
 `core.agent.run`, pinned to8a2860234768b4bec981994d1c14fa380a2c8c7f.
-The model sees actual RGB images, measured state and a small BluPe tool surface:
-`bot.status`, `bot.observe`, `bot.move_to`, `bot.wait`, and `finish`.
+The model sees actual paired RGB-D images, measured state and a BluPe tool surface:
+`bot.status`, `bot.observe`, `bot.rgbd`, `bot.measure_depth`,
+`bot.localize_object`, `bot.move_to`, `bot.wait`, and `finish`. Pixel queries return arm-name mappings to XYZ metre lists. Object masks measure visible surfaces, not complete object poses or grasp ground truth. Calibration remains experimental.
 The Cartesian/IK component and RunnerController retain the station workspace,
 queue, lease, packet validation, correlated measured completion and Stop.
 This adapter does not expose the complete RoboKit/SAM API or replay simulation
@@ -43,8 +46,7 @@ It authenticates only to the public application's worker API, with the configure
 worker key supplied via hidden stdin. It uses no privileged hosting bypass.
 Keep it and the harness running for website jobs. Physical recordings are camera
 footage, not a simulation. Session capabilities and email never enter public run
-projections. The current Site restricts shared compute/control submission to its
-connected operator; demonstrations, live views and run metadata are public.
+projections. The public physical form accepts a confirmed real name/email and normal BluPe queue admission without operator sign-in. Shared simulation compute retains its existing operator gate. Demonstrations, live views, results and replays are public.
 
 ## Verification and limits
 

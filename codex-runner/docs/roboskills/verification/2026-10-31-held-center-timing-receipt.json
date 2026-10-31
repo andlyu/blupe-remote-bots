@@ -1,0 +1,28 @@
+{
+  "run_id": "e73001451e504c5f83aa87db59495f61",
+  "site_version": 18,
+  "runtime_revision": "f60495ac046fb5e8831d64b529f88777ee4c88a1",
+  "task_outcome": "native300s runtime timeout during alignment; no verified stack; normal parking/torque-off verified",
+  "home_observed_robot_clock_s": 1793439163.801545,
+  "camera_onset_bracket": [
+    "02:32:54.1 PDT frame24 stationary",
+    "02:32:55.3 PDT frame25 moved"
+  ],
+  "visible_motion_robot_clock_upper_s": 1793439175.4,
+  "robot_minus_host_clock_bounds_s": {
+    "lower_s": -0.0069427490234375,
+    "upper_s": -0.00036406517028808594
+  },
+  "run_click_host_bounds_ms": [
+    1793439149839,
+    1793439150109
+  ],
+  "post_home_upper_s": 11.59845519065857,
+  "full_run_to_visible_motion_upper_s": 25.56794285774231,
+  "queue_deduction_s": 0,
+  "queue_note": "Conservative adjusted upper bound needs no queue deduction: even full Run time passes30s. Observed queue boundaries retained separately.",
+  "observed_queue_and_admission_events": [],
+  "post_home_limit_s": 15,
+  "run_limit_s": 30,
+  "video": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/e73001451e504c5f83aa87db59495f61/assets/physical.mp4"
+}

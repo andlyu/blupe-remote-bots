@@ -1,0 +1,138 @@
+{
+  "reviewedAt": "2026-10-31T09:41:36.702980+00:00",
+  "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
+  "siteVersion": 18,
+  "siteSource": "dc28dc740ccac01a992b99c911f5407071592968",
+  "runtimeSource": "f60495ac046fb5e8831d64b529f88777ee4c88a1",
+  "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
+  "requirements": [
+    {
+      "number": 1,
+      "requirement": "Website and associated source",
+      "status": "PASS",
+      "evidence": "Public Site18/source dc28dc; public shared source includes runtimef60495a, worker sources byte-equal. Native deployment succeeded09:20:53.370865Z."
+    },
+    {
+      "number": 2,
+      "requirement": "Public demo and source",
+      "status": "PASS with existing archive exception",
+      "evidence": "Audience unchanged public; new run assets and native simulation results remain anonymous. The specifically denied original453a9a recording remains local/excluded under prior owner scope; no retry."
+    },
+    {
+      "number": 3,
+      "requirement": "Actual method clearly named",
+      "status": "PASS",
+      "evidence": "RoboSkills core.agent.run/Repl pinned8a286... unchanged; actual underlyinggpt-6-sol, firstnone/latermedium, configuration receipt retained."
+    },
+    {
+      "number": 4,
+      "requirement": "Confirmed editable human name/email",
+      "status": "PASS",
+      "evidence": "Normal anonymous form used real editable Andrew Lyubovsky name and confirmed email; email/caps excluded from public data. Contact field cleared only after submission for screenshots."
+    },
+    {
+      "number": 5,
+      "requirement": "Approach and runner in run context",
+      "status": "PASS",
+      "evidence": "Actual UI/backend public_run and history attribute Andrew Lyubovsky and RoboSkills. Same-run provider snapshot/source receipt separate from underlying model."
+    },
+    {
+      "number": 6,
+      "requirement": "Human attribution distinct from execution mode",
+      "status": "PASS",
+      "evidence": "Human identity retained; automated verification is separate execution mode, never fabricated identity."
+    },
+    {
+      "number": 7,
+      "requirement": "Method runs on physical YAMs",
+      "status": "PASS",
+      "evidence": "Real normal-UI full sequence f4346b: approach/close/lift/transfer/open/withdrawal,16matched packets; actual purple beside orange, reported failure. Final e730 used both arms and24packets then native300s timeout. Genuine measured method execution verified; successful stacking remains unqualified."
+    },
+    {
+      "number": 8,
+      "requirement": "Actual arms visible live",
+      "status": "PASS",
+      "evidence": "Actual top/left/right camera switching exercised during method execution; live arms alongside owned Stop."
+    },
+    {
+      "number": 9,
+      "requirement": "Immediate just-completed replay",
+      "status": "PASS",
+      "evidence": "Final e730 MP4 loaded194s and played through normal website (pausedfalse/timeadvanced), with retained native timeout/result; full-sequence f4346b replay also played119.5s. Actual recording timestamps, not media time, support timing."
+    },
+    {
+      "number": 10,
+      "requirement": "Previous-run browsing and replay",
+      "status": "PASS",
+      "evidence": "Selected previous5c9dc through normal history;49.5s replay loaded and advanced11.836s through the native player. Source/result attribution and real footage remained tied to the selected run."
+    },
+    {
+      "number": 11,
+      "requirement": "Simulation executions reviewable",
+      "status": "PASS",
+      "evidence": "Existing native simulation build failure/demo8of8/solver-not-run, source task, checks and real replay remain publicly reviewable; unchanged by physical fix. No solved-solver claim."
+    },
+    {
+      "number": 12,
+      "requirement": "Usable visitor path",
+      "status": "PASS",
+      "evidence": "Reloadedv18 anonymous page \u2192 LiveYAMarms \u2192 real name/email fields \u2192 normal Run; no operator sign-in; owned Stop available."
+    },
+    {
+      "number": 13,
+      "requirement": "Every-run startup timing",
+      "status": "OPEN",
+      "evidence": "Five recent runs have independently bounded physical startup passes, no queue subtraction needed even for full Run upper bounds. Seven earlier post-v13 runs have timing misses/no motion/missing proof and are NOT covered by pre-v13 owner exception; request explicit additional archive decision. Future15s/30s limits unchanged."
+    },
+    {
+      "number": 14,
+      "requirement": "Persistent honest progress and recovery",
+      "status": "PASS",
+      "evidence": "Observed submission/admission/Home/scene/model/movement/recording stages persist inline with real times. Actual failed grasps, tracking stops and runtime timeout appear honestly. Same-attempt status/heartbeat recovery regression; no action replay."
+    },
+    {
+      "number": 15,
+      "requirement": "Final normal-UI physical verification",
+      "status": "OPEN",
+      "evidence": "Finalv18 normal-UI scenarios executed and reviewed, native park/torque-off verified. Final acceptance remains open only for outstanding historical timing decision; successful physical stacking is not claimed."
+    }
+  ],
+  "checked": 13,
+  "unchecked": [
+    13,
+    15
+  ],
+  "physicalTaskSuccess": "UNVERIFIED: no successful stack. Full sequence f4346b ended beside orange; final e730 timed out during alignment. Software execution and task performance remain separate.",
+  "existingOwnerExceptions": [
+    {
+      "instruction": "Accept historical exceptions",
+      "scope": "Fixed five archived physical runs before version13, covering historical timing failures and missing original measurements; current v13 passed both limits; future runs retain the limits.",
+      "recordedAt": "2026-10-31T06:28:03.937020+00:00",
+      "unattended_reclassification": false
+    },
+    {
+      "recordedAt": "2026-10-31T06:35:11.310491+00:00",
+      "instruction": "so why is this an issue? This just simply doesn't matter. All that we care about is that the method is reflected and that the 15 reqs pass",
+      "scope": "Original failed development clip453a9a037e874840ad4382597c25e8c1 is outside the release-required public demo archive. Keep the existing local file and prior specific upload denial; do not retry its upload. This is a completion-scope exception, not a newly asserted privacy concern or confidential-visibility policy. All current method/demo/source/live/replay/simulation materials remain public."
+    }
+  ],
+  "pendingHistoricalTimingExceptions": [
+    "ec2ecd43555b4c20a5c7e359ddb369d7",
+    "f7b751b7a15240a8a71e5d88206104ea",
+    "899e4cee34eb48308989c58014956edc",
+    "2a97205b588f40b089ca4a420bc264f4",
+    "3e3c56a9d77d486086aa8e13b5d61d69",
+    "e3426b9a67e74877a6df5794c55d21a5",
+    "44ae94bf6daa4f3ba8a1470487faa070"
+  ],
+  "notApplicableStartup": [
+    "540a8e90829340d99038076309fd48ea: cancelled before admission, no Home/episode/model/packet"
+  ],
+  "currentMeasuredStartupRuns": [
+    "0a388af5f2de4eae8b2d4018b3bfd2af",
+    "e50e781c38c044bc8b1248c55ca54b83",
+    "5c9dcf0b80c54b0f97f7d357ff1ef981",
+    "f4346b709a134c4ba36ddc9e9f2ee8d6",
+    "e73001451e504c5f83aa87db59495f61"
+  ]
+}
