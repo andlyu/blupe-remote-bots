@@ -52,6 +52,20 @@ covers a publicly hosted website and public source repository, including normal
 deployment, source pushes and visibility changes; do not request another
 publication confirmation. Keep the grant in the contract, not this summary.
 
+Before model-dependent implementation, provisioning or policy/model tests, ask
+the researcher which underlying models and versions they want for each relevant
+role: the paper's originals, newer/custom replacements, or a comparison. Reuse
+their explicit choice or delegation already given for this integration; silence
+is neither. Continue model-independent work while awaiting a choice. Check
+current official model sources when suggesting options, explain compatibility,
+access, hardware, latency and cost constraints, and verify the chosen model's
+capabilities and adapter compatibility. Ask for an alternative if it cannot be
+used; never silently substitute. Keep choices configurable and record selection
+evidence, exact requested/resolved IDs or checkpoint revisions and settings in
+`{checklist}` and run details; label baseline/replacement variants. The harness's
+Model field still names the research approach, with underlying models separate.
+For a method without model dependencies, record a not-applicable explanation.
+
 Before a physical test, prepare its exact scope with
 `python tools/blupe_harness.py scope --target . --spec /path/to/private-scope.json`.
 Put that scope and the applicable owner authorization directly in the surfaced
