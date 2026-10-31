@@ -47,6 +47,10 @@ class MolmoActAdapter:
         self._warm_state, self._failure = 'idle', None
         self._warm_started_at = None
         self._warm_started_epoch = self._warm_ready_epoch = None
+        self._launch_started_epoch = None
+        self._capacity = dict(available=None, checked_at=None, workers=[])
+        self._startup_home = None
+        self._startup_queue = {}
         self._connection = None
         self._http_lock = threading.Lock()
         self._prefetch = None
@@ -57,7 +61,11 @@ class MolmoActAdapter:
             num_steps=10, dtype='bfloat16', enable_cuda_graph=False, robot_id='yam-1',
             trajectory_pacing=dict(cadence_hz=10,max_joint_step_rad=GATEWAY_JOINT_STEP_RAD,preserve_targets=True),
             gpu_startup=dict(requested_at=self._warm_started_epoch,ready_at=self._warm_ready_epoch,
-                elapsed_s=(self._warm_ready_epoch-self._warm_started_epoch) if self._warm_ready_epoch and self._warm_started_epoch else None),
+                elapsed_s=(self._warm_ready_epoch-self._warm_started_epoch) if self._warm_ready_epoch and self._warm_started_epoch else None,
+                launch_required=None if self._capacity['available'] is None else not self._capacity['available'],
+                launch_started_at=self._launch_started_epoch, capacity_before=self._capacity,
+                launch_elapsed_s=(self._warm_ready_epoch-self._launch_started_epoch) if self._warm_ready_epoch and self._launch_started_epoch else None),
+            startup_home=self._startup_home, startup_queue=dict(self._startup_queue),
             warmup=self._warm_state,
             warmup_elapsed_s=round(time.monotonic()-self._warm_started_at, 1) if self._warm_started_at else 0,
             display_name=('MolmoAct2 baseline' if self.mode == 'baseline'
@@ -117,7 +125,7 @@ class MolmoActAdapter:
 
     def prepare_before_session(self, prompt):
         # Wake the serverless worker before reserving/launching the robot.
-        self.interaction_sink('gpu_startup', 'Starting RunPod GPU and loading MolmoAct2')
+        self.interaction_sink('gpu_check', 'Checking RunPod GPU availability')
         self.start_preparation(self.cancelled)
         self.wait_ready(self.cancelled)
         self.interaction_sink('gpu_ready', 'MolmoAct2 is ready; joining the robot queue')
@@ -126,11 +134,64 @@ class MolmoActAdapter:
         if self._thread is None:
             self._warm_started_at=time.monotonic()
             self._warm_started_epoch=time.time()
-            self._warm_state='warming'
+            self._warm_state='checking'
             self._thread=threading.Thread(target=self._keep_ready,args=(cancelled,),daemon=True)
             self._thread.start()
 
+    def _capacity_snapshot(self):
+        from .runpod_capacity import capacity_snapshot
+        return capacity_snapshot(urlsplit(self._endpoint).hostname.split('.')[0], self._api_key)
+
+    def note_queue(self, created):
+        # Assignment only: never extend the session-registration/Stop window
+        # with another network request. Reuse the normal queue monitor below.
+        self._startup_queue = dict(session_id=str(created['session_id']),
+            entered_at=created.get('created_at'),
+            admitted_at=created.get('run_started_at') if created.get('lease_id') else None,
+            observed_at=time.time())
+
+    def note_queue_snapshot(self, snapshot):
+        session_id = self._startup_queue.get('session_id')
+        if not session_id or self._startup_queue.get('entered_at') is not None:
+            return
+        entry = next((v for v in snapshot.get('entries', []) if v.get('session_id') == session_id), {})
+        stamp = entry.get('created_at')
+        if type(stamp) not in (int, float) or not math.isfinite(stamp) or stamp <= 0:
+            return
+        self._startup_queue = dict(self._startup_queue, entered_at=stamp,
+            entry_source='native_queue_snapshot')
+        self.interaction_sink('startup_queue', 'Robot queue entry confirmed', **self._startup_queue)
+
+    def note_admission(self, event, payload):
+        if self._startup_queue.get('admitted_at') is not None:
+            return
+        stamp = payload.get('timestamp', event.get('timestamp'))
+        if type(stamp) not in (int, float) or not math.isfinite(stamp) or stamp <= 0:
+            return
+        self._startup_queue = dict(self._startup_queue, admitted_at=stamp,
+            episode_id=event.get('episode_id'), source='native_lease_lifecycle')
+        self.interaction_sink('startup_admission', 'Robot admission confirmed', **self._startup_queue)
+
+    def note_startup_home(self, observation):
+        stamp = observation.get('observed_at')
+        if (self._startup_home is not None or observation.get('step_id') != 0
+                or observation.get('homed') is not True or observation.get('settled') is not True
+                or type(stamp) not in (int,float) or not math.isfinite(stamp) or stamp <= 0):
+            return
+        self._startup_home = dict(completed_at=stamp, received_at=time.time(),
+            episode_id=observation.get('episode_id'), step_id=0,
+            source='native_settled_home_observation', visually_verified=False)
+        self.interaction_sink('startup_home', 'Both arms confirmed settled at Home', **self._startup_home)
+
     def _keep_ready(self, cancelled):
+        self._capacity = self._capacity_snapshot()
+        if cancelled():
+            self._warm_state='released'; return
+        self._launch_started_epoch = time.time() if self._capacity['available'] is False else None
+        self._warm_state='warming' if self._launch_started_epoch else 'checking'
+        self.interaction_sink('gpu_startup' if self._launch_started_epoch else 'gpu_check',
+            'Starting RunPod GPU and loading MolmoAct2' if self._launch_started_epoch else 'Checking existing RunPod GPU readiness',
+            launch_started_at=self._launch_started_epoch, capacity_before=self._capacity)
         deadline=time.monotonic()+600
         while not cancelled():
             try:

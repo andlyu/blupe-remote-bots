@@ -149,6 +149,9 @@ class RunnerController(HomeSceneStartup):
             duration_options['provider'] = provider.provider_name
         created = self._session_api.create_session(prompt, **duration_options)
         session_id = str(created["session_id"])
+        note_queue = getattr(provider, "note_queue", None)
+        if callable(note_queue):
+            note_queue(created)
         if prepared and (self._stop_event.is_set() or self._provider is not provider):
             self._session_api.stop_session(session_id, reason='preparation_cancelled')
             raise RuntimeError('Run preparation cancelled while joining the queue')
@@ -257,7 +260,7 @@ class RunnerController(HomeSceneStartup):
             self._interactions.add('run_configuration', 'Configuration used for this run', configuration=self._run_configuration)
             self._interactions.add('joined', 'Joined the policy queue',
                                    session_id=session_id, task=prompt,
-                                   provider=provider.provider_name)
+                                   provider=provider.provider_name, startup_queue=provider.public_config().get('startup_queue'))
         return self.status()
 
     def join_and_run(
@@ -739,6 +742,9 @@ class RunnerController(HomeSceneStartup):
                 "entries": entries, "stations": stations,
                 "public_run": response.get("public_run") if isinstance(response.get("public_run"), Mapping) else None,
             }
+            note_queue = getattr(self._provider, "note_queue_snapshot", None)
+            if callable(note_queue):
+                note_queue(self._queue_snapshot)
 
     def monitor_camera_url(self, name: str) -> str | None:
         if name not in {"left", "top", "right"}:
@@ -875,6 +881,9 @@ class RunnerController(HomeSceneStartup):
                     self._error = f"{reason}: {reason}"
 
         if state == 'preparing' and payload.get('reason') == 'jetson_leased':
+            provider = self._provider
+            note_admission = getattr(provider, 'note_admission', None)
+            if callable(note_admission): note_admission(event, payload)
             self._prepare_leased_provider(lease_event=True)
 
         if self._is_terminal(state):
@@ -958,6 +967,8 @@ class RunnerController(HomeSceneStartup):
             raise RuntimeError("Observation is missing runner lease context")
         if step_id >= self._command_limit:
             raise RuntimeError(f"Session command limit of {self._command_limit} reached")
+        note_home = getattr(provider, 'note_startup_home', None)
+        if step_id == 0 and callable(note_home): note_home(payload)
         readiness = getattr(provider, 'wait_ready', None)
         timing_sink = self._interactions.add if getattr(provider, 'provider_name', '') in {'dream', 'dream_flash'} else None
         if timing_sink and step_id == 0:

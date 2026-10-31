@@ -80,6 +80,18 @@ class CAGPlayground(LocalPlayground):
         # The station retains a public run after this web visitor expires. Rejoin
         # that receipt to this integration's durable human/method metadata.
         from remote_yam.run_errors import public_run_error
+        config = state.get('provider') or state.get('run_configuration') or {}
+        startup = dict(gpu=config.get('gpu_startup') or {}, home=config.get('startup_home'),
+                       queue=config.get('startup_queue') or {})
+        for event in (state.get('interactions') or {}).get('events', []):
+            details = event.get('details') or {}
+            if event.get('kind') == 'startup_home' and not startup['home']:
+                startup['home'] = details
+            elif event.get('kind') in ('startup_queue', 'startup_admission'):
+                startup['queue'] = {**details, **{k:v for k,v in startup['queue'].items() if v is not None}}
+            elif event.get('kind') == 'joined' and not startup['queue']:
+                startup['queue'] = details.get('startup_queue') or {}
+        state['cag_startup'] = startup
         if public_run_error(state)=='Run reached time limit':
             state['error']='Run reached time limit'
         public = state.get('public_run')

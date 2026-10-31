@@ -10,6 +10,8 @@ from test_gemini_playground import call
 def app(tmp_path,monkeypatch):
     for key in ('YAM_SOCIAL_DATABASE','YAM_RUN_NAMES_DATABASE','YAM_SUBMISSION_DATABASE'):
         monkeypatch.setenv(key,str(tmp_path/(key+'.sqlite3')))
+    from remote_yam.molmoact_policy import MolmoActAdapter
+    monkeypatch.setattr(MolmoActAdapter, '_capacity_snapshot', lambda self: dict(available=False, checked_at=1, workers=[]))
     api=MockSessionAPI(auto_activate=False);api.create_session=Mock(wraps=api.create_session)
     app=CAGPlayground(public_origin='http://127.0.0.1:8794',session_api=None,
         camera_origin='http://127.0.0.1:1',development=True,hardware_control=True,

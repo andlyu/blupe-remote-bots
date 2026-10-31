@@ -137,3 +137,37 @@ def test_stale_prefetch_is_discarded_and_cancel_blocks_model():
     with pytest.raises(RuntimeError,match='cancelled'):
         p.build_trajectory('Pick cup',observation(),0)
     p._json.assert_not_called()
+
+
+def test_startup_boundaries_keep_first_native_home_and_admission_not_later_readiness():
+    p=adapter();p.interaction_sink=Mock()
+    p.note_queue({'session_id':'sess_one'})
+    p.note_queue_snapshot({'entries':[{'session_id':'other','created_at':1}]})
+    assert p.public_config()['startup_queue']['entered_at'] is None
+    p.note_queue_snapshot({'entries':[{'session_id':'sess_one','created_at':10}]})
+    p.note_queue_snapshot({'entries':[{'session_id':'sess_one','created_at':99}]})
+    p.note_admission({'episode_id':'ep_one','timestamp':20},{})
+    p.note_admission({'episode_id':'ep_one','timestamp':90},{})
+    p.note_startup_home(dict(step_id=0,homed=True,settled=False,observed_at=21))
+    assert p.public_config()['startup_home'] is None
+    p.note_startup_home(dict(step_id=0,homed=True,settled=True,observed_at=22,episode_id='ep_one'))
+    p.note_startup_home(dict(step_id=0,homed=True,settled=True,observed_at=99,episode_id='ep_one'))
+    config=p.public_config()
+    assert config['startup_queue']['entered_at']==10
+    assert config['startup_queue']['admitted_at']==20
+    assert config['startup_home']['completed_at']==22
+    assert config['startup_home']['visually_verified'] is False
+    assert 'private-key' not in str(config)
+
+
+@pytest.mark.parametrize('available', [True,False,None])
+def test_capacity_evidence_only_marks_proven_cold_launch(available):
+    p=adapter();p._ready.clear()
+    p._capacity_snapshot=Mock(return_value=dict(available=available,checked_at=1,workers=[]))
+    p._json=Mock(return_value=dict(identity(),ok=True,device='cuda:0',cuda_available=True,variant=VARIANT,
+        verification={k:True for k in ('pristine_baseline_equal','zero_strength_exact_equal','nonzero_text_kv_changed','non_goal_kv_unchanged')}))
+    p._keep_ready(lambda:p._ready.is_set())
+    gpu=p.public_config()['gpu_startup']
+    assert gpu['launch_required'] is (None if available is None else not available)
+    assert (gpu['launch_started_at'] is not None) is (available is False)
+    assert gpu['ready_at'] is not None

@@ -20,3 +20,6 @@
 #cagRunnerFields input { width: 100%; }
 #cagRunnerFields .help { grid-column: 1 / -1; margin: 0; }
 @media (max-width: 560px) { #cagRunnerFields { grid-template-columns: 1fr; } }
+
+#cagStartupStages {margin:0 0 1rem; padding-left:1.4rem; color:var(--muted, #555); font-size:.8rem; line-height:1.6; font-variant-numeric:tabular-nums;}
+#cagStartupStages:empty {display:none;}

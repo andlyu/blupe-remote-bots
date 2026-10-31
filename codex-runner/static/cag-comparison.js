@@ -60,6 +60,10 @@
       nameField.append(nameLabel,name); emailField.append(emailLabel,email);
       identity.append(nameField,emailField,document.getElementById('emailHelp'));
       status.before(identity);
+      const stages = document.createElement('ol');
+      stages.id = 'cagStartupStages';
+      stages.setAttribute('aria-label', 'Confirmed startup stages');
+      status.after(stages);
       document.getElementById('runDuration').value = '1';
       // Confirm the visible fields with the same normal validated Run action.
       for (const id of ['quickRun','composerSend']) {
@@ -72,8 +76,9 @@
       }
       document.getElementById('runForm').addEventListener('submit', () => {
         const current=document.getElementById('cagStatus');
-        current.textContent=window.cagProgress({status:'preparing',provider:{warmup:'warming',warmup_elapsed_s:0}},runsEnabled).text;
+        current.textContent=window.cagProgress({status:'preparing',provider:{warmup:'checking',warmup_elapsed_s:0}},runsEnabled).text;
         current.dataset.runClickAt=String(Date.now());
+        document.getElementById('cagStartupStages').replaceChildren();
       }, {capture:true});
       const provider = document.getElementById('provider');
       for (const option of [...provider.options]) {
@@ -90,7 +95,13 @@
       if (status) {
         status.textContent = progress.text;
         status.dataset.phase = progress.phase;
-        status.setAttribute('aria-busy', String(progress.phase === 'starting'));
+        status.setAttribute('aria-busy', String(['checking','starting','queued','preparing','first_action','finishing'].includes(progress.phase)));
+        const stages=document.getElementById('cagStartupStages');
+        if (stages) stages.replaceChildren(...progress.stages.map(text => {
+          const row=document.createElement('li'); row.textContent=text; return row;
+        }));
+        const home=state.cag_startup?.home?.completed_at;
+        if (home) status.dataset.homeCompletedAt=String(home * 1000);
         const message=document.getElementById('message');
         if(message?.textContent.startsWith('Starting RunPod GPU')) message.textContent=progress.text;
       }
