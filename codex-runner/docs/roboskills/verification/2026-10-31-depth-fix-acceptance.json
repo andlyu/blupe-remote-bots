@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T16:25:46.876659+00:00",
+  "reviewedAt": "2026-10-31T17:18:31.529879+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "186d4e46f299b0c4156b49cca1727be887f63436",
+  "runtimeSource": "4d5878d4455b6e3c1c785a452f94bee3c597a26c",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "Public Site19/source4d76cfb; live186d4e46 via PR208/eaaad0b7 after all six required checks. Provider43670/physical43674, simulation14674 preserved. Genuine pinned agent and native safeguards unchanged."
+      "evidence": "Public Site19/source4d76cfb; live4d5878d via PR210/13d887fc after all six required checks. Provider73398/physical73401, simulation14674 preserved. Pinned upstream/initial prompt and native limits remain unchanged."
     },
     {
       "number": 2,
@@ -22,7 +22,7 @@
       "number": 3,
       "requirement": "Actual method clearly named",
       "status": "PASS",
-      "evidence": "Genuine RoboSkills8a286023 core.agent/Repl; actual Sol/none then Astra/medium, with raw/dominant measured surface fits, physical Y jaws and nominal installed pad reference. Actual prompt/model provenance retained separately from approach identity."
+      "evidence": "Genuine RoboSkills8a286023 core.agent/Repl; Sol/none then Astra/medium. Matched nominal pad geometry uses installed joint axes, with compact both-arm midpoint and grounded pad-span/shallower-frame guidance. Actual model/request/template provenance retained."
     },
     {
       "number": 4,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Actual2a7c2a77 completed source inspection, view retreat, pregrasp opening, supported tilted descent, close and lift. The lift showed an empty grasp.113 waypoints/18 matched packets/228.069170s; no transfer/release/stable stack, so object manipulation remains unqualified."
+      "evidence": "Current29b59179 executes source inspection/retreat and later10degree noncontact view.120waypoints/9packets134.303790s. That view completes3.6324mm outside3mm tolerance; proposed tracking correction is locally unreachable before dispatch. Terminal failure/no contact/grasp/stack; capability remains unqualified."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Actual133s native replay played through61s and sought115/127s. Visible camera09:21:15.2PDT and honest task-not-completed/agent-assessment/no-native-score label match this run."
+      "evidence": "Actual80.5s native replay played to end, then sought about70s showing camera10:06:12.8PDT. The matching execution-failed/BluPe-result/no-native-score label reports actual correction rejection, not an agent-success assertion."
     },
     {
       "number": 10,
@@ -82,19 +82,19 @@
       "number": 13,
       "requirement": "Every-run startup timing",
       "status": "OPEN: seven later failed/unverified cases outside accepted exceptions",
-      "evidence": "Fourteen measured startup passes now include2a7c2a77: original UI40 unchanged09:17:43.9 then43 clearly moved09:17:46.0; upper12.589694s after Home and25.473040s after Run without queue deduction. Seven later historical failed/unverified cases remain outside accepted exceptions."
+      "evidence": "Fifteen measured startup passes now include29b59179: original UI36 unchanged10:04:25.9/#1669505 then40 clearly moved10:04:27.8/#1669539. Upper14.287688s post-Home/27.956487s full Run with zero queue deduction. Seven historical failed/unverified cases remain outside accepted exceptions."
     },
     {
       "number": 14,
       "requirement": "Persistent honest progress and recovery",
       "status": "PASS",
-      "evidence": "Actual queue/Home/scene/model/motion/recording stages retained. Single Run, email immediately cleared, first guarded post-frame0.678s after click;330 retained/398 attempts. Empty-grasp failure and normal park/torqueoff/autoqueue verified; no failed or uncertain motion replay."
+      "evidence": "Actual admission/Home/scene/model/motion/recording stages and actionable local correction error retained. Single Run, email immediately cleared; first guarded post-frame0.664s after click,168retained/213attempts. Native parked/DISABLED/torqueoff/autoqueue verified; rejected correction never dispatched or replayed."
     },
     {
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "Normal UI2a7c2a77 exercises released depth consensus through real inspection/descent/close/lift, actual identity/live/replay/seek/park and both startup limits. Lift showed no retained block; full transfer/release/withdrawal/stable stack remains unverified."
+      "evidence": "Final normal UI29b59179 verifies released pad reporting/genuine agent/local planning/live/actual replay/seek/native parking and both startup limits. It ends before contact because the selected nominal pose has insufficient reachable correction room; retained grasp/transfer/release/withdrawal/stable stack remain open."
     }
   ],
   "checked": 12,
@@ -158,8 +158,9 @@
     "a264d5d7c2384119b9d426ce99d6d5ac",
     "c77e42b30927403e89e94ace21016e26",
     "d68d592f48fa43c38e88475cf4454975",
-    "2a7c2a77824647cdbf031b48a20e6058"
+    "2a7c2a77824647cdbf031b48a20e6058",
+    "29b59179f3d3433897dfe7b57aec88cb"
   ],
-  "candidateRuntimeSource": "186d4e46f299b0c4156b49cca1727be887f63436",
-  "candidateEvidence": "2026-10-31-plane-consensus-results.md"
+  "candidateRuntimeSource": "4d5878d4455b6e3c1c785a452f94bee3c597a26c",
+  "candidateEvidence": "2026-10-31-pad-engagement-results.md"
 }
