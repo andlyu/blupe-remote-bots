@@ -28,7 +28,7 @@ from .session import _trajectory_waypoints
 REVISION = '8a2860234768b4bec981994d1c14fa380a2c8c7f'
 APPROACH = 'RoboSkills'
 INITIAL_EFFORT = 'none'
-SUBSEQUENT_EFFORT = 'low'
+SUBSEQUENT_EFFORT = 'medium'
 # Provisional engineering completion tolerance for the new explicit rotation
 # primitive. Native joint/workspace/settling limits remain independently enforced.
 ROTATION_TOLERANCE_DEG = 2.
@@ -172,6 +172,25 @@ px,py,pz = measurement['points_base_m']['right'] (integer indexing also works).
 The points_base_m mapping ALWAYS exists, even with arm='right' or arm='left';
 then it contains just that arm. Missing/noisy depth raises a descriptive error,
 not None. A single-arm call also has point_base_m as a convenience alias.
+Each query is a VISIBLE SURFACE sample. Different pixels or cameras need not
+select the same physical point, even on one block; their coordinate difference
+alone does not establish calibration error or the object's center/height.
+AFTER the first above-object observation, bot.project_point(point_base_m,
+arm='right',camera='right') maps a point in the named arm base to another cached
+camera's corresponding ray and reports expected opticalZ, measured same-ray
+depth if available, and their signed difference. This uses the existing camera
+model, not independent validation. A nearer measured surface may occlude the
+reference point; a farther surface or missing depth may be an edge/hole or model
+error. Check the actual RGB correspondence and coverage before interpreting it.
+bot.status()['perception'].get('surface_references',[]) automatically supplies
+this evidence for recent pixel queries alongside the next captured images. Inspect those
+source pixels/steps and projected locations before comparing camera coordinates.
+They are historical, UNTRACKED surface references, not current object poses.
+For a mask, include the whole visible object, including uncolored top faces;
+a purple-only threshold can discard usable depth on a gray face. Visible surface
+bounds remain observations, not a full object pose or guaranteed grasp target.
+Keep calibration uncertainty and positive scene clearance; if measurements do
+not support a grasp, finish honestly without forcing contact.
 Use the overhead/top image to identify the requested source and destination
 in the whole scene first; wrists may show other, similar objects. Select a
 visible interior pixel on the actual requested object, not its shadow or a
@@ -326,7 +345,17 @@ class RobotTools:
         self.policy._check_cancelled()
         if not self.policy._perception:raise ValueError('Metric perception is not configured')
         result=self.policy._perception.measure(self.policy._state,u,v,camera,radius,arm)
+        self.policy._perception.remember(result,self.policy._state)
         self.policy._record('depth_query',result=result)
+        return result
+
+    def project_point(self, point_base_m, *, arm, camera='top'):
+        """Read-only cross-view correspondence for a finite[x,y,z]metre point in explicit arm='left'|'right' base. Returns pixel(float), nearest_pixel orNone, expected_optical_z_m, cached depth_sample and measured_minus_expected_optical_z_m, captured_at/calibration/quality. Uses bound factory profile/current captured pose; after motion observe first. Pixel footprints use nearest rounding, outside yieldsNone, neverclamp. CameraZ<=1e-9m rejects as numerical near-plane. No capture/motion. Projection is not visibility, objectpose, grasp or calibration proof; nearer depth may be foreground/occlusion, farther/missing may be edge/hole/model error."""
+        p=self.policy;p._check_cancelled()
+        if self.motion_failure:raise RuntimeError(self.motion_failure)
+        if not p._perception:raise ValueError('Metric perception is not configured')
+        result=p._perception.project(p._state,base_point(point_base_m),arm=arm,camera=camera)
+        p._record('point_projection',result=result)
         return result
 
     def localize_object(self, label, mask, camera='top', arm=None):

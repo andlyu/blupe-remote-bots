@@ -1,0 +1,264 @@
+{
+  "assembled_at": "2026-10-31T13:47:17.014974+00:00",
+  "scope": "Archived stationary RGB-D model/SDK evidence, not a new robot run, independent calibration qualification or stacking proof. Upstream core.agent/Repl remains pinned at8a2860234768b4bec981994d1c14fa380a2c8c7f. Actual native transport is mocked and stopped before submission.",
+  "calibration_provenance": {
+    "active_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+    "source": "20261015-130017-handeye-e17aa8/fit-630ea6dd",
+    "fit_sha256": "53f031fb143b929cdbc17f5e68b3f6e99466e3d297b2535d8e843ed73c2d87b5",
+    "observations_sha256": "63a5a95397e5b01b9f22e5b220b66cf5deb776b0df12f59f06119b885bc9fda4",
+    "result": "All three source factory rectified camera profiles, both wrist mounts and native joint calibration match the active report. Separate board-fit RGB intrinsics do not identify a metric transform error. No calibration change."
+  },
+  "local_gate": {
+    "command": "PYTHONPATH=<isolated OpenCV4.10.0.84 test dependency>:codex-runner/src:codex-runner:codex-runner/tests <existing Python3.13 runtime> -m pytest codex-runner/tests -q",
+    "exit": 0,
+    "passed": 1402,
+    "skipped": 3,
+    "subtests_passed": 426,
+    "wall_s": 88.07,
+    "record": "blupe-projection-final-full-01a18fc4.txt"
+  },
+  "evaluator_corrections": [
+    "The continuation fixture originally used an offline_fixture source tag; native feedback correctly rejected it before generating packets. Replaying the same generated program with the archived hardware-origin metadata produced one four-waypoint serialized packet under the native yam-1 profile. This remains offline, not actual hardware execution.",
+    "An initial Repl validation omitted the persistent target variable from the original first program; seeding the actual recorded source and target results corrected the evaluator.",
+    "Error detection searches the entire receipt for ERROR:, including errors after printed output."
+  ],
+  "limitations": [
+    "Tiny archived-scene sample, no statistical reliability claim.",
+    "step56 NPZ files retain the last stationary observation, not every historical query byte.",
+    "Historical references are untracked surface points, not current object poses or object identity.",
+    "Low reasoning yielded one overly broad color mask and one depth-hole query; medium yielded two valid gray-face/table selections but cost22\u201324s. This does not prove grasp accuracy or fit the full300s budget.",
+    "Initial-none sample is actual812bf9 startup context, not7f23. Its6.187s source generation was not executed and is not physical startup proof.",
+    "No joint/workspace/gripper/collision/Stop/uncertain-motion rules changed."
+  ],
+  "measurements": {
+    "initial_none": [
+      {
+        "trial": 0,
+        "model": "gpt-6-sol",
+        "effort": "none",
+        "camera_presentation": "actual812bf9 three startup views, exact normal-UI source/target marks in task",
+        "wall_s": 6.187040249998972,
+        "source_expected_roi": [
+          300,
+          75,
+          320,
+          95
+        ],
+        "pixels": [
+          [
+            310,
+            83,
+            "top"
+          ],
+          [
+            329,
+            111,
+            "top"
+          ]
+        ],
+        "source_ok": true,
+        "reply": "```python\nsource = bot.measure_depth(310, 83, camera='top')\ntarget = bot.measure_depth(329, 111, camera='top')\noptions = bot.plan_approach(source['points_base_m'])\nif options['candidates']:\n    candidate = options['candidates'][0]\n    bot.move_to(**candidate['targets'], rotation=candidate['rotation'])\n    show(bot.observe())\nelse:\n    finish(reason='No tested above-block approach was locally reachable.', task_success=False)\n```",
+        "usage": {
+          "input_tokens": 14930,
+          "cached_input_tokens": 2688,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 106,
+          "reasoning_output_tokens": 0
+        },
+        "note": "Archived observation, one scene; program text not executed, no robot control"
+      }
+    ],
+    "automatic_references_low": [
+      {
+        "trial": 0,
+        "wall_s": 12.7186709589987,
+        "model": "gpt-6-sol",
+        "effort": "low",
+        "reply": "```python\nrgb = bot.rgbd('right')['rgb']\npurple = (rgb[:, :, 2] > rgb[:, :, 0] * 1.25) & (rgb[:, :, 2] > rgb[:, :, 1] * 1.15)\nblock = bot.localize_object('purple block', purple, camera='right')\ntable = bot.measure_depth(390, 255, camera='right', arm='right')\nprint('purple visible surface:', block)\nprint('nearby table:', table['point_base_m'])\nshow(bot.observe())\n```",
+        "scope": "Reconstructed first post-approach context of actual7f23: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+        "usage": {
+          "input_tokens": 18571,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 247,
+          "reasoning_output_tokens": 125
+        }
+      },
+      {
+        "trial": 1,
+        "wall_s": 11.442681000000448,
+        "model": "gpt-6-sol",
+        "effort": "low",
+        "reply": "```python\npurple = bot.measure_depth(328, 249, camera='right', arm='right')\ntable = bot.measure_depth(391, 270, camera='right', arm='right')\nprint('Purple surface:', purple['points_base_m']['right'])\nprint('Nearby table:', table['points_base_m']['right'])\nprint('Measured fingertip pose:', bot.status()['coordinates'])\n```",
+        "scope": "Reconstructed first post-approach context of actual7f23: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+        "usage": {
+          "input_tokens": 18571,
+          "cached_input_tokens": 10240,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 198,
+          "reasoning_output_tokens": 112
+        }
+      }
+    ],
+    "automatic_references_medium": [
+      {
+        "trial": 0,
+        "wall_s": 22.09231991699926,
+        "model": "gpt-6-sol",
+        "effort": "medium",
+        "reply": "```python\nblock_top = bot.measure_depth(330, 235, camera='right', arm='right')\ntable = bot.measure_depth(390, 270, camera='right', arm='right')\nprint('block top:', block_top['point_base_m'])\nprint('nearby table:', table['point_base_m'])\nprint('measured fingertip:', bot.status()['coordinates']['right_x'], bot.status()['coordinates']['right_y'], bot.status()['coordinates']['right_z'])\n```",
+        "scope": "Reconstructed first post-approach context of actual7f23: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+        "usage": {
+          "input_tokens": 18579,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 578,
+          "reasoning_output_tokens": 474
+        }
+      },
+      {
+        "trial": 1,
+        "wall_s": 24.274539458001527,
+        "model": "gpt-6-sol",
+        "effort": "medium",
+        "reply": "```python\npurple_top = bot.measure_depth(330, 230, camera='right', arm='right')\ntable = bot.measure_depth(390, 260, camera='right', arm='right')\nprint('purple top:', purple_top['point_base_m'])\nprint('nearby table:', table['point_base_m'])\nprint('orange reference:', target['points_base_m']['right'])\nprint('current fingertip:', bot.status()['coordinates']['right_z'])\n```",
+        "scope": "Reconstructed first post-approach context of actual7f23: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+        "usage": {
+          "input_tokens": 18571,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 695,
+          "reasoning_output_tokens": 595
+        }
+      }
+    ],
+    "medium_program_execution": [
+      {
+        "trial": 0,
+        "error": false,
+        "ended": false,
+        "receipt": "block top: [0.4910075029349268, 0.2586240886787804, 0.017893811276015692]\nnearby table: [0.46576692974516626, 0.2642665116285797, 0.004907751697319565]\nmeasured fingertip: 0.4712627432927093 0.2532200387572825 0.05104676612573522\n",
+        "shown_roles": [],
+        "motion_attempts": 0,
+        "scope": "Actual generated Python through upstream Repl with actual stationary archived RGB-D and measured transforms. Observe returns the same static archived views. No actuator transport; not physical qualification."
+      },
+      {
+        "trial": 1,
+        "error": false,
+        "ended": false,
+        "receipt": "purple top: [0.49224248009650967, 0.25756928694926384, 0.016951060930039313]\nnearby table: [0.46827892595314785, 0.26059654069749727, 0.004456230929690941]\norange reference: [0.4289490939928189, 0.23254369945254255, 0.022191658005576764]\ncurrent fingertip: 0.05104676612573522\n",
+        "shown_roles": [],
+        "motion_attempts": 0,
+        "scope": "Actual generated Python through upstream Repl with actual stationary archived RGB-D and measured transforms. Observe returns the same static archived views. No actuator transport; not physical qualification."
+      }
+    ],
+    "corrected_proposal_validation": {
+      "scope": "Replay of the already-generated first medium continuation with corrected archived native-source metadata (original fixture tag prevented feedback validation). No new model call. Actual SDK/native-profile/canonical serializer, mocked HTTP, stops before physical transport; no physical or task-success claim.",
+      "proposals": [
+        {
+          "waypoint_count": 4,
+          "first": {
+            "step_id": 56,
+            "left_joints_deg": [
+              -1.1474892898591635,
+              46.63747897460335,
+              33.50579496810944,
+              -25.225344207088323,
+              -2.8506078809344784,
+              -0.4699241853710991
+            ],
+            "right_joints_deg": [
+              27.594520523251937,
+              122.12132228911945,
+              89.31191584725035,
+              -22.296802125341774,
+              -0.46966935616469224,
+              89.1866880377114
+            ],
+            "left_gripper": 0.9997113580603262,
+            "right_gripper": 0.9986990459670425
+          },
+          "last": {
+            "step_id": 59,
+            "left_joints_deg": [
+              -1.1474892898591635,
+              46.63747897460335,
+              33.50579496810944,
+              -25.225344207088323,
+              -2.8506078809344784,
+              -0.4699241853710991
+            ],
+            "right_joints_deg": [
+              27.155799281494648,
+              125.27447034426164,
+              94.32288442788472,
+              -24.056200046310217,
+              -0.7881873463415456,
+              88.87407833815476
+            ],
+            "left_gripper": 0.9997113580603262,
+            "right_gripper": 0.9986990459670425
+          },
+          "native_transport": "mocked; no hardware",
+          "native_profile": "yam-1",
+          "scope": "Actual SDK generation, native joint bounds/pacing and canonical HTTP serialization. No collision/contact/grasp/physical completion proof."
+        }
+      ],
+      "records": [
+        {
+          "turn": 0,
+          "wall_s": 26.710098791998462,
+          "reply": "```python\ndestination = target['points_base_m']['right']\nplacement_z = 0.015 + (destination[2] - table['point_base_m'][2])\npreflight = bot.plan_move(right_x=destination[0], right_y=destination[1], right_z=placement_z)\nif not preflight['reachable']:\n    finish(reason='The measured placement pose did not pass local preflight; no grasp attempted.', task_success=False)\nelse:\n    bot.move_to(right_x=block_top['point_base_m'][0],\n                right_y=block_top['point_base_m'][1],\n                right_z=0.051)\n    show(bot.observe())\n```",
+          "proposal": {
+            "waypoint_count": 4,
+            "first": {
+              "step_id": 56,
+              "left_joints_deg": [
+                -1.1474892898591635,
+                46.63747897460335,
+                33.50579496810944,
+                -25.225344207088323,
+                -2.8506078809344784,
+                -0.4699241853710991
+              ],
+              "right_joints_deg": [
+                27.594520523251937,
+                122.12132228911945,
+                89.31191584725035,
+                -22.296802125341774,
+                -0.46966935616469224,
+                89.1866880377114
+              ],
+              "left_gripper": 0.9997113580603262,
+              "right_gripper": 0.9986990459670425
+            },
+            "last": {
+              "step_id": 59,
+              "left_joints_deg": [
+                -1.1474892898591635,
+                46.63747897460335,
+                33.50579496810944,
+                -25.225344207088323,
+                -2.8506078809344784,
+                -0.4699241853710991
+              ],
+              "right_joints_deg": [
+                27.155799281494648,
+                125.27447034426164,
+                94.32288442788472,
+                -24.056200046310217,
+                -0.7881873463415456,
+                88.87407833815476
+              ],
+              "left_gripper": 0.9997113580603262,
+              "right_gripper": 0.9986990459670425
+            },
+            "native_transport": "mocked; no hardware",
+            "native_profile": "yam-1",
+            "scope": "Actual SDK generation, native joint bounds/pacing and canonical HTTP serialization. No collision/contact/grasp/physical completion proof."
+          }
+        }
+      ]
+    }
+  }
+}

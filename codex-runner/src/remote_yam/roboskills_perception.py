@@ -9,6 +9,7 @@ import hashlib
 import numpy as np
 
 from .api_depth_set import ApiDepthSet
+from .api_depth import factory_ray
 from .camera_calibration import rigid
 
 
@@ -30,6 +31,26 @@ def quality_summary(quality):
             'failures','unverified','limitations') if k in quality}
 
 
+def _project_factory(profile, optical):
+    """Invert the SDK-oracle-tested ray convention, as factory hand-eye does.
+
+    Convergence1e-10, final acceptance1e-7 in normalized ray coordinates;
+    arithmetic tolerances, not calibration accuracy or hardware-limit changes.
+    """
+    target=optical[:2]/optical[2]
+    focal=np.array([profile['fx'],profile['fy']])
+    pixel=target*focal+[profile['ppx'],profile['ppy']]
+    for _ in range(15):
+        error=target-factory_ray(profile,*pixel)[:2]
+        pixel+=error*focal
+        if np.isfinite(pixel).all() and np.max(np.abs(error))<1e-10:
+            return pixel
+    if (not np.isfinite(pixel).all()
+            or np.max(np.abs(target-factory_ray(profile,*pixel)[:2]))>1e-7):
+        raise ValueError('Factory projection did not converge')
+    return pixel
+
+
 class MeasuredResult(dict):
     """Full quality data retained, with a concise REPL representation."""
     def __repr__(self):
@@ -46,6 +67,9 @@ class RoboSkillsPerception:
             raise TypeError('RoboSkills metric perception requires ApiDepthSet')
         self.source, self.report = source, deepcopy(report)
         self.snapshots, self.transforms, self.cursor = {}, {}, None
+        self.reference_identity=None
+        self.references=[]
+        self.projected_references=[]
         for api in source.apis.values():
             api.calibration_id = report['calibration_id']
 
@@ -55,10 +79,50 @@ class RoboSkillsPerception:
 
     def invalidate(self):
         self.snapshots, self.transforms, self.cursor = {}, {}, None
+        self.projected_references=[]
+
+    def _bind_references(self,state):
+        identity=self.key(state)[:2]
+        if identity!=self.reference_identity:
+            self.reference_identity=identity
+            self.references=[]
+            self.projected_references=[]
+
+    def remember(self,result,state):
+        """Keep at most four distinct public pixel queries as untracked history."""
+        self._bind_references(state)
+        reference=dict(source_camera=result['camera'],source_pixel=list(result['pixel']),
+            source_step_id=state['step_id'],source_captured_at=result['captured_at'],
+            points_base_m=deepcopy(result['points_base_m']))
+        self.references=[r for r in self.references if
+            (r['source_camera'],r['source_pixel'])!=(reference['source_camera'],reference['source_pixel'])]
+        self.references=(self.references+[reference])[-4:]
+        if self.snapshots and self.cursor==self.key(state):self._project_references(state)
+
+    def _project_references(self,state):
+        rows=[]
+        for reference in self.references:
+            arm=next(iter(reference['points_base_m']))
+            point=np.array(reference['points_base_m'][arm],dtype=float)
+            row=deepcopy(reference);row['projections']={}
+            for camera in self.snapshots:
+                try:
+                    projected=self.project(state,point,arm=arm,camera=camera)
+                    fields=('pixel','nearest_pixel','inside_image','expected_optical_z_m',
+                            'measured_minus_expected_optical_z_m','captured_at')
+                    value={k:projected[k] for k in fields}
+                    value['depth_sample']={k:v for k,v in projected['depth_sample'].items()
+                        if k in ('available','reason','radius','optical_z_m','valid_samples','patch_spread_m')}
+                    row['projections'][camera]=dict(projection_available=True,**value)
+                except ValueError as exc:
+                    row['projections'][camera]=dict(projection_available=False,reason=str(exc))
+            rows.append(row)
+        self.projected_references=rows
 
     def capture(self, policy):
         self.invalidate()
         state = deepcopy(policy._state)
+        self._bind_references(state)
         frames = self.source.capture_for_policy(state, cancelled=policy.cancelled,
                                                 on_event=policy._camera_event)
         snapshots = self.source.snapshots
@@ -81,6 +145,7 @@ class RoboSkillsPerception:
                     transforms[role][arm] = grasp @ rigid(camera['T_grasp_camera'])
         self.source.require_fresh(snapshots, stopped=True)
         self.snapshots, self.transforms, self.cursor = snapshots, transforms, self.key(state)
+        self._project_references(state)
         for role, snapshot in snapshots.items():
             path = policy._recorder.path / f'rgbd-{state["step_id"]}-{role}.npz'
             path.write_bytes(snapshot.recording_bundle())
@@ -116,6 +181,48 @@ class RoboSkillsPerception:
             del result['arm'], result['point_base_m']
         return MeasuredResult(result)
 
+    def project(self, state, point, *, arm, camera='top'):
+        if not isinstance(camera,str) or camera not in ('top','left','right'):
+            raise ValueError('Projection camera must be top, left or right')
+        if not isinstance(arm,str) or arm not in ('left','right'):
+            raise ValueError('Projection arm must name the input point base: left or right')
+        snapshot=self.require(state,camera)
+        profile=self.report['cameras'][camera].get('depth_intrinsics')
+        if profile is None:
+            raise ValueError('Projection requires the bound aligned-color factory profile')
+        T=self.transforms[camera][arm]
+        optical=T[:3,:3].T@(point-T[:3,3])
+        # Numerical near-plane guard,1nanometre: not a workspace/range change.
+        if not np.isfinite(optical).all() or optical[2]<=1e-9:
+            raise ValueError('Point must be more than1e-9metres in front of the camera plane')
+        pixel=_project_factory(profile,optical)
+        nearest=[int(np.floor(float(x)+.5)) for x in pixel]
+        h,w=snapshot.depth.shape
+        inside=0<=nearest[0]<w and 0<=nearest[1]<h
+        sample=dict(available=False,radius=2,reason='Projected ray is outside the image pixel footprint')
+        delta=None
+        if inside:
+            try:
+                measured=snapshot.measure(*nearest,2,arm,T_base_camera=T)
+                sample=dict(available=True,radius=2,**{k:measured[k] for k in
+                    ('pixel','optical_z_m','valid_samples','patch_spread_m','point_base_m',
+                     'depth_quantization_m','depth_max_error_m')})
+                delta=measured['optical_z_m']-float(optical[2])
+            except ValueError as exc:
+                sample=dict(available=False,radius=2,reason=str(exc))
+        return MeasuredResult(camera=camera,arm=arm,point_base_m=point.tolist(),
+            point_camera_m=optical.tolist(),pixel=pixel.tolist(),
+            nearest_pixel=nearest if inside else None,inside_image=bool(inside),
+            expected_optical_z_m=float(optical[2]),depth_sample=sample,
+            measured_minus_expected_optical_z_m=delta,
+            captured_at=snapshot.metadata['captured_at'],calibration_id=self.report['calibration_id'],
+            quality=deepcopy(self.report['quality']),
+            warning='Cached-frame model projection and optional nearest-ray depth patch, not '
+                    'object identity/visibility, a grasp target or calibration validation. '
+                    'A nearer surface may occlude the reference point; a farther surface or '
+                    'missing/noisy depth may reflect an edge, hole or model error. '
+                    'Inspect RGB correspondence and retain calibration uncertainty.')
+
     def localize(self, state, label, mask, camera='top', arm=None):
         snapshot = self.require(state, camera)
         mask = np.asarray(mask)
@@ -149,4 +256,10 @@ class RoboSkillsPerception:
                     coordinate_frame='per_arm_base', units='metres',
                     captures={r:dict(captured_at=s.metadata['captured_at'],shape=list(s.rgb.shape),
                         rgb_sha256=hashlib.sha256(s.rgb.tobytes()).hexdigest()) for r,s in self.snapshots.items()},
-                    quality=quality_summary(self.report['quality']) if concise else deepcopy(self.report['quality']))
+                    quality=quality_summary(self.report['quality']) if concise else deepcopy(self.report['quality']),
+                    **(dict(surface_references=deepcopy(self.projected_references),
+                        reference_scope='Last four distinct historical pixel queries, NOT tracked objects '
+                            'or current poses. Source pixel/step/time are retained. Projections and '
+                            'nearest-ray depth patches use the current captured views; inspect RGB '
+                            'correspondence/occlusion and calibration uncertainty.')
+                       if self.projected_references else {}))
