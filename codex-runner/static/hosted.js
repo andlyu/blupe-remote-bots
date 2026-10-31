@@ -584,12 +584,29 @@ function createRunLaunchGuard() {
         reducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       });
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
-        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm(runs));
+        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm(runs), renderAreaSummary);
       cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
       cloud?.setHighlight?.(regionHighlight);
       if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
+      if($('taskCloudSelectArea'))$('taskCloudSelectArea').disabled=!catalogRows.length || !cloud?.setAreaSelection;
     }
+  }
+  function renderAreaSummary(area) {
+    const toggle=$('taskCloudSelectArea'), summary=$('taskCloudAreaSummary');
+    if(!toggle || !summary)return;
+    toggle.setAttribute('aria-pressed',String(area.active));
+    $('taskCloudClearArea').disabled=!area.hasSelection && !area.drawing;
+    $('taskCloudAreaHelp').hidden=!area.active && !area.drawing;
+    summary.hidden=!area.hasSelection;
+    $('taskCloudAreaTitle').textContent=area.drawing?'Selecting area…':'Selected area';
+    $('taskCloudAreaCounts').textContent=area.total
+      ? `${area.total} runs selected · ${area.Success} Success · ${area.Failure} Failure · ${area.Uncertain} Uncertain · ${area.Unscored} unlabeled or excluded`
+      : 'No runs in this selection. Draw another area or clear the selection.';
+    $('taskCloudAreaRate').textContent=area.successRate===null
+      ? `No Success/Failure labels to calculate a success rate. ${labelSource==='auto'?'Auto-labeled':'Human-labeled'} results.`
+      : `Success rate: ${(area.successRate*100).toFixed(1)}% of ${area.scored} Success/Failure labels. ${labelSource==='auto'?'Auto-labeled':'Human-labeled'} results.`;
+    $('taskCloudAreaPrompt').textContent=area.medianPrompt || 'Not available for this selection.';
   }
   async function load(reset = false) {
     if (loading || !historyRobot) return;
@@ -623,7 +640,7 @@ function createRunLaunchGuard() {
         if (historyView === 'cloud' && cached && Date.now()-cached.at < 60000) run.preview = cached.detail;
       }
       catalogRows.push(...data.runs);
-      window.yamRunSidebar?.setCatalog(catalogRows, {robot:historyRobot, complete:historyView === 'cloud' && !historyModels.length && !historySearch && !data.sampled, source:labelSource});
+      window.yamRunSidebar?.setCatalog(catalogRows, {robot:historyRobot, complete:historyView === 'cloud' && !data.sampled && data.next_offset == null, source:labelSource, filters:{models:historyModels.slice(),query:historySearch}});
       if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
       renderView();
@@ -692,6 +709,12 @@ function createRunLaunchGuard() {
     if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
   });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
+  $('taskCloudSelectArea')?.addEventListener('click', () => {
+    const active=$('taskCloudSelectArea').getAttribute('aria-pressed')!=='true';
+    cloud?.setAreaSelection?.(active);
+    if(active)$('taskCloudCanvas').focus({preventScroll:true});
+  });
+  $('taskCloudClearArea')?.addEventListener('click', () => cloud?.clearArea?.());
   $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));
   $('zoomTaskCloudOut').addEventListener('click', () => cloud?.zoom(1/1.2));
   $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));
@@ -3406,3 +3429,26 @@ THE SOFTWARE.
   window.addEventListener('pagehide',()=>{disposed=true;cameras.disconnect();active?.stop();document.documentElement.classList.remove('observerEnhancementPreview');},{once:true});
 })();
 // END observer enhancement preview v1
+
+/* Contextual run assessment placement. Keep the existing nodes and handlers. */
+(() => {
+  const assessment=document.getElementById('liveAssessment');
+  const sidePrompt=document.getElementById('sidePrompt'), prompt=sidePrompt?.closest?.('.runPrompt'), panel=sidePrompt?.closest?.('.watchInteraction');
+  if(!assessment || !prompt)return;
+  let title=document.getElementById('liveAssessmentTitle');
+  if(!title){title=document.createElement('h3');title.id='liveAssessmentTitle';assessment.prepend(title);}
+  title.textContent='Your run result';
+  assessment.classList.add('runAssessmentContext');
+  assessment.setAttribute('aria-labelledby',title.id);
+  if(panel)panel.append(assessment);else prompt.after(assessment);
+  for(const button of document.getElementById('liveAssessmentControls').querySelectorAll('button')) {
+    const label=button.dataset.label || 'Neutral';
+    button.textContent=label;
+    button.setAttribute('aria-label',`Mark this run as ${label.toLowerCase()}`);
+    button.title=label==='Neutral'?'Neutral: leave this run unscored':label==='Failure'?'Failure: the task was not completed':'Success: the task was completed';
+  }
+  for(const id of ['liveAssessmentStatus','assessmentWindow']) {
+    const status=document.getElementById(id);
+    status?.classList.remove('visuallyHidden');status?.classList.add('help');
+  }
+})();

@@ -39,8 +39,8 @@ attempt shows **Press Play to start this replay.**
 
 ## Similar-video selection
 
-The list is scoped to the selected run's robot. It excludes the selected episode,
-duplicate episode IDs, rows without a published-video indication, explicit
+The list uses the current Past runs model and search filters on the selected
+run's robot. It excludes the selected episode, duplicate episode IDs, rows without a published-video indication, explicit
 zero-duration videos and unavailable videos. A published-video indication is a
 preview URL, video URL or `original_available: true`; playback availability is
 checked again when details load.
@@ -69,12 +69,32 @@ without changing similarity membership or writing an assessment. Unscored entrie
 are explicitly described as **Unlabeled or excluded**. See
 [Cloud label sources](cloud-label-sources.md) for precedence and evidence rules.
 
+## Similar-run success score
+
+Above the cards, a separate status paragraph summarizes the first ten runs in
+that same ranked list, regardless of how many cards are currently appended.
+“Closest” follows the existing exact-prompt/word-overlap/distance ranking above;
+it does not introduce a new nearest-neighbor calculation. The rate is
+`Success / (Success + Failure)` using the current Auto/Human outcome resolver.
+The text includes that numerator and denominator, separate Uncertain and
+unlabeled or excluded counts, and the label source. Unknown outcomes never count
+as failures.
+
+With fewer than ten qualifying runs it states the available count. With no
+binary labels it reports that no Success/Failure rate can be calculated; with no
+similar published runs it reports that there is nothing to score. This describes
+the currently filtered catalog's label coverage, not a model-wide score or a
+prediction of the selected run's result. Source changes recompute the score and
+card labels without changing similarity rank.
+
 ## Loading and cleanup
 
-A complete unfiltered Cloud catalog can be reused in memory for 60 seconds per
-robot. Filtered or sampled history results are not supplied as a complete cache.
-When a fresh catalog is needed, the sidebar requests
-`GET /api/run-catalog?view=cloud&robot_id=…` with the matching robot header.
+A complete, unsampled Cloud catalog can be reused in memory for 60 seconds per
+robot/model-filter/search combination, including filtered catalogs, with at most
+six catalog entries retained. Paged or sampled history results are not supplied as a complete cache. When a fresh
+catalog is needed, the sidebar requests
+`GET /api/run-catalog?view=cloud&robot_id=…`, adding the current repeated `model`
+parameters and `q` search parameter, with the matching robot header.
 
 Cards append eight at a time. An `IntersectionObserver` rooted in the sidebar's
 scrolling body adds the next group near the list end; **Show more similar videos**
@@ -88,7 +108,7 @@ the duration. The card says **Loading preview…** until `loadeddata` or `seeked
 then **Select to watch**. Offscreen sources are released. Pointer hover can play a
 loaded preview unless reduced motion is requested; pointer leave pauses it.
 
-Closing, changing the selected run or changing label source cancels the previous
+Closing, changing the selected run, filters or label source cancels the previous
 related-list scope, aborts its requests, disconnects its observers and releases
 its media. Responses from an old scope cannot populate the new list. Selecting a
 different robot closes an open sidebar. A failed catalog load offers **Retry
@@ -118,7 +138,9 @@ covered `static/hosted.html`, `static/hosted.css`, `static/hosted.js`,
 self/unpublished/empty exclusions, rejection of unrelated map-position
 collisions, the 40-result cap, nonmodal opening, progressive append, label changes,
 media limits, stale-response rejection, abort-on-close and keyboard-focus preview
-loading without `IntersectionObserver`.
+loading without `IntersectionObserver`. Added assertions cover the first ten
+score, binary denominator and unknown coverage, Auto/Human source selection,
+fewer/no-label cases, model/search catalog scope and stale filter responses.
 Run them with `node --test codex-runner/tests/test_run_sidebar_ui.cjs`.
 
 This documentation pass inspected source and test definitions; it ran no browser,
