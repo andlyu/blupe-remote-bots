@@ -92,11 +92,12 @@ and [measured verification](verification/2026-10-30-lift-return.json). The new
 replay was played and seeked in the website; anonymous byte-range access206.
 Persistent progress retains actual completed stages and failed accuracy checks.
 
-The15-second requirement remains unmet: this run spent about97seconds in
-queue/readiness before admission; its first packet was prepared107.56seconds
-after Run. Exact visual onset was not separately measured. Readiness flags
-alone do not prove a handoff bug; an external active run can also make the
-station unavailable. The cause of the long wait remains unverified. No queue
-or readiness rule was bypassed.
+The owner has excluded queue-admission waiting from this integration's timing
+budget. Reassessment of the existing recording gives a conservative adjusted
+Run-to-visible-motion upper bound14.442s, retaining1.828s submission time and
+excluding only the measured95.331s queued interval. This run passes the amended
+per-Run criterion. Original raw times remain retained; entry-to-motion and
+other development runs are not automatically reclassified. See the checklist's
+owner exception and timing receipt. No queue/readiness check was bypassed.
 
 Current hosted source: `ca4ab9c843c49135e8845c87cbb00bf5cf6e42d8` (Sites version11). Worker continuity recovery uses detached processes, isolated physical/simulation credentials, and preserved no-retry semantics. Both hosted readiness checks were online after the launcher exited. Physical motion evidence is unchanged; see the checklist for remaining qualification.
