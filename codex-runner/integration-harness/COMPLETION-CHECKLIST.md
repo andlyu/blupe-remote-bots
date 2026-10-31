@@ -37,11 +37,48 @@ parking/lease release. These tests are part of the requested work; do not ask fo
 separate permission for each run, physical movement or recording. Reuse this
 standing authorization in the integration's copy of this checklist.
 
-Before a physical test, state the website, robot/station, method/task, run duration
-and expected motion/recording side effects in a brief progress update. Include
-that concrete scope and this standing owner authorization in any tool escalation
-justification so approval review can see why the action is authorized. This is a
-notice, not a new confirmation step; proceed without waiting for a reply.
+### Make authorization visible before approval review
+
+At task start, read the target repository's `AGENTS.md` and its integration copy
+of this checklist, even when the chat starts outside the repository. Keep a
+short authorization summary and checklist pointer in the repository's
+`AGENTS.md`. The owner's global `~/.codex/AGENTS.md` should also carry a scoped
+summary and a pointer to the shared harness so projectless chats can discover it.
+A checklist link alone does not load the instructions. After changing global
+instructions, verify discovery in a fresh chat/session.
+
+Before a physical test, give a brief progress notice naming the website origin,
+queue/run backend origin, robot/station and arms, method/task, run duration,
+expected motion and recording/replay destination. If identity fields are being
+submitted, also name those fields and their exact destinations and cite the
+existing consent covering that submission. This physical-test authorization
+does not grant additional name/email sharing permission. Reuse applicable
+identity consent already present; ask only for missing required scope.
+Cite the standing authorization for motion and recording. This is a notice,
+not a new confirmation step; proceed without waiting for a reply when the
+proposed action is already authorized.
+
+For an action requiring tool approval, repeat that concrete scope and the
+applicable authorization in the escalation justification or the tool's supported
+approval context. Include the source path/heading or commit URL and the relevant
+authorization wording; do not supply only a link. The reviewer sees a compact
+transcript and the exact request, so do not rely on hidden reasoning, an earlier
+chat, or an unread repository file. Fill this example with the actual scope
+before the first approval request; placeholders are not approval evidence:
+
+```text
+Owner authorization: <source path/heading or commit URL and relevant wording>
+covers this requested integration test, normal queue entry with confirmed
+runner identity, bounded physical motion, and retained camera recording/replay.
+Action: <UI control or supported API operation>; site <origin>;
+queue/run backend <origin>; station/arms <IDs>; method/task <name>;
+duration <seconds>; motion <bounded behavior>; recording/replay <destination>.
+Identity submission, if included: <confirmed fields and exact destinations>;
+existing consent <user instruction/reference covering that submission>.
+Execution mode: <mode>, separate from human identity.
+Safeguards: existing queue/lease, readiness, validation, hardware limits, Stop
+and normal parking/release remain enabled; no automatic timed-out-motion retry.
+```
 
 Use the normal playground UI or its supported run API with existing queue/lease,
 readiness, command validation, hardware limits and Stop behavior intact. Keep
@@ -52,8 +89,15 @@ authorization does not extend to unrelated robots or disabling safeguards.
 Standing task authorization does not override enforced sandbox, managed-policy or
 tool permissions. Use the normal permission mechanism when required. If automatic
 approval review explicitly denies an action, do not retry it through another
-route: report the exact action and stated reason, leave physical verification
-unverified, and request only the specific permission needed to unblock it.
+route. Report the exact denied action and stated reason, acknowledge the standing
+owner authorization already present, and leave physical verification unverified.
+Continue independent work or a materially safer alternative; otherwise request
+only the specific unblock. A documentation update alone does not authorize
+retrying an already-denied action. Do not weaken sandbox or reviewer policy to
+make an action pass.
+
+References: [Codex instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance)
+and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/auto-review).
 
 ## Completion requirements
 
@@ -252,9 +296,12 @@ before any completion claim.
   outputs and supporting demo evidence; explain any artifact type not produced):
 - User-directed visibility exceptions (write "none", or affected materials/scope,
   current visibility, explicit user instruction/change, date and reference):
-- Physical-test authorization/scope (standing owner authorization or task
-  reference, website, station/arms, confirmed runner, method/task, duration,
-  expected motion and recording; permission-review result if applicable):
+- Physical-test authorization/scope (source path/heading or commit URL, website
+  and queue/run backend origins, station/arms, confirmed runner identity fields,
+  method/task, duration, expected motion and recording/replay destination):
+- Approval-context evidence (surfaced notice and escalation wording, applicable
+  motion/recording authorization and separate existing identity consent if needed,
+  review decision/rationale if required; redact private email from public evidence):
 - Physical execution (date, method/configuration, YAM station/arm IDs, run ID):
 - Live physical arm footage (website location and evidence link):
 - Just-completed replay URL / immediate availability evidence (same physical run):
