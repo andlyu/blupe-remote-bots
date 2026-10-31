@@ -13,6 +13,7 @@
     const task=document.createElement('p');task.id='liveAssessmentTask';task.className='assessmentTask';
     $('liveAssessmentControls').before(task);
   }
+  $('liveAssessmentTask').setAttribute('data-clarity-mask','true');
   function render() {
     for (const [target, scope] of [['live',live],['replay',replay]]) {
       const data = scope?.assessment || empty(), controls = $(target+'AssessmentControls');
