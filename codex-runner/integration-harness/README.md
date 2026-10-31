@@ -11,7 +11,8 @@ python /path/to/blupe-remote-bots/codex-runner/integration-harness/adopt.py inst
 The installer puts the harness block first in the integration's `AGENTS.md`, copies
 the checklist when it is missing, installs `tools/blupe_harness.py`, and records
 content hashes in `.blupe-harness.json`. It also copies the exact authorization-by-use
-contract into `docs/BLUPE-HARNESS-CONTRACT.md`. Existing instructions and completed
+contract into `docs/BLUPE-HARNESS-CONTRACT.md` and the required engineering gates
+into `docs/CONTROL-CONTRACT.md`. Startup instructions load both. Existing instructions and completed
 checklist evidence stay intact. Repeating installation is idempotent; edited
 helpers and malformed markers are preserved with an actionable failure. Use
 `--dry-run` to inspect changes or `--check` to return a nonzero status when setup
@@ -120,6 +121,32 @@ contract, and leave new or unverified requirements unchecked. An old pass or
 backend packet timestamp alone cannot qualify either new motion measure.
 The repository's maintained RoboSkills copies follow this preservation pattern.
 
+## Prevent command-contract failures
+
+[CONTROL-CONTRACT.md](CONTROL-CONTRACT.md) is required before physical runs and
+completion. It requires tests for every advertised primitive through the actual
+packet generator, serializer and deployed validator, including real fractional
+starting states and exact endpoints. Valid gripper-close=0 must not become a
+negative interpolation residual; invalid requested values must still fail.
+Validate before dispatch and distinguish local validation errors from physical
+workspace/contact stops. Retain each failure as a reproducible regression.
+
+The integration must run those tests in a required CI check or deployment
+preflight and retain command/output/revision evidence. The installer distributes
+and verifies the requirements; it does not execute arbitrary adapter tests or
+certify physical success. A joint-motion smoke test cannot establish complete
+pick-and-place. Task outcomes and the current completion proportion must reopen
+affected requirements after a relevant failure or changed control code.
+
+Existing integrations must reinstall from the shared source to receive the
+independently managed control contract and startup loading rule. Their working
+checklist and earlier evidence remain intact; deliberately add/reconcile the new
+requirements as unchecked until verified. `install --check` detects a legacy
+installation missing the new contract. Edited managed control requirements are
+preserved with an actionable failure; scope rendering refuses a missing or
+changed control contract. This verifies instruction setup, not passing tests or
+new authorization. Do not change global approval settings or hardware limits.
+
 ## Verify the portable setup
 
 ```sh
@@ -130,3 +157,4 @@ The tests use disposable directories and synthetic consent references. They
 exercise evidence preservation, idempotence, dry-run/check behavior, edited-file
 protection, symlink/path refusal, and standalone review-context rendering. They
 send no robot commands or identity data and change no approval settings.
+

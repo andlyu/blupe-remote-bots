@@ -148,6 +148,16 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
+- [ ] Every advertised control primitive passes the offline command-contract
+  gate through the actual parser/generator/serializer and canonical validator,
+  including measured fractional starts, numeric endpoints, invalid-input and
+  zero-dispatch failure tests. A required CI/release-preflight result and exact
+  source/dependency revisions are retained. Follow [the control contract](CONTROL-CONTRACT.md).
+- [ ] Task acceptance matches the advertised capability and tested deployment.
+  A representative physical task exercises the required primitives and verifies
+  the requested object/result state; a narrower smoke test is labelled as such.
+  Relevant failures or changed control code reopen affected requirements and
+  the current passed/total display, preserving earlier results as history.
 - [ ] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
 - [ ] The actual physical arms are visible live on the website while the method
@@ -184,6 +194,26 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
   normal user interface. Verify every completion requirement against that
   deployment and record evidence; unmet or unverified requirements block
   completion.
+
+## Verify commands and numeric boundaries
+
+Read [CONTROL-CONTRACT.md](CONTROL-CONTRACT.md) before physical runs and before
+completion, including when an integration retains an older working checklist.
+The installer distributes that contract independently of preserved evidence.
+Its engineering gates are mandatory; they add no authorization/approval step.
+
+Require actual command-path regression tests and pre-dispatch validation, exact
+validated interpolation endpoints, strict rejection of invalid inputs, preserved
+hardware safeguards and an actionable distinction between local input rejection
+and physical safety stops. A test-only accepting mock cannot replace the real
+deployed packet validator. Retain a failing packet and red-to-green reproduction
+for every repair. Wire the tests into CI or the release preflight.
+
+For advertised pick-and-place, verify the relevant approach/grasp/lift/transfer/
+release/withdrawal sequence and fresh evidence of the object outcome. Passing
+joint motion does not certify the untested sequence. Tie each claim to a task,
+capability, source revision and evidence; invalidate affected current passes
+after a relevant new failure. Installing this document is not test evidence.
 
 ## Model identifies the tested approach
 
@@ -378,7 +408,11 @@ remain required.
 
 Open the deployed website and its associated source repository. Use the normal
 website controls to join, run the integrated method on physical YAMs and watch the
-actual arms live. Check the unchanged 15-second post-Home measure and the
+actual arms live. First verify the required command-contract CI/release checks;
+choose a representative task covering the advertised primitives and verify its
+actual result. Reconcile later failures and changed control code with current
+acceptance status instead of carrying forward a stale smoke-test pass.
+Check the unchanged 15-second post-Home measure and the
 30-second Run/Start-to-motion budget excluding evidenced queue-admission wait.
 Keep fixed boundaries, full elapsed times, queue entry/admission/excluded seconds
 and queue-adjusted time; verify any GPU-launch exception uses the queue/GPU
@@ -406,6 +440,14 @@ before any completion claim.
   physical run reference):
 - Final checklist review (evidence for every item, replay links/timings, unmet
   items and explicit exceptions):
+- Command-contract evidence (advertised primitives/arms, units/frames/ranges,
+  actual packet generator/serializer/validator revisions, required CI/preflight
+  command/result and endpoint/interior/invalid-input/zero-dispatch coverage):
+- Failure regressions (sanitized packet/starting state, dispatch classification,
+  red-to-green proof, unchanged safety checks and deployed repair revision):
+- Representative task acceptance (capability/task, approach/grasp/lift/transfer/
+  release/withdrawal where applicable, fresh verified outcome, exclusions and
+  current requirements reopened by later failures or changed control code):
 - Actual approach name / website label evidence:
 - Model-as-approach evidence (executed approach, website Model value, stored run
   record, queue/email notification and replay/history attribution; separate
@@ -460,3 +502,4 @@ before any completion claim.
   exception outcome if applicable (otherwise "none"):
 - Timed screen recording / matching physical run evidence and clock correlation:
 - Remaining gaps:
+
