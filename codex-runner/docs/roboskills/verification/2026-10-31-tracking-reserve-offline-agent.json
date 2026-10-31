@@ -1,0 +1,1441 @@
+{
+  "scope": "Reconstructed actual29b59179 pre-bad-view step66 context: real initial/57/66 three-camera captures, original first five assistant programs/receipts and reexecuted read-only namespaces. Same-step archives/feedback may differ from exact earlier transport bytes; this is not exact historical model replay. Fixture-only age override, no production freshness change. Genuine sanitized production callback/upstream REPL, actual canonical serializer mocked at api.example and BaseException before first actuator proposal. No physical queue/session/movement or replay of historical moves.",
+  "records": [
+    {
+      "trial": 0,
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "wall_s": 16.178683624995756,
+      "reply": "```python\ns = bot.status()\ng = s['tool_geometry_reference']\ntop = np.array(measurements['purple top']['surfaces_in_arm_bases']['left']['center_m'])\ndest = np.array(measurements['orange top']['surfaces_in_arm_bases']['left']['center_m'])\nsupport = measurements['table support']['surfaces_in_arm_bases']['left']\nv = np.array(s['nominal_pad_pose']['arms']['left']['pad_midpoint_tool_m'])\nheading = np.array([top[0], top[1], 0.0])\nheading /= np.linalg.norm(heading)\nopening = np.array([-heading[1], heading[0], 0.0])\ngrasp_options = []\nfor degrees in (0, 10, 15, 20, 25, 35):\n    angle = np.deg2rad(degrees)\n    z = np.sin(angle)*heading + np.array([0., 0., -np.cos(angle)])\n    R = np.column_stack((np.cross(opening, z), opening, z))\n    p = top - R @ (v + np.array([0., 0., .003]))\n    corners = np.array([[x, y, t] for x in (-.013, .013)\n                        for y in (-.048, .048) for t in (-.0064, .0101)])\n    clearance = (p + corners @ R.T)[:, 2].min() - support['upper_m'][2]\n    budget = clearance - .003 - .003\n    print('tilt', degrees, 'nominal_tip_clearance_m', clearance,\n          'remaining_after_pose_and_reference_allowances_m', budget)\n    if budget <= 0:\n        continue\n    placement = p + np.array([dest[0]-top[0], dest[1]-top[1],\n                              dest[2]-support['center_m'][2]])\n    poses = {'grasp': p, 'view': p-z*.055, 'lift': p+[0, 0, .045],\n             'transfer': placement+[0, 0, .035], 'placement': placement}\n    checks = {}\n    for name, point in poses.items():\n        result = bot.plan_move(left_x=float(point[0]), left_y=float(point[1]),\n                               left_z=float(point[2]), rotation={'left': R})\n        checks[name] = bool(result['reachable'] and\n                            result.get('tracking_reserve', {}).get('passed', False))\n        print(degrees, name, checks[name], result.get('reason', ''))\n    if all(checks.values()):\n        grasp_options.append({'rotation': R, 'poses': poses, 'budget_m': budget})\n```\n",
+      "receipt": "tilt 0 nominal_tip_clearance_m 0.016919032668311698 remaining_after_pose_and_reference_allowances_m 0.0109190326683117\n0 grasp False Cartesian target is unreachable; request a smaller move\n0 view False Cartesian target is unreachable; request a smaller move\n0 lift False Cartesian target is unreachable; request a smaller move\n0 transfer False Cartesian target is unreachable; request a smaller move\n0 placement False \ntilt 10 nominal_tip_clearance_m 0.014744488270935701 remaining_after_pose_and_reference_allowances_m 0.008744488270935703\n10 grasp False \n10 view False Cartesian target is unreachable; request a smaller move\n10 lift False Cartesian target is unreachable; request a smaller move\n10 transfer True \n10 placement True \ntilt 15 nominal_tip_clearance_m 0.013739979455908352 remaining_after_pose_and_reference_allowances_m 0.007739979455908353\n15 grasp True \n15 view True \n15 lift True \n15 transfer True \n15 placement True \ntilt 20 nominal_tip_clearance_m 0.012800986265154357 remaining_after_pose_and_reference_allowances_m 0.006800986265154358\n20 grasp True \n20 view True \n20 lift True \n20 transfer True \n20 placement True \ntilt 25 nominal_tip_clearance_m 0.01193465500383494 remaining_after_pose_and_reference_allowances_m 0.005934655003834939\n25 grasp True \n25 view True \n25 lift True \n25 transfer True \n25 placement True \ntilt 35 nominal_tip_clearance_m 0.010445748305332798 remaining_after_pose_and_reference_allowances_m 0.004445748305332798\n35 grasp True \n35 view True \n35 lift True \n35 transfer True \n35 placement True \n",
+      "ended": false
+    },
+    {
+      "trial": 1,
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "wall_s": 7.5653764579983545,
+      "reply": "```python\nchosen = grasp_options[0]\nR = chosen['rotation']\np = chosen['poses']['view']\nbot.move_to(left_x=float(p[0]), left_y=float(p[1]), left_z=float(p[2]),\n            rotation={'left': R})\nshow(bot.observe())\n```",
+      "proposal": {
+        "waypoint_count": 36,
+        "first": {
+          "step_id": 66,
+          "left_joints_deg": [
+            -25.477590798164314,
+            107.58781047099102,
+            81.75041425142226,
+            -31.342146235897808,
+            -0.8215741277184507,
+            -0.6999294893487471
+          ],
+          "right_joints_deg": [
+            -1.3004878618403852,
+            45.94967678310728,
+            34.313726493324324,
+            -19.65764461761399,
+            -1.190551504863259,
+            -0.5792088796429933
+          ],
+          "left_gripper": 0.9997113580603262,
+          "right_gripper": 0.9974012849202339
+        },
+        "last": {
+          "step_id": 101,
+          "left_joints_deg": [
+            -25.52193340246788,
+            137.03468314725401,
+            129.809675852041,
+            -67.7754395720957,
+            -0.11045435004999499,
+            -0.4125813993561333
+          ],
+          "right_joints_deg": [
+            -1.3004878618403852,
+            45.94967678310728,
+            34.313726493324324,
+            -19.65764461761399,
+            -1.190551504863259,
+            -0.5792088796429933
+          ],
+          "left_gripper": 0.9997113580603262,
+          "right_gripper": 0.9974012849202339
+        },
+        "selected_packet_ready": {
+          "kind": "packet_ready",
+          "message": "RoboSkills prepared 36 checked waypoints",
+          "call": 7,
+          "waypoint_count": 36,
+          "targets": {
+            "left_x": 0.47774450217237663,
+            "left_y": -0.22374783127049344,
+            "left_z": 0.0824734929163095
+          },
+          "tracking_correction": 0,
+          "goal": "exact_pose",
+          "position_tolerance_m": 0.003
+        },
+        "requested_reference_rotations_base": {
+          "left": [
+            [
+              -0.8747456580873236,
+              0.42412566983864597,
+              0.23438739266712932
+            ],
+            [
+              0.4096739380892987,
+              0.9056033437349489,
+              -0.10977180087110533
+            ],
+            [
+              -0.25881904510252074,
+              0.0,
+              -0.9659258262890683
+            ]
+          ],
+          "right": [
+            [
+              -0.5108094934915896,
+              -0.0008491525676454818,
+              0.8596935153290292
+            ],
+            [
+              0.0011067227879972298,
+              0.9999980340328964,
+              0.0016453251999587
+            ],
+            [
+              -0.8596932223319765,
+              0.0017918901361279333,
+              -0.5108075494804318
+            ]
+          ]
+        },
+        "scope": "Validated native packet and proposed endpoint/reference only; physical transport stopped."
+      }
+    }
+  ],
+  "proposals": [
+    {
+      "waypoint_count": 36,
+      "first": {
+        "step_id": 66,
+        "left_joints_deg": [
+          -25.477590798164314,
+          107.58781047099102,
+          81.75041425142226,
+          -31.342146235897808,
+          -0.8215741277184507,
+          -0.6999294893487471
+        ],
+        "right_joints_deg": [
+          -1.3004878618403852,
+          45.94967678310728,
+          34.313726493324324,
+          -19.65764461761399,
+          -1.190551504863259,
+          -0.5792088796429933
+        ],
+        "left_gripper": 0.9997113580603262,
+        "right_gripper": 0.9974012849202339
+      },
+      "last": {
+        "step_id": 101,
+        "left_joints_deg": [
+          -25.52193340246788,
+          137.03468314725401,
+          129.809675852041,
+          -67.7754395720957,
+          -0.11045435004999499,
+          -0.4125813993561333
+        ],
+        "right_joints_deg": [
+          -1.3004878618403852,
+          45.94967678310728,
+          34.313726493324324,
+          -19.65764461761399,
+          -1.190551504863259,
+          -0.5792088796429933
+        ],
+        "left_gripper": 0.9997113580603262,
+        "right_gripper": 0.9974012849202339
+      },
+      "selected_packet_ready": {
+        "kind": "packet_ready",
+        "message": "RoboSkills prepared 36 checked waypoints",
+        "call": 7,
+        "waypoint_count": 36,
+        "targets": {
+          "left_x": 0.47774450217237663,
+          "left_y": -0.22374783127049344,
+          "left_z": 0.0824734929163095
+        },
+        "tracking_correction": 0,
+        "goal": "exact_pose",
+        "position_tolerance_m": 0.003
+      },
+      "requested_reference_rotations_base": {
+        "left": [
+          [
+            -0.8747456580873236,
+            0.42412566983864597,
+            0.23438739266712932
+          ],
+          [
+            0.4096739380892987,
+            0.9056033437349489,
+            -0.10977180087110533
+          ],
+          [
+            -0.25881904510252074,
+            0.0,
+            -0.9659258262890683
+          ]
+        ],
+        "right": [
+          [
+            -0.5108094934915896,
+            -0.0008491525676454818,
+            0.8596935153290292
+          ],
+          [
+            0.0011067227879972298,
+            0.9999980340328964,
+            0.0016453251999587
+          ],
+          [
+            -0.8596932223319765,
+            0.0017918901361279333,
+            -0.5108075494804318
+          ]
+        ]
+      },
+      "scope": "Validated native packet and proposed endpoint/reference only; physical transport stopped."
+    }
+  ],
+  "interactions": [
+    {
+      "kind": "model_request",
+      "message": "RoboSkills is choosing its next Python action",
+      "call": 6,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "deeb0c8acd488f158cf9df0de2aa6671791beb424cd424cafd91f1b43bbfe899"
+    },
+    {
+      "kind": "model_request",
+      "message": "RoboSkills is choosing its next Python action",
+      "call": 7,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "deeb0c8acd488f158cf9df0de2aa6671791beb424cd424cafd91f1b43bbfe899"
+    },
+    {
+      "kind": "packet_ready",
+      "message": "RoboSkills prepared 36 checked waypoints",
+      "call": 7,
+      "waypoint_count": 36,
+      "targets": {
+        "left_x": 0.47774450217237663,
+        "left_y": -0.22374783127049344,
+        "left_z": 0.0824734929163095
+      },
+      "tracking_correction": 0,
+      "goal": "exact_pose",
+      "position_tolerance_m": 0.003
+    }
+  ],
+  "source_hashes": {
+    "initial_template": "4b2a66f64e38d39d46bf4396b9c3165a1b8349db25754bea2cf1cf6d7068192b",
+    "later_template": "0c0c58973f311b23a6dc0c95a91859eb22495e5dd284311891088cbc8c3b87d9",
+    "policy": "44fefa24cedf523570e821b8f2f3369c55554d534de0bcfe582a72b77ef254a5",
+    "rendered_initial_system": "41ae86374d5f4dff320fdaed0a9609fb510869d2d2cc64a362673a667e29cc57"
+  },
+  "actual_local_preflights": [
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467854.9174201,
+      "targets": {
+        "left_x": 0.49173060606131413,
+        "left_y": -0.2302980121210454,
+        "left_z": 0.029506127250961724
+      },
+      "attitude": null,
+      "rotation": null,
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467854.956396,
+      "targets": {
+        "left_x": 0.49173060606131413,
+        "left_y": -0.2302980121210454,
+        "left_z": 0.08450612725096172
+      },
+      "attitude": null,
+      "rotation": null,
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467854.9920452,
+      "targets": {
+        "left_x": 0.49173060606131413,
+        "left_y": -0.2302980121210454,
+        "left_z": 0.07450612725096173
+      },
+      "attitude": null,
+      "rotation": null,
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.019965,
+      "targets": {
+        "left_x": 0.4337702294844689,
+        "left_y": -0.2270152627143764,
+        "left_z": 0.0983366422290704
+      },
+      "attitude": null,
+      "rotation": null,
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.110612,
+      "targets": {
+        "left_x": 0.4337702294844689,
+        "left_y": -0.2270152627143764,
+        "left_z": 0.0633366422290704
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.9056033437349489,
+            0.42412566983864597,
+            0.0
+          ],
+          [
+            0.42412566983864597,
+            0.9056033437349489,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 54,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": false,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 3,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption.",
+          "failed_arm": "left",
+          "failed_offset_m": [
+            -0.008,
+            -0.008,
+            0.008
+          ],
+          "reason": "Cartesian target is unreachable; request a smaller move",
+          "code": "unreachable_target"
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.409437,
+      "targets": {
+        "left_x": 0.490996095021692,
+        "left_y": -0.22995401495182247,
+        "left_z": 0.029435567468679123
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8918451940639572,
+            0.42412566983864597,
+            0.15725637032865258
+          ],
+          [
+            0.41768224790859454,
+            0.9056033437349489,
+            -0.07364864966924703
+          ],
+          [
+            -0.17364817766693033,
+            0.0,
+            -0.984807753012208
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 44,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": false,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 20,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption.",
+          "failed_arm": "left",
+          "failed_offset_m": [
+            0.008,
+            -0.008,
+            0.008
+          ],
+          "reason": "Cartesian target is unreachable; request a smaller move",
+          "code": "unreachable_target"
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.440777,
+      "targets": {
+        "left_x": 0.48234699465361613,
+        "left_y": -0.22590333922001388,
+        "left_z": 0.08359999388435056
+      },
+      "attitude": null,
+      "rotation": null,
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.4779038,
+      "targets": {
+        "left_x": 0.490996095021692,
+        "left_y": -0.22995401495182247,
+        "left_z": 0.07443556746867912
+      },
+      "attitude": null,
+      "rotation": null,
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.706656,
+      "targets": {
+        "left_x": 0.4330357184448468,
+        "left_y": -0.22667126554515346,
+        "left_z": 0.0982660824467878
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8918451940639572,
+            0.42412566983864597,
+            0.15725637032865258
+          ],
+          [
+            0.41768224790859454,
+            0.9056033437349489,
+            -0.07364864966924703
+          ],
+          [
+            -0.17364817766693033,
+            0.0,
+            -0.984807753012208
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 32,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467855.879025,
+      "targets": {
+        "left_x": 0.4330357184448468,
+        "left_y": -0.22667126554515346,
+        "left_z": 0.0632660824467878
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8918451940639572,
+            0.42412566983864597,
+            0.15725637032865258
+          ],
+          [
+            0.41768224790859454,
+            0.9056033437349489,
+            -0.07364864966924703
+          ],
+          [
+            -0.17364817766693033,
+            0.0,
+            -0.984807753012208
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 24,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467856.120054,
+      "targets": {
+        "left_x": 0.49063580876906876,
+        "left_y": -0.22978528031840423,
+        "left_z": 0.02934757247041074
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8747456580873236,
+            0.42412566983864597,
+            0.23438739266712932
+          ],
+          [
+            0.4096739380892987,
+            0.9056033437349489,
+            -0.10977180087110533
+          ],
+          [
+            -0.25881904510252074,
+            0.0,
+            -0.9659258262890683
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 32,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467856.3251572,
+      "targets": {
+        "left_x": 0.47774450217237663,
+        "left_y": -0.22374783127049344,
+        "left_z": 0.0824734929163095
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8747456580873236,
+            0.42412566983864597,
+            0.23438739266712932
+          ],
+          [
+            0.4096739380892987,
+            0.9056033437349489,
+            -0.10977180087110533
+          ],
+          [
+            -0.25881904510252074,
+            0.0,
+            -0.9659258262890683
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 36,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467856.598455,
+      "targets": {
+        "left_x": 0.49063580876906876,
+        "left_y": -0.22978528031840423,
+        "left_z": 0.07434757247041074
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8747456580873236,
+            0.42412566983864597,
+            0.23438739266712932
+          ],
+          [
+            0.4096739380892987,
+            0.9056033437349489,
+            -0.10977180087110533
+          ],
+          [
+            -0.25881904510252074,
+            0.0,
+            -0.9659258262890683
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 43,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467856.774113,
+      "targets": {
+        "left_x": 0.43267543219222354,
+        "left_y": -0.22650253091173522,
+        "left_z": 0.09817808744851943
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8747456580873236,
+            0.42412566983864597,
+            0.23438739266712932
+          ],
+          [
+            0.4096739380892987,
+            0.9056033437349489,
+            -0.10977180087110533
+          ],
+          [
+            -0.25881904510252074,
+            0.0,
+            -0.9659258262890683
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 26,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467856.973484,
+      "targets": {
+        "left_x": 0.43267543219222354,
+        "left_y": -0.22650253091173522,
+        "left_z": 0.06317808744851942
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8747456580873236,
+            0.42412566983864597,
+            0.23438739266712932
+          ],
+          [
+            0.4096739380892987,
+            0.9056033437349489,
+            -0.10977180087110533
+          ],
+          [
+            -0.25881904510252074,
+            0.0,
+            -0.9659258262890683
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 22,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467857.184026,
+      "targets": {
+        "left_x": 0.49028383883045196,
+        "left_y": -0.22962044050524358,
+        "left_z": 0.029225238180975752
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.850988779466776,
+            0.42412566983864597,
+            0.30973458542043203
+          ],
+          [
+            0.39854776223325616,
+            0.9056033437349489,
+            -0.14505952238630895
+          ],
+          [
+            -0.34202014332566877,
+            0.0,
+            -0.9396926207859084
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 24,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467857.346462,
+      "targets": {
+        "left_x": 0.4732484366323282,
+        "left_y": -0.2216421667739966,
+        "left_z": 0.08090833232420072
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.850988779466776,
+            0.42412566983864597,
+            0.30973458542043203
+          ],
+          [
+            0.39854776223325616,
+            0.9056033437349489,
+            -0.14505952238630895
+          ],
+          [
+            -0.34202014332566877,
+            0.0,
+            -0.9396926207859084
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 24,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467857.563352,
+      "targets": {
+        "left_x": 0.49028383883045196,
+        "left_y": -0.22962044050524358,
+        "left_z": 0.07422523818097575
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.850988779466776,
+            0.42412566983864597,
+            0.30973458542043203
+          ],
+          [
+            0.39854776223325616,
+            0.9056033437349489,
+            -0.14505952238630895
+          ],
+          [
+            -0.34202014332566877,
+            0.0,
+            -0.9396926207859084
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 29,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467857.727076,
+      "targets": {
+        "left_x": 0.43232346225360674,
+        "left_y": -0.22633769109857457,
+        "left_z": 0.09805575315908444
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.850988779466776,
+            0.42412566983864597,
+            0.30973458542043203
+          ],
+          [
+            0.39854776223325616,
+            0.9056033437349489,
+            -0.14505952238630895
+          ],
+          [
+            -0.34202014332566877,
+            0.0,
+            -0.9396926207859084
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 16,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467857.913266,
+      "targets": {
+        "left_x": 0.43232346225360674,
+        "left_y": -0.22633769109857457,
+        "left_z": 0.06305575315908443
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.850988779466776,
+            0.42412566983864597,
+            0.30973458542043203
+          ],
+          [
+            0.39854776223325616,
+            0.9056033437349489,
+            -0.14505952238630895
+          ],
+          [
+            -0.34202014332566877,
+            0.0,
+            -0.9396926207859084
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 12,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467858.0768929,
+      "targets": {
+        "left_x": 0.4899428639095997,
+        "left_y": -0.2294607500428517,
+        "left_z": 0.029069495638184225
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8207553623934122,
+            0.42412566983864597,
+            0.3827245109558292
+          ],
+          [
+            0.38438839725690005,
+            0.9056033437349489,
+            -0.17924325334681834
+          ],
+          [
+            -0.4226182617406995,
+            0.0,
+            -0.9063077870366499
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 16,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467858.262731,
+      "targets": {
+        "left_x": 0.4688930158070291,
+        "left_y": -0.2196023711087767,
+        "left_z": 0.07891642392519997
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8207553623934122,
+            0.42412566983864597,
+            0.3827245109558292
+          ],
+          [
+            0.38438839725690005,
+            0.9056033437349489,
+            -0.17924325334681834
+          ],
+          [
+            -0.4226182617406995,
+            0.0,
+            -0.9063077870366499
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 13,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467858.464698,
+      "targets": {
+        "left_x": 0.4899428639095997,
+        "left_y": -0.2294607500428517,
+        "left_z": 0.07406949563818423
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8207553623934122,
+            0.42412566983864597,
+            0.3827245109558292
+          ],
+          [
+            0.38438839725690005,
+            0.9056033437349489,
+            -0.17924325334681834
+          ],
+          [
+            -0.4226182617406995,
+            0.0,
+            -0.9063077870366499
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 20,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467858.60917,
+      "targets": {
+        "left_x": 0.43198248733275446,
+        "left_y": -0.2261780006361827,
+        "left_z": 0.09790001061629292
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8207553623934122,
+            0.42412566983864597,
+            0.3827245109558292
+          ],
+          [
+            0.38438839725690005,
+            0.9056033437349489,
+            -0.17924325334681834
+          ],
+          [
+            -0.4226182617406995,
+            0.0,
+            -0.9063077870366499
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 8,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467858.80179,
+      "targets": {
+        "left_x": 0.43198248733275446,
+        "left_y": -0.2261780006361827,
+        "left_z": 0.06290001061629291
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.8207553623934122,
+            0.42412566983864597,
+            0.3827245109558292
+          ],
+          [
+            0.38438839725690005,
+            0.9056033437349489,
+            -0.17924325334681834
+          ],
+          [
+            -0.4226182617406995,
+            0.0,
+            -0.9063077870366499
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 6,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467858.946305,
+      "targets": {
+        "left_x": 0.48930417579289304,
+        "left_y": -0.2291616300945982,
+        "left_z": 0.028662772207865242
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.74182683033543,
+            0.42412566983864597,
+            0.5194327386470834
+          ],
+          [
+            0.3474234094837648,
+            0.9056033437349489,
+            -0.24326849027105088
+          ],
+          [
+            -0.573576436351046,
+            0.0,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 12,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467859.142278,
+      "targets": {
+        "left_x": 0.46073537516730345,
+        "left_y": -0.2157818631296904,
+        "left_z": 0.07371613464375978
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.74182683033543,
+            0.42412566983864597,
+            0.5194327386470834
+          ],
+          [
+            0.3474234094837648,
+            0.9056033437349489,
+            -0.24326849027105088
+          ],
+          [
+            -0.573576436351046,
+            0.0,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 6,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467859.28525,
+      "targets": {
+        "left_x": 0.48930417579289304,
+        "left_y": -0.2291616300945982,
+        "left_z": 0.07366277220786524
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.74182683033543,
+            0.42412566983864597,
+            0.5194327386470834
+          ],
+          [
+            0.3474234094837648,
+            0.9056033437349489,
+            -0.24326849027105088
+          ],
+          [
+            -0.573576436351046,
+            0.0,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 10,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467859.4700449,
+      "targets": {
+        "left_x": 0.4313437992160478,
+        "left_y": -0.2258788806879292,
+        "left_z": 0.09749328718597393
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.74182683033543,
+            0.42412566983864597,
+            0.5194327386470834
+          ],
+          [
+            0.3474234094837648,
+            0.9056033437349489,
+            -0.24326849027105088
+          ],
+          [
+            -0.573576436351046,
+            0.0,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 2,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    },
+    {
+      "kind": "local_plan_checked",
+      "time": 1793467859.611871,
+      "targets": {
+        "left_x": 0.4313437992160478,
+        "left_y": -0.2258788806879292,
+        "left_z": 0.062493287185973925
+      },
+      "attitude": null,
+      "rotation": {
+        "left": [
+          [
+            -0.74182683033543,
+            0.42412566983864597,
+            0.5194327386470834
+          ],
+          [
+            0.3474234094837648,
+            0.9056033437349489,
+            -0.24326849027105088
+          ],
+          [
+            -0.573576436351046,
+            0.0,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 66,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 6,
+        "tracking_reserve": {
+          "applicable": true,
+          "passed": true,
+          "max_axis_offset_m": 0.008,
+          "checked_samples": 26,
+          "total_samples": 26,
+          "scope": "Independent-arm finite samples around generated endpoint FK, not a continuous-region, collision, contact or physical-tracking guarantee. No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption."
+        }
+      }
+    }
+  ],
+  "execution_stopped_before_actuator": true,
+  "physical_task_success": false
+}
