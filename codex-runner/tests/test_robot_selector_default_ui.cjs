@@ -11,7 +11,7 @@ const refreshAvailability = source.slice(source.indexOf('  async function refres
   source.indexOf('  setInterval(refreshRobotAvailability'));
 const roboHouse = 'robot-ba8413962083809c';
 
-async function load({yamConnected = false, houseConnected = true, includeHouse = true, query = '', defaultRobot} = {}) {
+async function load({yamConnected = false, houseConnected = true, includeHouse = true, query = '', defaultRobot, robotChoices, showPendingRobots, extraRobots = []} = {}) {
   const nodes = new Map();
   const node = id => {
     if (!nodes.has(id)) nodes.set(id, {
@@ -25,13 +25,14 @@ async function load({yamConnected = false, houseConnected = true, includeHouse =
     {id: roboHouse, name: 'Robo-house YAM', connected: houseConnected},
     {id: 'yam-1', name: 'YAM1', connected: yamConnected}
   ]};
+  catalog.robots.push(...extraRobots);
   if (!includeHouse) catalog.robots = catalog.robots.filter(robot => robot.id !== roboHouse);
   const location = {search: query, href: 'https://example.test/' + query};
   const events = [], cameraUpdates = [];
   let sessionsStarted = 0;
   const context = vm.createContext({
     $: node, api: async () => structuredClone(catalog), location, URL, URLSearchParams,
-    window: {yamApplication: {defaultRobot}, dispatchEvent: event => events.push(event.detail),
+    window: {yamApplication: {defaultRobot, robotChoices, showPendingRobots}, dispatchEvent: event => events.push(event.detail),
       history: {replaceState(_state, _title, url) { location.href = url.href; location.search = url.search; }}},
     CustomEvent: class { constructor(_type, options) { this.detail = options.detail; } },
     document: {createElement: () => ({}), querySelectorAll: () => []},
@@ -105,4 +106,17 @@ test('manual choice and ongoing session survive availability refresh', async () 
   assert.equal(state.context.csrf, 'ongoing-session');
   assert.equal(state.context.active, true);
   assert.deepEqual(state.cameraUpdates, [false]);
+});
+
+
+test('hosted choices remove hidden links and pending entries without changing standalone choices', async () => {
+  const hidden = {id:'hidden-arm',name:'Hidden arm',hardware:'so101',connected:true};
+  const state = await load({query:'?robot_id=hidden-arm',extraRobots:[hidden],
+    showPendingRobots:false,robotChoices:robots=>robots.filter(robot=>robot.id !== hidden.id)});
+  assert.equal(state.selected(),'yam-1');
+  assert.deepEqual(Array.from(state.selector.options, option=>option.value),[roboHouse,'yam-1']);
+  await vm.runInContext('refreshRobotAvailability()',state.context);
+  assert.deepEqual(Array.from(state.selector.options, option=>option.value),[roboHouse,'yam-1']);
+  const standalone = await load({extraRobots:[hidden]});
+  assert.ok(standalone.selector.options.some(option=>option.value === hidden.id));
 });

@@ -2406,6 +2406,7 @@ function createRunLaunchGuard() {
   async function refreshRobotAvailability() {
     try {
       const catalog = await api('/api/robots');
+      catalog.robots = window.yamApplication?.robotChoices?.(catalog.robots) || catalog.robots;
       robotCatalog = catalog;
       const selector = $('robotSelector');
       if (!catalog.default_order) catalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
@@ -2424,9 +2425,10 @@ function createRunLaunchGuard() {
     const selector = $('robotSelector');
     try {
       robotCatalog = await api('/api/robots');
+      robotCatalog.robots = window.yamApplication?.robotChoices?.(robotCatalog.robots) || robotCatalog.robots;
       if (!robotCatalog.robots.some(robot => robot.id === selectedRobot)) {
         if (window.yamApplication?.defaultRobot) throw new Error('Selected robot unavailable');
-        selectedRobot = robotCatalog.selected || robotCatalog.robots[0]?.id || '';
+        selectedRobot = robotCatalog.robots.find(robot => robot.id === robotCatalog.selected)?.id || robotCatalog.robots[0]?.id || '';
       }
       if (!robotCatalog.default_order) robotCatalog.robots.sort((a,b) => Number(b.connected === true) - Number(a.connected === true));
       if (!window.yamApplication?.defaultRobot && !new URLSearchParams(location.search).get('robot_id')) {
@@ -2436,7 +2438,7 @@ function createRunLaunchGuard() {
       }
       selector.replaceChildren(...robotCatalog.robots.map(robot =>
         Object.assign(document.createElement('option'), {value: robot.id, textContent: robot.id === 'robot-abecb4cd868ab24b' ? 'SO101' : robot.name})));
-      if (!robotCatalog.robots.some(robot => robot.hardware === 'makerarm')) {
+      if (window.yamApplication?.showPendingRobots !== false && !robotCatalog.robots.some(robot => robot.hardware === 'makerarm')) {
         selector.append(Object.assign(document.createElement('option'), {value: '', textContent: 'MakerMods MakerArm — setup pending', disabled: true}));
       }
       selector.value = selectedRobot;

@@ -313,3 +313,70 @@
 }
 
 .meetingConsole .meetingRoom .robotNavigation { flex:0 1 auto; justify-content:flex-end; }
+
+/* A small meeting action opens the existing task-similarity graph. */
+.meetingConsole .meetingExplore { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:32px; padding:5px 10px; border:1px solid #5f6368; border-radius:18px; background:transparent; color:#e8eaed; font:400 12px/20px Arial,sans-serif; }
+.meetingConsole .meetingExplore:hover { background:#3c4043; border-color:#a8c7fa; }
+.meetingExplore svg { width:16px; height:16px; }
+.meetingConsole #pastRunsCloud { scroll-margin-top:16px; }
+@media(max-width:600px) { .meetingConsole .meetingExplore { min-height:44px; padding:8px 9px; } .meetingPromptHeading { align-items:center; } }
+
+/* Discovery sits beside the three task suggestions. */
+.meetingConsole .meetingSuggestions .meetingExplore { display:inline-flex; align-items:center; justify-content:center; gap:6px; margin:0; min-height:34px; max-height:none; padding:7px 10px; border-radius:18px; font:400 12px/18px Arial,sans-serif; }
+@media(max-width:600px) { .meetingSuggestions { grid-template-columns:repeat(2,minmax(0,1fr)); } .meetingConsole .meetingSuggestions .meetingExplore { min-height:44px; padding:6px 8px; } }
+
+@media(max-width:600px) and (max-height:700px) {
+  .meetingPromptHeading { position:absolute; width:1px; height:1px; margin:0; overflow:hidden; clip-path:inset(50%); }
+  .meetingConsole .meetingPromptDock .promptRow { padding-block:3px; }
+  .meetingSuggestions { margin-top:6px; }
+  .meetingConsole .meetingSuggestions button,.meetingConsole .meetingSuggestions .meetingExplore { min-height:44px; padding-block:4px; }
+  .meetingBar { min-height:64px; padding-block:8px; }
+  .meetingConsole .meetingPanelOpen .watchInteraction { bottom:calc(var(--meeting-dock-height,150px) + 80px); }
+  .meetingConsole .meetingRoom .taskChatHeading { padding-block:0; }
+  .meetingConsole .meetingRoom #meetingClosePanel { height:44px; min-height:44px; }
+  .meetingConsole .meetingRoom .watchToolbar { padding-block:0; }
+}
+
+/* Familiar call controls keep audio, chat and reactions within reach. */
+.meetingPeopleControls[hidden],.meetingReactions[hidden] { display:none; }
+.meetingConsole .meetingRoom #robotAudioToggle { border:0; background:#3c4043; color:#e8eaed; }
+.meetingConsole .meetingRoom #robotAudioToggle[aria-pressed="true"] { background:#d3e3fd; color:#18345b; }
+.meetingConsole .meetingRoom #robotAudioToggle:disabled { background:#303134; color:#91969d; }
+.meetingReactions { position:relative; }
+.meetingReactions[open]>.meetingMoreSummary { background:#d3e3fd; color:#18345b; }
+.meetingConsole .meetingRoom .meetingReactions .reactionDock { position:absolute; z-index:40; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%); width:max-content; gap:4px; padding:8px; border:0; border-radius:28px; background:#303134; box-shadow:0 8px 26px #0005; }
+.meetingReactions:not([open])>.reactionDock { display:none; }
+.meetingConsole .meetingRoom .meetingReactions .reactionDock button { width:44px; height:44px; font-size:24px; border-radius:50%; }
+.meetingConsole .meetingRoom .meetingReactions .reactionDock button:hover:not(:disabled) { background:#515457; }
+.meetingConsole .meetingRoom .meetingSocialOverlay { position:absolute; z-index:30; left:20px; right:20px; bottom:calc(var(--meeting-dock-height,150px) + 92px); height:0; pointer-events:none; }
+@media(max-width:600px),(max-width:1000px) and (max-height:500px) {
+  .meetingBar { display:flex; justify-content:center; gap:6px; }
+  .meetingInfo { display:none; }
+  .meetingCallControls { gap:6px; }
+  .meetingConsole .meetingRoom #meetingNotes { width:auto; min-width:64px; padding:11px 12px; gap:6px; border-radius:24px; }
+  .meetingConsole #meetingNotes .meetingControlLabel { display:inline; font-size:12px; }
+  .meetingConsole .meetingRoom #robotAudioToggle { width:44px; height:44px; min-height:44px; padding:11px; }
+  .meetingConsole .meetingOverflowOptions #meetingCameraViews { width:100%; border-radius:8px; justify-content:flex-start; }
+  .meetingConsole .meetingRoom .meetingSocialOverlay { left:12px; right:12px; bottom:calc(var(--meeting-dock-height,150px) + 80px); }
+}
+@media(max-width:600px) {
+  /* A readable sheet replaces the lower camera tiles only when Chat is open. */
+  .meetingConsole .meetingPanelOpen .watchInteraction { top:calc(112px + (100vw - 24px)*.38); bottom:calc(var(--meeting-dock-height,150px) + 80px); }
+}
+@media(max-height:500px) and (min-width:601px) {
+  .meetingSuggestions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .meetingConsole .meetingSuggestions button,.meetingConsole .meetingSuggestions .meetingExplore { min-height:44px; padding:4px 8px; line-height:16px; }
+}
+
+/* All call actions stay directly accessible without a More menu. */
+@media(max-width:600px),(max-width:1000px) and (max-height:500px) {
+  .meetingCallControls { gap:3px; }
+  .meetingConsole .meetingRoom #meetingCameraViews,.meetingConsole .meetingRoom #openVisitorChat { width:44px; height:44px; min-height:44px; padding:11px; }
+  .meetingConsole .meetingRoom #meetingNotes { flex-direction:column; gap:0; width:44px; min-width:44px; height:44px; min-height:44px; padding:4px; border-radius:50%; }
+  .meetingConsole #meetingNotes .meetingControlLabel { font-size:10px; line-height:13px; }
+}
+
+@media(max-width:600px) and (max-height:700px) {
+  .meetingConsole .meetingPanelOpen .watchInteraction { top:110px; }
+  .meetingConsole .meetingRoom .watchInteraction>.visitorChat { overflow-y:auto; }
+}
