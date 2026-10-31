@@ -46,7 +46,7 @@ def model_display_name(provider):
     if provider.get("display_name"):
         return str(provider["display_name"])[:100]
     if name in {'molmoact_baseline','molmoact_guided'}:
-        return 'MolmoAct2 baseline' if name == 'molmoact_baseline' else 'MolmoAct2 + CAG-inspired guidance'
+        return 'MolmoAct2 baseline' if name == 'molmoact_baseline' else 'MolmoAct2+CAG variant'
     if name in {"claude", "anthropic"}:
         match = re.match(r'claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d{1,2})(?!\d))?', model)
         if match:
