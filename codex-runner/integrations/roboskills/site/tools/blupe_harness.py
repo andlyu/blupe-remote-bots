@@ -65,9 +65,12 @@ automatically replay a timed-out movement or substitute Automated for a human
 runner to avoid a restriction. Keep unmet acceptance items unchecked; mock
 success does not establish physical motion or replay. For every run verify both
 15 seconds from matched settled startup Home completion (or documented no-Home
-robot readiness) to first actual method-driven motion and 30 seconds from Run.
-Home/preparation motion does not count. Keep both full elapsed times and visual
-proof; apply only the checklist's evidenced GPU-launch/research exceptions.
+robot readiness) to first actual method-driven motion and 30 seconds from
+Run/Start excluding only evidenced initial queue-admission waiting. Keep the
+original Start timestamp, full times, queue entry/admission and excluded seconds;
+post-admission preparation still counts. Never subtract overlapping queue/GPU
+waiting twice. Home/preparation motion does not count. Keep visual proof; apply
+only the checklist's evidenced GPU-launch/research exceptions.
 The source and content hashes are recorded in `{MANIFEST}`. These instructions
 are repo-local and require no global Codex or approval-policy changes.
 {END}'''
