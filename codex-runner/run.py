@@ -419,7 +419,6 @@ def main() -> None:
     parser.add_argument('--station-api-key-file', help='Existing private station API-mode credential file')
     parser.add_argument('--station-episodes-root', action='append', help='Read-only native EpisodeRecorder root; repeat for multiple roots')
     parser.add_argument('--station-media-cache', help='App-owned native replay MP4 cache (defaults under recording-root)')
-    parser.add_argument("--aspire-config", help="Station configuration for Codex-generated ASPIRE programs")
     control = parser.add_mutually_exclusive_group()
     control.add_argument("--allow-hardware-control", dest="allow_hardware_control", action="store_true", default=True, help="Allow command submission (the default); execution safety checks still apply")
     control.add_argument("--read-only", dest="allow_hardware_control", action="store_false", help="Disable hardware command submission for monitoring only")
@@ -428,7 +427,7 @@ def main() -> None:
     parser.add_argument("--check-provider-sim", action="store_true", help="Test two Astra API calls through the gateway and simulated motors")
     args = parser.parse_args()
     if args.station_local:
-        if args.legacy_ui or args.aspire_config or not args.recording_root or not args.station_episodes_root:
+        if args.legacy_ui or not args.recording_root or not args.station_episodes_root:
             parser.error('--station-local requires --recording-root and --station-episodes-root')
         from station_playground import loopback_origin
         try:
@@ -440,10 +439,6 @@ def main() -> None:
             parser.error('Codex login requires --station-provider codex')
         args.provider = args.station_provider
         args.no_share_conversation = True
-    if args.aspire_config:
-        if args.legacy_ui:
-            parser.error('--aspire-config uses the shared playground UI')
-        os.environ['YAM_ASPIRE_CONFIG'] = str(pathlib.Path(args.aspire_config).expanduser().resolve())
     if args.provider == "codex" or args.codex_login:
         ensure_codex_runtime()
         setup = codex_status()

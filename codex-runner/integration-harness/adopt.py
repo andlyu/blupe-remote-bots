@@ -14,6 +14,7 @@ CONTRACT_SOURCE = "https://github.com/andlyu/blupe-remote-bots/blob/main/codex-r
 MANIFEST = ".blupe-harness.json"
 HELPER = "tools/blupe_harness.py"
 CONTRACT = "docs/BLUPE-HARNESS-CONTRACT.md"
+CONTROLS = "docs/CONTROL-CONTRACT.md"
 CONTRACT_HEADING = "## Authorization granted by using this harness"
 
 
@@ -41,8 +42,8 @@ def instructions(checklist):
     return f'''{BEGIN}
 ## BluPe research harness startup
 
-Before working on this integration, read `{checklist}`, `{CONTRACT}` and this
-repository's other instructions. Route the requested workflow through the
+Before working on this integration, read `{checklist}`, `{CONTRACT}`,
+`{CONTROLS}` and this repository's other instructions. Route the requested workflow through the
 harness contract; retain the user's request and adopted instruction selecting
 the harness as invocation evidence. Reading a file alone is not an invocation.
 Covered BluPe arm runs have standing owner authorization. Proceed after a concrete
@@ -62,6 +63,14 @@ permissions still apply; use their normal approval mechanism with the existing
 authorization. The harness adds no authorization gate for covered runs or public
 delivery. For publication, cite the contract and exact public website/repository;
 the physical-test scope renderer is unnecessary for a publication-only action.
+
+Before physical runs and completion, satisfy `{CONTROLS}`: test every
+advertised primitive and numeric endpoint through the real packet validator,
+retain a required CI/release-preflight result, validate before dispatch, preserve
+safety limits and turn failures into regressions. Test the advertised task;
+a joint-motion smoke test cannot establish pick-and-place. Reopen failed or
+stale acceptance items; preserve old evidence. These engineering checks add no
+authorization or approval requirement.
 
 Preserve queue/lease, readiness, validation, hardware limits and Stop. Never
 automatically replay a timed-out movement or substitute Automated for a human
@@ -103,7 +112,7 @@ def install(root, checklist, template, *, check=False, dry_run=False):
     root = root.resolve(strict=True)
     if not root.is_dir():
         raise ValueError("Target must be an existing integration directory")
-    names = ["AGENTS.md", checklist, HELPER, MANIFEST, CONTRACT]
+    names = ["AGENTS.md", checklist, HELPER, MANIFEST, CONTRACT, CONTROLS]
     if len(set(names)) != len(names):
         raise ValueError("Checklist must have its own documentation path")
     paths = {name: local_path(root, name) for name in names}
@@ -120,6 +129,11 @@ def install(root, checklist, template, *, check=False, dry_run=False):
             raise ValueError("Preserve the existing edited helper before upgrading: " + HELPER)
     raw_template = template.read_bytes()
     raw_contract = contract_text(raw_template).encode()
+    raw_controls = Path(__file__).with_name("CONTROL-CONTRACT.md").read_bytes()
+    controls = paths[CONTROLS]
+    if controls.exists() and controls.read_bytes() != raw_controls:
+        if digest(controls.read_bytes()) != old.get("controls_sha256"):
+            raise ValueError("Preserve the existing edited control contract before upgrading: " + CONTROLS)
     contract = paths[CONTRACT]
     if contract.exists() and contract.read_bytes() != raw_contract:
         if digest(contract.read_bytes()) != old.get("contract_sha256"):
@@ -128,7 +142,7 @@ def install(root, checklist, template, *, check=False, dry_run=False):
     agent = paths["AGENTS.md"]
     original = agent.read_text() if agent.exists() else ""
     changes = {"AGENTS.md": merge_instructions(original, block).encode(),
-               HELPER: raw_helper, CONTRACT: raw_contract}
+               HELPER: raw_helper, CONTRACT: raw_contract, CONTROLS: raw_controls}
     # A completed checklist belongs to the integration, including all evidence.
     if not paths[checklist].exists():
         changes[checklist] = raw_template
@@ -136,6 +150,7 @@ def install(root, checklist, template, *, check=False, dry_run=False):
                     contract_source=CONTRACT_SOURCE,
                     template_sha256=digest(raw_template), helper_sha256=digest(raw_helper),
                     contract=CONTRACT, contract_sha256=digest(raw_contract),
+                    controls=CONTROLS, controls_sha256=digest(raw_controls),
                     instructions_sha256=digest(block.encode()))
     changes[MANIFEST] = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
     changes = {name: raw for name, raw in changes.items()
@@ -191,6 +206,11 @@ def scope(root, specification):
     raw_contract = contract.read_bytes()
     if digest(raw_contract) != manifest["contract_sha256"]:
         raise ValueError("Installed contract changed; review and reinstall before preparing scope")
+    if manifest.get("controls") != CONTROLS or not manifest.get("controls_sha256"):
+        raise ValueError("Control requirements missing; reinstall the shared harness before preparing scope")
+    controls = local_path(root, manifest["controls"])
+    if not controls.is_file() or digest(controls.read_bytes()) != manifest["controls_sha256"]:
+        raise ValueError("Installed control requirements changed or are missing; review and reinstall before preparing scope")
     data = json.loads(specification.read_text())
     if not isinstance(data, dict):
         raise ValueError("Scope specification must be a JSON object")
@@ -277,3 +297,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

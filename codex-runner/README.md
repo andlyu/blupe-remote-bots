@@ -3,9 +3,6 @@
 For MakerMods MakerArm setup, its Astra prompt, XYZ IK, and the robot selector,
 see [MakerArm integration](docs/MAKERARM.md).
 
-To try ASPIRE, see the [ASPIRE quick start](docs/aspire/README.md) and its
-[shared skill library](skills/aspire/README.md).
-
 This repository owns the shared local playground. BluPe-specific browser hosting
 lives in `blupe-evals/apps/blupe_web`; see [ownership](../docs/REPOSITORY-OWNERSHIP.md).
 
@@ -187,7 +184,7 @@ reopening settings also refreshes lists older than five minutes. New matching
 releases appear without a runner code update when the provider lists them.
 Selections are remembered separately for each provider in this browser, and
 refreshing never replaces your selected model. Connection checks and Run both
-use that selected ID. Fixed policies such as GR00T and ASPIRE retain their
+use that selected ID. Fixed policies such as GR00T retain their
 configured models, as do station-specific deployments and hosted payment flows.
 
 Codex uses the installed CLI's `model/list` catalog. Claude Code uses its

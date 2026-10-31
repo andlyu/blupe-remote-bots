@@ -294,7 +294,6 @@ class CodexAdapter(RoboCurveResponsesAdapter):
 
     def public_config(self):
         return {**super().public_config(), 'api_key_configured': False,
-                **({'launch_route':self.launch_route} if getattr(self,'launch_route',None) else {}),
                 'authentication': 'chatgpt', 'transport': 'codex_exec',
                 'codex_connected': True, 'reasoning_effort': self.reasoning_effort}
 

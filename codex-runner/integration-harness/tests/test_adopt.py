@@ -65,6 +65,49 @@ class Adoption(unittest.TestCase):
         self.install()
         self.assertTrue((self.root / "docs/COMPLETION-CHECKLIST.md").is_file())
 
+    def test_control_requirements_are_loaded_even_when_old_checklist_is_preserved(self):
+        checklist = self.root / 'docs/COMPLETION-CHECKLIST.md'
+        checklist.parent.mkdir()
+        evidence = '# Existing evidence\n- [x] Earlier bounded joint test.\n'
+        checklist.write_text(evidence)
+        self.install()
+        controls = self.root / 'docs/CONTROL-CONTRACT.md'
+        self.assertTrue(controls.is_file())
+        self.assertEqual(controls.read_bytes(), (SCRIPT.parent / 'CONTROL-CONTRACT.md').read_bytes())
+        self.assertIn('docs/CONTROL-CONTRACT.md', (self.root / 'AGENTS.md').read_text())
+        self.assertEqual(checklist.read_text(), evidence)
+        manifest = json.loads((self.root / '.blupe-harness.json').read_text())
+        self.assertEqual(manifest['controls'], 'docs/CONTROL-CONTRACT.md')
+        self.assertEqual(len(manifest['controls_sha256']), 64)
+
+    def test_edited_control_requirements_are_not_overwritten_or_used_for_scope(self):
+        self.install()
+        controls = self.root / 'docs/CONTROL-CONTRACT.md'
+        controls.write_text(controls.read_text() + '\nOwner-specific requirement.\n')
+        spec = self.root / 'private-test-scope.json'
+        spec.write_text(json.dumps(self.specification()))
+        before = {p.relative_to(self.root): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        self.run_cli('scope', '--target', self.root, '--spec', spec, '--json', ok=2)
+        self.run_cli('install', '--target', self.root, ok=2)
+        after = {p.relative_to(self.root): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        self.assertEqual(before, after)
+
+    def test_legacy_install_gets_new_control_requirements_without_resetting_evidence(self):
+        self.install()
+        controls = self.root / 'docs/CONTROL-CONTRACT.md'
+        controls.unlink()
+        manifest_path = self.root / '.blupe-harness.json'
+        manifest = json.loads(manifest_path.read_text())
+        manifest.pop('controls'); manifest.pop('controls_sha256')
+        manifest_path.write_text(json.dumps(manifest))
+        before = (self.root / 'docs/COMPLETION-CHECKLIST.md').read_bytes()
+        self.scope(self.specification(), ok=2)
+        self.run_cli('install', '--target', self.root, '--check', ok=1)
+        self.install()
+        self.assertTrue(controls.is_file())
+        self.assertEqual((self.root / 'docs/COMPLETION-CHECKLIST.md').read_bytes(), before)
+        self.scope(self.specification())
+
     def test_malformed_markers_refuse_all_changes(self):
         value = "# Owner instructions\n<!-- blupe-integration-harness:start -->\n"
         (self.root / "AGENTS.md").write_text(value)
@@ -161,3 +204,4 @@ class Adoption(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

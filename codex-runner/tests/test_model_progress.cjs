@@ -53,15 +53,15 @@ function reasoningFixture() {
  return {ui,nodes,text:()=>text(nodes.sideConversationMessages)};
 }
 
-test('notes view renders streamed public summaries/status and plain ASPIRE response summaries', () => {
+test('notes view renders streamed public summaries/status and plain policy response summaries', () => {
  const f=reasoningFixture();
  f.ui.renderConversation([
   {kind:'model_progress',timestamp:100,progress_type:'summary',message:'SENTINEL_STREAM_SUMMARY'},
   {kind:'model_progress',timestamp:101,details:{progress_type:'status'},message:'SENTINEL_STATUS'},
   {kind:'model_progress',timestamp:102,progress_type:'raw_reasoning',message:'PRIVATE_SENTINEL'},
-  {kind:'model_response',timestamp:103,message:'SENTINEL_ASPIRE_RESPONSE'}
+  {kind:'model_response',timestamp:103,message:'SENTINEL_POLICY_RESPONSE'}
  ],'sideConversationMessages');
- for(const value of ['SENTINEL_STREAM_SUMMARY','SENTINEL_STATUS','SENTINEL_ASPIRE_RESPONSE','public summary']) assert.ok(f.text().includes(value));
+ for(const value of ['SENTINEL_STREAM_SUMMARY','SENTINEL_STATUS','SENTINEL_POLICY_RESPONSE','public summary']) assert.ok(f.text().includes(value));
  assert.doesNotMatch(f.text(),/PRIVATE_SENTINEL/);
 });
 
@@ -84,7 +84,7 @@ test('public model errors remain visible in notes and conversation views', () =>
 
 test('shared updates require tool attribution, matching task and public event types', () => {
  const c=vm.createContext({});
- vm.runInContext(source.slice(source.indexOf('function publicModelRun('),source.indexOf('function aspireSharedRun(')),c);
+ vm.runInContext(source.slice(source.indexOf('function publicModelRun('),source.indexOf('function sharedTaskRun(')),c);
  const value={task:'Task',kind:'model_progress',progress_type:'summary',timestamp:100,message:'Recorded public summary'};
  const event={kind:'model_request',speaker:'Tool',message:'PUBLIC_MODEL_EVENT_V1\n'+JSON.stringify(value)};
  assert.equal(c.publicModelRun({task:'Task',events:[event]}).events[0].kind,'model_progress');

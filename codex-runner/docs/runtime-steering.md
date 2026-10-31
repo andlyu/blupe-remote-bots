@@ -21,7 +21,7 @@ rates do not establish the performance of this implementation.
 Conversational RoboCurve providers (OpenAI/Astra, Codex, Anthropic and Claude,
 including their joint, SO101, MakerArm and Codex depth variants) share the inbox.
 Dream-1 beta and Flash also support owner steering through their language input
-(below). Fixed code programs, ASPIRE program execution, hosted remote policies
+(below). Fixed code programs, hosted remote policies
 and other VLA adapters report live steering unavailable.
 
 The inference thread appends each accepted message once, after its fresh camera

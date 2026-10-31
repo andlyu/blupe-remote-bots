@@ -305,7 +305,7 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(visitor.runner_task, 'Raise and lower both arms for three cycles.')
         self.assertEqual(visitor.controller._prompt, visitor.runner_task)
 
-    async def test_aspire_preparation_is_public_before_a_robot_session_exists(self):
+    async def test_policy_preparation_is_public_before_a_robot_session_exists(self):
         browser=await self.session()
         _,owner=self.app.new_visitor()
         owner.runner_task='Stack two blocks';owner.runner_name='Fixture'

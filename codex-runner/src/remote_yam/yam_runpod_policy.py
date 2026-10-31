@@ -18,6 +18,8 @@ from .cameras import NoRedirect
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
 
 GRIPPER_UNITS = 'normalized_0_closed_1_open'
+# 0.3 rad/s at the gateway's 10 Hz, below YAM1's existing 0.35 rad/s cap.
+MOLMOACT_JOINT_STEP_RAD = .03
 MODELS = {
     'molmoact2': dict(label='MolmoAct2 · YAM1', model='allenai/MolmoAct2-BimanualYAM',
         revision='8dcbed66f2380e4393189c303ea72488eb9e63c2', num_actions=30,
@@ -63,10 +65,17 @@ class YAMRunpodAdapter:
         self._warm_state = 'waiting_for_queue'
         self._thread = None
         self._opener = request.build_opener(NoRedirect)
+        if provider == 'molmoact2':
+            # Bound by RunnerController to its existing lease/feedback checks.
+            self.refresh_observation = None
 
     def public_config(self):
-        return dict(provider=self.provider_name, model=self.model, revision=self.spec['revision'],
+        config = dict(provider=self.provider_name, model=self.model, revision=self.spec['revision'],
                     warmup=self._warm_state, api_key_configured=bool(self._api_key))
+        if self.provider_name == 'molmoact2':
+            config['trajectory_pacing'] = dict(cadence_hz=10,
+                max_joint_step_rad=MOLMOACT_JOINT_STEP_RAD, preserve_targets=True)
+        return config
 
     def _json(self, path, payload=None):
         req = request.Request(self._endpoint + path,
@@ -236,8 +245,23 @@ class YAMRunpodAdapter:
             self.interaction_sink('model_failure', 'YAM1 action chunk rejected before dispatch', **details)
             raise ValueError('Invalid YAM1 action chunk (' + reason + '); no targets dispatched')
         # Match the GR00T gateway contract: select every third 30 Hz target.
-        # DreamZero keeps eight 10 Hz waypoints (0.8s), MolmoAct2 ten (1s).
+        # MolmoAct2 preserves those targets, extending time for large moves.
         targets = rows[2::3]
+        if self.provider_name == 'molmoact2':
+            refresh = self.refresh_observation
+            if callable(refresh):
+                fresh = refresh()
+                if fresh.get('robot_id', fresh.get('jetson_id')) != self._robot_id:
+                    raise ValueError('MolmoAct2 pacing requires YAM1 feedback')
+                state = []
+                for arm in ('left', 'right'):
+                    joints, gripper = fresh[arm + '_joints_deg'], fresh[arm + '_gripper']
+                    if (len(joints) != 6 or not all(self._number(v) for v in joints)
+                            or not self._number(gripper) or not 0 <= gripper <= 1):
+                        raise ValueError('MolmoAct2 pacing requires measured joints and grippers')
+                    state.extend(math.radians(v) for v in joints)
+                    state.append(gripper)
+            targets = self._paced_molmoact_targets(targets, state, first_step_id)
         if len(targets) > min(MAX_WAYPOINTS_PER_PACKET, MAX_COMMANDS - first_step_id):
             raise ValueError('YAM1 trajectory exceeds gateway budget; chunk rejected')
         points = []
@@ -256,6 +280,31 @@ class YAMRunpodAdapter:
                     offset += count + 1
             points.append(point)
         return points
+
+    def _paced_molmoact_targets(self, targets, measured_state, first_step_id):
+        # Bound entry from measured pose AND every internal transition. Keep
+        # each selected absolute target/gripper endpoint, without clipping or
+        # modifying the model result. The gateway still validates the packet.
+        capacity = min(MAX_WAYPOINTS_PER_PACKET, MAX_COMMANDS - first_step_id)
+        previous, paced = measured_state, []
+        joints = (*range(6), *range(7, 13))
+        for target in targets:
+            delta = max(abs(target[i] - previous[i]) for i in joints)
+            if delta > max(0, capacity - len(paced)) * MOLMOACT_JOINT_STEP_RAD:
+                raise ValueError('MolmoAct2 paced trajectory exceeds gateway budget; entire chunk rejected')
+            count = max(1, math.ceil(delta / MOLMOACT_JOINT_STEP_RAD))
+            if len(paced) + count > capacity:
+                raise ValueError('MolmoAct2 paced trajectory exceeds gateway budget; entire chunk rejected')
+            for index in range(1, count + 1):
+                if self.cancelled():
+                    raise RuntimeError('YAM1 policy cancelled')
+                paced.append(list(target) if index == count else
+                    [a + (b - a) * index / count for a, b in zip(previous, target)])
+            previous = target
+        self.interaction_sink('trajectory_pacing', 'Paced MolmoAct2 targets for the existing gateway',
+            predicted_waypoints=len(targets), gateway_waypoints=len(paced),
+            max_joint_step_rad=MOLMOACT_JOINT_STEP_RAD)
+        return paced
 
     def _capture_policy_frames(self, observation):
         return self._camera_source.capture_for_policy(observation, cancelled=self.cancelled)

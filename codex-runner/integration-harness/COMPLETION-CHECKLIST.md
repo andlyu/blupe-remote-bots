@@ -148,6 +148,16 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
+- [ ] Every advertised control primitive passes the offline command-contract
+  gate through the actual parser/generator/serializer and canonical validator,
+  including measured fractional starts, numeric endpoints, invalid-input and
+  zero-dispatch failure tests. A required CI/release-preflight result and exact
+  source/dependency revisions are retained. Follow [the control contract](CONTROL-CONTRACT.md).
+- [ ] Task acceptance matches the advertised capability and tested deployment.
+  A representative physical task exercises the required primitives and verifies
+  the requested object/result state; a narrower smoke test is labelled as such.
+  Relevant failures or changed control code reopen affected requirements and
+  the current passed/total display, preserving earlier results as history.
 - [ ] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
 - [ ] The actual physical arms are visible live on the website while the method
@@ -165,9 +175,6 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
   Clearly label simulation content to distinguish it from physical-arm footage.
   If nothing executes in simulation, record an explicit not-applicable
   explanation instead of claiming simulation review.
-- [ ] The website is intuitive: a new visitor, without coaching, can find how to
-  run the method. Record the visitor path and starting conditions; site entry
-  has no separate 15-second pass/fail deadline.
 - [ ] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
   completes** and within **30 seconds after the Run/Start click excluding
@@ -188,6 +195,26 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
   deployment and record evidence; unmet or unverified requirements block
   completion.
 
+## Verify commands and numeric boundaries
+
+Read [CONTROL-CONTRACT.md](CONTROL-CONTRACT.md) before physical runs and before
+completion, including when an integration retains an older working checklist.
+The installer distributes that contract independently of preserved evidence.
+Its engineering gates are mandatory; they add no authorization/approval step.
+
+Require actual command-path regression tests and pre-dispatch validation, exact
+validated interpolation endpoints, strict rejection of invalid inputs, preserved
+hardware safeguards and an actionable distinction between local input rejection
+and physical safety stops. A test-only accepting mock cannot replace the real
+deployed packet validator. Retain a failing packet and red-to-green reproduction
+for every repair. Wire the tests into CI or the release preflight.
+
+For advertised pick-and-place, verify the relevant approach/grasp/lift/transfer/
+release/withdrawal sequence and fresh evidence of the object outcome. Passing
+joint motion does not certify the untested sequence. Tie each claim to a task,
+capability, source revision and evidence; invalidate affected current passes
+after a relevant new failure. Installing this document is not test evidence.
+
 ## Model identifies the tested approach
 
 Set the harness's **Model** field to the actual research approach/method being
@@ -203,18 +230,19 @@ execution mode in their own fields too.
 Verify a run's Model value against the executed approach and retain evidence of
 the website label, stored run record, notification and replay/history attribution.
 
-## Verify the visitor path
+## Verify normal UI execution
 
-Record initial navigation (`t_entry`), the visitor's starting state and test
-conditions, including browser/session/network, identity entry or confirmation,
-queue and robot readiness. Keep the website usable without coaching. Site entry
-is contextual evidence, not a separate timed pass/fail gate.
+Site entry (`t_entry`), starting state and browser/session/network may be
+recorded as optional diagnostic context. An agent can perform verification
+through the normal UI.
 
-Keep a timed screen recording showing the visitor's actions, the Run click,
+Keep a timed screen recording showing the UI actions, the Run click,
 startup Home completion (or no-Home readiness) and live physical arms beginning
 the integrated method, linked to the matching run. Correlate recorded UI/physical
 events with lifecycle logs on a common timeline; document any clock offset or
 measurement uncertainty. Backend timing alone cannot verify physical onset.
+Visual timing evidence may use retained accessible recording/verification links;
+a local download is not required.
 
 ## Verify every Run and startup Home
 
@@ -360,16 +388,36 @@ percentages, ETA or completion, or expose irrelevant infrastructure internals.
 UI transparency alone grants no exemption; only the documented GPU-launch
 blocking interval qualifies under the exception above, with neither clock reset.
 
+## Verify retained replays
+
+Open the retained recording through the website, confirm actual playback and
+appropriate seeking, and match it to the just-completed or selected historical
+physical run. Record the matching run reference/link and observed verification
+result. A link alone is insufficient.
+
+This does not require pressing **Save video**, downloading/exporting video to the
+agent's filesystem, making duplicate local copies or bundling videos in outputs.
+Omit optional local downloads from routine acceptance work; they are not a
+completion requirement and must not create an approval or needs-input blocker.
+Download locally only when explicitly requested or concretely necessary for the
+task. Required tool/platform permissions still apply; do not bypass or retry a
+denial through another route. Website/backend recording capture and retention
+remain required.
+
 ## Final verification before completion
 
 Open the deployed website and its associated source repository. Use the normal
-visitor flow to join, run the integrated method on physical YAMs and watch the
-actual arms live. Check the unchanged 15-second post-Home measure and the
+website controls to join, run the integrated method on physical YAMs and watch the
+actual arms live. First verify the required command-contract CI/release checks;
+choose a representative task covering the advertised primitives and verify its
+actual result. Reconcile later failures and changed control code with current
+acceptance status instead of carrying forward a stale smoke-test pass.
+Check the unchanged 15-second post-Home measure and the
 30-second Run/Start-to-motion budget excluding evidenced queue-admission wait.
 Keep fixed boundaries, full elapsed times, queue entry/admission/excluded seconds
 and queue-adjusted time; verify any GPU-launch exception uses the queue/GPU
 union without double subtraction. Check actual queue-to-admitted-to-preparation
-inline stages; site entry remains context only. Check approach/runner identities,
+inline stages; site entry is optional context. Check approach/runner identities,
 replay of the just-completed run and selection/replay of previous runs. Review
 every checklist item against current evidence, including public visibility and
 actual user attribution in policy/model tests, with execution mode separate.
@@ -392,6 +440,14 @@ before any completion claim.
   physical run reference):
 - Final checklist review (evidence for every item, replay links/timings, unmet
   items and explicit exceptions):
+- Command-contract evidence (advertised primitives/arms, units/frames/ranges,
+  actual packet generator/serializer/validator revisions, required CI/preflight
+  command/result and endpoint/interior/invalid-input/zero-dispatch coverage):
+- Failure regressions (sanitized packet/starting state, dispatch classification,
+  red-to-green proof, unchanged safety checks and deployed repair revision):
+- Representative task acceptance (capability/task, approach/grasp/lift/transfer/
+  release/withdrawal where applicable, fresh verified outcome, exclusions and
+  current requirements reopened by later failures or changed control code):
 - Actual approach name / website label evidence:
 - Model-as-approach evidence (executed approach, website Model value, stored run
   record, queue/email notification and replay/history attribution; separate
@@ -423,14 +479,17 @@ before any completion claim.
   review decision/rationale if required; redact private email from public evidence):
 - Physical execution (date, method/configuration, YAM station/arm IDs, run ID):
 - Live physical arm footage (website location and evidence link):
-- Just-completed replay URL / immediate availability evidence (same physical run):
-- Previous-run browser URL / selected prior run and replay evidence:
+- Just-completed replay URL / matching run reference / immediate availability
+  and observed playback/seeking result:
+- Previous-run browser URL / selected prior run reference / replay link and
+  observed playback/seeking result:
 - Simulation review (corresponding run reference, website review link, what ran
   and its results, suitable replay/visualization/outputs, clear simulation label;
   or explicit not-applicable explanation if nothing executes in simulation):
 - Per-run timing verification (tester/date, browser/session/network and robot
   readiness; evidence for every run in the timing table above):
-- Visitor's starting state, `t_entry` and entry-to-motion steps (context only):
+- Optional diagnostic context (site entry `t_entry`, starting state and
+  browser/session/network):
 - `t_run` / `t_home` / `t_motion`, full Run-to-motion and post-Home-to-motion
   seconds, queue-adjusted Run seconds and separate target outcomes:
 - Queue evidence (`t_queue` / `t_admit`, matched run/request/session/lease IDs,
@@ -443,3 +502,4 @@ before any completion claim.
   exception outcome if applicable (otherwise "none"):
 - Timed screen recording / matching physical run evidence and clock correlation:
 - Remaining gaps:
+

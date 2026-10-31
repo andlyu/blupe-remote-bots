@@ -330,10 +330,6 @@ class HostedRunner:
     def validate_launch(self, visitor, payload, paid):
         """Application admission rules, before shared robot/provider validation."""
 
-    def resolve_api_depth_launch(self, prompt):
-        """Optional text-only policy routing, before constructing a depth provider."""
-        return None
-
     def page(self):
         return (ROOT / "static/hosted.html").read_bytes()
 
@@ -891,7 +887,6 @@ class HostedRunner:
                     'run_metrics': current.get('run_metrics'),
                     'episode_id': current.get('episode_id'),
                     'model_name': model_display_name(current.get('provider')),
-                    **({'launch_route':current['provider']['launch_route']} if (current.get('provider') or {}).get('launch_route') else {}),
                     **({'task_progress':current['provider']['task_progress']} if (current.get('provider') or {}).get('task_progress') else {}),
                     **{k: current.get(k) for k in ('run_duration_s', 'run_started_at', 'run_ended_at', 'run_elapsed_s')}}
             shared_run = (state.get('queue_snapshot') or {}).get('public_run')
@@ -1092,18 +1087,10 @@ class HostedRunner:
                 visitor.subscription_prompts[name] = setup['setup_prompt']
                 if not setup['ready']:
                     raise RequestError(409, f"{setup['label']} needs setup on this computer. " + setup['message'], setup=setup)
-            depth_route = self.resolve_api_depth_launch(prompt) if use_api_depth else None
-            launch_route = depth_route['route'] if depth_route else None
-            if launch_route and launch_route['actual_policy'] == 'astra':
-                use_api_depth = False
             if controller_provider is not None:
                 provider = controller_provider
             elif use_api_depth:
-                if depth_route:
-                    provider = self.api_depth_provider_factory(name, key, model, visitor.directory,
-                        task=prompt, selected_executable=depth_route['program'])
-                else:
-                    provider = self.api_depth_provider_factory(name, key, model, visitor.directory)
+                provider = self.api_depth_provider_factory(name, key, model, visitor.directory)
             elif name == 'custom_endpoint':
                 from remote_yam.custom_endpoint_policy import CustomEndpointAdapter
                 try:
@@ -1232,8 +1219,6 @@ class HostedRunner:
                 raise RequestError(400, str(exc)) from None
             if provider_transform is not None:
                 provider = provider_transform(provider)
-            if launch_route:
-                provider.launch_route = launch_route
             visitor.last_launch = time.monotonic()
             visitor.launch_requested_at = time.time()
             visitor.launches += 1
@@ -1252,8 +1237,6 @@ class HostedRunner:
                 visitor.runner_name = runner_name.strip()
                 visitor.runner_session_id = visitor.controller.status().get('session_id')
                 visitor.controller._interactions.add('runner', 'Run submitted by ' + visitor.runner_name, runner_name=visitor.runner_name)
-                if launch_route:
-                    visitor.controller._interactions.add('runner', launch_route['message'], launch_route=launch_route)
             except Exception:
                 if hasattr(provider, "_api_key"):
                     provider._api_key = ""
@@ -1274,7 +1257,6 @@ class HostedRunner:
                 visitor.saved_keys[name] = key
             current = visitor.controller.status()
             return {"ok": True, "saved_key_providers": sorted(visitor.saved_keys),
-                    **({'launch_route':launch_route} if launch_route else {}),
                     "attempt_id": current.get('attempt_id'), "status": current['status']}
 
     def steer(self, visitor, payload):
