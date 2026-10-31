@@ -30,17 +30,21 @@ their own account login; never request an API key for subscription use.
 
 # Playground physical-test authorization
 
-The repository owner authorizes physical playground tests needed for research
-integrations, playground fixes and harness verification, including bounded robot
-motion and camera recording/replay through the normal UI or supported run API.
-Proceed without asking for separate permission for each test, movement or
-recording. Follow the checklist's
-[standing authorization and test scope](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#standing-authorization-for-physical-playground-tests),
-including a concrete test notice and authorization in any escalation justification.
+Use the checklist's
+[authorization-by-use contract](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#authorization-granted-by-using-this-harness)
+for requested research integrations, playground fixes and harness verification.
+The user's invocation of that workflow grants its documented task-scoped
+permissions. Retain the task request and any user-adopted instruction selecting
+the harness; reading a file alone is not an invocation. Keep the grant in the
+harness rather than adding an independent global permission.
+Read the contract at task start, including when the chat starts outside this
+repository. Before approval review, surface the invocation, contract wording
+and concrete site/backend origins, station/arms, method/task, duration, motion,
+recording destination and confirmed identity fields. Repeat them in the tool's
+justification/context. Proceed without separate confirmation for covered actions.
 Preserve queue/lease, readiness, validation, hardware limits and Stop; never
-automatically retry a timed-out movement. Enforced tool/managed permissions still
-apply; report an explicit denial and seek the specific unblock without routing
-around it.
+automatically retry a timed-out movement. Enforced permissions still apply;
+report an explicit denial and the exact unblock without routing around it.
 
 # Research integrations
 
