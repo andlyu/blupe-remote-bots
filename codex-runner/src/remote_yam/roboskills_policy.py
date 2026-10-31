@@ -39,9 +39,19 @@ def _tracking_offset(history, axes):
     result=current.copy()
     for j in axes:
         candidate=current[j]-error[j]
+        stalled=False
+        if len(history)>1:
+            previous,previous_error=history[-2]
+            # Measured transfer feedback stayed nearly unchanged while small
+            # reverse commands shrank toward an obsolete pre-friction bracket.
+            # A bounded half-residual step avoids repeatedly shrinking that
+            # ineffective bracket. This changes no success threshold.
+            stalled=(abs(current[j]-previous[j])>.00025
+                     and abs(error[j]-previous_error[j])<.0001)
+            if stalled:candidate=current[j]-.5*error[j]
         opposite=[(offset[j],residual[j]) for offset,residual in history[:-1]
                   if residual[j]*error[j]<0 and abs(offset[j]-current[j])>1e-9]
-        if opposite:
+        if opposite and not stalled:
             old_offset,old_error=min(opposite,key=lambda value:abs(value[0]-current[j]))
             candidate=(current[j]*old_error-old_offset*error[j])/(old_error-error[j])
         result[j]=np.clip(candidate,-.008,.008)
@@ -93,7 +103,9 @@ short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
 coordinates for an above-object approach in the SAME first Python block. Keep
 that first program to about4–8 lines: measure source and destination, unpack the
-selected source point, move above it, then show a fresh observation. move_to
+selected source point, move above it, then show a fresh observation.
+For object manipulation, leave grippers unchanged until that fresh above-object
+view; later turns handle contact/grasp after reviewing the view. move_to
 already validates bounds/IK/packets; do not duplicate bounds checks, nested
 result checks or custom safety functions. Missing measurements/local rejection
 raise descriptive exceptions before dispatch for you to resolve. Do not spend
@@ -199,7 +211,7 @@ class RobotTools:
         pose_arms=[arm for arm,i in (('left',0),('right',7)) if any(n in targets for n in NAMES[i:i+6])]
         axes=[j for arm,i in (('left',0),('right',7)) if arm in pose_arms for j in range(i,i+3)]
         history=[]
-        for correction in range(4):
+        for correction in range(6):
             p._interaction('packet_ready',f'RoboSkills prepared {len(points)} checked waypoints',
                            waypoint_count=len(points),targets=targets,tracking_correction=correction)
             try:
@@ -223,7 +235,7 @@ class RobotTools:
             if all(errors[arm] <= .003 for arm in pose_arms):
                 return self.status()
             history.append((offset.copy(),actual-expected))
-            if correction==3:break
+            if correction==5:break
             # Outer position feedback compensates bounded static tracking
             # residuals. Do not alter motor gains, limits, or gateway settle criteria.
             # Each Cartesian axis stays within8mm of the original goal and
@@ -246,7 +258,7 @@ class RobotTools:
             p._interaction('tracking_correction','Correcting a measured tracking residual after confirmed completion',
                            correction=correction+1,position_error_m=errors,max_offset_m=.008,
                            command_offset_m={NAMES[j]:float(offset[j]) for j in axes},
-                           maximum_packets=4)
+                           maximum_packets=6)
         self.motion_failure=('Measured move did not reach its target within3mm after bounded tracking correction: '+
             ', '.join(f'{arm} {error*1000:.2f}mm' for arm,error in errors.items()))
         self.result=dict(status='failed',success=None,reason=self.motion_failure)
@@ -374,6 +386,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 **({'controller_workspace':self._workspace_profile.summary()} if self._workspace_profile else {}),
                 'display_name':'RoboSkills · Python agent',
                 'inference_model':self.inference_model, 'upstream_revision':REVISION,
+                'initial_reasoning_effort':'none','subsequent_reasoning_effort':'low',
                 'workflow':'core.agent.run with BluPe physical tools',
                 'execution':'physical', 'native_success_score':False}
 
@@ -400,7 +413,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                           model=APPROACH,inference_model=self.inference_model)
         started=time.monotonic()
         fn=self._llm or (lambda s,m:llm.codex(s,m,model=self.inference_model,
-                            effort='low',timeout=180,env=codex_environment()))
+                            effort='none' if self._calls==1 else 'low',timeout=180,env=codex_environment()))
         reply=fn(system,messages)
         elapsed=time.monotonic()-started
         self.last_step_model_s+=elapsed

@@ -17,7 +17,10 @@ class TrackingTests(TestCase):
     plant=contract.CommandContract.plant
 
     def test_recorded_approach_residual_converges_within_original_bounds(self):
-        fixture=json.loads((Path(__file__).parent/'fixtures/roboskills-approach-tracking.json').read_text())
+        self.exercise_fixture('roboskills-approach-tracking.json')
+
+    def exercise_fixture(self, name, deadband_breakout=None):
+        fixture=json.loads((Path(__file__).parent/'fixtures'/name).read_text())
         self.p._geometry=RoboCurveTrajectory(base_spacing_m=.5,preserve_uninstructed=True)
         self.p._geometry.observe(fixture['reference']);self.p._state=fixture['start']
         goal=None;commands=[]
@@ -34,15 +37,29 @@ class TrackingTests(TestCase):
             for axis in range(3):
                 ordered=sorted((s['command_offset_m'][axis],s['measured_error_m'][axis]) for s in samples)
                 error.append(np.interp(offset[axis],*[np.array(v) for v in zip(*ordered)]))
+            if deadband_breakout is not None and len(commands)>1:
+                # Measured reverse commands over about1mm gave almost no Y
+                # response. Model several possible breakout offsets; these are
+                # explicit regression assumptions, not physical measurements.
+                error[1]=(samples[-1]['measured_error_m'][1] if offset[1]<deadband_breakout
+                          else samples[0]['measured_error_m'][1]+offset[1])
             xyz=goal+error
             synthetic=self.p._geometry.build(dict(zip(('right_x','right_y','right_z'),xyz.tolist())),self.p._state,self.p._state['step_id'])
             return {**wire_end,**{k:synthetic[-1][k] for k in ('left_joints_deg','right_joints_deg')},'settled':True}
         with patch.object(self.p,'_execute',side_effect=measured_plant):
             self.bot.move_to(**fixture['targets'])
-        self.assertLessEqual(len(commands),4)
+        self.assertLessEqual(len(commands),6)
         self.assertLessEqual(np.max(np.abs(commands)),.008+1e-7)
         self.assertLessEqual(self.p._last_move['position_error_m']['right'],.003)
         self.assertIsNone(self.bot.motion_failure)
+
+    def test_recorded_transfer_does_not_shrink_an_unresponsive_bracket(self):
+        for breakout in (0.,.0005,.001):
+            with self.subTest(modeled_breakout_m=breakout):
+                self.p=type(self.p)(camera_source=contract.Cameras(),recording_root=self.root.name,llm=lambda s,m:'')
+                self.p._identity=('ep_unit','lease_unit')
+                self.bot=type(self.bot)(self.p,'offline transfer regression')
+                self.exercise_fixture('roboskills-transfer-tracking.json',breakout)
 
     def test_gripper_only_command_reports_pose_drift_without_inventing_a_pose_target(self):
         before=observation();self.p._state=before

@@ -65,7 +65,7 @@ class PhysicalWorker(Worker):
             client.connect()
             # Once only. A timeout is uncertain, never an automatic relaunch.
             client.start('roboskills',runner_name=run['runnerName'],email=run['runnerEmail'],
-                         prompt=run['instruction'],run_duration_s=120)
+                         prompt=run['instruction'],run_duration_s=300)
             client.save(folder/'runner-session.json')
             recorder=threading.Thread(target=self.record,args=(stop_record,folder),daemon=True);recorder.start()
             previous=None
