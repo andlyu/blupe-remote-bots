@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T12:53:34.933093+00:00",
+  "reviewedAt": "2026-10-31T13:12:00.582911+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "d222c77b303a4f5585846614d6c533d563e91529",
+  "runtimeSource": "d6572b9c21520717f991296c2c6b65437251050e",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "Public Site19 source4d76cfb; live d222c77 provider13706/physical13710 via merged PR196/a738ee4, all six release checks passed. Genuine agent unchanged; candidate API guidance repair not yet deployed."
+      "evidence": "Public Site19 source4d76cfb; live d6572b9 provider22879/physical22901 via merged PR197/979b0cb; all six current required checks pass and genuine agent unchanged."
     },
     {
       "number": 2,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Latest812bf9 used actual scene/depth and found6locally valid approaches, then false agent filtering yielded0packets. Prior63f792 failed approach accuracy; fae grasp/lift/transfer timed out before release. Full stack remains unqualified."
+      "evidence": "Current7f23d80e executed56waypoints/1packet, right approach2.709mm/0.206deg with no correction, then stopped before contact on camera surface inconsistency. No grasp/stack. Earlier failures retained."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Latest812bf9 matching14s actual physical replay played and sought to7s through normal Site player; actual camera05:46:55.5PDT and explicit tasknotcompleted/agentassessment/unscored label retained."
+      "evidence": "Current7f23d80e matching65s physical replay actually played and sought to32s in normal history, camera06:03:01.3PDT and honest precontact stop/tasknotcompleted/agentassessment label retained."
     },
     {
       "number": 10,
@@ -82,7 +82,7 @@
       "number": 13,
       "requirement": "Every-run startup timing",
       "status": "OPEN: new historical miss outside accepted exceptions",
-      "evidence": "Nine earlier startup passes and exact seven accepted exceptions preserved. Additional900123,2437,e15b,63f792 and812bf9 cases remain outside acceptance. Latest812bf9 has startupHome but0method motion, so neither timing limit is qualified; not a preadmission cancellation exemption."
+      "evidence": "Ten measured startup passes now include current7f23d80e: postHome upper14.102866s/fullRun25.922550s, no queue deduction needed. Exact seven prior owner exceptions unchanged. Additional900123,2437,e15b,63f792,812bf9 cases remain outside that acceptance."
     },
     {
       "number": 14,
@@ -94,7 +94,7 @@
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "Latest normalSite19 test812bf9 verifies actual method/runner, exact taskmarks, observed native admission/Home and persistent UI stages, timed live capture, honest agent failure, retained replay/seeking and normalpark/torqueoff. No physical stack qualified."
+      "evidence": "Current normalSite19 test7f23d80e verifies real runner/method/taskmarks, actual approach, both startup limits, inline lifecycle, timed live UI capture, honest stop and matching replay/seeking/nativepark. Full manipulation remains unqualified because no contact/grasp/stack."
     }
   ],
   "checked": 12,
@@ -151,7 +151,8 @@
     "d3e9533c00af4883afe73c359d254442",
     "dc54f9d2ab40471796028d43d991cde3",
     "cd7316b5a15847a49769a456c300c54d",
-    "fae84cbc177940b9a5e0eec76c5e2121"
+    "fae84cbc177940b9a5e0eec76c5e2121",
+    "7f23d80e1b0644f18fc88589ca72fbe9"
   ],
-  "candidateRuntimeSource": "candidate API guidance repair; not deployed"
+  "candidateRuntimeSource": null
 }

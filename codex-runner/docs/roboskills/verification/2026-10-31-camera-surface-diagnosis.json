@@ -1,0 +1,154 @@
+{
+  "scope": "Retained stationary post-approach frames; manual visual surface/table polygons, no robot, no calibration change or independent ground-truth claim.",
+  "calibrationId": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+  "top_object": {
+    "selected_pixels": 162,
+    "valid_pixels": 162,
+    "valid_fraction": 1.0,
+    "median_m": [
+      0.4982825556588065,
+      0.2672380543017424,
+      0.008497998469674417
+    ],
+    "q05_m": [
+      0.4854938161873612,
+      0.2567245547869015,
+      0.002960502819083405
+    ],
+    "q95_m": [
+      0.5140917337406631,
+      0.27733623340524055,
+      0.011596985505218397
+    ]
+  },
+  "right_object": {
+    "selected_pixels": 2343,
+    "valid_pixels": 1606,
+    "valid_fraction": 0.6854460093896714,
+    "median_m": [
+      0.4923044119758191,
+      0.2566458616776722,
+      0.016428858888881924
+    ],
+    "q05_m": [
+      0.4806599378626648,
+      0.2530006247489469,
+      0.005900313554705978
+    ],
+    "q95_m": [
+      0.5002900953783453,
+      0.25877011339507566,
+      0.026200277716238615
+    ]
+  },
+  "top_table": {
+    "selected_pixels": 903,
+    "valid_pixels": 903,
+    "valid_fraction": 1.0,
+    "plane_z_ax_by_c": [
+      0.030394487745040253,
+      -0.0596088160878755,
+      0.00018074725766458827
+    ],
+    "plane_z_at_047_025": -0.00043604752413536847,
+    "inlier_count": 903,
+    "object_height_q05_m": 0.0038876359205896574,
+    "object_height_median_m": 0.009292533748678614,
+    "object_height_q95_m": 0.011987879130894245
+  },
+  "right_table": {
+    "selected_pixels": 2112,
+    "valid_pixels": 2006,
+    "valid_fraction": 0.9498106060606061,
+    "plane_z_ax_by_c": [
+      -0.05151926435853969,
+      0.04576839537325871,
+      0.017012150860287942
+    ],
+    "plane_z_at_047_025": 0.004240195455088967,
+    "inlier_count": 1498,
+    "object_height_q05_m": 0.002558794938221344,
+    "object_height_median_m": 0.013009791203449798,
+    "object_height_q95_m": 0.022878276770825
+  },
+  "wrist_top_face_projected_to_initial_top": {
+    "q05_uv": [
+      315.0707035407801,
+      79.04581881939626
+    ],
+    "median_uv": [
+      316.2196249358119,
+      83.78718958031595
+    ],
+    "q95_uv": [
+      318.11189638205923,
+      89.8937614784798
+    ],
+    "observed_object_bbox_uv": [
+      304,
+      74,
+      320,
+      94
+    ],
+    "fraction_inside_observed_bbox": 1.0
+  },
+  "surface_nearest_neighbor_distance_m": [
+    0.0001771211665974954,
+    0.0025139080593409506,
+    0.010075364536568893,
+    0.021573719097789233,
+    0.025158772280879465
+  ],
+  "corresponding_ray_diagnostic": [
+    {
+      "from_camera": "top",
+      "from_pixel": [
+        310,
+        83
+      ],
+      "point_right_base_m": [
+        0.49764462953915867,
+        0.2693094424502967,
+        0.010316062017846295
+      ],
+      "to_camera": "right",
+      "projected_pixel": [
+        318.6812800446739,
+        231.26023722496032
+      ],
+      "expected_optical_z_m": 0.13713751984848116,
+      "nearest_pixel": [
+        319,
+        231
+      ],
+      "retained_patch_valid_count": 25,
+      "retained_patch_median_optical_z_m": 0.12120576202869415,
+      "scope": "Projection in existing experimental model; archived frame at same stationary pose, not exact query byte replay or independent accuracy."
+    },
+    {
+      "from_camera": "right",
+      "from_pixel": [
+        340,
+        250
+      ],
+      "point_right_base_m": [
+        0.48351718972635677,
+        0.2526952546084715,
+        0.025799698974624335
+      ],
+      "to_camera": "top",
+      "projected_pixel": [
+        318.4030448434831,
+        85.64216451253921
+      ],
+      "expected_optical_z_m": 0.9302933337259595,
+      "nearest_pixel": [
+        318,
+        86
+      ],
+      "retained_patch_valid_count": 25,
+      "retained_patch_median_optical_z_m": 0.9550745487213135,
+      "scope": "Projection in existing experimental model; archived frame at same stationary pose, not exact query byte replay or independent accuracy."
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "runId": "7f23d80e1b0644f18fc88589ca72fbe9",
+  "siteVersion": 19,
+  "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
+  "runtimeSource": "d6572b9c21520717f991296c2c6b65437251050e",
+  "releaseMerge": "979b0cbc1d4debd5939ed4c81d3d03a388cde0de",
+  "requiredChecks": "All six push/PR checks pass; dedicated55tests10.863s executed new example; full local1390tests/348subtests87.79s",
+  "runClickHostEpochBounds": [
+    1793451718.486,
+    1793451718.522
+  ],
+  "robotMinusHostBounds": [
+    0.09145021438598633,
+    0.0984184741973877
+  ],
+  "matchedSettledHomeRobotEpoch": 1793451730.3971343,
+  "chosenPriorCameraClock": "2026-10-31 06:02:22.1 PDT",
+  "firstClearlyMovedCameraClock": "2026-10-31 06:02:24.4 PDT",
+  "visualPrecisionUpperSeconds": 0.1,
+  "methodMotionRobotEpochBounds": [
+    1793451742.1,
+    1793451744.5
+  ],
+  "postHomeSecondsBounds": [
+    11.702865600585938,
+    14.10286569595337
+  ],
+  "fullRunSecondsBounds": [
+    23.479581356048584,
+    25.922549724578857
+  ],
+  "startupStatus": "PASS: postHome upper14.102866s<=15s and fullRun upper25.922550s<=30s. No queue deduction needed.",
+  "queueJoinObservedHostEpoch": 1793451720.112353,
+  "admissionObservedHostEpoch": 1793451730.318914,
+  "queueObservedIntervalSeconds": 10.206560850143433,
+  "queueScope": "Matched joined/session-preparing jetson_leased observations, not invented native DB queue timestamps. Zero subtraction used for the conservative30s proof; actual wait is retained separately.",
+  "queueSecondsSubtractedForProof": 0,
+  "episodeId": "ep_199c78082c864f69",
+  "sessionId": "sess_0833ae56f1924ddd",
+  "submittedWaypoints": 56,
+  "submittedPackets": 1,
+  "executionSeconds": 106.72851061820984,
+  "completedAgentDecisions": 6,
+  "firstModelSeconds": 6.743883707997156,
+  "approachPositionErrorM": {
+    "left": 0.0006277707313969821,
+    "right": 0.002709431961011585
+  },
+  "approachOrientationErrorDeg": {
+    "left": 0.09116698592194536,
+    "right": 0.20564285868233298
+  },
+  "trackingCorrections": 0,
+  "taskSuccess": false,
+  "taskOutcome": "Agent stopped before contact after overhead/wrist surface measurements disagreed. No grasp/lift/transfer/release/withdrawal or stack.",
+  "calibrationConclusion": "Unresolved: manual archived surface analysis shows all sampled wrist points project within the overhead object bbox and local table planes differ4.68mm, so a large extrinsic error is not proved by two different visible-surface samples. Reflection/depth holes, correspondence, calibration and geometry remain to be evaluated; no calibration change.",
+  "nativePark": {
+    "ok": true,
+    "command": "status",
+    "mode": "DISABLED",
+    "parked": true,
+    "torque_off_verified": true,
+    "feedback_available": true,
+    "auto_queue_enabled": true,
+    "event": "Both physical arms parked at joint zero and torque-disabled",
+    "disconnected": false,
+    "elapsed_s": 0.014
+  },
+  "replayUrl": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/7f23d80e1b0644f18fc88589ca72fbe9/assets/physical.mp4",
+  "replayVerification": "Matching65s actual physical recording played and sought to32s in normal website history; camera06:03:01.3PDT and explicit tasknotcompleted/agentassessment/unscored result visible.",
+  "timedUiRecording": "2026-10-31-current-depth-timed-ui.mp4",
+  "timedUiManifest": "2026-10-31-current-depth-ui-frames.json",
+  "timedUiScope": "83retained native CUA frames/99attempts over38.514s at actual variable cadence; email blank before/after each retained frame.",
+  "clockProbe": [
+    {
+      "before": 1793451691.153022,
+      "robot": 1793451691.2644286,
+      "after": 1793451691.175335,
+      "lower": 0.08909368515014648,
+      "upper": 0.11140656471252441
+    },
+    {
+      "before": 1793451691.175345,
+      "robot": 1793451691.3056934,
+      "after": 1793451691.215107,
+      "lower": 0.09058642387390137,
+      "upper": 0.13034844398498535
+    },
+    {
+      "before": 1793451691.215112,
+      "robot": 1793451691.3183851,
+      "after": 1793451691.228224,
+      "lower": 0.09016108512878418,
+      "upper": 0.10327315330505371
+    },
+    {
+      "before": 1793451691.2282271,
+      "robot": 1793451691.3266456,
+      "after": 1793451691.23587,
+      "lower": 0.09077572822570801,
+      "upper": 0.0984184741973877
+    },
+    {
+      "before": 1793451691.235872,
+      "robot": 1793451691.3356752,
+      "after": 1793451691.244225,
+      "lower": 0.09145021438598633,
+      "upper": 0.09980320930480957
+    }
+  ],
+  "physicalTaskQualification": "UNVERIFIED; current total remains12/15,7/13/15open. Earlier ten measured startup passes do not qualify full manipulation or waive later historical cases."
+}
