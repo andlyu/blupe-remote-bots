@@ -22,13 +22,13 @@ SPEC = dict(status='paper-derived experimental port; not an exact CAG reproducti
 def options(payload):
     mode = payload.get('mode', 'baseline')
     strength = payload.get('guidance_strength', 0.15 if mode == 'guided' else 0.0)
-    seed = payload.get('seed', 0)
+    seed = payload.get('seed')
     if mode not in ('baseline', 'guided'):
         raise ValueError('Choose baseline or guided')
     if isinstance(strength, bool) or not isinstance(strength, (int, float)) or not math.isfinite(strength) or not 0 <= strength <= .30:
         raise ValueError('Guidance strength must be between 0 and 0.30')
-    if type(seed) is not int or not 0 <= seed < 2**31:
-        raise ValueError('Seed must be an integer in [0, 2**31)')
+    if seed is not None and (type(seed) is not int or not 0 <= seed < 2**31):
+        raise ValueError('Seed must be null or an integer in [0, 2**31)')
     return mode, float(strength) if mode == 'guided' else 0.0, seed
 
 

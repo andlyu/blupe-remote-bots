@@ -1,4 +1,6 @@
 import base64
+import io
+from PIL import Image
 from types import SimpleNamespace
 from unittest.mock import Mock
 import pytest
@@ -8,9 +10,13 @@ from remote_yam.run_changes import snapshot
 from remote_yam.session import MAX_COMMANDS
 
 
+def jpeg():
+    output=io.BytesIO();Image.new('RGB',(12,8),(31,83,147)).save(output,format='JPEG',quality=95);return output.getvalue()
+
+
 def adapter(mode='guided',strength=.15):
     camera=Mock()
-    camera.capture_for_policy.return_value=[SimpleNamespace(name=n,jpeg=b'jpeg') for n in ('right','top','left')]
+    camera.capture_for_policy.return_value=[SimpleNamespace(name=n,jpeg=jpeg()) for n in ('right','top','left')]
     p=MolmoActAdapter('private-key',camera_source=camera,endpoint='https://abc123.api.runpod.ai',mode=mode,strength=strength)
     p._ready.set()
     return p
@@ -19,8 +25,8 @@ def adapter(mode='guided',strength=.15):
 def response(p):
     return dict(identity(),ok=True,device='cuda:0',cuda_available=True,
         actions=[[.1]*6+[.5]+[.2]*6+[.6] for _ in range(30)],
-        experiment=dict(variant=VARIANT,mode=p.mode,effective_strength=p.strength,seed=0,
-                        num_steps=10,revision=REVISION,dtype='bfloat16',enable_cuda_graph=False))
+        experiment=dict(variant=VARIANT,mode=p.mode,effective_strength=p.strength,seed=None,
+                        num_steps=10,revision=REVISION,dtype='bfloat16',enable_cuda_graph=p.mode == 'baseline' or p.strength == 0))
 
 
 def observation():
@@ -171,3 +177,25 @@ def test_capacity_evidence_only_marks_proven_cold_launch(available):
     assert gpu['launch_required'] is (None if available is None else not available)
     assert (gpu['launch_started_at'] is not None) is (available is False)
     assert gpu['ready_at'] is not None
+
+
+def test_inputs_match_main_playground_jpeg_contract_and_unseeded_default():
+    p=adapter(strength=0);p._json=Mock(return_value=response(p))
+    p.build_trajectory('Pick cup',observation(),0)
+    body=p._json.call_args.args[1]
+    expected=io.BytesIO()
+    Image.open(io.BytesIO(jpeg())).convert('RGB').resize((640,360)).save(expected,format='JPEG')
+    assert all(base64.b64decode(v)==expected.getvalue() for v in body['images'].values())
+    assert 'seed' not in body
+    assert p.public_config()['seed'] is None
+    assert p.public_config()['enable_cuda_graph'] is True
+
+
+def test_packet_entry_uses_post_inference_feedback_like_main_playground():
+    p=adapter(strength=0);p._json=Mock(return_value=response(p))
+    fresh=dict(observation(),robot_id='yam-1',left_joints_deg=[35]*6,right_joints_deg=[-10]*6)
+    p.refresh_observation=Mock(return_value=fresh)
+    points=p.build_trajectory('Pick cup',observation(),0)
+    expected=p._gateway_trajectory(response(p)['actions'],p._measured_state(fresh),0)
+    assert points==expected
+    p.refresh_observation.assert_called_once()

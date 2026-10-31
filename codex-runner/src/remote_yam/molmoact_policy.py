@@ -2,6 +2,7 @@
 import base64
 import json
 import http.client
+import io
 import math
 import re
 import threading
@@ -54,11 +55,13 @@ class MolmoActAdapter:
         self._connection = None
         self._http_lock = threading.Lock()
         self._prefetch = None
+        self.refresh_observation = None
 
     def public_config(self):
         return dict(provider=self.provider_name, model=MODEL, revision=REVISION,
-            variant=VARIANT, mode=self.mode, guidance_strength=self.strength, seed=0,
-            num_steps=10, dtype='bfloat16', enable_cuda_graph=False, robot_id='yam-1',
+            variant=VARIANT, mode=self.mode, guidance_strength=self.strength, seed=None,
+            num_steps=10, dtype='bfloat16', enable_cuda_graph=self.mode == 'baseline' or self.strength == 0, robot_id='yam-1',
+            baseline_profile='main-playground-molmoact2-v1',
             trajectory_pacing=dict(cadence_hz=10,max_joint_step_rad=GATEWAY_JOINT_STEP_RAD,preserve_targets=True),
             gpu_startup=dict(requested_at=self._warm_started_epoch,ready_at=self._warm_ready_epoch,
                 elapsed_s=(self._warm_ready_epoch-self._warm_started_epoch) if self._warm_ready_epoch and self._warm_started_epoch else None,
@@ -221,6 +224,43 @@ class MolmoActAdapter:
 
     def build_trajectory(self, prompt, observation, first_step_id):
         if not self._ready.is_set(): raise RuntimeError('MolmoAct2 is not ready')
+        state=self._measured_state(observation)
+        capture_started=time.monotonic()
+        frames=self._frames(observation)
+        self.interaction_sink('camera_timing', 'Fresh MolmoAct2 camera set ready', elapsed_s=time.monotonic()-capture_started)
+        if len(frames)!=3 or {f.name for f in frames}!=set(CAMERAS):
+            raise ValueError('MolmoAct2 needs top and both wrist cameras')
+        if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
+        # Match the deployed main playground's exact model-input contract.
+        # Re-encoding matters even when a capture is already640x360.
+        from PIL import Image
+        images={}
+        for frame in frames:
+            output=io.BytesIO()
+            with Image.open(io.BytesIO(frame.jpeg)) as image:
+                image.convert('RGB').resize((640,360)).save(output,format='JPEG')
+            images[frame.name]=base64.b64encode(output.getvalue()).decode()
+        request_started=time.monotonic()
+        result=self._json('/act',dict(robot_id='yam-1', instruction=prompt, state=state,
+            images=images,
+            action_units='radians',gripper_units=GRIPPER_UNITS,
+            mode=self.mode,guidance_strength=self.strength))
+        self._identity(result)
+        experiment=result.get('experiment') or {}
+        if any(experiment.get(k)!=v for k,v in dict(variant=VARIANT,mode=self.mode,effective_strength=self.strength,seed=None,num_steps=10,revision=REVISION,dtype='bfloat16',enable_cuda_graph=self.mode == 'baseline' or self.strength == 0).items()):
+            raise ValueError('MolmoAct2 intervention receipt mismatch')
+        rows=validate_actions(result.get('actions'))
+        if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
+        self.interaction_sink('model_timing', 'MolmoAct2 prediction', elapsed_s=result.get('inference_seconds'), request_s=time.monotonic()-request_started, experiment=experiment)
+        if callable(self.refresh_observation):
+            fresh=self.refresh_observation()
+            if fresh.get('robot_id',fresh.get('jetson_id')) != 'yam-1':
+                raise ValueError('MolmoAct2 pacing requires YAM1 feedback')
+            state=self._measured_state(fresh)
+        return self._gateway_trajectory(rows, state, first_step_id)
+
+    @staticmethod
+    def _measured_state(observation):
         state=[]
         for arm in ('left','right'):
             q=finite_vector(observation[arm+'_joints_deg'],6)
@@ -228,25 +268,7 @@ class MolmoActAdapter:
             if isinstance(g,bool) or not isinstance(g,(int,float)) or not math.isfinite(g) or not 0<=g<=1:
                 raise ValueError('MolmoAct2 needs measured normalized grippers')
             state.extend(math.radians(v) for v in q); state.append(g)
-        capture_started=time.monotonic()
-        frames=self._frames(observation)
-        self.interaction_sink('camera_timing', 'Fresh MolmoAct2 camera set ready', elapsed_s=time.monotonic()-capture_started)
-        if len(frames)!=3 or {f.name for f in frames}!=set(CAMERAS):
-            raise ValueError('MolmoAct2 needs top and both wrist cameras')
-        if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
-        request_started=time.monotonic()
-        result=self._json('/act',dict(robot_id='yam-1', instruction=prompt, state=state,
-            images={f.name:base64.b64encode(f.jpeg).decode() for f in frames},
-            action_units='radians',gripper_units=GRIPPER_UNITS,
-            mode=self.mode,guidance_strength=self.strength,seed=0))
-        self._identity(result)
-        experiment=result.get('experiment') or {}
-        if any(experiment.get(k)!=v for k,v in dict(variant=VARIANT,mode=self.mode,effective_strength=self.strength,seed=0,num_steps=10,revision=REVISION,dtype='bfloat16',enable_cuda_graph=False).items()):
-            raise ValueError('MolmoAct2 intervention receipt mismatch')
-        rows=validate_actions(result.get('actions'))
-        if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
-        self.interaction_sink('model_timing', 'MolmoAct2 prediction', elapsed_s=result.get('inference_seconds'), request_s=time.monotonic()-request_started, experiment=experiment)
-        return self._gateway_trajectory(rows, state, first_step_id)
+        return state
 
     def _gateway_trajectory(self, rows, measured_state, first_step_id):
         # Preserve every selected absolute target and the complete path. Add

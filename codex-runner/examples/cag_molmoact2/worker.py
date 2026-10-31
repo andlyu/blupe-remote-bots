@@ -72,18 +72,24 @@ class Policy:
         self.guidance = Guidance(self.model)
         self.warmup_seconds = []
         # Compare a pristine, unpatched model first. Hooks are installed only
-        # afterwards; seed, precision, steps and eager sampling stay identical.
-        pristine, _, _ = self.predict(images, state, task)
+        # afterwards; controlled RNG, precision, steps and CUDA graphs stay identical.
+        # Execute the main playground's original call path (no generator
+        # argument), with global RNG fixed only for this equality check.
+        with torch.random.fork_rng(devices=[self.device.index]):
+            torch.manual_seed(0)
+            pristine, _, _ = self.predict(images, state, task)
         self.guidance.install()
-        baseline, elapsed, _ = self.predict(images, state, task)
-        zero, elapsed0, zero_meta = self.predict(images, state, task, 'guided', 0.0)
-        guided, elapsed1, meta = self.predict(images, state, task, 'guided', 0.15)
-        if pristine != baseline or pristine != zero:
+        baseline, elapsed, _ = self.predict(images, state, task, seed=0)
+        zero, elapsed0, zero_meta = self.predict(images, state, task, 'guided', 0.0, seed=0)
+        guided, elapsed1, meta = self.predict(images, state, task, 'guided', 0.15, seed=0)
+        zero_after, _, _ = self.predict(images, state, task, 'guided', 0.0, seed=0)
+        if pristine != baseline or pristine != zero or pristine != zero_after:
             raise RuntimeError('Strength-zero parity with pristine baseline failed')
         if meta['calls'] != 360 or len(meta['layers']) != 36 or not meta['scaled_text_tokens'] or not meta['kv_delta_l1'] > 0:
             raise RuntimeError('Nonzero guidance failed to change text conditioning')
         self.verification = dict(pristine_baseline_equal=True, zero_strength_exact_equal=True,
-            nonzero_text_kv_changed=True, non_goal_kv_unchanged=meta['non_goal_kv_unchanged'],
+            pristine_reference='main playground original processor, CUDA graphs, global RNG seed0',
+            zero_after_guidance_equal=True, nonzero_text_kv_changed=True, non_goal_kv_unchanged=meta['non_goal_kv_unchanged'],
             action_max_abs_delta=max(abs(a-b) for x,y in zip(baseline,guided) for a,b in zip(x,y)),
             baseline_seconds=elapsed, zero_seconds=elapsed0, guided_seconds=elapsed1,
             guidance=meta, seed=0, sample='checkpoint documented dishwasher images/state')
@@ -100,20 +106,23 @@ class Policy:
         if free < max(total * 0.20, 4 * 1024 ** 3):
             raise RuntimeError('Insufficient GPU headroom after real inference')
 
-    def predict(self, images, state, instruction, mode="baseline", strength=0.0, seed=0):
+    def predict(self, images, state, instruction, mode="baseline", strength=0.0, seed=None):
         if not torch.cuda.is_available() or next(self.model.parameters()).device != self.device:
             raise RuntimeError('CUDA model placement was lost')
         started = time.monotonic()
         with self.lock:
+            guided = mode == 'guided' and strength != 0
+            processor = ProcessorProxy(self.processor, self.guidance,
+                sys.modules[type(self.model).__module__]._normalize_question_text(instruction)) if guided else self.processor
+            generator = None if seed is None else torch.Generator(device=self.device).manual_seed(seed)
             with self.guidance.request(mode, strength), torch.inference_mode(), torch.autocast('cuda', dtype=torch.bfloat16):
                 output = self.model.predict_action(
-                    processor=ProcessorProxy(self.processor, self.guidance,
-                        sys.modules[type(self.model).__module__]._normalize_question_text(instruction)), images=images,
+                    processor=processor, images=images,
                     task=instruction, state=np.asarray(state, dtype=np.float32),
                     norm_tag=NORM_TAG, inference_action_mode='continuous',
                     enable_depth_reasoning=False, num_steps=10,
-                    normalize_language=True, enable_cuda_graph=False,
-                    generator=torch.Generator(device=self.device).manual_seed(seed))
+                    normalize_language=True, enable_cuda_graph=not guided,
+                    generator=generator)
                 torch.cuda.synchronize(self.device)
                 actions = output.actions.detach().to(device='cpu', dtype=torch.float32).numpy()
             if actions.shape == (1, NUM_ACTIONS, ACTION_DIM):
@@ -131,7 +140,8 @@ class Policy:
         return dict(identity(), ok=self.ready and not self.failed,
                     failed=self.failed, cuda_available=torch.cuda.is_available(),
                     device=str(self.device), gpu=torch.cuda.get_device_name(self.device),
-                    dtype='bfloat16', enable_cuda_graph=False, variant=VARIANT, intervention=SPEC,
+                    dtype='bfloat16', enable_cuda_graph=True, guided_enable_cuda_graph=False,
+                    default_seed=None, baseline_profile='main-playground-molmoact2-v1', variant=VARIANT, intervention=SPEC,
                     verification=getattr(self, 'verification', None),
                     model_startup_seconds=getattr(self, 'model_startup_seconds', None),
                     warmup_seconds=getattr(self, 'warmup_seconds', []),
@@ -162,7 +172,7 @@ class Policy:
         return dict(identity(), ok=True, device=str(self.device),
                     cuda_available=True, actions=actions, inference_seconds=elapsed,
                     experiment=dict(experiment, seed=seed, num_steps=10, dtype='bfloat16',
-                        enable_cuda_graph=False, revision=identity()['revision'],
+                        enable_cuda_graph=mode == 'baseline' or strength == 0, revision=identity()['revision'],
                         image_sha256=[hashlib.sha256(data).hexdigest() for data in encoded],
                         state_sha256=hashlib.sha256(json.dumps(state).encode()).hexdigest(),
                         instruction_sha256=hashlib.sha256(instruction.encode()).hexdigest()))

@@ -12,7 +12,7 @@
     <label for="cagStrength">Guidance strength <output id="cagStrengthValue" for="cagStrength">0.15</output></label>
     <input id="cagStrength" type="range" min="0" max="0.30" step="0.01" value="0.15" aria-describedby="cagStrengthHelp">
     <p id="cagStrengthHelp" class="help">Select the guided policy to adjust strength. Baseline always uses 0. Applies when you press Run.</p>
-    <p class="help">Experimental port of the CAG paper to MolmoAct2. Same checkpoint, seed 0 and 10 sampling steps in both modes. YAM1 only. This demo has not established a task-success improvement.</p>`;
+    <p class="help">Experimental port of the CAG paper to MolmoAct2. CAG 0 uses the main playground’s MolmoAct2 input and sampling settings. Both modes use the same checkpoint and 10 sampling steps. YAM1 only. This demo has not established a task-success improvement.</p>`;
   help.after(controls);
   const strength = document.getElementById('cagStrength');
   const value = document.getElementById('cagStrengthValue');

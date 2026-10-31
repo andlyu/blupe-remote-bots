@@ -77,3 +77,8 @@ def test_zero_guidance_is_processor_noop_even_when_token_mapping_would_fail():
     with pytest.raises(ValueError, match='Ambiguous task'), guide.request('guided', .15):
         proxy(text='The task is to the task. The setup is robot. Complete the task?')
     guide.tokenizer.encode.assert_called_once()
+
+
+def test_sampling_matches_main_defaults_but_allows_controlled_comparisons():
+    assert g.options({}) == ('baseline', 0.0, None)
+    assert g.options({'mode':'guided','guidance_strength':0,'seed':7}) == ('guided',0.0,7)
