@@ -81,3 +81,11 @@ def test_pacing_rejects_complete_chunk_instead_of_truncating_or_clamping():
     p=adapter();state=[0.0]*14;rows=[[10.0]*6+[.5]+[0.0]*6+[.5] for _ in range(30)]
     with pytest.raises(ValueError,match='entire chunk rejected'):
         p._gateway_trajectory(rows,state,0)
+
+
+def test_adapter_deadline_cancels_readiness_even_when_caller_only_checks_stop():
+    policy=MolmoActAdapter('secret',camera_source=None,endpoint='https://abc.api.runpod.ai')
+    policy.cancelled=lambda:True
+    policy._warm_state='released'
+    with pytest.raises(RuntimeError,match='cancelled'):
+        policy.wait_ready(lambda:False)

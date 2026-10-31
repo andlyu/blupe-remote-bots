@@ -111,9 +111,9 @@ class MolmoActAdapter:
     def wait_ready(self, cancelled):
         waited=not self._ready.is_set()
         while not self._ready.wait(.1):
-            if cancelled(): raise RuntimeError('MolmoAct2 preparation cancelled')
+            if cancelled() or self.cancelled(): raise RuntimeError('MolmoAct2 preparation cancelled')
             if self._failure: raise RuntimeError(self._failure)
-        if cancelled(): raise RuntimeError('MolmoAct2 preparation cancelled')
+        if cancelled() or self.cancelled(): raise RuntimeError('MolmoAct2 preparation cancelled')
         return waited
 
     def build_trajectory(self, prompt, observation, first_step_id):
