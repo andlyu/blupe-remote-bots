@@ -6,6 +6,9 @@ from unittest import TestCase, skipUnless
 from unittest.mock import patch
 import time
 import importlib.util
+import json
+from http.client import RemoteDisconnected
+from urllib.error import HTTPError
 import numpy as np
 
 from remote_yam.api_depth import DepthSnapshot
@@ -41,6 +44,86 @@ class Tests(TestCase):
         frames=[PairedDepthFrame(r,s.image(),time.time(),s.metadata['captured_at'],'sensor','test')
                 for r,s in self.source.snapshots.items()]
         with patch.object(self.source,'capture_for_policy',return_value=frames):return self.bot.observe()
+
+    def fresh_snapshots(self):
+        return {r:DepthSnapshot(np.zeros((6,8,3),np.uint8),np.full((6,8),.6,np.float32),
+            dict(camera=r,captured_at=time.time(),sensor_serial='sensor-'+r,calibration_id='test'),
+            self.report,b'fixture') for r in ('top','left','right')}
+
+    def test_disconnected_calibration_read_recovers_fresh_set_without_motion(self):
+        from contextlib import ExitStack
+        self.policy._state['observed_at']=time.time()-1
+        self.policy._last_move=dict(targets={'right_z':.0185},position_error_m={'right':.00155528},tracking_corrections=0)
+        before=deepcopy(self.policy._state)
+        snapshots=self.fresh_snapshots()
+        with ExitStack() as stack:
+            read=stack.enter_context(patch.object(self.source.apis['top'],'read',side_effect=[
+                RemoteDisconnected('Remote end closed connection without response'),json.dumps(self.report).encode()]))
+            for role in snapshots:stack.enter_context(patch.object(self.source.apis[role],'capture',return_value=snapshots[role]))
+            execute=stack.enter_context(patch.object(self.policy,'_execute'))
+            images=self.bot.observe()
+        self.assertEqual(read.call_count,2)
+        self.assertEqual(set(images),{'top','left','right'})
+        execute.assert_not_called()
+        self.assertEqual(self.policy._state,before)
+        self.assertIsNone(self.bot.motion_failure)
+        self.assertEqual(self.bot.status()['last_move']['position_error_m']['right'],.00155528)
+        self.assertEqual(self.policy._camera_retry['state'],'recovered')
+
+    def test_camera_read_exhaustion_and_denials_clear_views_without_changing_motion(self):
+        for failure,attempts in ((RemoteDisconnected('connection closed'),2),
+                                 (HTTPError('https://api.example',401,'Denied',{},None),1),
+                                 (HTTPError('https://api.example',403,'Denied',{},None),1),
+                                 (HTTPError('https://api.example',404,'Missing',{},None),1)):
+            with self.subTest(failure=type(failure).__name__,code=getattr(failure,'code',None)):
+                self.capture()
+                self.source.max_attempts=2
+                self.policy._last_move=dict(targets={'right_z':.0185},position_error_m={'right':.00155528},tracking_corrections=0)
+                before=deepcopy(self.policy._state)
+                with patch.object(self.source.apis['top'],'read',side_effect=failure) as read,patch.object(self.policy,'_execute') as execute:
+                    with self.assertRaisesRegex(ValueError,'observe.*sent no motion'):
+                        self.bot.observe()
+                    self.assertEqual(read.call_count,attempts)
+                    execute.assert_not_called()
+                self.assertEqual(self.policy._state,before)
+                self.assertIsNone(self.bot.motion_failure)
+                self.assertEqual(self.policy._vision_state,'camera_error')
+                self.assertEqual(self.policy._camera_retry['state'],'failed')
+                with self.assertRaisesRegex(ValueError,'observe'):self.bot.measure_depth(4,3)
+                self.assertEqual(self.bot.status()['last_move']['position_error_m']['right'],.00155528)
+
+    def test_camera_service_503_uses_existing_bounded_recovery(self):
+        from contextlib import ExitStack
+        self.policy._state['observed_at']=time.time()-1
+        snapshots=self.fresh_snapshots()
+        with ExitStack() as stack:
+            read=stack.enter_context(patch.object(self.source.apis['top'],'read',side_effect=[
+                HTTPError('https://api.example',503,'Unavailable',{},None),json.dumps(self.report).encode()]))
+            for role in snapshots:stack.enter_context(patch.object(self.source.apis[role],'capture',return_value=snapshots[role]))
+            execute=stack.enter_context(patch.object(self.policy,'_execute'))
+            self.assertEqual(set(self.bot.observe()),{'top','left','right'})
+        self.assertEqual(read.call_count,2)
+        execute.assert_not_called()
+
+    def test_observation_does_not_clear_terminal_motion_or_stop(self):
+        with patch.object(self.source.apis['top'],'read') as read:
+            self.bot.motion_failure='Physical execution uncertain'
+            with self.assertRaisesRegex(RuntimeError,'uncertain'):self.bot.observe()
+            self.bot.motion_failure=None
+            self.policy._failure='Native Stop retained'
+            with self.assertRaisesRegex(RuntimeError,'Native Stop'):self.bot.observe()
+            read.assert_not_called()
+
+    def test_camera_recovery_and_failure_have_inline_stage_reasons(self):
+        path=Path(__file__).parents[1]/'integrations/roboskills/site/worker-agent/physical_progress.py'
+        spec=importlib.util.spec_from_file_location('camera_progress_contract',path)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        for state,key in (('waiting_for_camera','camera_recovery'),('camera_error','camera_unavailable')):
+            result=module.current_stage(dict(status='running',provider=dict(local_rejection={'reason':'old rejected target'},vision=dict(
+                state=state,retry=dict(message='Calibration read connection interrupted')))))
+            self.assertEqual(result[0],key)
+            self.assertIn('Calibration read',result[2])
+            self.assertIn('do not repeat arm movement',result[2])
 
     def test_paired_pixels_and_arm_frames_with_measured_wrist_fk(self):
         images=self.capture()
