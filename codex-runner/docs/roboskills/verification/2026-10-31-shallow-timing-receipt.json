@@ -1,0 +1,26 @@
+{
+  "run_id": "f4346b709a134c4ba36ddc9e9f2ee8d6",
+  "site_version": 18,
+  "runtime_revision": "a610b7b7db550ba6ec9529324a07b97db541b511",
+  "task_outcome": "full approach/grasp/lift/transfer/release/withdrawal; purple landed beside orange, not stacked",
+  "home_observed_robot_clock_s": 1793438736.792027,
+  "camera_onset_bracket": [
+    "02:25:46.9 PDT frame26 stationary",
+    "02:25:48.5 PDT frame28 clearly moved"
+  ],
+  "visible_motion_robot_clock_upper_s": 1793438748.6,
+  "robot_minus_host_clock_bounds_s": {
+    "lower_s": -0.0028753280639648438,
+    "upper_s": 0.003146648406982422
+  },
+  "run_click_host_bounds_ms": [
+    1793438723457,
+    1793438723726
+  ],
+  "post_home_upper_s": 11.80797290802002,
+  "full_run_to_visible_motion_upper_s": 25.145875215530396,
+  "queue_deduction_s": 0,
+  "post_home_limit_s": 15,
+  "run_limit_s": 30,
+  "video": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/f4346b709a134c4ba36ddc9e9f2ee8d6/assets/physical.mp4"
+}

@@ -1,0 +1,44 @@
+{
+  "runtime_revision": "f60495ac046fb5e8831d64b529f88777ee4c88a1",
+  "site_version": 18,
+  "site_source": "dc28dc740ccac01a992b99c911f5407071592968",
+  "provenance": "Observed same-run configuration before native timeout; terminal provider was cleared by native abort, so this is retained configuration, not terminal live state.",
+  "run_id": "e73001451e504c5f83aa87db59495f61",
+  "method_configuration": {
+    "display_name": "RoboSkills \u00b7 Python agent",
+    "inference_model": "gpt-6-sol",
+    "upstream_revision": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+    "system_prompt_sha256": "d4acd3725fb6e5c6786b92b648135291b235e1a87441acfbc42623794e8dd31f",
+    "initial_reasoning_effort": "none",
+    "subsequent_reasoning_effort": "medium",
+    "workflow": "core.agent.run with BluPe physical tools",
+    "execution": "physical",
+    "native_success_score": false,
+    "startup_home_feedback": {
+      "source": "hardware",
+      "observed_at": 1793439163.801545,
+      "homed": true,
+      "settled": true,
+      "step_id": 0,
+      "episode_id": "ep_99a8d616500749b1",
+      "left_joints_deg": [
+        -1.1474892898591635,
+        46.63747897460335,
+        33.57136578467282,
+        -25.203487268233864,
+        -2.8287509420802217,
+        -0.4917811242253558
+      ],
+      "right_joints_deg": [
+        -1.366058678403766,
+        45.840392088834975,
+        34.42301118759663,
+        -19.28607665708796,
+        -1.2124084437179226,
+        -0.5792088796431968
+      ],
+      "left_gripper": 0.9997830488863176,
+      "right_gripper": 0.9988435128297796
+    }
+  }
+}

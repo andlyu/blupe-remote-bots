@@ -1,0 +1,32 @@
+{
+  "run_id": "0a388af5f2de4eae8b2d4018b3bfd2af",
+  "site_version": 17,
+  "runtime_revision": "57674beaba2ba68313f4a7f05561fba94fb3312a",
+  "task_outcome": "reported_failure; no stack",
+  "home_source": "hardware homed+settled step0 matched episode",
+  "home_observed_robot_clock_s": 1793435368.0752144,
+  "camera_onset_bracket": [
+    "01:29:40.5 PDT frame26 stationary",
+    "01:29:41.3 PDT frame27 moved"
+  ],
+  "visible_motion_robot_clock_upper_s": 1793435381.4,
+  "robot_minus_host_clock_bounds_s": {
+    "lower_s": 0.04805707931518555,
+    "upper_s": 0.05783343315124512
+  },
+  "run_click_host_bounds_ms": [
+    1793435355890,
+    1793435356223
+  ],
+  "post_home_upper_s": 13.324785709381104,
+  "full_run_to_visible_motion_upper_s": 25.46194291114807,
+  "queue_deduction_s": 0,
+  "queue_explanation": "Even full Run wall time passes30s without deducting admission; no queue bound needed.",
+  "post_home_limit_s": 15,
+  "run_limit_s": 30,
+  "evidence_frames": [
+    26,
+    27
+  ],
+  "video": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/0a388af5f2de4eae8b2d4018b3bfd2af/assets/physical.mp4"
+}
