@@ -93,6 +93,20 @@ This is a base-frame convention, not a measured gravity sensor reading.
 Each move is resolved by the existing
 BluPe IK, workspace, pacing, gateway and measured completion checks. A rejected
 move sends nothing; correct the stated cause. Never replay simulation joints.
+After a retained grasp, use bot.plan_move(**targets) to compare transfer paths
+locally before moving. It runs the actual trajectory generator and canonical
+packet validator on a copy, with no dispatch or reference change. Batch candidate
+checks in one Python turn. This is NOT measured collision clearance or a promise
+of physical completion; move_to always checks fresh feedback again. Do not add
+planning-only turns before the first above-object approach.
+With a vertical wrist, raising Z can REDUCE horizontal reach. Rejection of a
+high transfer does not prove the lower supported placement is unreachable.
+Compute placement fingertip Z from the measured grasp/support heights. Compare
+nearby transfer heights with the held block's bottom safely above the measured
+support and every visible obstacle, using fresh views and positive clearance.
+Do not assume a fixed10cm transfer height or lower through an obstacle merely
+because local IK accepts it. If needed, use validated intermediate positions;
+if no clear reachable path exists, explain that and finish without forcing it.
 Inspect measured feedback after movement. A camera is an observation, not proof
 of a grasp. Do not invent object locations or success. finish() ends the agent
 episode, without claiming a native physical success score. If the object or
@@ -247,6 +261,27 @@ class RobotTools:
         if not self.policy._perception:raise ValueError('Metric perception is not configured')
         result=self.policy._perception.localize(self.policy._state,label,mask,camera,arm)
         self.policy._record('object_localization',result=result)
+        return result
+
+    def plan_move(self, *, attitude=None, **targets):
+        """Check a candidate from fresh settled feedback with no dispatch/reference change. Returns reachable, reason/code or waypoint_count. Local IK/packet validity only, NOT scene clearance or physical success; move_to rechecks."""
+        p=self.policy
+        p._check_cancelled()
+        if self.motion_failure:raise RuntimeError(self.motion_failure)
+        state=p._feedback()
+        # Copy the entire geometry, including station-constrained joint bounds,
+        # measured references and MuJoCo state. Planning cannot adopt an attitude
+        # reference, consume a cursor/budget, or mutate the active solver.
+        geometry=deepcopy(p._geometry)
+        result=dict(from_step_id=state['step_id'],dispatched=False,
+                    scope='local IK/pacing/canonical packet validity; scene clearance and physical completion unverified')
+        try:
+            points=_trajectory_waypoints(geometry.build(targets,state,state['step_id'],
+                **({'attitude':attitude} if attitude is not None else {})))
+            result.update(reachable=True,waypoint_count=len(points))
+        except ValueError as exc:
+            result.update(reachable=False,reason=str(exc),code=getattr(exc,'code','local_validation'))
+        p._record('local_plan_checked',targets=targets,attitude=attitude,result=result)
         return result
 
     def move_to(self, *, attitude=None, **targets):
