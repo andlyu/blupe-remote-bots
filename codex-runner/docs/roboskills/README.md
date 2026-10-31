@@ -42,10 +42,17 @@ AWS trajectory submission for ep_4518061f91c24d0d, then exposed an adapter statu
 bug. It was not retried. The status boundary is fixed, and the provider now
 composes shared geometry/camera components instead of inheriting another policy's
 function-call lifecycle.17 tests and8 subtests pass with the optional runtime.
-The station was reconciled parked with torque off. Automatic approval review
-blocked a new physical verification and public upload of the existing recording.
-No workaround was used. Until that test is authorized and passes, physical
-execution/replay and15-second targets remain unverified for the corrected code.
+The station was reconciled parked with torque off. After the owner reaffirmed
+the standing authorization, the same website test was allowed and executed
+RoboSkills on real arms. Run `249450342a5e4286b9d406d3e8738d34` retained a public
+physical replay and receipt. The paired lift measured 14.04 / 14.38 mm against
+20 mm requested, so the agent ended at its 3 mm tolerance check without further
+motion. The completed-run replay and selecting it from history were verified;
+anonymous byte-range access returned206. The arms parked with torque off.
+This verifies the real integration, not task success or the15-second target:
+packet preparation alone took41.6 seconds after Run. Automatic review still
+blocked publication of the older failed-test clip. Full timing, wait-stage and
+cross-surface identity qualification remain open.
 
 The native simulation verification `native-lift-20261030` generated an actual
 MuJoCo scene and demo. The demo solved8/8 seeds; the build was rejected because

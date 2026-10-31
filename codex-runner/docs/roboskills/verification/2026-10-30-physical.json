@@ -1,0 +1,262 @@
+{
+  "run_id": "249450342a5e4286b9d406d3e8738d34",
+  "approach": "RoboSkills",
+  "runner_name": "Andrew Lyubovsky",
+  "inference_model": "gpt-6-astra",
+  "execution": "physical",
+  "result": {
+    "status": "stopped",
+    "attempt_id": "84001cbc820b4119872ed5e3f035ebf3",
+    "session_id": "sess_20fcb1c14a1a44af",
+    "episode_id": "ep_a59c7a3174ef44c7",
+    "error": null,
+    "commands_submitted": 4,
+    "packets_submitted": 1,
+    "run_started_at": 1793417852.404105,
+    "run_ended_at": 1793417886.129107,
+    "provider": {
+      "provider": "roboskills",
+      "model": "RoboSkills",
+      "api_key_configured": false,
+      "vision": {
+        "state": "requesting",
+        "frames": [
+          {
+            "camera": "left",
+            "received_at": 1793417880.151173,
+            "bytes": 19385,
+            "sha256": "04c1947960c0ede56d2019cacfd7bdd0359a40b1554deaad4c9282a009e18f9e",
+            "captured_at": 1793417879.838485
+          },
+          {
+            "camera": "top",
+            "received_at": 1793417880.067637,
+            "bytes": 31793,
+            "sha256": "6cac60d84ba758f11813620f3475367183e65e7e12abb0854a181429d0b3cda7",
+            "captured_at": 1793417879.5423672
+          },
+          {
+            "camera": "right",
+            "received_at": 1793417880.2946072,
+            "bytes": 22411,
+            "sha256": "cc0e888fe5a2d7f77a4db791b445989d6b32fd3e59e636f62805120ecbf9f338",
+            "captured_at": 1793417879.972744
+          }
+        ],
+        "retry": null
+      },
+      "server_contact_issue": null,
+      "authentication": "local ChatGPT subscription",
+      "policy": "roboskills_python_agent",
+      "model_calls": 1,
+      "outcome": {
+        "status": "done",
+        "turns": 1,
+        "success": null,
+        "reason": "Agent finished"
+      },
+      "pending_packet": null,
+      "system_prompt_sha256": "113a41b9b33b85c203ae5a2c89fdee7c86de771d9c7c3de9c580e9fccea7ac64",
+      "controller_workspace": {
+        "profile": "native-both-20260929",
+        "robot_id": "yam-1",
+        "source": "saved_controller_configuration",
+        "safety_sha256": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f",
+        "model_include_sha256": "aaca9fb9a92583d10ea463359097439ab1e6eb9f445828cf85f488aa28b7e396",
+        "guard_base_spacing_m": 0.7,
+        "live_configuration_verified": false,
+        "frame": "per_arm_base",
+        "units": "metres",
+        "bounds": {
+          "left": [
+            [
+              0.04683199099999999,
+              -0.6936241939999999,
+              -0.03267146499999998
+            ],
+            [
+              0.746831991,
+              0.4063758060000001,
+              0.747328535
+            ]
+          ],
+          "right": [
+            [
+              0.04683199099999999,
+              -0.39362419400000004,
+              -0.03267146499999998
+            ],
+            [
+              0.746831991,
+              0.7063758059999999,
+              0.747328535
+            ]
+          ]
+        },
+        "gateway_validation": "Required for every hardware packet"
+      },
+      "display_name": "RoboSkills \u00b7 Python agent",
+      "inference_model": "gpt-6-astra",
+      "upstream_revision": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+      "workflow": "core.agent.run with BluPe physical tools",
+      "execution": "physical",
+      "native_success_score": false
+    },
+    "step_timings": [
+      {
+        "step": 1,
+        "planning_s": 27.28409320799983,
+        "model_s": 21.557953124996857,
+        "execution_robot_s": 0.7867386341094971,
+        "path_m": null,
+        "arm_motion_s": 0.884122750001552,
+        "movement_feedback_s": 2.5143608750004205,
+        "total_s": 29.79845408300025,
+        "gap_s": null,
+        "outcome": "completed",
+        "left_displacement_m": null,
+        "right_displacement_m": null
+      }
+    ],
+    "run_metrics": {
+      "model_s": 0,
+      "execution_s": 0.7867386341094971,
+      "left_path_m": 0,
+      "right_path_m": 0,
+      "model_calls": 0,
+      "execution_packets": 1,
+      "accepted_packets": 1,
+      "distance_waypoints": 0,
+      "confirmed_waypoints": 0
+    },
+    "safety_error": null,
+    "run_summary": {
+      "events": [
+        {
+          "type": "snapshot",
+          "timestamp": 1793417842.4802725
+        },
+        {
+          "type": "lifecycle",
+          "timestamp": 1793417852.40419
+        },
+        {
+          "type": "lifecycle",
+          "timestamp": 1793417852.4064271
+        },
+        {
+          "type": "lifecycle",
+          "timestamp": 1793417853.5037236
+        },
+        {
+          "type": "observation",
+          "timestamp": 1793417853.5039043,
+          "step_id": 0
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417853.5041382
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417854.2937875
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417855.3323715
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417856.3390834
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417857.3409307
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417858.3681614
+        },
+        {
+          "type": "heartbeat",
+          "timestamp": 1793417859.4132388
+        },
+        {
+          "type": "event_stream_disconnect",
+          "timestamp": 1793417882.097431,
+          "cause_type": "ConnectionError",
+          "errno": null,
+          "previous_event_type": "heartbeat"
+        },
+        {
+          "type": "snapshot",
+          "timestamp": 1793417882.917002
+        },
+        {
+          "type": "observation",
+          "timestamp": 1793417882.917541,
+          "step_id": 0,
+          "replayed": true
+        },
+        {
+          "type": "trajectory_result",
+          "timestamp": 1793417882.9179077,
+          "replayed": true
+        },
+        {
+          "type": "observation",
+          "timestamp": 1793417883.0377164,
+          "step_id": 4
+        },
+        {
+          "type": "trajectory_result",
+          "timestamp": 1793417883.0382435
+        }
+      ],
+      "action_step_ids": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "approach": "RoboSkills",
+    "execution": "physical",
+    "robot_id": "yam-1",
+    "inference_model": "gpt-6-astra"
+  },
+  "agent_turns": [
+    {
+      "turn": 0,
+      "reply": "```python\nshow(bot.observe())\nstart = bot.status()\nprint(\"Starting measured state:\", start)\n\ndef verify(state, target_z):\n    if state.get(\"ended\") or state.get(\"stop\") or state.get(\"Stop\"):\n        raise RuntimeError(\"Stopped; no further motion.\")\n    c = state[\"coordinates\"]\n    for arm in (\"left\", \"right\"):\n        if abs(c[f\"{arm}_z\"] - target_z[arm]) > 0.003:\n            raise RuntimeError(f\"{arm}: measured height outside 3 mm tolerance.\")\n        for axis in (\"x\", \"y\"):\n            key = f\"{arm}_{axis}\"\n            if abs(c[key] - origin[key]) > 0.003:\n                raise RuntimeError(f\"{arm}: unexpected lateral motion.\")\n        key = f\"{arm}_gripper\"\n        if abs(c[key] - origin[key]) > 0.01:\n            raise RuntimeError(f\"{arm}: gripper changed.\")\n\ntry:\n    if start.get(\"ended\") or start.get(\"stop\") or start.get(\"Stop\"):\n        raise RuntimeError(\"Stop active.\")\n    origin = dict(start[\"coordinates\"])\n    raised = {arm: origin[f\"{arm}_z\"] + 0.020 for arm in (\"left\", \"right\")}\n    print(\"Lift completion:\", bot.move_to(\n        left_z=raised[\"left\"], right_z=raised[\"right\"]))\n    lifted = bot.status()\n    print(\"Measured lifted state:\", lifted)\n    verify(lifted, raised)\n\n    bot.wait(1.0)\n    held = bot.status()\n    print(\"Measured held state:\", held)\n    verify(held, raised)\n\n    print(\"Return completion:\", bot.move_to(\n        left_z=origin[\"left_z\"], right_z=origin[\"right_z\"]))\n    returned = bot.status()\n    print(\"Measured returned state:\", returned)\n    verify(returned, {arm: origin[f\"{arm}_z\"] for arm in (\"left\", \"right\")})\n    print(\"Lift and return verified within 3 mm; grippers unchanged within 0.01.\")\nexcept Exception as exc:\n    print(\"Ending without further motion:\", exc)\nfinally:\n    finish()\n```",
+      "receipt": "Starting measured state: {'instruction': 'Observe the actual bimanual YAM arms. Raise both fingertips by 20 mm, hold for one second, then return each to its own measured starting position. Keep both grippers unchanged. Verify the measured motion and finish.', 'step': 0, 'coordinates': {'left_x': 0.28485752764082584, 'left_y': 0.006602314932224074, 'left_z': 0.15453996787053756, 'left_yaw': 2.247259509187336e-09, 'left_pitch': 0.0003813989961047301, 'left_roll': -7.64192728049409e-06, 'left_gripper': 0.9997834247762056, 'right_x': 0.30018612669485123, 'right_y': 0.0005126447592426198, 'right_z': 0.18524490874398894, 'right_yaw': 6.161839768107822e-20, 'right_pitch': 5.551115123125783e-17, 'right_roll': 3.252606517456509e-19, 'right_gripper': 0.9987717650458782}, 'bounds': {'left_x': [0.04683199099999999, 0.746831991], 'left_y': [-0.6936241939999999, 0.4063758060000001], 'left_z': [-0.03267146499999998, 0.747328535], 'left_yaw': [-3.141592653589793, 3.141592653589793], 'left_pitch': [0.0, 0.0], 'left_roll': [0.0, 0.0], 'left_gripper': [0.0, 1.0], 'right_x': [0.04683199099999999, 0.746831991], 'right_y': [-0.39362419400000004, 0.7063758059999999], 'right_z': [-0.03267146499999998, 0.747328535], 'right_yaw': [-3.141592653589793, 3.141592653589793], 'right_pitch': [0.0, 0.0], 'right_roll': [0.0, 0.0], 'right_gripper': [0.0, 1.0]}, 'ended': False}\nLift completion: {'instruction': 'Observe the actual bimanual YAM arms. Raise both fingertips by 20 mm, hold for one second, then return each to its own measured starting position. Keep both grippers unchanged. Verify the measured motion and finish.', 'step': 4, 'coordinates': {'left_x': 0.28294209316382496, 'left_y': 0.006640719711694665, 'left_z': 0.1685767755159651, 'left_yaw': 1.8509182231176117e-06, 'left_pitch': -0.013730363510006845, 'left_roll': 0.00027513546833199577, 'left_gripper': 0.9997112330349408, 'right_x': 0.29856185261149276, 'right_y': 0.0005495537880475521, 'right_z': 0.1996236216472136, 'right_yaw': 2.466497\n...[clipped]...\n9099999999, 0.746831991], 'left_y': [-0.6936241939999999, 0.4063758060000001], 'left_z': [-0.03267146499999998, 0.747328535], 'left_yaw': [-3.141592653589793, 3.141592653589793], 'left_pitch': [0.0, 0.0], 'left_roll': [0.0, 0.0], 'left_gripper': [0.0, 1.0], 'right_x': [0.04683199099999999, 0.746831991], 'right_y': [-0.39362419400000004, 0.7063758059999999], 'right_z': [-0.03267146499999998, 0.747328535], 'right_yaw': [-3.141592653589793, 3.141592653589793], 'right_pitch': [0.0, 0.0], 'right_roll': [0.0, 0.0], 'right_gripper': [0.0, 1.0]}, 'ended': False}\nMeasured lifted state: {'instruction': 'Observe the actual bimanual YAM arms. Raise both fingertips by 20 mm, hold for one second, then return each to its own measured starting position. Keep both grippers unchanged. Verify the measured motion and finish.', 'step': 4, 'coordinates': {'left_x': 0.2829420931638255, 'left_y': 0.006640719711694665, 'left_z': 0.16857677551596578, 'left_yaw': 1.8509182230680638e-06, 'left_pitch': -0.013730363510003457, 'left_roll': 0.0002751354683320235, 'left_gripper': 0.9997112330349408, 'right_x': 0.29856185261149276, 'right_y': 0.0005495537880475521, 'right_z': 0.1996236216472136, 'right_yaw': 2.4664972969289613e-06, 'right_pitch': -0.014873711377085649, 'right_roll': 0.0003377923295810412, 'right_gripper': 0.9986995159309299}, 'bounds': {'left_x': [0.04683199099999999, 0.746831991], 'left_y': [-0.6936241939999999, 0.4063758060000001], 'left_z': [-0.03267146499999998, 0.747328535], 'left_yaw': [-3.141592653589793, 3.141592653589793], 'left_pitch': [0.0, 0.0], 'left_roll': [0.0, 0.0], 'left_gripper': [0.0, 1.0], 'right_x': [0.04683199099999999, 0.746831991], 'right_y': [-0.39362419400000004, 0.7063758059999999], 'right_z': [-0.03267146499999998, 0.747328535], 'right_yaw': [-3.141592653589793, 3.141592653589793], 'right_pitch': [0.0, 0.0], 'right_roll': [0.0, 0.0], 'right_gripper': [0.0, 1.0]}, 'ended': False}\nEnding without further motion: left: measured height outside 3 mm tolerance.\n",
+      "images": [
+        "left",
+        "top",
+        "right"
+      ],
+      "llm_s": 21.6,
+      "usage": {
+        "input_tokens": 9759,
+        "cached_input_tokens": 2688,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 535,
+        "reasoning_output_tokens": 81
+      }
+    }
+  ],
+  "qualification": {
+    "task_success": null,
+    "requested_lift_mm": 20,
+    "measured_lift_mm": {
+      "left": 14.03680764542822,
+      "right": 14.37871290322466
+    },
+    "hold_and_return_executed": false,
+    "reason": "Agent stopped after measured lift exceeded its 3 mm target tolerance",
+    "run_to_motion_15s": "missed",
+    "exact_visual_motion_onset": "not measured",
+    "parked": true,
+    "torque_off_verified": true
+  }
+}
