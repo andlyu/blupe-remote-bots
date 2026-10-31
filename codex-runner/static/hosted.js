@@ -1210,6 +1210,7 @@ function createRunLaunchGuard() {
     if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('provider').value === 'aspire' ? 'high' : $('reasoningEffort').value;
     if (['gemini', 'guest_gemini'].includes(payload.provider)) payload.gemini_calling_mode = $('geminiCallingMode').value;
     if (['openai', 'codex', 'anthropic', 'claude'].includes(payload.provider)) payload.response_speed = $('provider').value === 'aspire' ? 'standard' : $('responseSpeed').value;
+    window.yamApplication?.configureRunPayload?.(payload, applicationContext());
     $('subscriptionHelp').close();
     submitting = true; buttons(); if(!aspireRequest) message(['codex', 'claude'].includes(payload.provider) ? 'Checking your subscription connection…' : 'Joining the robot queue…');
     const state = await api('/api/run', payload);
