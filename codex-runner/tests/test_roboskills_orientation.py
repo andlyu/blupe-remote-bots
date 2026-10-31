@@ -123,8 +123,8 @@ class OrientationContract(TestCase):
         from roboskills.core import llm
         with patch.object(llm,'codex',return_value='```python\nfinish()\n```') as codex:
             self.p._llm=None;self.p._call('system',[]);self.p._call('system',[])
-        self.assertEqual([x.kwargs['effort'] for x in codex.call_args_list],['none','low'])
-        self.assertEqual(self.p.public_config()['subsequent_reasoning_effort'],'low')
+        self.assertEqual([x.kwargs['effort'] for x in codex.call_args_list],['none','medium'])
+        self.assertEqual(self.p.public_config()['subsequent_reasoning_effort'],'medium')
     def test_approach_query_finds_feasible_level_jaw_frame_without_state_change(self):
         self.p._geometry.observe(self.p._state);before=deepcopy(self.p._geometry.start_rotations);cursor=self.p._state['step_id']
         with patch.object(self.p,'_execute') as execute:

@@ -1,0 +1,542 @@
+{
+  "run": "7f23d80e1b0644f18fc88589ca72fbe9",
+  "scope": "Archived measured joints, calibrated profiles/transforms,3D queries and last stationary frame patches. Unit RGB arrays/epochs are synthetic; no exact replay of every query or independent calibration/grasp proof.",
+  "observation": {
+    "step_id": 56,
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.50579496810944,
+      -25.225344207088323,
+      -2.8506078809344784,
+      -0.4699241853710991
+    ],
+    "right_joints_deg": [
+      27.7473838757374,
+      121.09383256474185,
+      87.71022811477094,
+      -21.755910747642176,
+      -0.35998782839376897,
+      89.29652368989768
+    ],
+    "left_gripper": 0.9997113580603262,
+    "right_gripper": 0.9986990459670425
+  },
+  "calibration": {
+    "robot_id": "yam-1",
+    "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+    "base_geometry": {
+      "spacing_m": 0.5,
+      "convention": "Parallel level arm bases; common world midpoint; left y=+spacing/2, right y=-spacing/2.",
+      "independently_surveyed": false
+    },
+    "native_joint_calibration": {
+      "calibration_id": "6b24647ab8fe4b87dcee2cfb0100b1df8a7b8133ac8839bb37b0ba1cf37260df",
+      "coordinate_convention": "native_i2rt_updated",
+      "additional_offsets_rad": {
+        "left": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "right": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "convention": "Reported/commanded joint angles already include native i2RT shifts. Do not apply shifts again."
+    },
+    "cameras": {
+      "top": {
+        "K": [
+          [
+            451.08465958039903,
+            0.0,
+            317.37155283658444
+          ],
+          [
+            0.0,
+            448.5912240082707,
+            182.66236099627523
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "distortion": [
+          0.15387706304906357,
+          -0.5357342490841315,
+          -0.0027157821576888046,
+          0.00044927327316074514,
+          0.5794952631802947
+        ],
+        "distortion_model": "opencv_brown_conrady",
+        "image_size": [
+          640,
+          360
+        ],
+        "rms_px": 0.20964840437110338,
+        "max_view_rms_px": 0.40461891889572144,
+        "held_out_max_rms_px": 0.2914803624153137,
+        "view_count": 22,
+        "serial": "244622072159",
+        "image_url": "/v1/robots/yam-1/cameras/top.jpg",
+        "depth": {
+          "available": false,
+          "format": "rgbd-npz-v1",
+          "bundle_url": "/v1/robots/yam-1/cameras/top.rgbd.npz",
+          "image_url": "/v1/robots/yam-1/cameras/top.depth.png",
+          "image_units": "millimeters",
+          "units": "meters",
+          "aligned_to": "color",
+          "semantics": "optical_z",
+          "invalid_value": 0,
+          "captured_at": 1793446738.6668518,
+          "max_age_s": 5.0,
+          "sensor_serial": "244622072159",
+          "on_demand": true,
+          "native_format": "rgbd-jpeg-z16-png-v1",
+          "native_bundle_url": "/v1/robots/yam-1/cameras/top.rgbd-native.zip",
+          "rgb_encoding": "jpeg",
+          "depth_bit_exact": true
+        },
+        "T_base_camera": {
+          "left": [
+            [
+              -0.026888293019583037,
+              -0.9671916218506281,
+              0.25262103301278094,
+              0.04811329674426569
+            ],
+            [
+              -0.9989257364723613,
+              0.01645588894068886,
+              -0.04331947289986461,
+              -0.20720568884092883
+            ],
+            [
+              0.03774112758839397,
+              -0.2535144381314864,
+              -0.9665950739307713,
+              0.872652848329811
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "right": [
+            [
+              -0.026888293019583037,
+              -0.9671916218506281,
+              0.25262103301278094,
+              0.04811329674426569
+            ],
+            [
+              -0.9989257364723613,
+              0.01645588894068886,
+              -0.04331947289986461,
+              0.2927943111590712
+            ],
+            [
+              0.03774112758839397,
+              -0.2535144381314864,
+              -0.9665950739307713,
+              0.872652848329811
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        "rgb_intrinsics_source": "board_fitted_rgb; not the factory-aligned depth profile",
+        "depth_intrinsics": {
+          "width": 640,
+          "height": 360,
+          "fx": 455.4812927246094,
+          "fy": 455.5191650390625,
+          "ppx": 320.1717529296875,
+          "ppy": 187.043701171875,
+          "model": "distortion.inverse_brown_conrady",
+          "coeffs": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "depth_sensor_serial": "244622072159",
+        "depth_intrinsics_source": "Active RealSense color profile, depth aligned to color optical Z"
+      },
+      "left": {
+        "K": [
+          [
+            328.7402873354126,
+            0.0,
+            316.64735007386616
+          ],
+          [
+            0.0,
+            326.1557841254754,
+            179.30287492701973
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "distortion": [
+          -0.04748057122702956,
+          0.06004710878366459,
+          -0.0014274109139739343,
+          6.536510487914043e-05,
+          -0.020255325687138972
+        ],
+        "distortion_model": "opencv_brown_conrady",
+        "image_size": [
+          640,
+          360
+        ],
+        "rms_px": 0.21212020435037604,
+        "max_view_rms_px": 0.4845399856567383,
+        "held_out_max_rms_px": 0.3139711618423462,
+        "view_count": 20,
+        "serial": "323622273130",
+        "image_url": "/v1/robots/yam-1/cameras/left.jpg",
+        "depth": {
+          "available": false,
+          "format": "rgbd-npz-v1",
+          "bundle_url": "/v1/robots/yam-1/cameras/left.rgbd.npz",
+          "image_url": "/v1/robots/yam-1/cameras/left.depth.png",
+          "image_units": "millimeters",
+          "units": "meters",
+          "aligned_to": "color",
+          "semantics": "optical_z",
+          "invalid_value": 0,
+          "captured_at": 1793446739.2638564,
+          "max_age_s": 5.0,
+          "sensor_serial": "323622273130",
+          "on_demand": true,
+          "native_format": "rgbd-jpeg-z16-png-v1",
+          "native_bundle_url": "/v1/robots/yam-1/cameras/left.rgbd-native.zip",
+          "rgb_encoding": "jpeg",
+          "depth_bit_exact": true
+        },
+        "T_grasp_camera": [
+          [
+            0.008296539555447988,
+            0.9160257243701548,
+            0.4010337139487632,
+            -0.07352216826247604
+          ],
+          [
+            -0.9999614247807913,
+            0.0064434874715716345,
+            0.00596912217785631,
+            0.00010292176096568116
+          ],
+          [
+            0.0028838137553177986,
+            -0.4010677670435974,
+            0.9160438471257194,
+            -0.06992402949723872
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "parent_frame": "left_grasp",
+        "rgb_intrinsics_source": "board_fitted_rgb; not the factory-aligned depth profile",
+        "depth_intrinsics": {
+          "width": 640,
+          "height": 360,
+          "fx": 325.8605651855469,
+          "fy": 325.4452819824219,
+          "ppx": 317.57781982421875,
+          "ppy": 180.4199676513672,
+          "model": "distortion.inverse_brown_conrady",
+          "coeffs": [
+            -0.05166473239660263,
+            0.06367070227861404,
+            -0.0005936204688623548,
+            -0.00032585361623205245,
+            -0.02185926027595997
+          ]
+        },
+        "depth_sensor_serial": "323622273130",
+        "depth_intrinsics_source": "Active RealSense color profile, depth aligned to color optical Z"
+      },
+      "right": {
+        "K": [
+          [
+            327.90498272103054,
+            0.0,
+            317.970011567124
+          ],
+          [
+            0.0,
+            325.21542495740425,
+            176.28766938541014
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "distortion": [
+          -0.030287419027906742,
+          0.020599323588232063,
+          -0.0015125711620270898,
+          0.0007972354671787342,
+          0.004650502216124538
+        ],
+        "distortion_model": "opencv_brown_conrady",
+        "image_size": [
+          640,
+          360
+        ],
+        "rms_px": 0.1776797007276248,
+        "max_view_rms_px": 0.4458567798137665,
+        "held_out_max_rms_px": 0.1658363938331604,
+        "view_count": 22,
+        "serial": "353322271772",
+        "image_url": "/v1/robots/yam-1/cameras/right.jpg",
+        "depth": {
+          "available": false,
+          "format": "rgbd-npz-v1",
+          "bundle_url": "/v1/robots/yam-1/cameras/right.rgbd.npz",
+          "image_url": "/v1/robots/yam-1/cameras/right.depth.png",
+          "image_units": "millimeters",
+          "units": "meters",
+          "aligned_to": "color",
+          "semantics": "optical_z",
+          "invalid_value": 0,
+          "captured_at": 1793446739.7716856,
+          "max_age_s": 5.0,
+          "sensor_serial": "353322271772",
+          "on_demand": true,
+          "native_format": "rgbd-jpeg-z16-png-v1",
+          "native_bundle_url": "/v1/robots/yam-1/cameras/right.rgbd-native.zip",
+          "rgb_encoding": "jpeg",
+          "depth_bit_exact": true
+        },
+        "T_grasp_camera": [
+          [
+            0.04160491298386933,
+            0.9141412391664695,
+            0.403255286475947,
+            -0.07368911497098288
+          ],
+          [
+            -0.9990597254791468,
+            0.03313702824498831,
+            0.027957150867389407,
+            -0.002074759829777967
+          ],
+          [
+            0.012194102719585034,
+            -0.40403927063378875,
+            0.9146603586274967,
+            -0.06554887751483526
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "parent_frame": "right_grasp",
+        "rgb_intrinsics_source": "board_fitted_rgb; not the factory-aligned depth profile",
+        "depth_intrinsics": {
+          "width": 640,
+          "height": 360,
+          "fx": 326.35845947265625,
+          "fy": 325.98529052734375,
+          "ppx": 317.63519287109375,
+          "ppy": 179.38818359375,
+          "model": "distortion.inverse_brown_conrady",
+          "coeffs": [
+            -0.051337722688913345,
+            0.06254713982343674,
+            -0.000714537687599659,
+            4.868720134254545e-05,
+            -0.0217071995139122
+          ]
+        },
+        "depth_sensor_serial": "353322271772",
+        "depth_intrinsics_source": "Active RealSense color profile, depth aligned to color optical Z"
+      }
+    },
+    "quality": {
+      "status": "experimental_requires_fresh_validation",
+      "extrinsics_provisional": true,
+      "limitations": [
+        "Same capture session used for fitting and consistency comparison.",
+        "No surveyed reference, measured tool contact or independent depth validation.",
+        "Parallel level bases and 0.50 m spacing assumed.",
+        "Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees."
+      ]
+    }
+  },
+  "samples": [
+    {
+      "from_camera": "top",
+      "from_pixel": [
+        310,
+        83
+      ],
+      "point_right_base_m": [
+        0.49764462953915867,
+        0.2693094424502967,
+        0.010316062017846295
+      ],
+      "to_camera": "right",
+      "projected_pixel": [
+        318.6812800446739,
+        231.26023722496032
+      ],
+      "expected_optical_z_m": 0.13713751984848116,
+      "nearest_pixel": [
+        319,
+        231
+      ],
+      "retained_patch_valid_count": 25,
+      "retained_patch_median_optical_z_m": 0.12120576202869415,
+      "scope": "Projection in existing experimental model; archived frame at same stationary pose, not exact query byte replay or independent accuracy."
+    },
+    {
+      "from_camera": "right",
+      "from_pixel": [
+        340,
+        250
+      ],
+      "point_right_base_m": [
+        0.48351718972635677,
+        0.2526952546084715,
+        0.025799698974624335
+      ],
+      "to_camera": "top",
+      "projected_pixel": [
+        318.4030448434831,
+        85.64216451253921
+      ],
+      "expected_optical_z_m": 0.9302933337259595,
+      "nearest_pixel": [
+        318,
+        86
+      ],
+      "retained_patch_valid_count": 25,
+      "retained_patch_median_optical_z_m": 0.9550745487213135,
+      "scope": "Projection in existing experimental model; archived frame at same stationary pose, not exact query byte replay or independent accuracy."
+    }
+  ],
+  "patches": {
+    "right": {
+      "pixel": [
+        319,
+        231
+      ],
+      "depth_m": [
+        [
+          0.12130864709615707,
+          0.1224079355597496,
+          0.12240723520517349,
+          0.12290652096271515,
+          0.12290583550930023
+        ],
+        [
+          0.12090861052274704,
+          0.12170790880918503,
+          0.12170720845460892,
+          0.122406505048275,
+          0.12240580469369888
+        ],
+        [
+          0.12060857564210892,
+          0.12110786885023117,
+          0.12110719084739685,
+          0.12180647999048233,
+          0.12180578708648682
+        ],
+        [
+          0.1203085333108902,
+          0.12070784717798233,
+          0.12070716172456741,
+          0.12120645493268967,
+          0.12120576202869415
+        ],
+        [
+          0.11960851401090622,
+          0.12050781399011612,
+          0.1205071210861206,
+          0.12080642580986023,
+          0.12080573290586472
+        ]
+      ]
+    },
+    "top": {
+      "pixel": [
+        318,
+        86
+      ],
+      "depth_m": [
+        [
+          0.9500973224639893,
+          0.950098991394043,
+          0.9551053643226624,
+          0.9551071524620056,
+          0.9551088213920593
+        ],
+        [
+          0.9520905613899231,
+          0.9520922899246216,
+          0.9550968408584595,
+          0.9550985097885132,
+          0.9551002383232117
+        ],
+        [
+          0.9520819783210754,
+          0.9520837664604187,
+          0.955088198184967,
+          0.9550899863243103,
+          0.9550917148590088
+        ],
+        [
+          0.9520734548568726,
+          0.952075183391571,
+          0.9550796747207642,
+          0.9550814032554626,
+          0.9550830721855164
+        ],
+        [
+          0.9530657529830933,
+          0.9530675411224365,
+          0.9550710916519165,
+          0.9550727605819702,
+          0.9550745487213135
+        ]
+      ]
+    }
+  }
+}

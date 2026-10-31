@@ -154,5 +154,6 @@
     "fae84cbc177940b9a5e0eec76c5e2121",
     "7f23d80e1b0644f18fc88589ca72fbe9"
   ],
-  "candidateRuntimeSource": null
+  "candidateRuntimeSource": "uncommitted surface-correspondence candidate; not deployed",
+  "candidateEvidence": "2026-10-31-surface-correspondence.md"
 }
