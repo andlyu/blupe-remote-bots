@@ -1,0 +1,18 @@
+{
+  "website": "https://integration.example",
+  "backend": "https://api.example",
+  "station": "REPLACE_WITH_TARGET_STATION",
+  "arms": ["left"],
+  "approach": "REPLACE_WITH_ACTUAL_APPROACH",
+  "duration_s": 60,
+  "task": "REPLACE_WITH_THE_AUTHORIZED_TASK",
+  "expected_motion": "REPLACE_WITH_BOUNDED_EXPECTED_MOVEMENT",
+  "recording_destination": "REPLACE_WITH_RECORDING_AND_RETENTION_DESTINATION",
+  "invocation_reference": "REPLACE_WITH_ACTUAL_USER_TASK_AND_ADOPTED_INSTRUCTION_SELECTING_THE_HARNESS",
+  "identity": {
+    "runner": "REPLACE_WITH_ALREADY_CONFIRMED_RUNNER",
+    "fields": ["name", "email"],
+    "destinations": ["https://integration.example", "https://api.example"],
+    "confirmation_reference": "REPLACE_WITH_WHERE_THE_RUNNER_FIELDS_WERE_ALREADY_CONFIRMED"
+  }
+}

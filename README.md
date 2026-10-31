@@ -37,8 +37,9 @@ Everything in the playground demo is public by default, including its website,
 source, runs, results, recordings, replays, simulation outputs and supporting
 evidence, unless a user explicitly changes visibility for the relevant materials.
 
-Integrating a research paper or method? Start with the
-[integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
+Integrating a research paper or method? Install the repo-local
+[integration harness](codex-runner/integration-harness/README.md), then follow its
+[completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
 Its Model field identifies the approach being tested, with underlying model and
 checkpoint configuration recorded separately. It includes actual user attribution,
 separate execution mode and visible wait stages; verify every requirement with

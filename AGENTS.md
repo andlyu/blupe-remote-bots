@@ -81,3 +81,13 @@ exceptions. Leave unfinished requirements unchecked and do not describe the
 integration as complete while any remain unmet.
 Merge shared harness changes into the default branch immediately after required
 validation and review, keeping unrelated working-tree changes out of the merge.
+
+# Install the harness in standalone integrations
+
+When creating or adopting a standalone research integration, run
+`python codex-runner/integration-harness/adopt.py install --target /path/to/integration`
+from this shared checkout. This installs repo-local startup instructions, the
+contract, a preserved working checklist and a scope renderer. Follow
+`codex-runner/integration-harness/README.md`. Surface the actual user invocation,
+contract wording and concrete scope before covered side effects; the installer
+itself grants no permission and does not override an explicit tool denial.
