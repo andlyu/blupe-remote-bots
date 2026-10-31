@@ -1,0 +1,22 @@
+name: Integration harness
+on:
+  push:
+    paths:
+      - 'codex-runner/integration-harness/**'
+      - '.github/workflows/integration-harness.yml'
+  pull_request:
+    paths:
+      - 'codex-runner/integration-harness/**'
+      - '.github/workflows/integration-harness.yml'
+permissions:
+  contents: read
+jobs:
+  portable-setup:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s codex-runner/integration-harness/tests -v
+      - run: python -m py_compile codex-runner/integration-harness/adopt.py
