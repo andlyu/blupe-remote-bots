@@ -108,8 +108,11 @@ class RoboSkillsPerception:
         values = {a:snapshot.measure(u, v, radius, a, T_base_camera=self.transforms[camera][a])
                   for a in (('left', 'right') if arm is None else (arm,))}
         result = dict(next(iter(values.values())))
+        # A selected arm must not change the primary result schema. Agents
+        # compose these calls in Python and should not mistake a missing alias
+        # for unavailable sensor data.
+        result['points_base_m'] = {a:v['point_base_m'] for a,v in values.items()}
         if arm is None:
-            result['points_base_m'] = {a:v['point_base_m'] for a,v in values.items()}
             del result['arm'], result['point_base_m']
         return MeasuredResult(result)
 

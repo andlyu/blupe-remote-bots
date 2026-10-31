@@ -53,6 +53,9 @@ class Tests(TestCase):
         xyz,rotation=self.policy._geometry.ik._poses()[0]
         expected=xyz-self.policy._geometry.bases[1]+rotation @ [0,0,.6]
         np.testing.assert_allclose(self.bot.measure_depth(4,3,'left',0,'right')['point_base_m'],expected,atol=1e-7)
+        single=self.bot.measure_depth(4,3,'left',0,'right')
+        self.assertEqual(set(single['points_base_m']),{'right'})
+        self.assertEqual(single['point_base_m'],single['points_base_m']['right'])
         self.assertEqual(len(list(Path(self.root.name).rglob('rgbd-*.npz'))),3)
 
     def test_arrays_are_copies_and_mask_localization_uses_real_depth(self):

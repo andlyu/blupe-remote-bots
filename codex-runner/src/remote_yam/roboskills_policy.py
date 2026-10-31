@@ -65,6 +65,9 @@ bot.measure_depth(u,v,camera='top') for a visible object's interior pixel; it
 returns points_base_m for both arms in the SAME per-arm frames as move_to.
 Each point is a LIST [x,y,z], not a dict: use
 px,py,pz = measurement['points_base_m']['right'] (integer indexing also works).
+The points_base_m mapping ALWAYS exists, even with arm='right' or arm='left';
+then it contains just that arm. Missing/noisy depth raises a descriptive error,
+not None. A single-arm call also has point_base_m as a convenience alias.
 For the first approach, a measured interior pixel is sufficient; prefer the
 short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
@@ -143,7 +146,7 @@ class RobotTools:
         return self.policy._perception.rgbd(self.policy._state,camera)
 
     def measure_depth(self, u, v, camera='top', radius=2, arm=None):
-        """Integer pixel -> points_base_m={'left':[x,y,z],'right':[x,y,z]} in metres; arm selects one point_base_m list."""
+        """Pixel -> points_base_m mapping arm names to [x,y,z] metre lists. ALWAYS that shape; arm optionally selects its only entry. Missing depth raises ValueError."""
         self.policy._check_cancelled()
         if not self.policy._perception:raise ValueError('Metric perception is not configured')
         result=self.policy._perception.measure(self.policy._state,u,v,camera,radius,arm)
