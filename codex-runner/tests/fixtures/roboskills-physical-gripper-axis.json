@@ -1,0 +1,402 @@
+{
+  "reference_repository": "https://github.com/i2rt-robotics/i2rt",
+  "upstream_commit": "120c3c81400171174604e503943f8d1ebc891058",
+  "installed_package_version": "1.1.2",
+  "xml_sha256": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652",
+  "meshes_hash_match_installed": true,
+  "grasp_site_quat_wxyz": [
+    0,
+    1,
+    0,
+    0
+  ],
+  "jaws": [
+    {
+      "joint": "joint7",
+      "axis_in_tip": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "body_quat_wxyz": [
+        0.499998,
+        -0.5,
+        -0.5,
+        -0.500002
+      ],
+      "axis_in_native_grasp": [
+        -3.999999999948489e-06,
+        0.9999999999920002,
+        7.99987853739026e-12
+      ]
+    },
+    {
+      "joint": "joint8",
+      "axis_in_tip": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "body_quat_wxyz": [
+        0.707105,
+        0.707108,
+        0.0,
+        0.0
+      ],
+      "axis_in_native_grasp": [
+        0.0,
+        -0.9999999999910001,
+        -4.242642374197025e-06
+      ]
+    }
+  ],
+  "opening_axis": "Y",
+  "source_run": "8b9ab1fec23f4dd6acf8fe6b834c46a5",
+  "runtime": "19e91c05b01e24fd2120c8bbb27816e650890a2f",
+  "frame_checks": [
+    {
+      "step": 0,
+      "observation": {
+        "left_joints_deg": [
+          -1.1474892898591635,
+          46.63747897460335,
+          33.57136578467282,
+          -25.203487268233662,
+          -2.8287509420800183,
+          -0.5136380630798161
+        ],
+        "right_joints_deg": [
+          -1.3004878618405888,
+          45.79667821112606,
+          34.42301118759663,
+          -19.28607665708796,
+          -1.2342653825723828,
+          -0.6010658184978607
+        ],
+        "left_gripper": 0.9997115869925733,
+        "right_gripper": 0.9988435128297796
+      },
+      "arms": [
+        {
+          "arm": "left",
+          "published_native_pose": [
+            [
+              -0.6190448161679973,
+              -0.02428353594703797,
+              0.7849801433523271,
+              0.28479917765020135
+            ],
+            [
+              0.003446231835178355,
+              0.9994282324059707,
+              0.033635275471095155,
+              0.25660348391272286
+            ],
+            [
+              -0.7853481005653923,
+              0.023526966480767714,
+              -0.6186071797082088,
+              0.15446608220835734
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "opening_toolX_vertical_component": -0.7853481005653926,
+          "actual_jaw_toolY_vertical_component": 0.02352696648076765
+        },
+        {
+          "arm": "right",
+          "published_native_pose": [
+            [
+              -0.509822115757095,
+              -0.0011793482184436679,
+              0.8602790357917248,
+              0.3004120696865066
+            ],
+            [
+              0.0010843835844342705,
+              0.9999973849240607,
+              0.0020135186324433773,
+              -0.24942509465603582
+            ],
+            [
+              -0.8602791607363287,
+              0.0019594087937541034,
+              -0.509819503667698,
+              0.1861373452169909
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "opening_toolX_vertical_component": -0.8602791607363287,
+          "actual_jaw_toolY_vertical_component": 0.0019594087937539373
+        }
+      ]
+    },
+    {
+      "step": 56,
+      "observation": {
+        "left_joints_deg": [
+          -1.1474892898591635,
+          46.63747897460335,
+          33.50579496810944,
+          -25.22534420708812,
+          -2.8068940032253544,
+          -0.49178112422515224
+        ],
+        "right_joints_deg": [
+          27.703669998028477,
+          121.33425889214091,
+          87.86322668675216,
+          -21.49362748138865,
+          -0.35998782839376897,
+          89.31838062875215
+        ],
+        "left_gripper": 0.9997115869925733,
+        "right_gripper": 0.998698951933502
+      },
+      "arms": [
+        {
+          "arm": "left",
+          "published_native_pose": [
+            [
+              -0.6202539897928298,
+              -0.023711898883765535,
+              0.7840425587921886,
+              0.28457007856398464
+            ],
+            [
+              0.003851373017437591,
+              0.9994388808275974,
+              0.03327296824692956,
+              0.2565407541026009
+            ],
+            [
+              -0.7843915827391048,
+              0.023657331662863147,
+              -0.6198146300198442,
+              0.15388005704199992
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "opening_toolX_vertical_component": -0.7843915827391048,
+          "actual_jaw_toolY_vertical_component": 0.023657331662862865
+        },
+        {
+          "arm": "right",
+          "published_native_pose": [
+            [
+              -0.4766676032523064,
+              0.7193171572041988,
+              0.5053422833697695,
+              0.4727273598528885
+            ],
+            [
+              0.8790819986817949,
+              0.3911374959849788,
+              0.27244503817875243,
+              0.003528079552743424
+            ],
+            [
+              -0.0016839249754537608,
+              0.5741030278497679,
+              -0.8187813369944422,
+              0.05054157118287278
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "opening_toolX_vertical_component": -0.0016839249754543872,
+          "actual_jaw_toolY_vertical_component": 0.5741030278497676
+        }
+      ]
+    },
+    {
+      "step": 62,
+      "observation": {
+        "left_joints_deg": [
+          -1.1474892898591635,
+          46.63747897460335,
+          33.50579496810944,
+          -25.225344207088323,
+          -2.8287509420800183,
+          -0.46992418537089553
+        ],
+        "right_joints_deg": [
+          27.638099181465098,
+          114.95203274663851,
+          85.37153565734368,
+          -25.646445863735895,
+          -0.6222710946472921,
+          89.29652368989768
+        ],
+        "left_gripper": 0.9997115869925733,
+        "right_gripper": 0.998698951933502
+      },
+      "arms": [
+        {
+          "arm": "left",
+          "published_native_pose": [
+            [
+              -0.6202605383274444,
+              -0.023774367103050302,
+              0.7840354864817018,
+              0.28456882937569933
+            ],
+            [
+              0.004232738869330876,
+              0.9994245737916162,
+              0.03365420067556845,
+              0.25660809809198176
+            ],
+            [
+              -0.784384439235898,
+              0.02419299010657377,
+              -0.6198029934699333,
+              0.15388211252004635
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "opening_toolX_vertical_component": -0.784384439235898,
+          "actual_jaw_toolY_vertical_component": 0.0241929901065732
+        },
+        {
+          "arm": "right",
+          "published_native_pose": [
+            [
+              -0.47823803182976066,
+              0.7218751844478789,
+              0.5001845689242503,
+              0.45348533419143067
+            ],
+            [
+              0.8782281595579153,
+              0.3918495012769872,
+              0.2741701444513859,
+              -0.006327434624227413
+            ],
+            [
+              0.0019195497165333197,
+              0.5703947636745257,
+              -0.8213684489323704,
+              0.08007232304336911
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "opening_toolX_vertical_component": 0.0019195497165328812,
+          "actual_jaw_toolY_vertical_component": 0.5703947636745255
+        }
+      ]
+    }
+  ],
+  "right_camera_nominal94mm_jaw_endpoints_px": {
+    "X": [
+      [
+        316.8831193521153,
+        170.09352370872745
+      ],
+      [
+        328.7407117657431,
+        427.4019767267114
+      ]
+    ],
+    "Y": [
+      [
+        495.18597440043663,
+        322.56443767959837
+      ],
+      [
+        157.88623980830258,
+        329.45762338287557
+      ]
+    ],
+    "Z": [
+      [
+        326.058558893986,
+        591.3427494103602
+      ],
+      [
+        323.443035941247,
+        233.2261574401241
+      ]
+    ]
+  },
+  "scope": "Read-only installed-reference XML+mesh hash verification; joint slide directions expressed in native grasp frame, same canonical grasp-site transform. Published-native/canonical FK coincide for retained measured samples. Actual right-camera jaws lie left/right, matching projectedY; X projects nearly vertical through the block. Nominal94mm opening is reference geometry, not measured installed gap/contact calibration. This proves axis mismatch; it does not prove the cause of prior motion residuals or independent contact accuracy.",
+  "nominal_contact_reference": {
+    "source": "existing I2RT reference CAD; installed YAM1 contact UNVERIFIED",
+    "upstream_commit": "120c3c81400171174604e503943f8d1ebc891058",
+    "frame": "native_api_grasp",
+    "jaw_opening_axis": "Y",
+    "pad_center_z_m": 0.0016706879354441567,
+    "max_tip_z_m": 0.010020504348689839,
+    "closed_gap_m": -0.001,
+    "opening_travel_m": 0.095,
+    "tips": [
+      {
+        "name": "tip_left",
+        "pad_y_m": -0.0005,
+        "pad_bounds_native_grasp_m": [
+          [
+            -0.012440560852250203,
+            -0.0005197222644821231,
+            -0.006358460493411655
+          ],
+          [
+            0.012629385470384388,
+            -0.0005038660947302822,
+            0.009498190908815318
+          ]
+        ],
+        "pad_area_m2": 0.00028672500365826693,
+        "max_tip_z_native_grasp_m": 0.010019280306442307
+      },
+      {
+        "name": "tip_right",
+        "pad_y_m": 0.0005,
+        "pad_bounds_native_grasp_m": [
+          [
+            -0.01263007267358724,
+            0.0005164451832254027,
+            -0.005955405143516168
+          ],
+          [
+            0.012450771308468573,
+            0.0005194518015411266,
+            0.009498426469889132
+          ]
+        ],
+        "pad_area_m2": 0.0002851582006602047,
+        "max_tip_z_native_grasp_m": 0.01001950434868984
+      }
+    ],
+    "physical_contact_calibration_measured": false
+  },
+  "xml_scope": "XML is the station-installed snapshot1ae64edf. Upstream at the mesh commit has different parent attachment/TCP; only joint-relative axes agree. Never substitute upstream TCP or shift existing calibration."
+}
