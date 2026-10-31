@@ -38,15 +38,8 @@ source, runs, results, recordings, replays, simulation outputs and supporting
 evidence, unless a user explicitly changes visibility for the relevant materials.
 
 Integrating a research paper or method? Start with the
-[research-integration goal workflow](codex-runner/integration-harness/GOALS.md) and
 [integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
 Its Model field identifies the approach being tested, with underlying model and
 checkpoint configuration recorded separately. It includes actual user attribution,
 separate execution mode and visible wait stages; verify every requirement with
 evidence before claiming completion.
-
-Open this repository in a goal-capable Codex coding chat and ask to integrate your
-paper. Execution requests activate a persistent integration goal automatically;
-questions/plans stay conversational. The existing checklist defines completion.
-Work continues through unmet requirements, while blockers, pauses and limits
-retain progress. Native goal support is required for idle continuation.
