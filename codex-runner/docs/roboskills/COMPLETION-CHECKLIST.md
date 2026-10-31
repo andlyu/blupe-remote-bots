@@ -10,6 +10,13 @@ integration as complete.
 
 ## Owner timing exception — October30,2026
 
+Historical reassessment context: the owner-specific result and receipt below
+were recorded before the shared queue-exclusion update. They are retained
+unchanged. The shared current requirement now excludes queue admission from the
+30-second Start budget normally, while preserving the 15-second post-Home rule.
+This older per-Run assessment does not qualify the new post-Home measure or
+other runs; a final current-contract review remains necessary.
+
 The owner explicitly clarified: “Then thats fine... if we're waiting for queue admission, that dones't count”. For this integration, exclude measured waiting in the normal BluPe admission queue from both timing measures. Keep full elapsed time visible and keep all nonqueue time, including submission, preparation after admission, inference and dispatch, in the15-second budget. This project-specific instruction overrides the queue-inclusive default below; it changes no global harness contract, queue priority or safety check.
 
 For verified run`2ea288ea830e471a86eb6d1d98971c50`, the measured queued interval is95.331s (joined→admitted). Keeping1.828s of submission time in the budget, existing camera footage shows actual arm movement by a conservative adjusted14.442s afterRun. This uses the frame's embedded21:23:20.6PDT clock plus0.1s precision allowance, not MP4 playback time. The first measured packet completed at adjusted14.844s, corroborating physical execution within15s. The run therefore passes the amended per-Run criterion. Raw total remains about109.673s to that visible-motion frame;107.557s was only packet preparation.
@@ -456,7 +463,9 @@ remain required, and no GPU/research exception is newly claimed. The recorded
 107.56-second Run-to-packet-preparation and approximately 97 seconds described
 as queue/readiness do not establish a queue-adjusted pass: exact queue admission,
 visual onset and matched Home/readiness evidence remain necessary. Both current
-timing measures remain unverified here; historical assessments are unchanged.
+timing measures are not newly certified by this contract edit. The owner-specific
+per-Run reassessment above is preserved; post-Home and other-run qualification
+remain separate. Historical assessments and their exact receipts are unchanged.
 
 ## RoboSkills evidence — October30,2026
 

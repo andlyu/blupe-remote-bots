@@ -7,7 +7,9 @@ Site entry is context only. References below to older timing gates are preserved
 historical assessments. The 107.56-second packet-preparation time and approximate
 97-second queue/readiness description do not establish a queue-adjusted pass
 without matched admission, Home/readiness and visual motion evidence. Current
-timing remains unverified; see the maintained checklist. No retest was performed.
+qualification is not newly certified by this contract edit. The later owner-
+specific per-Run reassessment and exact receipt below are retained; post-Home
+and other-run qualification remain separate. No retest was performed.
 
 The physical provider runs OpenRoboKit's persistent Python agent loop from
 `core.agent.run`, pinned to8a2860234768b4bec981994d1c14fa380a2c8c7f.
