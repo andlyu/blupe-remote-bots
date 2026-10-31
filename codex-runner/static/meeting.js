@@ -125,7 +125,11 @@
       const label = audio.textContent;
       const symbol = /^Mute$/.test(label) ? 'sound' : 'muted';
       if (audio.dataset.meetingSymbol === symbol && audio.querySelector('svg')) return;
-      audio.dataset.meetingSymbol = symbol; audio.title = audio.getAttribute('aria-label');
+      audio.dataset.meetingSymbol = symbol;
+      const roomLabel = ({Mute:'Mute robot-room audio', Unmute:'Unmute robot-room audio',
+        'Enable audio':'Enable robot-room audio', 'Retry audio':'Retry robot-room audio'})[label] || 'Robot-room audio';
+      audio.setAttribute('aria-label', roomLabel); audio.title = roomLabel;
+      audio.setAttribute('aria-describedby', 'robotAudioStatus');
       audio.innerHTML = icon(symbol);
       const text = document.createElement('span'); text.className = 'meetingControlLabel'; text.textContent = label;
       audio.append(text);
