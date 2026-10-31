@@ -31,3 +31,13 @@ listeners but are visually hidden in this shell.
 Validation: full shared Python/Node suites, controller owner/Origin/persistence
 checks, browser desktop/phone review and simulated Stop. No model or physical
 robot execution is required for this presentation change.
+
+“What have people run?” beside the prompt heading opens the existing Past Runs
+Cloud, scrolls to its point graph, and focuses its keyboard controls. It preserves
+current model/search/label/highlight filters and run previews. Reduced-motion
+preferences use an immediate scroll.
+
+Hosted applications may provide `yamApplication.robotChoices(robots)` and set
+`showPendingRobots` false. These change selector choices while preserving the
+underlying robot registry and recordings. Standalone configured choices remain
+available; hosted-only exclusions belong to the application's configuration.

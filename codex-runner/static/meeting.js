@@ -67,6 +67,18 @@
   }
   decorateSettings();
   new MutationObserver(decorateSettings).observe(settings, {childList:true,subtree:true});
+  const discover = document.createElement('button');
+  discover.id = 'meetingExplore'; discover.type = 'button'; discover.className = 'meetingExplore';
+  discover.innerHTML = 'What have people run?' + icon('down');
+  discover.setAttribute('aria-controls', 'pastRunsCloud');
+  dock.querySelector('.meetingPromptHeading').append(discover);
+  discover.addEventListener('click', () => {
+    const cloud = $('pastRunsCloud'), toggle = $('pastRunsCloudView');
+    if (!cloud || !toggle) return;
+    if (toggle.getAttribute('aria-pressed') !== 'true') toggle.click();
+    cloud.scrollIntoView({block:'start', behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+    $('taskCloudCanvas')?.focus({preventScroll:true});
+  });
   const dockSize = new ResizeObserver(() => {
     room.style.setProperty('--meeting-dock-height', dock.offsetHeight + 'px');
   });

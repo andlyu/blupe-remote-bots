@@ -313,3 +313,10 @@
 }
 
 .meetingConsole .meetingRoom .robotNavigation { flex:0 1 auto; justify-content:flex-end; }
+
+/* A small meeting action opens the existing task-similarity graph. */
+.meetingConsole .meetingExplore { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; margin-left:auto; min-height:32px; padding:5px 10px; border:1px solid #5f6368; border-radius:18px; background:transparent; color:#e8eaed; font:400 12px/20px Arial,sans-serif; }
+.meetingConsole .meetingExplore:hover { background:#3c4043; border-color:#a8c7fa; }
+.meetingExplore svg { width:16px; height:16px; }
+.meetingConsole #pastRunsCloud { scroll-margin-top:16px; }
+@media(max-width:600px) { .meetingConsole .meetingExplore { min-height:44px; padding:8px 9px; } .meetingPromptHeading { align-items:center; } }

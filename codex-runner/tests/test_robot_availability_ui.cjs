@@ -5,7 +5,7 @@ test('online-first ordering preserves selection and restarts cameras only on con
  const selector={options,value:'yam',append(o){this.options=this.options.filter(x=>x!==o);this.options.push(o)}};
  let updates=[];
  const fn=source.slice(source.indexOf('  async function refreshRobotAvailability()'),source.indexOf('  setInterval(refreshRobotAvailability'));
- const ctx={api:async()=>({robots:[{id:'yam',connected:false},{id:'so101',connected:false},{id:'maker',connected:true}]}),$:()=>selector,selectedRobot:'yam',robotCatalog:null,updateCameraAvailability:v=>updates.push(v)};
+ const ctx={window:{},api:async()=>({robots:[{id:'yam',connected:false},{id:'so101',connected:false},{id:'maker',connected:true}]}),$:()=>selector,selectedRobot:'yam',robotCatalog:null,updateCameraAvailability:v=>updates.push(v)};
  await vm.runInNewContext(fn+';refreshRobotAvailability()',ctx);
  assert.deepEqual(selector.options.map(o=>o.value),['maker','yam','so101','']);assert.equal(selector.value,'yam');assert.deepEqual(updates,[false]);
 });
