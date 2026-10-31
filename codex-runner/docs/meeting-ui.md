@@ -27,8 +27,8 @@ apply. Saves refresh within five seconds without restarting the playground.
 Release review preserves the current model picker, inline steering, queue,
 identity, recording history, assessments and hosted extensions. The existing incoming robot-audio toggle lives in the meeting toolbar. A compact
 emoji picker reuses the existing reaction actions; effects and errors remain
-visible after the picker closes. On phones, camera-view and visitor-chat controls
-are available in More. The camera stage and canonical prompt remain the
+visible after the picker closes. Camera views and Visitors remain directly available on phones. The three-dot
+More menu is removed; per-camera expand controls and the guide below remain. The camera stage and canonical prompt remain the
 single presentation/task surfaces; older quick-entry nodes retain their existing
 listeners but are visually hidden in this shell.
 

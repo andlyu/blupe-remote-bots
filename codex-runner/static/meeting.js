@@ -91,21 +91,12 @@
   const views = button('meetingCameraViews', 'Camera views', 'cameras');
   views.setAttribute('aria-pressed', 'true'); views.setAttribute('aria-controls', 'liveViewer');
   const stop = button('meetingStop', 'Stop run', 'stop', 'meetingStopAction'); stop.disabled = true;
-  const more = document.createElement('details'); more.className = 'meetingOverflow';
-  const moreToggle = document.createElement('summary');
-  moreToggle.className = 'meetingMoreSummary'; moreToggle.setAttribute('aria-label', 'More actions');
-  moreToggle.innerHTML = icon('more') + '<span>More</span>';
-  const moreOptions = document.createElement('div'); moreOptions.className = 'meetingOverflowOptions';
-  moreOptions.setAttribute('role', 'group'); moreOptions.setAttribute('aria-label', 'More meeting actions');
-  const expand = button('meetingExpand', 'Expand view', 'expand');
   const visitors = $('openVisitorChat'); visitors.classList.add('meetingControl');
   visitors.title = 'Visitor chat'; visitors.setAttribute('aria-label', 'Visitor chat');
   visitors.innerHTML = icon('people') + '<span class="meetingControlLabel">Visitors</span>';
   const notes = button('meetingNotes', 'Task chat', 'notes');
   notes.querySelector('span').textContent = 'Chat';
   notes.setAttribute('aria-controls', panel.id); notes.setAttribute('aria-expanded', 'false');
-  const guide = document.createElement('a'); guide.href = '#playground-guide'; guide.textContent = 'Guide';
-  moreOptions.append(expand, guide);
   const social = document.querySelector('.cameraSocialControls');
   const reactions = document.createElement('details'); reactions.className = 'meetingReactions';
   const reactionToggle = document.createElement('summary');
@@ -126,9 +117,7 @@
   reactions.hidden = !reactionDock;
   reactions.addEventListener('toggle', () => {
     reactionToggle.setAttribute('aria-expanded', String(reactions.open));
-    if (reactions.open) more.open = false;
   });
-  more.addEventListener('toggle', () => { if (more.open) reactions.open = false; });
   const audio = $('robotAudioToggle');
   if (audio) {
     audio.classList.add('meetingControl');
@@ -143,31 +132,23 @@
     }
     decorateAudio(); new MutationObserver(decorateAudio).observe(audio, {childList:true});
   }
-  more.append(moreToggle, moreOptions);
   const roomInfo = document.createElement('div'); roomInfo.className = 'meetingInfo';
   roomInfo.innerHTML = '<time id="meetingClock"></time><span class="meetingInfoDivider"></span><span id="meetingRoomName"></span>';
   const callControls = document.createElement('div'); callControls.className = 'meetingCallControls';
   callControls.append(views);
   if (audio) callControls.append(audio);
-  callControls.append(notes, reactions, more, stop);
+  callControls.append(notes, reactions, stop);
   const peopleControls = document.createElement('div'); peopleControls.className = 'meetingPeopleControls';
   peopleControls.append(visitors);
   bar.append(roomInfo, callControls, peopleControls); room.append(bar);
   const mobile = window.matchMedia('(max-width:600px), (max-width:1000px) and (max-height:500px)');
   function arrangeControls() {
-    if (mobile.matches) moreOptions.prepend(views, visitors);
+    if (mobile.matches) callControls.insertBefore(visitors, stop);
     else { callControls.prepend(views); peopleControls.append(visitors); }
     peopleControls.hidden = mobile.matches;
   }
   arrangeControls(); mobile.addEventListener('change', arrangeControls);
-  moreOptions.addEventListener('click', event => {
-    const action = event.target.closest('button,a');
-    if (!action) return;
-    more.open = false;
-    if (action.tagName === 'BUTTON') moreToggle.focus({preventScroll:true});
-  });
   document.addEventListener('click', event => {
-    if (!more.contains(event.target)) more.open = false;
     if (!reactions.contains(event.target)) reactions.open = false;
   });
 
@@ -192,7 +173,6 @@
   closePanel.addEventListener('click', () => setPanel(false));
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && reactions.open) { reactions.open = false; reactionToggle.focus({preventScroll:true}); return; }
-    if (event.key === 'Escape' && more.open) { more.open = false; moreToggle.focus({preventScroll:true}); return; }
     if (event.key === 'Escape' && room.classList.contains('meetingPanelOpen') && !document.querySelector('dialog[open]') && $('visitorChatPanel').hidden) setPanel(false);
   });
   visitors.addEventListener('click', () => {
@@ -206,15 +186,6 @@
     const hidden = room.classList.toggle('meetingCamerasHidden');
     views.setAttribute('aria-pressed', String(!hidden));
   });
-  expand.addEventListener('click', async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await $('liveViewer').requestFullscreen();
-    } catch { $('meetingViewStatus').textContent = 'Fullscreen is unavailable in this browser. You can still watch all camera views here.'; }
-  });
-  const viewStatus = document.createElement('p'); viewStatus.id = 'meetingViewStatus';
-  viewStatus.setAttribute('role', 'status'); workspace.before(viewStatus);
-
   function updateControls() {
     stop.disabled = $('stop').disabled;
     const name = $('robotSelector').selectedOptions[0]?.textContent || 'Robot room';
