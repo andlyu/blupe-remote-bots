@@ -31,3 +31,8 @@ model, inspect cameras/calibration, and control sessions through HTTP/WebSockets
 
 [Local setup and troubleshooting](docs/local-playground.md) ·
 [API source](docs/API.md) · [Repository ownership](docs/REPOSITORY-OWNERSHIP.md)
+
+Integrating a research paper or method? Start with the
+[integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
+It includes actual user attribution, separate approach/execution mode and visible
+wait stages; verify every requirement with evidence before claiming completion.
