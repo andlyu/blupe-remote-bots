@@ -7,16 +7,25 @@ from roboskills.core import llm
 from roboskills.workflows.agentic_sim import run
 
 
+def model_environment():
+    # Pure simulation does not require the physical harness package. Keep only
+    # login/runtime transport settings, excluding parent-agent thread overrides.
+    allowed={'HOME','USER','LOGNAME','PATH','TMPDIR','TEMP','TMP','SYSTEMROOT','WINDIR',
+             'CODEX_HOME','XDG_CONFIG_HOME','XDG_DATA_HOME','XDG_CACHE_HOME','LANG','LC_ALL',
+             'SSL_CERT_FILE','SSL_CERT_DIR','CODEX_CA_CERTIFICATE','HTTPS_PROXY','HTTP_PROXY',
+             'ALL_PROXY','NO_PROXY','https_proxy','http_proxy','all_proxy','no_proxy'}
+    return {key:value for key,value in os.environ.items() if key in allowed}
+
+
 def execute(request, directory, python, model, hours=1.0, rounds=4):
     # Upstream's core supports Codex; agentic_sim currently selects only Claude
     # or DeepSeek. Bind the same tool-free conversation contract for GPT models.
     # Task construction, frozen-task checks, solver and seed validation stay upstream.
     if model.startswith('gpt-'):
-        from remote_yam.codex_policy import codex_environment
         run.claude = lambda system, messages, **kwargs: llm.codex(
             'You generate Python for an external persistent REPL. The host executes it with write access. '
             'Your CLI sandbox does not restrict that external REPL. The host records timing.\n\n'+system,
-            messages, model=model, effort='low', timeout=900, env=codex_environment())
+            messages, model=model, effort='low', timeout=900, env=model_environment())
     run.BUILD = 'Runtime availability: MuJoCo and Blender are installed. Use these; PyBullet, Newton and NVIDIA RTX are unavailable on this worker.\n\n' + run.BUILD
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=False)
