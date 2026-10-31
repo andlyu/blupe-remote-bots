@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 function setup(labeler){
  const source=fs.readFileSync(path.join(__dirname,'../static/task-cloud.js'),'utf8');
- const window={devicePixelRatio:1,...(labeler?{yamRunLabels:{outcome:labeler}}:{})},events={},draws=[],focused={};let queued;
+ const window={devicePixelRatio:1,...(labeler?{yamRunLabels:{outcome:labeler,describe:labeler}}:{})},events={},draws=[],focused={};let queued;
  const ctx=new Proxy({createRadialGradient(){return {addColorStop(){}}},measureText:text=>({width:text.length*7}),fill(){draws.push(['fill',this.fillStyle])},stroke(){draws.push(['stroke',this.strokeStyle])}},{get:(target,key)=>target[key]||((...args)=>draws.push([key,...args]))});
  const canvas={width:1000,height:540,clientWidth:1000,clientHeight:540,dataset:{},style:{},getContext:()=>ctx,
   addEventListener:(name,fn)=>events[name]=fn,setPointerCapture(){},getBoundingClientRect:()=>({left:0,top:0})};
@@ -33,6 +33,31 @@ test('highlight controls preserve individual runs, 3D support under rotation, so
  c.cloud.setHighlight('none');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0');assert.match(c.cloud.highlightSummary(),/off/);assert.equal(c.canvas.dataset.renderedPoints,'6');
  c.cloud.setRuns(rows.slice(0,4));c.cloud.setHighlight('both');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0','filtering to four runs must remove stale highlight');
  c.cloud.setRuns(rows.map(r=>({...r,assessment:{label:'Failure',eligibility:'included'}})));c.draw();assert.match(c.cloud.highlightSummary(),/1 failure-heavy/);
+});
+test('failure areas show the observed failed prompt nearest the repeated-attempt coordinate median',()=>{
+ const c=setup(run=>run.testOutcome),rows=[];
+ const add=(count,state,x,prompt)=>{for(let i=0;i<count;i++)rows.push({episode_id:'ep_'+String(rows.length).padStart(3,'0'),prompt,xyz:[x,0,0],testOutcome:state})};
+ add(1,'Failure',-.03,'Left task');add(4,'Failure',.02,'Pick up the poker chip');add(1,'Failure',.06,'Right task');
+ add(1,'Success',0,'Successful task');add(30,'Uncertain',-.03,'Uncertain task');add(30,'Unscored',-.03,'Unknown task');
+ add(8,'Failure',.5,'Distant task');
+ const result=c.regionsFor(rows),region=result.regions.find(region=>region.xyz[0]<.1);
+ assert.equal(region.representativePrompt,'Pick up the poker chip');assert.equal(region.Failure,6);assert.equal(region.total,7);
+ assert.equal(JSON.stringify(c.regionsFor(rows.slice().reverse()).regions),JSON.stringify(result.regions));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();
+ assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Pick up the poker chip'));
+ assert.match(c.focused.textContent,/Median failure prompt: Pick up the poker chip/);
+ const noPrompts=c.regionsFor(rows.map(run=>({...run,prompt:''})));assert.equal(noPrompts.regions.find(region=>region.xyz[0]<.1).representativePrompt,'');
+});
+test('long failure prompts wrap and truncate inside mobile canvas bounds without changing region counts',()=>{
+ const c=setup(run=>run.testOutcome),prompt='Pick up the poker chip and carefully move it to the cup '.repeat(8);
+ c.canvas.clientWidth=320;c.canvas.clientHeight=360;
+ c.cloud.setRuns(Array.from({length:6},(_,i)=>({episode_id:'ep_'+i,prompt,xyz:[0,0,0],testOutcome:'Failure'})));
+ c.cloud.setHighlight('failure');c.draw();
+ const label=c.draws.find(call=>call[0]==='fillText' && call[1]==='Failure: 6/6');assert.ok(label);
+ const promptLines=c.draws.filter(call=>call[0]==='fillText' && /Pick|…/.test(call[1]));
+ assert.equal(promptLines.length,2);assert.match(promptLines[1][1],/…$/);
+ for(const call of promptLines){assert.ok(call[2]>=4);assert.ok(call[2]+call[1].length*7<=320-4)}
+ assert.match(c.focused.textContent,new RegExp(prompt.slice(0,40)));
 });
 test('highlight picker updates the existing Cloud and remembers the choice without fetching new runs',async()=>{
  const c=require('./helpers/past-runs.cjs')('', 'cloud');
