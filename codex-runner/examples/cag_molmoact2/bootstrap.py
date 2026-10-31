@@ -144,6 +144,9 @@ def lifetime_bound():
 
 
 if __name__ == '__main__':
-    threading.Thread(target=lifetime_bound, daemon=True).start()
+    # Persistent serverless deployments scale down through RunPod's idle timeout.
+    # A per-worker trial lifetime must not kill a live production request.
+    if int(os.environ.get('MAX_WORKER_LIFETIME_SECONDS', '3600')) > 0:
+        threading.Thread(target=lifetime_bound, daemon=True).start()
     threading.Thread(target=prepare, daemon=True).start()
     ThreadingHTTPServer(('0.0.0.0', int(os.environ.get('PORT', '80'))), Handler).serve_forever()

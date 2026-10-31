@@ -1068,7 +1068,7 @@ function createRunLaunchGuard() {
     active = ['queued','preparing','running'].includes(state.status || 'queued');
     const actualAspire = aspireRequest && state.launch_route?.actual_policy !== 'astra';
     guideRunAttention(actualAspire ? {status:state.status || 'preparing',aspire:true} : {status:state.status || 'queued'});
-    message(state.launch_route?.message || (aspireRequest ? 'ASPIRE request accepted. Follow task progress on the left.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
+    message(state.launch_message || state.launch_route?.message || (aspireRequest ? 'ASPIRE request accepted. Follow task progress on the left.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
     }
     catch (error) {
       if (error.stale) return;
@@ -1599,6 +1599,7 @@ function createRunLaunchGuard() {
       const li = document.createElement('li'); li.textContent = `#${item.position} · ${item.runner_name || 'Anonymous'} · ${item.status}${item.is_mine ? ' · YOU' : ''}`; return li;
     }) : [Object.assign(document.createElement('li'), {textContent: queue ? 'No one is waiting' : 'Queue unavailable'})]));
     buttons();
+    window.yamApplication?.stateChanged?.(state, applicationContext());
   }
   async function history() {
     const {runs} = await api('/api/recordings');

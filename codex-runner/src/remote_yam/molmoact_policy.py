@@ -43,14 +43,17 @@ class MolmoActAdapter:
         self.cancelled = lambda: False
         self.interaction_sink = lambda *args, **kwargs: None
         self._ready, self._thread = threading.Event(), None
-        self._warm_state, self._failure = 'waiting_for_queue', None
+        self._warm_state, self._failure = 'idle', None
+        self._warm_started_at = None
         self._opener = request.build_opener(NoRedirect)
 
     def public_config(self):
         return dict(provider=self.provider_name, model=MODEL, revision=REVISION,
             variant=VARIANT, mode=self.mode, guidance_strength=self.strength, seed=0,
             num_steps=10, dtype='bfloat16', enable_cuda_graph=False, robot_id='yam-1',
-            warmup=self._warm_state, display_name=('MolmoAct2 baseline' if self.mode == 'baseline'
+            warmup=self._warm_state,
+            warmup_elapsed_s=round(time.monotonic()-self._warm_started_at, 1) if self._warm_started_at else 0,
+            display_name=('MolmoAct2 baseline' if self.mode == 'baseline'
                 else 'MolmoAct2 + CAG-inspired guidance'), approach=('MolmoAct2 baseline' if self.mode == 'baseline'
                 else 'MolmoAct2 + CAG-inspired guidance'), run_context=self.run_context)
 
@@ -69,8 +72,16 @@ class MolmoActAdapter:
         if any(value.get(k) != v for k,v in identity().items()) or not value.get('ok') or value.get('device') != 'cuda:0' or not value.get('cuda_available'):
             raise ValueError('MolmoAct2 model/robot contract mismatch')
 
+    def prepare_before_session(self, prompt):
+        # Wake the serverless worker before reserving/launching the robot.
+        self.interaction_sink('gpu_startup', 'Starting RunPod GPU and loading MolmoAct2')
+        self.start_preparation(self.cancelled)
+        self.wait_ready(self.cancelled)
+        self.interaction_sink('gpu_ready', 'MolmoAct2 is ready; joining the robot queue')
+
     def start_preparation(self, cancelled):
         if self._thread is None:
+            self._warm_started_at=time.monotonic()
             self._warm_state='warming'
             self._thread=threading.Thread(target=self._keep_ready,args=(cancelled,),daemon=True)
             self._thread.start()

@@ -38,10 +38,10 @@ class CAGPlayground(LocalPlayground):
 
     def page(self):
         return super().page().replace(b'<title>BluPe', b'<title>CAG + MolmoAct2').replace(b'<!-- application-head -->',
-            b'<link rel="stylesheet" href="/static/cag-comparison.css"><script src="/static/cag-comparison.js" defer></script>')
+            b'<link rel="stylesheet" href="/static/cag-comparison.css"><script src="/static/cag-progress.js" defer></script><script src="/static/cag-comparison.js" defer></script>')
 
     async def public_extension(self, scope, receive, send, headers):
-        if scope['method']=='GET' and scope['path'] in ('/static/cag-comparison.js','/static/cag-comparison.css'):
+        if scope['method']=='GET' and scope['path'] in ('/static/cag-comparison.js','/static/cag-comparison.css','/static/cag-progress.js'):
             name=scope['path'].removeprefix('/static/')
             content_type='text/css' if name.endswith('.css') else 'application/javascript'
             await self.respond(send,200,(ROOT/'static'/name).read_bytes(),content_type)
@@ -74,7 +74,24 @@ class CAGPlayground(LocalPlayground):
             visitor.runner_session_id)
         visitor.controller._interactions.add('research_context',
             config['approach']+' · '+runner['name'], **config['run_context'])
+        result['launch_message']='Starting RunPod GPU and loading MolmoAct2. The robot will join the queue when the model is ready.'
         return result
+
+    def remember_runner(self, visitor):
+        # GPU preparation creates the queue session asynchronously. Retain the
+        # submitted identity once that session exists, including queue/replay labels.
+        state=visitor.controller.status()
+        session_id=state.get('session_id')
+        if session_id and visitor.runner_task and visitor.runner_session_id != session_id:
+            visitor.runner_session_id=session_id
+            config=state.get('provider') or {}
+            context=config.get('run_context')
+            if context:
+                visitor.controller._session_api.note('research_context',context,session_id)
+                visitor.controller._interactions.add('research_context',
+                    config.get('approach','MolmoAct2')+' · '+visitor.runner_name, **context)
+                visitor.controller._interactions.add('runner','Run submitted by '+visitor.runner_name,runner_name=visitor.runner_name)
+        super().remember_runner(visitor)
 
 
 def create_app():

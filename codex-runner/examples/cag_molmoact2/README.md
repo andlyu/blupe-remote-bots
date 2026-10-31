@@ -136,3 +136,22 @@ The companion website source pins this shared runner rather than copying it.
 See its integration completion checklist for deployed source, current evidence,
 physical-run status and the two required 15-second measurements. Offline tests,
 prior CUDA results and accepted commands do not verify actual physical motion.
+
+
+## Persistent website service
+
+The live CAG website uses an on-demand deployment rather than a time-limited
+trial. Its private service state has `mode: "on_demand"` and no `deadline`.
+After confirming the previous trial guards have completed and the endpoint has
+zero active workers, `deploy.py serve --state /absolute/private/service.json`
+updates that same owned endpoint, permits one worker maximum, and scales to zero
+after300idle seconds. It disables the trial worker lifetime. The original trial
+record and its fixed deadline must be retained unchanged. Persistent availability
+is explicitly authorized separately from a trial; there is no automatic trial
+renewal.
+
+Run starts model preparation before queue admission. The page reports elapsed
+GPU startup, queue waiting, robot preparation, and execution as separate states.
+Stop cancels GPU preparation before creating a robot session. The configured
+recording filesystem must pass its existing controller check before a physical
+session; GPU readiness alone is not a robot-readiness guarantee.

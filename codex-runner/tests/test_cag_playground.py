@@ -53,7 +53,7 @@ def test_incompatible_robot_fails_before_service_setup():
 def test_strength_reaches_frozen_run_configuration_before_queue(app,monkeypatch):
     from remote_yam.molmoact_policy import MolmoActAdapter
     runner,api=app
-    monkeypatch.setattr(MolmoActAdapter,'start_preparation',lambda *args:None)
+    monkeypatch.setattr(MolmoActAdapter,'prepare_before_session',lambda *args:None)
     _,_,session=call(runner,'/api/session',{})
     code,body,_=call(runner,'/api/run',dict(provider='molmoact_guided',prompt='Pick cup',guidance_strength=.22,runner_name='Test runner',email='runner@example.com'),session)
     assert code==200,body
@@ -81,7 +81,7 @@ def test_unconfirmed_identity_never_joins_queue(app,identity):
 def test_confirmed_attribution_reaches_queue_and_run_context(app,monkeypatch,identity,expected):
     from remote_yam.molmoact_policy import MolmoActAdapter
     runner,api=app
-    monkeypatch.setattr(MolmoActAdapter,'start_preparation',lambda *args:None)
+    monkeypatch.setattr(MolmoActAdapter,'prepare_before_session',lambda *args:None)
     _,_,session=call(runner,'/api/session',{})
     code,body,_=call(runner,'/api/run',dict(provider='molmoact_guided',prompt='Pick cup',guidance_strength=.19,**identity),session)
     assert code==200,body
@@ -102,4 +102,60 @@ def test_paused_service_does_not_prepare_or_join(app,monkeypatch):
     _,_,session=call(runner,'/api/session',{})
     code,body,_=call(runner,'/api/run',dict(provider='molmoact_guided',prompt='Pick cup',runner_kind='automated'),session)
     assert code==503 and 'paused' in body['error']
+    api.create_session.assert_not_called()
+
+
+def wait_for(predicate):
+    import time
+    end=time.monotonic()+2
+    while not predicate():
+        assert time.monotonic()<end, 'condition did not arrive'
+        time.sleep(.01)
+
+
+def test_cold_gpu_is_visible_and_does_not_join_or_launch_robot_until_ready(app,monkeypatch):
+    import threading,time
+    from remote_yam.molmoact_policy import MolmoActAdapter,VARIANT
+    from remote_yam.molmoact_protocol import identity
+    runner,api=app;ready=threading.Event();requested=threading.Event()
+    def health(policy,path,payload=None):
+        assert path=='/health'
+        requested.set()
+        while not ready.wait(.01):
+            if policy.cancelled():raise RuntimeError('cancelled')
+        return dict(identity(),ok=True,device='cuda:0',cuda_available=True,variant=VARIANT,
+            verification={k:True for k in ('pristine_baseline_equal','zero_strength_exact_equal','nonzero_text_kv_changed','non_goal_kv_unchanged')})
+    monkeypatch.setattr(MolmoActAdapter,'_json',health)
+    _,_,session=call(runner,'/api/session',{})
+    code,body,_=call(runner,'/api/run',dict(provider='molmoact_guided',prompt='Pick cup',runner_kind='automated'),session)
+    assert code==200 and body['status']=='preparing' and 'Starting RunPod' in body['launch_message']
+    assert requested.wait(1)
+    visitor=next(iter(runner.visitors.values()))
+    status=visitor.controller.status()
+    assert status['session_id'] is None and status['provider']['warmup']=='warming'
+    api.create_session.assert_not_called()
+    ready.set();wait_for(lambda:visitor.controller.status()['status']=='queued')
+    runner.remember_runner(visitor)
+    assert visitor.runner_session_id==visitor.controller.status()['session_id']
+    assert visitor.runner_name=='Automated CAG test'
+    assert visitor.controller.status()['run_configuration']['run_context']['runner']['name']=='Automated CAG test'
+    assert api.create_session.call_count==1
+    call(runner,'/api/stop',{},session)
+
+
+def test_stop_during_gpu_startup_never_creates_robot_session(app,monkeypatch):
+    import threading
+    from remote_yam.molmoact_policy import MolmoActAdapter
+    runner,api=app;requested=threading.Event()
+    def health(policy,path,payload=None):
+        requested.set()
+        while not policy.cancelled():threading.Event().wait(.01)
+        raise RuntimeError('cancelled')
+    monkeypatch.setattr(MolmoActAdapter,'_json',health)
+    _,_,session=call(runner,'/api/session',{})
+    code,_,_=call(runner,'/api/run',dict(provider='molmoact_baseline',prompt='Pick cup',runner_kind='automated'),session)
+    assert code==200 and requested.wait(1)
+    call(runner,'/api/stop',{},session)
+    visitor=next(iter(runner.visitors.values()))
+    wait_for(lambda: not visitor.controller._worker.is_alive())
     api.create_session.assert_not_called()

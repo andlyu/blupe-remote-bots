@@ -1,6 +1,7 @@
 /* Loaded only by the MolmoAct2 comparison launcher. */
 (() => {
   'use strict';
+  let runsEnabled = true;
   const savedIdentityKey = 'blupe-cag-runner';
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(savedIdentityKey) || '{}'); } catch (_) {}
@@ -37,9 +38,8 @@
       status.className = 'cagStatus';
       status.id = 'cagStatus';
       status.setAttribute('role', 'status');
-      status.textContent = session.research_integration?.runs_enabled === false
-        ? 'Completion Aware Guidance with MolmoAct2 · GPU inference is paused. You can view cameras and previous runs.'
-        : 'Completion Aware Guidance with MolmoAct2 · RunPod inference is enabled. Robot readiness is shown below.';
+      runsEnabled = session.research_integration?.runs_enabled !== false;
+      status.textContent = window.cagProgress({}, runsEnabled).text;
       document.querySelector('.runnerContent').prepend(status);
       document.title = 'Completion Aware Guidance · MolmoAct2 · BluPe';
       const name = document.getElementById('runnerName');
@@ -58,6 +58,20 @@
       const advanced = document.getElementById('advancedModelOptions');
       if (advanced) advanced.before(controls);
       update();
+    },
+    stateChanged(state) {
+      const progress = window.cagProgress(state, runsEnabled);
+      const status = document.getElementById('cagStatus');
+      if (status) {
+        status.textContent = progress.text;
+        status.dataset.phase = progress.phase;
+        status.setAttribute('aria-busy', String(progress.phase === 'starting'));
+      }
+      if (!runsEnabled) {
+        document.getElementById('run').disabled = true;
+        const notice = document.getElementById('publicRunError');
+        if (notice?.textContent.includes('GPU inference is paused')) notice.hidden = true;
+      }
     },
     configureRunPayload(payload) {
       if (payload.provider.startsWith('molmoact_')) {

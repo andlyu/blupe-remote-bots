@@ -82,7 +82,7 @@ def guard(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['provision', 'start', 'release', 'disable', 'status', 'health', 'guard', 'update'])
+    parser.add_argument('action', choices=['provision', 'start', 'release', 'disable', 'status', 'health', 'guard', 'update', 'serve'])
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--volume')
     parser.add_argument('--name')
@@ -120,6 +120,22 @@ def execute(args, path):
         owned(state)
         print(json.dumps(state)); return
     owned(state)
+    if args.action == 'serve':
+        # Explicit persistent-service action. Never resets or renews a trial.
+        if state.get('deadline') or state.get('mode') != 'on_demand':
+            raise RuntimeError('Use a separate on_demand service record without a trial deadline')
+        current=owned(state)
+        if current['workers']['max'] != 0:
+            raise RuntimeError('Disable this endpoint before configuring persistent service')
+        for worker in api('serverless/'+state['endpoint']+'/workers').get('workers', []):
+            if api('pods/'+worker['id']).get('status') not in ('EXITED','STOPPED','TERMINATED'):
+                raise RuntimeError('Wait for zero active GPU workers before configuring persistent service')
+        config=gpu_config(state['volume'],state['name'],persistent=True)
+        value=api('serverless/'+state['endpoint'],
+            {k:config[k] for k in ('entrypoint','cmd','env')} |
+            {'workers':dict(min=0,max=1,idleTimeout=300)}, 'PATCH')
+        save(path.with_name('service-enabled.json'),dict(enabled_at=time.time(),endpoint=value['id'],workers=value['workers'],mode='on_demand'))
+        print(json.dumps(dict(endpoint=value['id'],workers=value['workers'],mode='on_demand')));return
     if args.action == 'update':
         current=owned(state)
         workers=api('serverless/'+state['endpoint']+'/workers')

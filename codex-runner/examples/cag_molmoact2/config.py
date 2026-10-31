@@ -26,7 +26,7 @@ def encoded_command(names, main):
     return [loader]
 
 
-def gpu_config(volume_id, name='molmoact2-yam1', data_center='US-CA-2'):
+def gpu_config(volume_id, name='molmoact2-yam1', data_center='US-CA-2', *, persistent=False):
     return dict(name=name, type='LOAD_BALANCER', image=IMAGE,
                 entrypoint=['python', '-u', '-c'],
                 cmd=encoded_command(('worker.py', 'protocol.py', 'guidance.py', 'requirements.txt'), 'bootstrap.py'),
@@ -35,7 +35,7 @@ def gpu_config(volume_id, name='molmoact2-yam1', data_center='US-CA-2'):
                      'PYTHONUNBUFFERED': '1', 'HF_HOME': '/runpod-volume/molmoact2-hf-cache',
                      'HF_HUB_DISABLE_PROGRESS_BARS': '1', 'TOKENIZERS_PARALLELISM': 'false',
                      'OMP_NUM_THREADS': '8', 'PIP_DISABLE_PIP_VERSION_CHECK': '1',
-                     'MAX_WORKER_LIFETIME_SECONDS': '3600'},
+                     'MAX_WORKER_LIFETIME_SECONDS': '0' if persistent else '3600'},
                 gpu={'pools': ['ADA_24'], 'count': 1, 'minCudaVersion': '12.9'},
                 workers={'min': 0, 'max': 0, 'idleTimeout': 300},
                 scaling={'type': 'REQUEST_COUNT', 'requestCount': 1},
