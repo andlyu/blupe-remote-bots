@@ -9,6 +9,7 @@ from pathlib import Path
 import threading
 import time
 import urllib.request
+from urllib.error import HTTPError, URLError
 
 from remote_yam.runner_policy_client import RunnerPolicyClient
 from worker import Worker,read_config
@@ -35,6 +36,22 @@ class PhysicalWorker(Worker):
         with urllib.request.urlopen(urllib.request.Request(self.origin+'/api/physical/worker/'+action,
                 data=data,headers=headers),timeout=15) as r:return json.load(r)
 
+    def _read_contact(self,kind,client,run,on_retry):
+        """Reconcile safe reads only; never wrap Start, Stop or actuator writes."""
+        if kind not in ('status','heartbeat'):raise ValueError('Unsupported contact read')
+        for attempt in range(3):
+            try:
+                if kind=='status':return client.status()  # Same visitor/attempt guard.
+                return self.request('heartbeat',dict(id=run['id'],detail='RoboSkills is connected through the BluPe remote-arms harness.'))
+            except (TimeoutError,ConnectionError,URLError) as exc:
+                transient=(exc.code in (502,503,504) if isinstance(exc,HTTPError)
+                           else isinstance(exc.reason,(TimeoutError,ConnectionError)) if isinstance(exc,URLError)
+                           else True)
+                if not transient or attempt==2:raise
+                print('Reconnecting existing run '+run['id']+' '+kind+': '+type(exc).__name__,flush=True)
+                on_retry()
+                time.sleep((.25,.75)[attempt])
+
     def record(self,stop,folder):
         # Actual top-camera footage, retained independently of archive upload.
         from PIL import Image
@@ -53,7 +70,7 @@ class PhysicalWorker(Worker):
     def execute(self,run):
         folder=self.root/run['id'];folder.mkdir(exist_ok=False)
         client=RunnerPolicyClient(self.config['harness'],robot_id='yam-1',timeout=20)
-        stop_record=threading.Event();recorder=None;state=None;stopped=False
+        stop_record=threading.Event();recorder=None;state=None;result=None;stopped=False
         progress=[]
         seen_lifecycle=set()
         def advance(key,label,detail,at=None):
@@ -69,9 +86,16 @@ class PhysicalWorker(Worker):
             client.save(folder/'runner-session.json')
             recorder=threading.Thread(target=self.record,args=(stop_record,folder),daemon=True);recorder.start()
             previous=None
+            def reconnect():
+                detail='Reconnecting to the same BluPe run. No Start or motion command is being retried.'
+                advance('reconnecting','Reconnecting to BluPe',detail)
+                try:
+                    self.request('update',dict(id=run['id'],status='running' if state and state.get('status')=='running' else 'preparing',
+                        stage=detail,result={**(result or {}),'progress':list(progress)}))
+                except Exception:pass  # Site contact may be the interrupted read.
             while True:
-                beat=self.request('heartbeat',dict(id=run['id'],detail='RoboSkills is connected through the BluPe remote-arms harness.'))
-                state=client.status()
+                beat=self._read_contact('heartbeat',client,run,reconnect)
+                state=self._read_contact('status',client,run,reconnect)
                 result={key:state.get(key) for key in ('status','attempt_id','session_id','episode_id','error','commands_submitted','packets_submitted','run_started_at','run_ended_at','provider','step_timings','run_metrics','safety_error','run_summary')}
                 result.update(approach='RoboSkills',execution='physical',robot_id='yam-1',inference_model=(state.get('provider') or {}).get('inference_model'))
                 if isinstance(result.get('provider'),dict):
