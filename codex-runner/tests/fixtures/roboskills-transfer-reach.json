@@ -1,0 +1,39 @@
+{
+  "source": "Sanitized measured step106 from physical rund3e9533c, before locally rejected high transfer; no contact details or capabilities. Offline low-target reachability is not physical task success.",
+  "observation": {
+    "step_id": 106,
+    "observed_at": 1793441408.5617304,
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.681192852312265,
+      33.50579496810944,
+      -25.22534420708812,
+      -2.8287509420802217,
+      -0.4699241853710991
+    ],
+    "right_joints_deg": [
+      18.698611189990853,
+      117.72786398115497,
+      112.9768494305271,
+      -85.62188608037503,
+      -0.3381308895397159,
+      17.736905880394602
+    ],
+    "left_gripper": 0.9997834872979214,
+    "right_gripper": 0.3933501987712323,
+    "source": "hardware",
+    "settled": true,
+    "episode_id": "ep_unit",
+    "lease_id": "lease_unit"
+  },
+  "unreachable_target": {
+    "right_x": 0.4295972729385673,
+    "right_y": 0.21450208314188293,
+    "right_z": 0.13204374286727594
+  },
+  "reachable_target": {
+    "right_x": 0.4295972729385673,
+    "right_y": 0.21450208314188293,
+    "right_z": 0.055
+  }
+}

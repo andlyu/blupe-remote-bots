@@ -118,6 +118,71 @@ class CommandContract(TestCase):
                     self.assertEqual(self.p._geometry.attitude_references[arm],'base_vertical')
                     self.assertEqual(self.p._geometry.attitude_references[other],'observed')
 
+    def test_recorded_transfer_plan_compares_heights_without_dispatch_or_reference_change(self):
+        fixture=json.loads((Path(__file__).parent/'fixtures/roboskills-transfer-reach.json').read_text())
+        self.p.configure_robot_workspace('yam-1')
+        self.p._state=fixture['observation'].copy()
+        self.bot.status()
+        original=tuple(r.copy() for r in self.p._geometry.start_rotations)
+        before=self.p._state.copy()
+        for key,reachable in (('unreachable_target',False),('reachable_target',True)):
+            with self.subTest(key=key),patch.object(self.p,'_execute') as execute:
+                result=self.bot.plan_move(**fixture[key],attitude='base_vertical')
+                self.assertEqual(result['reachable'],reachable)
+                self.assertFalse(result['dispatched'])
+                self.assertEqual(result['from_step_id'],before['step_id'])
+                if reachable:self.assertGreater(result['waypoint_count'],0)
+                else:self.assertEqual(result['code'],'unreachable_target')
+                execute.assert_not_called()
+                self.assertEqual(self.p._state,before)
+                self.assertEqual(self.p._completed_moves,0)
+                self.assertIsNone(self.p._local_rejection)
+                self.assertEqual(self.p._geometry.attitude_references,{'left':'observed','right':'observed'})
+                for a,b in zip(self.p._geometry.start_rotations,original):np.testing.assert_array_equal(a,b)
+        # A station-constrained bound must survive the planning copy. The
+        # recorded baseline is117.7deg; the low endpoint needs142.6deg here.
+        original_high=self.p._geometry.ik.high.copy()
+        self.p._geometry.ik.high[7]=math.radians(135)
+        with patch.object(self.p,'_execute') as execute:
+            constrained=self.bot.plan_move(**fixture['reachable_target'],attitude='base_vertical')
+            self.assertFalse(constrained['reachable'])
+            execute.assert_not_called()
+        self.assertEqual(self.p._geometry.ik.high[7],math.radians(135))
+        self.p._geometry.ik.high=original_high
+        with patch.object(self.p,'_execute',side_effect=self.plant):
+            self.bot.move_to(**fixture['reachable_target'],attitude='base_vertical')
+        self.assertGreater(len(self.sent),0)
+        self.assertLess(self.p._last_move['position_error_m']['right'],.003)
+        for point in self.sent[-1]['waypoints']:
+            np.testing.assert_array_equal(point['left_joints_deg'],before['left_joints_deg'])
+            self.assertEqual(point['right_gripper'],before['right_gripper'])
+
+    def test_local_plan_checks_canonical_packet_and_restores_uninitialized_reference(self):
+        def malformed(points):
+            points[-1]['right_gripper']=-1e-16
+            return _trajectory_waypoints(points)
+        with patch('remote_yam.roboskills_policy._trajectory_waypoints',side_effect=malformed),patch.object(self.p,'_execute') as execute:
+            result=self.bot.plan_move(right_x=.32,right_y=.2,right_z=.12,attitude='base_vertical')
+            self.assertFalse(result['reachable'])
+            self.assertIn('right_gripper',result['reason'])
+            execute.assert_not_called()
+        self.assertIsNone(self.p._geometry.start_rotations)
+        self.assertEqual(self.p._geometry.attitude_references,{'left':'observed','right':'observed'})
+        self.assertIsNone(self.p._local_rejection)
+
+    def test_local_plan_preserves_cancel_lease_and_motion_failure_guards(self):
+        for field,value in (('lease_id','other'),('source','simulation'),('settled',False)):
+            with self.subTest(field=field),patch.object(self.p,'_execute') as execute:
+                self.p._state=observation()
+                self.p._state[field]=value
+                with self.assertRaises(RuntimeError):self.bot.plan_move(right_z=.12)
+                execute.assert_not_called()
+        self.p._state=observation()
+        with patch.object(self.p,'_check_cancelled',side_effect=RuntimeError('cancelled')):
+            with self.assertRaisesRegex(RuntimeError,'cancelled'):self.bot.plan_move(right_z=.12)
+        self.bot.motion_failure='Physical move outcome uncertain'
+        with self.assertRaisesRegex(RuntimeError,'uncertain'):self.bot.plan_move(right_z=.12)
+
     def test_invalid_alignment_is_zero_dispatch_and_preserves_reference(self):
         self.bot.status()
         original=tuple(r.copy() for r in self.p._geometry.start_rotations)
