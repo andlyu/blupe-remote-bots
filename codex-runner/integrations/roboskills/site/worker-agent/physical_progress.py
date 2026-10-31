@@ -31,9 +31,16 @@ def current_stage(state,stopped=False):
     if status=='running':
         if provider.get('pending_packet'):
             return 'moving','Moving the arms','BluPe is executing a checked packet and waiting for measured completion.'
+        vision=provider.get('vision') or {}
+        if vision.get('state') in ('waiting_for_camera','camera_error'):
+            failed=vision['state']=='camera_error'
+            detail=(vision.get('retry') or {}).get('message') or 'Waiting for a fresh measured camera observation.'
+            return ('camera_unavailable' if failed else 'camera_recovery',
+                    'Scene cameras unavailable' if failed else 'Refreshing scene cameras',
+                    detail+' Camera reads do not repeat arm movement.')
         if provider.get('local_rejection'):
             return 'revising','Revising the command',str(provider['local_rejection'].get('reason') or 'The command was rejected locally before dispatch. RoboSkills can revise it.')
-        if provider.get('vision',{}).get('state')=='requesting':
+        if vision.get('state')=='requesting':
             return 'planning','Writing the Python skill','RoboSkills is waiting for its next Python decision from the model.'
         return 'observing','Checking the actual scene','RoboSkills is reading the actual cameras and measured arm state.'
     return 'recording','Saving the replay','BluPe execution ended. Saving the real camera recording.'

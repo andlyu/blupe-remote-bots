@@ -188,6 +188,12 @@ motion outcome. Only a rejected/failed/unknown physical dispatch or completion
 is terminal without retry. Do not infer object displacement from moving-camera
 pixels alone. If a block is still visible in a wrist view, measure it there
 instead of ending just because the overhead view is occluded.
+observe() only reads cameras. A camera read failure does not undo a completed
+move or make its execution uncertain. status.last_move retains the matched
+measured completion/error and status.motion_failure retains any terminal motion
+failure. Resolve the stated camera issue and request a fresh observe(); never
+repeat a completed move just because its following camera read failed. A real
+failed/uncertain motion remains terminal, even if a later camera becomes available.
 Retain the stated calibration limitations, without claiming exact depth
 accuracy. Verify object retention after lifting, support before release and
 stable placement after withdrawing. Finish with finish(reason='what happened',
@@ -217,6 +223,9 @@ class RobotTools:
                     coordinates=dict(zip(NAMES, state.tolist())),
                     attitude_references=p._geometry.attitude_references.copy(),
                     approach_axes_base={arm:r[:,2].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
+                    last_move={k:deepcopy(p._last_move[k]) for k in ('targets','position_error_m','tracking_corrections')
+                               if k in p._last_move} if p._last_move else None,
+                    motion_failure=self.motion_failure,
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
                             for i,n in enumerate(NAMES)}, ended=self.result is not None,
                     perception=p._perception.summary(concise=True) if p._perception else dict(available=False))
@@ -226,9 +235,20 @@ class RobotTools:
         from PIL import Image
         p = self.policy
         p._check_cancelled()
+        if self.motion_failure:raise RuntimeError(self.motion_failure)
         if p._perception:
             p._vision_state='capturing'
-            images=p._perception.capture(p)
+            p._camera_retry=None
+            try:
+                images=p._perception.capture(p)
+            except Exception as exc:
+                p._check_cancelled()  # Stop/physical failures stay terminal.
+                if not p._camera_retry or p._camera_retry.get('state')!='failed':
+                    p._camera_event('camera_failure','Scene camera observation unavailable: '+str(exc),
+                                    dict(camera='all',state='failed',cause=str(exc)))
+                raise ValueError('Camera observation unavailable; observe() sent no motion. '
+                    'Recorded move completion is unchanged; failed/uncertain movement remains terminal. '
+                    'Resolve the camera issue and request a fresh observe(), not another motion. Cause: '+str(exc)) from exc
             p._vision_state='observed'
             return images
         content = p._observation_input(p._state)[0]['content']
