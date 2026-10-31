@@ -129,6 +129,19 @@ same arm frame, check the fresh wrist view, and lower the open fingertip ends
 BELOW the object top but safely ABOVE the table, so the pads overlap its sides.
 Use the measured heights and visible clearance; do not assume a fixed table
 height, block size, hidden contact or an exact physical finger dimension.
+For a box-like block, localize its visible surface mask to center the jaws;
+a wrist pixel on a near corner/side is not the object's center. Begin with
+shallow finger engagement, about5–8 mm below the measured top and no more than
+one quarter of the measured top-to-table height, with positive table clearance.
+This is an initial planning heuristic, not a measured hardware dimension or
+contact certificate. Check the fresh view before closing. A completed target
+above the object top cannot grasp it; a failed descent remains terminal.
+Remember the measured fingertip height at the successful grasp and its source
+support height. With retained grasp/orientation, the placement fingertip height
+is grasp_tip_z + (destination_support_z - source_support_z). A destination top
+point alone is not that placement target: account for the block hanging below
+the fingertips. Verify support before open, and stable object placement after
+withdrawal, using fresh images. Do not claim success from empty closure.
 Keep fingers away from adjacent objects. Calibration quality is experimental;
 use visual feedback and reobserve
 after movement. The cached view is invalidated by every move; query observe()
