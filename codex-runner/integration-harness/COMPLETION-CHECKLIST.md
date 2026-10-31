@@ -46,6 +46,7 @@ unverified, and request only the specific permission needed to unblock it.
   public-visibility exception for either is recorded below.
 - [ ] The website clearly names the actual approach/method being run. Use the
   executed method's name; Spotter is an example, not a shared hardcoded label.
+  The **Model** field identifies the approach being tested, as specified below.
 - [ ] When a human joins, collect or confirm their name and email. Prefill known
   identity/default values where available and let the runner edit both fields
   before joining.
@@ -92,6 +93,21 @@ unverified, and request only the specific permission needed to unblock it.
   normal user interface. Verify every completion requirement against that
   deployment and record evidence; unmet or unverified requirements block
   completion.
+
+## Model identifies the tested approach
+
+Set the harness's **Model** field to the actual research approach/method being
+tested. For example, a HarnessVLA run uses `HarnessVLA` as its Model value.
+Resolve this value from the approach that actually executes and carry it
+consistently through the website's model label/selection, run context and stored
+run records, queue/email notifications, and replay/history attribution.
+
+Record underlying foundation, planner or VLA model IDs and checkpoint names as
+separate configuration metadata. Keep confirmed human runner identity and
+execution mode in their own fields too.
+
+Verify a run's Model value against the executed approach and retain evidence of
+the website label, stored run record, notification and replay/history attribution.
 
 ## Verify the 15-second path
 
@@ -175,6 +191,9 @@ actual arms live. Check both 15-second measures, approach/runner identities,
 replay of the just-completed run and selection/replay of previous runs. Review
 every checklist item against current evidence, including public visibility and
 actual user attribution in policy/model tests, with execution mode separate.
+Verify that Model identifies the executed approach consistently in the website,
+run records, notifications and replay/history, with underlying model/checkpoint
+configuration recorded separately.
 Verify wait status appears immediately, keeps a readable reason, and visibly
 confirms real stage completion (GPU ready before subsequent loading/running).
 Check failure/stall status and available recovery evidence too. Record the
@@ -190,6 +209,9 @@ before any completion claim.
 - Final checklist review (evidence for every item, replay links/timings, unmet
   items and explicit exceptions):
 - Actual approach name / website label evidence:
+- Model-as-approach evidence (executed approach, website Model value, stored run
+  record, queue/email notification and replay/history attribution; separate
+  underlying model/checkpoint configuration):
 - Human join evidence (name/email collection or confirmation, prefilled defaults
   and edits to both fields):
 - Run context evidence (run ID, approach and runner identity; website attribution):
