@@ -402,8 +402,10 @@ function createRunLaunchGuard() {
     if (!live) player.yamRecordingView = window.yamRecordingView?.(player, run.camera_order, run.video_layout);
     player.src = source.url;
     player.defaultPlaybackRate = player.playbackRate = source.rate;
-    if (!dialog.open) dialog.showModal();
-    player.play().catch(() => {});
+    if (window.yamRunSidebar) window.yamRunSidebar.open(run);
+    else if (!dialog.open) dialog.showModal();
+    const expectedRun=selectedRun, expectedSource=player.src;
+    player.play().catch(() => { if(selectedRun===expectedRun && player.src===expectedSource) $('pastRunError').textContent = 'Press Play to start this replay.'; });
   }
   $('closePastRun').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
@@ -621,6 +623,7 @@ function createRunLaunchGuard() {
         if (historyView === 'cloud' && cached && Date.now()-cached.at < 60000) run.preview = cached.detail;
       }
       catalogRows.push(...data.runs);
+      window.yamRunSidebar?.setCatalog(catalogRows, {robot:historyRobot, complete:historyView === 'cloud' && !historyModels.length && !historySearch && !data.sampled, source:labelSource});
       if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
       renderView();
@@ -678,6 +681,7 @@ function createRunLaunchGuard() {
   $('pastRunsLabelSource')?.addEventListener('change', () => {
     labelSource = $('pastRunsLabelSource').value;
     try { localStorage.setItem('yam-run-label-source', labelSource); } catch (_) {}
+    window.yamRunSidebar?.setSource(labelSource);
     if (historyView === 'table') { clearBlocks(); renderBlocks(catalogRows); }
     renderView();
   });
