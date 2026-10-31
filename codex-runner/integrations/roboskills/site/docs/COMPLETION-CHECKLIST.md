@@ -10,7 +10,7 @@ integration as complete.
 
 ## Current task qualification reopened — October31,2026
 
-Priorv13 smoke test did not qualify stacking. Current **12/15 checked**, items7/13/15 open. Current runtime9d4f126/Site19 is physically tested through normalUI d68d592f: actual physicalYjaw nearlylevel and correctednominalgrasp reference; source approach/viewretreat completed, then agent stoppedbeforecontact for ambiguousdepthplanefit. No grasp/stack. Thirteen measured startup passes retained, including current12.910091s postHome/25.827893s fullRun without deduction. Seven later failed/unverified timing cases remain outside owner exceptions. See [current result](verification/2026-10-31-physical-jaw-results.md).
+Prior v13 smoke testing did not qualify stacking. Current **12/15 checked**, items7/13/15 open. Current runtime186d4e46/Site19 was tested through normal UI2a7c2a77. Real measured surfaces supported a tilted descent/close/lift; the lift showed an empty grasp, so no transfer/release/stable stack occurred. Fourteen measured startup passes include current12.589694s post-Home/25.473040s full Run without deduction. Seven later failed/unverified timing cases remain outside owner exceptions. See [current result](verification/2026-10-31-plane-consensus-results.md).
 
 ## Owner timing exception — October30,2026
 

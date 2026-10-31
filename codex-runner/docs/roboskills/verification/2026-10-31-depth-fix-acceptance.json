@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T16:02:39.757327+00:00",
+  "reviewedAt": "2026-10-31T16:25:46.876659+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "9d4f126fa69fcb61c00d9175e8ff014f1d5a561d",
+  "runtimeSource": "186d4e46f299b0c4156b49cca1727be887f63436",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "PublicSite19/source4d76cfb; live9d4f126 provider28392/physical28395 via PR206/f84a0c0, all6 releasechecks passed. Includes read-onlyface metadata PR205/69ee8b9. Genuine pinned agent unchanged; actual model/templates/rendered hashes and nominalreference captured."
+      "evidence": "Public Site19/source4d76cfb; live186d4e46 via PR208/eaaad0b7 after all six required checks. Provider43670/physical43674, simulation14674 preserved. Genuine pinned agent and native safeguards unchanged."
     },
     {
       "number": 2,
@@ -22,7 +22,7 @@
       "number": 3,
       "requirement": "Actual method clearly named",
       "status": "PASS",
-      "evidence": "Genuine RoboSkills8a286023 core.agent/Repl; actualSol/none firstsourceinspection and Astra/medium later. PhysicalYopening axes/nominalinstalledreference geometry exposed; Model approach identity distinct from inference models. No prerecorded joint solver substitute."
+      "evidence": "Genuine RoboSkills8a286023 core.agent/Repl; actual Sol/none then Astra/medium, with raw/dominant measured surface fits, physical Y jaws and nominal installed pad reference. Actual prompt/model provenance retained separately from approach identity."
     },
     {
       "number": 4,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Currentd68 completed exactleft80mminspection/correction and40mmviewretreat with actualYjaw nearlylevel.60waypoints/3packets78.231490s; agent stopped beforecontact for ambiguous purpleface depthplane, no grasp/stack. Hardware-frame correction tested physically, object manipulation remains unqualified."
+      "evidence": "Actual2a7c2a77 completed source inspection, view retreat, pregrasp opening, supported tilted descent, close and lift. The lift showed an empty grasp.113 waypoints/18 matched packets/228.069170s; no transfer/release/stable stack, so object manipulation remains unqualified."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Currentd68 actual49.5s replay played through37s and sought35s, camera08:53:50.5PDT, matching task-not-completed/agent-assessment/no-native-score label. Actual retained footage, not mocked."
+      "evidence": "Actual133s native replay played through61s and sought115/127s. Visible camera09:21:15.2PDT and honest task-not-completed/agent-assessment/no-native-score label match this run."
     },
     {
       "number": 10,
@@ -82,19 +82,19 @@
       "number": 13,
       "requirement": "Every-run startup timing",
       "status": "OPEN: seven later failed/unverified cases outside accepted exceptions",
-      "evidence": "Thirteen measured startup passes now include d68: originalUI nativecamera unchanged08:53:06.0/frame24 then clearlymoved08:53:07.8/frame27, postHomeupper12.910091s/fullRun25.827893s without queue deduction. Seven later historical failed/unverified cases remain outside accepted exceptions; no waiver inferred."
+      "evidence": "Fourteen measured startup passes now include2a7c2a77: original UI40 unchanged09:17:43.9 then43 clearly moved09:17:46.0; upper12.589694s after Home and25.473040s after Run without queue deduction. Seven later historical failed/unverified cases remain outside accepted exceptions."
     },
     {
       "number": 14,
       "requirement": "Persistent honest progress and recovery",
       "status": "PASS",
-      "evidence": "Actual immediate queue/preparation/scene/model/motion/recording stages matchd68; typedemail cleared immediately, guardedpostframe.841s aftersingleRun,116retained/133attempts. Honestprecontacttaskfailure/replay and nativepark/torqueoff/autoqueue verified. No failed/uncertain-motion replay."
+      "evidence": "Actual queue/Home/scene/model/motion/recording stages retained. Single Run, email immediately cleared, first guarded post-frame0.678s after click;330 retained/398 attempts. Empty-grasp failure and normal park/torqueoff/autoqueue verified; no failed or uncertain motion replay."
     },
     {
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "NormalUI d68 verifies released correctedphysicalY/nominalTCP/faceplane genuineagent, actualhuman/task/marks/live/replay/seek/park and bothcurrentstartup limits. It stoppedbeforegrasp; fullgrasp/lift/transfer/release/withdrawal/stable stack unverified."
+      "evidence": "Normal UI2a7c2a77 exercises released depth consensus through real inspection/descent/close/lift, actual identity/live/replay/seek/park and both startup limits. Lift showed no retained block; full transfer/release/withdrawal/stable stack remains unverified."
     }
   ],
   "checked": 12,
@@ -157,8 +157,9 @@
     "7f23d80e1b0644f18fc88589ca72fbe9",
     "a264d5d7c2384119b9d426ce99d6d5ac",
     "c77e42b30927403e89e94ace21016e26",
-    "d68d592f48fa43c38e88475cf4454975"
+    "d68d592f48fa43c38e88475cf4454975",
+    "2a7c2a77824647cdbf031b48a20e6058"
   ],
-  "candidateRuntimeSource": null,
-  "candidateEvidence": "2026-10-31-physical-jaw-results.md"
+  "candidateRuntimeSource": "186d4e46f299b0c4156b49cca1727be887f63436",
+  "candidateEvidence": "2026-10-31-plane-consensus-results.md"
 }
