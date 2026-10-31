@@ -1,0 +1,24 @@
+[
+  {
+    "production_callback": true,
+    "sanitized_environment": true,
+    "trial": 0,
+    "wall_s": 26.08969412499937,
+    "model": "gpt-6-astra",
+    "effort": "medium",
+    "reply": "```python\nrgb = bot.rgbd('right')['rgb']\nyy, xx = np.indices(rgb.shape[:2])\nvertices = np.array([[277, 265], [290, 229], [330, 201], [375, 234], [374, 266], [328, 309]])\ncross = []\nfor a, b in zip(vertices, np.roll(vertices, -1, axis=0)):\n    cross.append((b[0]-a[0])*(yy-a[1]) - (b[1]-a[1])*(xx-a[0]))\nmask = np.all(np.array(cross) >= 0, axis=0)\npurple = bot.localize_object('purple block visible surfaces', mask, camera='right', arm='right')\npurple_top = bot.measure_depth(332, 231, camera='right', arm='right')\ntable = bot.measure_depth(392, 278, camera='right', arm='right')\norange_top = bot.measure_depth(610, 145, camera='left', arm='right')\nprint('Purple visible geometry:', purple)\nprint('Top, table, destination surface:', purple_top['points_base_m']['right'], table['points_base_m']['right'], orange_top['points_base_m']['right'])\n```",
+    "scope": "Reconstructed first post-approach context of actuala264d5d7: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+    "usage": {
+      "input_tokens": 18753,
+      "cached_input_tokens": 2688,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 474,
+      "reasoning_output_tokens": 206
+    },
+    "prompt_addition": "A tilted plan_approach target includes horizontal as\nwell as vertical clearance: input_point minus tool_Z times clearance. It is an\napproach position, not the grasp position. Changing only base-frame Z leaves\nthe horizontal offset in place. After the above-object observation, choose\nsupported grasp X/Y from the actual object surfaces and a supported grasp Z\nwith table clearance, then preflight the full XYZ grasp and placement. Account\nfor the complete open-finger and wrist path around all objects in the fresh\nscene, including boxes and mats if present. Neither local reachability nor a\nsingle surface pixel proves a clear grasp. Stop if the path or contact geometry\ncannot be established. Do not use contact or tracking error to probe for the table.\n",
+    "original_prototype_prompt_addition_label": "A tilted plan_approach target includes horizontal as well as vertical clearance: input_point minus tool_Z times clearance. It is an approach position, not the grasp position. Changing only base-frame Z leaves the horizontal offset in place. After the above-object observation, choose supported grasp X/Y from the actual object surfaces and a supported grasp Z with table clearance, then preflight the full XYZ grasp and placement. Account for the complete open-finger and wrist path around the cardboard box, mat and other objects. Neither local reachability nor a single surface pixel proves a clear grasp. Stop if the path or contact geometry cannot be established. Do not use contact or tracking error to probe for the table.",
+    "actual_subsequent_template_sha256": "63446c4a4264673ab381ca16be8e6390acb37ad29a063ae7a970827a4fdd694c",
+    "metadata_correction": "The generated program used actual policy._call which appended production POST_APPROACH_GUIDANCE; original inherited exporter field had named prototype guide. Corrected field, original preserved; generation/time unchanged.",
+    "production_policy_revision": "73d944dbcbb04d7bb07a556a918e854ba7e3dfa4"
+  }
+]
