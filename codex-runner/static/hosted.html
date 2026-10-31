@@ -319,11 +319,18 @@
         </div>
         <div id="pastRunsCloud" hidden>
           <p class="help">Nearby points have similar task descriptions; this does not establish identical starting conditions or physical difficulty. Small offsets separate repeated attempts.</p>
-          <div class="cloudToolbar"><label class="cloudRegionControl" for="taskCloudHighlight">Highlight <select id="taskCloudHighlight"><option value="both">Success &amp; failure areas</option><option value="success">Success-heavy areas</option><option value="failure">Failure-heavy areas</option><option value="none">None</option></select></label></div>
+          <div class="cloudToolbar"><label class="cloudRegionControl" for="taskCloudHighlight">Highlight <select id="taskCloudHighlight"><option value="both">Success &amp; failure areas</option><option value="success">Success-heavy areas</option><option value="failure">Failure-heavy areas</option><option value="none">None</option></select></label><button id="taskCloudSelectArea" type="button" class="cloudAreaToggle" aria-pressed="false" aria-describedby="taskCloudAreaHelp" disabled>Select area</button><button id="taskCloudClearArea" type="button" disabled>Clear selection</button></div>
           <p id="taskCloudRegionStatus" class="help" role="status"></p>
           <div class="cloudToolbar"><button id="resetTaskCloud" type="button">Reset view</button><button id="zoomTaskCloudIn" type="button" aria-label="Zoom task cloud in">Zoom in</button><button id="zoomTaskCloudOut" type="button" aria-label="Zoom task cloud out">Zoom out</button><span class="cloudLegend"><span class="cloudKey"><i class="cloudDot success" aria-hidden="true"></i>Green: Success</span><span class="cloudKey"><i class="cloudDot failure" aria-hidden="true"></i>Red: Failure</span><span class="cloudKey"><i class="cloudDot uncertain" aria-hidden="true"></i>Amber: Uncertain</span><span class="cloudKey"><i class="cloudDot unscored" aria-hidden="true"></i>Hollow: Unscored (unlabeled or excluded)</span></span></div>
+          <p id="taskCloudAreaHelp" class="help" hidden>Drag a box over the runs. Arrow keys move the box, Shift+arrows resize, Enter applies, Escape cancels. The box includes points at all depths.</p>
+          <section id="taskCloudAreaSummary" class="cloudAreaSummary" aria-labelledby="taskCloudAreaTitle" hidden>
+            <h3 id="taskCloudAreaTitle">Selected area</h3>
+            <p id="taskCloudAreaCounts" role="status" aria-live="polite"></p>
+            <p id="taskCloudAreaRate" class="help"></p>
+            <p class="cloudAreaMedian"><strong>Median prompt:</strong> <span id="taskCloudAreaPrompt"></span></p>
+          </section>
           <div class="taskCloudStage">
-            <canvas id="taskCloudCanvas" class="taskCloudCanvas" width="1000" height="540" tabindex="0" aria-label="3D task cloud" aria-describedby="taskCloudHelp taskCloudFocus taskCloudRegionStatus"></canvas>
+            <canvas id="taskCloudCanvas" class="taskCloudCanvas" width="1000" height="540" tabindex="0" aria-label="3D task cloud" aria-describedby="taskCloudHelp taskCloudFocus taskCloudRegionStatus taskCloudAreaHelp taskCloudAreaCounts taskCloudAreaRate taskCloudAreaPrompt"></canvas>
             <div id="taskCloudPreview" class="taskCloudPreview" hidden aria-hidden="true">
               <div class="taskCloudPreviewMedia"></div><p class="taskCloudPreviewTitle"></p><p class="taskCloudPreviewState"></p>
             </div>
@@ -356,6 +363,7 @@
   <section id="similarRuns" aria-labelledby="similarRunsTitle">
     <h3 id="similarRunsTitle">Similar videos</h3>
     <p id="similarRunsStatus" class="help" role="status">Select a run to find similar videos.</p>
+    <p id="similarRunsScore" class="similarRunsScore" role="status"></p>
     <ol id="similarRunsList" class="similarRunsList"></ol>
     <button id="moreSimilarRuns" type="button" hidden>Show more similar videos</button>
     <div id="similarRunsSentinel" aria-hidden="true"></div>

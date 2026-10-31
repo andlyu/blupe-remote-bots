@@ -9,9 +9,16 @@
   const issued = new Map();
   let requestSequence = 0;
   const groups = ['liveAssessmentControls','replayAssessmentControls','replayVoteControls'];
+  if(!$('liveAssessmentTask')) {
+    const task=document.createElement('p');task.id='liveAssessmentTask';task.className='assessmentTask';
+    $('liveAssessmentControls').before(task);
+  }
   function render() {
     for (const [target, scope] of [['live',live],['replay',replay]]) {
       const data = scope?.assessment || empty(), controls = $(target+'AssessmentControls');
+      if(target==='live') {
+        const task=$('liveAssessmentTask');task.textContent=scope?.task || '';task.title=scope?.task || '';task.hidden=!scope?.task;
+      }
       controls.hidden = target === 'replay' && !data.can_edit;
       for (const button of controls.querySelectorAll('button')) {
         button.disabled = busy || !scope?.id || !data.can_edit;
@@ -86,7 +93,7 @@
       if (!visible) return;
       const changed = live?.id !== state.episode_id || live?.status !== state.status;
       if (changed) {
-        live = {id:state.episode_id,status:state.status,assessment:live?.id === state.episode_id ? live.assessment : empty()};
+        live = {id:state.episode_id,status:state.status,task:state.task || state.prompt || (live?.id===state.episode_id?live.task:''),assessment:live?.id === state.episode_id ? live.assessment : empty()};
         $('liveAssessmentStatus').textContent = !state.episode_id ? 'Assessment will be available once the recording starts.' : active.has(state.status) ? 'Your label is provisional until the run ends.' : 'Your run ended. You can edit this assessment now or in replay details.';
         render(); refresh(live);
       }

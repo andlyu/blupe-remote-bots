@@ -6,10 +6,67 @@ function setup(labeler){
  const canvas={width:1000,height:540,clientWidth:1000,clientHeight:540,dataset:{},style:{},getContext:()=>ctx,
   addEventListener:(name,fn)=>events[name]=fn,setPointerCapture(){},getBoundingClientRect:()=>({left:0,top:0})};
  vm.runInNewContext(source,{window,ResizeObserver:class{observe(){}},requestAnimationFrame:fn=>{queued=fn;return 1}});
- const opened=[],previews=[],cloud=window.yamTaskCloud.create(canvas,focused,run=>opened.push(run),(run,point)=>previews.push({run,point}));
+ const opened=[],previews=[],areas=[],cloud=window.yamTaskCloud.create(canvas,focused,run=>opened.push(run),(run,point)=>previews.push({run,point}),()=>{},area=>areas.push(area));
  const draw=()=>{queued?.();queued=null};
- return{cloud,canvas,events,opened,draw,focused,project:window.yamTaskCloud.project,offset:window.yamTaskCloud.offset,draws,previews,outcome:window.yamTaskCloud.outcome,regionsFor:window.yamTaskCloud.regionsFor};
+ return{cloud,canvas,events,opened,draw,focused,areas,summarizeArea:window.yamTaskCloud.summarizeArea,project:window.yamTaskCloud.project,offset:window.yamTaskCloud.offset,draws,previews,outcome:window.yamTaskCloud.outcome,regionsFor:window.yamTaskCloud.regionsFor};
 }
+test('area summary separates unknown outcomes and chooses an actual median task across all selected attempts',()=>{
+ const c=setup(run=>run.testOutcome),rows=[
+  {episode_id:'a',prompt:'Left task',xyz:[-.4,0,0],testOutcome:'Success'},
+  {episode_id:'b',prompt:'Middle task',xyz:[.1,0,0],testOutcome:'Failure'},
+  {episode_id:'c',prompt:'Middle task',xyz:[.1,0,0],testOutcome:'Uncertain'},
+  {episode_id:'d',prompt:'Right task',xyz:[.7,0,0],testOutcome:'Unscored'}];
+ const summary=c.summarizeArea(rows);
+ assert.equal(summary.total,4);assert.equal(summary.Success,1);assert.equal(summary.Failure,1);assert.equal(summary.Uncertain,1);assert.equal(summary.Unscored,1);
+ assert.equal(summary.scored,2);assert.equal(summary.successRate,.5);assert.equal(summary.medianPrompt,'Middle task');
+ assert.equal(c.summarizeArea(rows.slice().reverse()).medianPrompt,summary.medianPrompt);
+ assert.equal(c.summarizeArea(rows.slice(2)).successRate,null);assert.equal(c.summarizeArea([]).medianPrompt,'');
+});
+test('pointer area selection counts visible centers without rotating or opening replays; membership survives view/source changes',()=>{
+ const c=setup(run=>run.testOutcome),rows=[[-.08,.03,-.02],[.02,.01,.02],[.04,-.02,.04],[.02,-.01,-.02],[.7,.4,0]]
+  .map((xyz,i)=>({episode_id:'ep_area'+i,robot_id:'yam-1',prompt:'Task '+i,xyz,testOutcome:['Success','Failure','Uncertain','Unscored','Failure'][i]}));
+ c.cloud.setRuns(rows);c.draw();const camera=c.canvas.dataset.cloudCamera;
+ const projected=rows.slice(0,4).map(run=>c.project(run.xyz.map((value,i)=>value+c.offset(run.episode_id)[i]),-.3,.2,1,1000,540));
+ const start={pointerId:1,pointerType:'mouse',clientX:Math.min(...projected.map(p=>p.x))-8,clientY:Math.min(...projected.map(p=>p.y))-8};
+ const end={...start,clientX:Math.max(...projected.map(p=>p.x))+8,clientY:Math.max(...projected.map(p=>p.y))+8};
+ c.cloud.setAreaSelection(true);c.events.pointerdown(start);c.events.pointermove(end);c.events.pointerup(end);c.draw();
+ assert.equal(c.areas.at(-1).total,4);assert.equal(c.areas.at(-1).successRate,.5);assert.equal(c.opened.length,0);assert.equal(c.canvas.dataset.cloudCamera,camera);
+ c.cloud.zoom(1.5);c.draw();assert.equal(c.areas.at(-1).total,4);assert.equal(c.canvas.dataset.areaSelected,'4');
+ c.cloud.setRuns(rows.map(run=>({...run,testOutcome:'Failure'})));c.draw();assert.equal(c.areas.at(-1).Failure,4);assert.equal(c.areas.at(-1).successRate,0);
+ c.cloud.setRuns(rows.slice(1));c.draw();assert.equal(c.areas.at(-1).total,3);
+ c.cloud.setRuns(rows.map(run=>({...run,robot_id:'other'})));c.draw();assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.areas.at(-1).total,0);
+});
+test('keyboard area controls apply, cancel and clear while leaving default camera keys intact',()=>{
+ const c=setup(run=>run.testOutcome),rows=Array.from({length:6},(_,i)=>({episode_id:'ep_key'+i,prompt:'Center task',xyz:[0,0,0],testOutcome:i%2?'Success':'Failure'}));
+ c.cloud.setRuns(rows);c.draw();const camera=c.canvas.dataset.cloudCamera;
+ c.cloud.setAreaSelection(true);c.events.keydown({key:'ArrowRight',preventDefault(){}});c.events.keydown({key:'ArrowRight',shiftKey:true,preventDefault(){}});c.events.keydown({key:'Enter',preventDefault(){}});c.draw();
+ assert.equal(c.areas.at(-1).total,6);assert.equal(c.opened.length,0);assert.equal(c.canvas.dataset.cloudCamera,camera);
+ c.events.keydown({key:'ArrowDown',preventDefault(){}});assert.equal(c.areas.at(-1).drawing,true);c.events.keydown({key:'Escape'});assert.equal(c.areas.at(-1).drawing,false);assert.equal(c.areas.at(-1).total,6);
+ c.cloud.setAreaSelection(false);c.events.keydown({key:'ArrowRight',preventDefault(){}});c.draw();assert.notEqual(c.canvas.dataset.cloudCamera,camera);assert.equal(c.areas.at(-1).total,6);
+ c.cloud.clearArea();c.draw();assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.canvas.dataset.areaSelected,'0');
+});
+test('touch pinch and canceled gestures do not commit a stale selection or open a video',()=>{
+ const c=setup(),run={episode_id:'ep_touch',prompt:'Task',xyz:[0,0,0]};c.cloud.setRuns([run]);c.draw();c.cloud.setAreaSelection(true);
+ const a={pointerId:1,pointerType:'touch',clientX:450,clientY:240},b={pointerId:2,pointerType:'touch',clientX:550,clientY:300};
+ c.events.pointerdown(a);c.events.pointerdown(b);c.events.pointermove({...b,clientX:580});c.events.pointerup(a);c.events.pointerup(b);c.draw();
+ assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.opened.length,0);
+ c.events.pointerdown(a);c.events.pointermove(b);c.events.pointercancel();c.events.pointerup(a);assert.equal(c.areas.at(-1).drawing,false);assert.equal(c.opened.length,0);
+});
+test('area controls expose the binary denominator, label source and empty state without loading more runs',async()=>{
+ const c=require('./helpers/past-runs.cjs')('', 'cloud');
+ const area={total:10,Success:1,Failure:2,Uncertain:3,Unscored:4,scored:3,successRate:1/3,medianPrompt:'Actual central task',hasSelection:true,drawing:false};
+ c.cloud.setAreaSelection=active=>c.cloud.areaChange({...area,active});
+ c.cloud.clearArea=()=>c.cloud.areaChange({...area,total:0,hasSelection:false,active:true});
+ c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Lift',xyz:[0,0,0]}]);await c.flush();
+ c.nodes.get('taskCloudSelectArea').emit('click');
+ assert.equal(c.nodes.get('taskCloudSelectArea').getAttribute('aria-pressed'),'true');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,false);
+ assert.match(c.nodes.get('taskCloudAreaRate').textContent,/33\.3% of 3 Success\/Failure labels/);assert.match(c.nodes.get('taskCloudAreaCounts').textContent,/10 runs selected/);
+ assert.equal(c.nodes.get('taskCloudAreaPrompt').textContent,'Actual central task');
+ c.nodes.get('pastRunsLabelSource').value='human';c.nodes.get('pastRunsLabelSource').emit('change');
+ c.cloud.areaChange({...area,Success:0,Failure:0,Uncertain:0,Unscored:10,scored:0,successRate:null,active:true});
+ assert.match(c.nodes.get('taskCloudAreaRate').textContent,/No Success\/Failure labels.*Human-labeled/);assert.equal(c.requests.length,1);
+ c.nodes.get('taskCloudClearArea').emit('click');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,true);assert.equal(c.nodes.get('taskCloudClearArea').disabled,true);
+});
 test('neighborhoods require five binary labels, ignore uncertain/unknown outcomes and preserve 3D separation',()=>{
  const c=setup(run=>run.testOutcome),rows=[];
  function add(count,state,xyz){for(let i=0;i<count;i++)rows.push({episode_id:'ep_'+rows.length,prompt:'Task',xyz,testOutcome:state})}
@@ -19,6 +76,7 @@ test('neighborhoods require five binary labels, ignore uncertain/unknown outcome
  const result=c.regionsFor(rows);
  assert.equal(result.regions.length,2);
  const green=result.regions.find(r=>r.label==='Success');assert.equal(green.total,8);assert.equal(green.Success,6);assert.equal(green.Uncertain,3);assert.equal(green.Unscored,40);
+ assert.equal(green.representativePrompt,'Task');
  const red=result.regions.find(r=>r.label==='Failure');assert.equal(red.total,7);assert.equal(red.Failure,6);
  assert.equal(JSON.stringify(c.regionsFor(rows.slice().reverse()).regions),JSON.stringify(result.regions),'row order must not move regions');
  assert.deepEqual(rows[0].xyz,[0,0,-.3]);
@@ -48,6 +106,16 @@ test('failure areas show the observed failed prompt nearest the repeated-attempt
  assert.match(c.focused.textContent,/Median failure prompt: Pick up the poker chip/);
  const noPrompts=c.regionsFor(rows.map(run=>({...run,prompt:''})));assert.equal(noPrompts.regions.find(region=>region.xyz[0]<.1).representativePrompt,'');
 });
+test('success captions use successful attempts even when a failed task shares the median position',()=>{
+ const c=setup(run=>run.testOutcome),rows=[
+  {episode_id:'z_left',prompt:'Left successful task',xyz:[-.03,0,0],testOutcome:'Success'},
+  ...Array.from({length:3},(_,i)=>({episode_id:'s_'+i,prompt:'Lift the bottle',xyz:[.02,0,0],testOutcome:'Success'})),
+  {episode_id:'z_right',prompt:'Right successful task',xyz:[.06,0,0],testOutcome:'Success'},
+  {episode_id:'a_failed',prompt:'Drop the bottle',xyz:[.02,0,0],testOutcome:'Failure'}];
+ const region=c.regionsFor(rows).regions.find(region=>region.label==='Success');assert.equal(region.Success,5);assert.equal(region.total,6);assert.equal(region.representativePrompt,'Lift the bottle');
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();assert.match(c.focused.textContent,/Median success prompt: Lift the bottle/);
+ assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Lift the bottle'));
+});
 test('long failure prompts wrap and truncate inside mobile canvas bounds without changing region counts',()=>{
  const c=setup(run=>run.testOutcome),prompt='Pick up the poker chip and carefully move it to the cup '.repeat(8);
  c.canvas.clientWidth=320;c.canvas.clientHeight=360;
@@ -58,6 +126,15 @@ test('long failure prompts wrap and truncate inside mobile canvas bounds without
  assert.equal(promptLines.length,2);assert.match(promptLines[1][1],/…$/);
  for(const call of promptLines){assert.ok(call[2]>=4);assert.ok(call[2]+call[1].length*7<=320-4)}
  assert.match(c.focused.textContent,new RegExp(prompt.slice(0,40)));
+});
+test('combined phone labels retain success and failure captions when their default positions collide',()=>{
+ const c=setup(run=>run.testOutcome);c.canvas.clientWidth=320;c.canvas.clientHeight=360;
+ const rows=['Success','Failure'].flatMap((testOutcome,index)=>Array.from({length:5},(_,i)=>({episode_id:`ep_${index}_${i}`,prompt:index?'Place blue block on the tray':'Place green block on the towel',xyz:index?[.07,0,.1]:[-.07,0,-.1],testOutcome})));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();
+ assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Success: 5/5'));
+ assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Failure: 5/5'));
+ assert.equal(c.canvas.dataset.highlightRegions,'2');assert.equal(c.canvas.dataset.renderedPoints,'10');
+ for(const call of c.draws.filter(call=>call[0]==='strokeRect')){assert.ok(call[1]>=4 && call[2]>=4);assert.ok(call[1]+call[3]<=316 && call[2]+call[4]<=356)}
 });
 test('highlight picker updates the existing Cloud and remembers the choice without fetching new runs',async()=>{
  const c=require('./helpers/past-runs.cjs')('', 'cloud');
