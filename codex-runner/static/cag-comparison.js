@@ -33,14 +33,14 @@
     sessionReady(session) {
       const station = document.getElementById('robotSelect');
       if (station) station.disabled = true;
-      if (session.research_integration?.runs_enabled === false) {
-        const paused = document.createElement('p');
-        paused.className = 'cagStatus';
-        paused.id = 'cagStatus';
-        paused.setAttribute('role', 'status');
-        paused.textContent = 'Completion Aware Guidance with MolmoAct2 · GPU inference is paused. You can view cameras and previous runs.';
-        document.querySelector('.runnerContent').prepend(paused);
-      }
+      const status = document.createElement('p');
+      status.className = 'cagStatus';
+      status.id = 'cagStatus';
+      status.setAttribute('role', 'status');
+      status.textContent = session.research_integration?.runs_enabled === false
+        ? 'Completion Aware Guidance with MolmoAct2 · GPU inference is paused. You can view cameras and previous runs.'
+        : 'Completion Aware Guidance with MolmoAct2 · RunPod inference is enabled. Robot readiness is shown below.';
+      document.querySelector('.runnerContent').prepend(status);
       document.title = 'Completion Aware Guidance · MolmoAct2 · BluPe';
       const name = document.getElementById('runnerName');
       const email = document.getElementById('email');
