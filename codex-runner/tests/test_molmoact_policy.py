@@ -34,8 +34,8 @@ def test_exact_schema_conversion_camera_roles_and_recorded_intervention():
     assert payload['robot_id']=='yam-1' and payload['mode']=='guided' and payload['guidance_strength']==.15
     assert set(payload['images'])=={'top','left','right'}
     assert payload['state'][0]==pytest.approx(.17453292519943295)
-    assert len(points)==10 and points[-1]['step_id']==9
-    assert points[0]['left_joints_deg'][0]==pytest.approx(5.729577951)
+    assert len(points)>=10 and [x['step_id'] for x in points]==list(range(len(points)))
+    assert points[-1]['left_joints_deg'][0]==pytest.approx(5.729577951)
     assert snapshot(p,'Pick cup',60)['guidance_strength']==.15
     assert 'private-key' not in str(p.public_config())
 
@@ -56,3 +56,28 @@ def test_rejects_bad_grippers_receipt_and_budget_without_clamping():
 def test_mismatched_robot_rejected_and_baseline_strength_is_zero():
     with pytest.raises(ValueError):MolmoActAdapter('key',camera_source=Mock(),endpoint='https://abc.api.runpod.ai',robot_id='robot-ba8413962083809c')
     assert adapter('baseline',.3).strength==0
+
+
+def test_pacing_preserves_targets_and_bounds_all_joint_steps_from_measured_pose():
+    import math
+    from remote_yam.molmoact_policy import GATEWAY_JOINT_STEP_RAD
+    p=adapter();state=[0.0]*6+[.2]+[0.0]*6+[.8]
+    rows=[[.2]*6+[.6]+[-.3]*6+[.4] for _ in range(30)]
+    points=p._gateway_trajectory(rows,state,7)
+    previous=[0.0]*12
+    for point in points:
+        joints=point['left_joints_deg']+point['right_joints_deg']
+        assert max(abs(math.radians(a-b)) for a,b in zip(joints,previous))<=GATEWAY_JOINT_STEP_RAD+1e-12
+        assert 0<=point['left_gripper']<=1 and 0<=point['right_gripper']<=1
+        previous=joints
+    assert points[-1]['left_joints_deg']==[math.degrees(.2)]*6
+    assert points[-1]['right_joints_deg']==[math.degrees(-.3)]*6
+    assert points[-1]['left_gripper']==.6 and points[-1]['right_gripper']==.4
+    assert snapshot(p,'task',60)['trajectory_pacing']['max_joint_step_rad']==GATEWAY_JOINT_STEP_RAD
+    assert points[0]['step_id']==7
+
+
+def test_pacing_rejects_complete_chunk_instead_of_truncating_or_clamping():
+    p=adapter();state=[0.0]*14;rows=[[10.0]*6+[.5]+[0.0]*6+[.5] for _ in range(30)]
+    with pytest.raises(ValueError,match='entire chunk rejected'):
+        p._gateway_trajectory(rows,state,0)

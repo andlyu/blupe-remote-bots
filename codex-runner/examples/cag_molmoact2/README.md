@@ -31,8 +31,10 @@ The policy receives exactly top/left/right JPEGs plus measured
 `left six joints radians, left gripper, right six joints radians, right gripper`.
 Grippers are normalized 0 closed / 1 open. Missing gripper measurements cause a
 rejection, never an assumed value. Outputs are 30×14 absolute targets at 30 Hz;
-rows 2, 5, …, 29 become ten 10 Hz gateway waypoints. No clipping, interpolation,
-retiming, partial chunk acceptance, or removal of downstream limits occurs here.
+rows 2, 5, …, 29 become ten 10 Hz gateway waypoints. Selected absolute targets are preserved. The adapter inserts linear samples
+where needed to limit each100ms joint step to0.03rad; this retimes the same
+path. It never clips targets or partially accepts a chunk. Downstream limits
+remain authoritative, and the pacing is recorded identically for both modes.
 
 Run configuration records checkpoint revision, variant, mode, strength, seed,
 precision and sampler settings. Each inference receipt includes hashes of the

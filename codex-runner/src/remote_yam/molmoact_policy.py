@@ -13,6 +13,8 @@ from .molmoact_protocol import (MODEL, REVISION, CAMERAS, GRIPPER_UNITS,
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
 
 VARIANT = 'cag-inspired-molmoact2-v1'
+# At10Hz,0.03rad/step is0.3rad/s, below the configured YAM limits.
+GATEWAY_JOINT_STEP_RAD = .03
 
 
 def comparison_options(mode, strength):
@@ -51,6 +53,7 @@ class MolmoActAdapter:
         return dict(provider=self.provider_name, model=MODEL, revision=REVISION,
             variant=VARIANT, mode=self.mode, guidance_strength=self.strength, seed=0,
             num_steps=10, dtype='bfloat16', enable_cuda_graph=False, robot_id='yam-1',
+            trajectory_pacing=dict(cadence_hz=10,max_joint_step_rad=GATEWAY_JOINT_STEP_RAD,preserve_targets=True),
             warmup=self._warm_state,
             warmup_elapsed_s=round(time.monotonic()-self._warm_started_at, 1) if self._warm_started_at else 0,
             display_name=('MolmoAct2 baseline' if self.mode == 'baseline'
@@ -137,13 +140,30 @@ class MolmoActAdapter:
         rows=validate_actions(result.get('actions'))
         if self.cancelled(): raise RuntimeError('MolmoAct2 cancelled')
         self.interaction_sink('model_timing', 'MolmoAct2 prediction', elapsed_s=result.get('inference_seconds'), experiment=experiment)
-        targets=rows[2::3]  # 30 Hz absolute targets -> ten 10 Hz gateway samples.
-        if len(targets)>min(MAX_WAYPOINTS_PER_PACKET,MAX_COMMANDS-first_step_id):
-            raise ValueError('MolmoAct2 trajectory exceeds gateway budget; entire chunk rejected')
-        return [dict(step_id=first_step_id+i,
-            left_joints_deg=[math.degrees(v) for v in row[:6]],
-            right_joints_deg=[math.degrees(v) for v in row[7:13]],
-            left_gripper=row[6],right_gripper=row[13]) for i,row in enumerate(targets)]
+        return self._gateway_trajectory(rows, state, first_step_id)
+
+    def _gateway_trajectory(self, rows, measured_state, first_step_id):
+        # Preserve every selected absolute target and the complete path. Add
+        # linear samples where30Hz->10Hz sampling exceeds gateway pacing.
+        # The robot still validates the entire packet before any motion.
+        targets=rows[2::3]
+        capacity=min(MAX_WAYPOINTS_PER_PACKET,MAX_COMMANDS-first_step_id)
+        joints=tuple(range(6))+tuple(range(7,13))
+        previous=list(measured_state);points=[]
+        for target in targets:
+            count=max(1,math.ceil(max(abs(target[i]-previous[i]) for i in joints)/GATEWAY_JOINT_STEP_RAD))
+            if len(points)+count>capacity:
+                raise ValueError('MolmoAct2 paced trajectory exceeds gateway budget; entire chunk rejected')
+            for index in range(1,count+1):
+                row=list(target) if index==count else [a+(b-a)*index/count for a,b in zip(previous,target)]
+                points.append(dict(step_id=first_step_id+len(points),
+                    left_joints_deg=[math.degrees(v) for v in row[:6]],
+                    right_joints_deg=[math.degrees(v) for v in row[7:13]],
+                    left_gripper=row[6],right_gripper=row[13]))
+            previous=list(target)
+        self.interaction_sink('trajectory_pacing','Paced MolmoAct2 targets for the existing gateway',
+            predicted_waypoints=len(targets),gateway_waypoints=len(points),max_joint_step_rad=GATEWAY_JOINT_STEP_RAD)
+        return points
 
     def trajectory_completed(self, observation, waypoint_count):
         pass
