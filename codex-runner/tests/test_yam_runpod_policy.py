@@ -2,6 +2,7 @@ import io
 import math
 import shutil
 import threading
+import copy
 from unittest.mock import patch
 
 import pytest
@@ -35,6 +36,12 @@ def fixture(provider='dreamzero'):
 @pytest.mark.parametrize('provider,points,duration', [('dreamzero', 8, .8), ('molmoact2', 10, 1)])
 def test_exact_checkpoint_joint_order_and_native_duration(provider, points, duration):
     policy, observation, result = fixture(provider)
+    if provider == 'molmoact2':
+        # A nearby chunk keeps its native duration; large moves are tested below.
+        for row in result['actions']:
+            for i in range(6):
+                row[i] += math.radians(10)
+                row[i + 7] -= math.radians(10)
     seen = []
     policy._json = lambda path, payload: seen.append(payload) or result
     trajectory = policy.build_trajectory('Pick up the block.', observation, 20)
@@ -209,3 +216,71 @@ def test_hosted_policy_catalog_is_only_for_yam1(robot, hardware, enabled, tmp_pa
         visitor.controller.stop()
         visitor.close()
         shutil.rmtree(app.root, ignore_errors=True)
+
+
+@pytest.mark.parametrize('internal', [False, True])
+@pytest.mark.parametrize('joint', [0, 5, 7, 12])
+def test_molmoact_large_transitions_are_paced_without_losing_targets(internal, joint):
+    policy, observation, result = fixture('molmoact2')
+    observation.update(left_joints_deg=[0.] * 6, right_joints_deg=[0.] * 6)
+    rows = [[0.] * 6 + [.2] + [0.] * 6 + [.8] for _ in range(30)]
+    for row in rows[15 if internal else 0:]:
+        row[joint] = .296875  # Exact largest jump in the recorded failed packet.
+        row[6], row[13] = .8, .2
+    result['actions'] = rows
+    original = copy.deepcopy(rows)
+    policy._json = lambda *args: result
+    points = policy.build_trajectory('Put the orange block into the bin.', observation, 20)
+    previous = [0.] * 6 + [.2] + [0.] * 6 + [.8]
+    reconstructed = []
+    for point in points:
+        row = ([math.radians(v) for v in point['left_joints_deg']] + [point['left_gripper']]
+               + [math.radians(v) for v in point['right_joints_deg']] + [point['right_gripper']])
+        assert max(abs(row[i] - previous[i]) for i in (*range(6), *range(7, 13))) <= .03 + 1e-12
+        assert 0 <= row[6] <= 1 and 0 <= row[13] <= 1
+        reconstructed.append(row)
+        previous = row
+    cursor = 0
+    for target in rows[2::3]:
+        while reconstructed[cursor] != pytest.approx(target):
+            cursor += 1
+        cursor += 1
+    assert points[-1]['step_id'] == 20 + len(points) - 1
+    assert len(points) > 10
+    assert result['actions'] == original
+
+
+def test_molmoact_pacing_rejects_whole_chunk_when_expansion_exceeds_budget():
+    policy, observation, result = fixture('molmoact2')
+    observation.update(left_joints_deg=[0.] * 6, right_joints_deg=[0.] * 6)
+    policy._json = lambda *args: result
+    result['actions'] = [[.3] * 6 + [.2] + [0.] * 6 + [.8] for _ in range(30)]
+    with pytest.raises(ValueError, match='budget'):
+        policy.build_trajectory('Put the block into the bin.', observation, 2990)
+
+
+def test_molmoact_pacing_starts_from_leased_feedback_after_inference():
+    policy, observation, result = fixture('molmoact2')
+    observation.update(left_joints_deg=[0.] * 6, right_joints_deg=[0.] * 6)
+    fresh = dict(observation, left_joints_deg=[20.] * 6)
+    seen = []
+    policy._json = lambda path, payload: seen.append(payload) or result
+    policy.refresh_observation = lambda: fresh
+    points = policy.build_trajectory('Put the block into the bin.', observation, 0)
+    assert seen[0]['state'][:6] == [0.] * 6
+    first = points[0]['left_joints_deg']
+    assert max(abs(math.radians(v - 20)) for v in first) <= .03 + 1e-12
+
+
+@pytest.mark.parametrize('stop', [False, True])
+def test_molmoact_pacing_does_not_hide_lease_failure_or_stop(stop):
+    policy, observation, result = fixture('molmoact2')
+    policy._json = lambda *args: result
+    def refresh():
+        if stop:
+            policy.cancelled = lambda: True
+            return observation
+        raise RuntimeError('Session changed before model retry')
+    policy.refresh_observation = refresh
+    with pytest.raises(RuntimeError, match='cancelled' if stop else 'Session changed'):
+        policy.build_trajectory('Put the block into the bin.', observation, 0)
