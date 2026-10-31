@@ -23,7 +23,11 @@ a materially safer alternative. Do not retry through another route.
 Preserve queue/lease, readiness, validation, hardware limits and Stop. Never
 automatically replay a timed-out movement or substitute Automated for a human
 runner to avoid a restriction. Keep unmet acceptance items unchecked; mock
-success does not establish physical motion, replay or either 15-second timing measure.
+success does not establish physical motion or replay. For every run verify both
+15 seconds from matched settled startup Home completion (or documented no-Home
+robot readiness) to first actual method-driven motion and 30 seconds from Run.
+Home/preparation motion does not count. Keep both full elapsed times and visual
+proof; apply only the checklist's evidenced GPU-launch/research exceptions.
 The source and content hashes are recorded in `.blupe-harness.json`. These instructions
 are repo-local and require no global Codex or approval-policy changes.
 <!-- blupe-integration-harness:end -->
