@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T13:12:00.582911+00:00",
+  "reviewedAt": "2026-10-31T14:02:46.141784+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "d6572b9c21520717f991296c2c6b65437251050e",
+  "runtimeSource": "5c7b3af520a3c1a29092fcca9c25493e8c38d3ef",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "Public Site19 source4d76cfb; live d6572b9 provider22879/physical22901 via merged PR197/979b0cb; all six current required checks pass and genuine agent unchanged."
+      "evidence": "Public Site19 source4d76cfb; live5c7b3af provider57421/physical57424 via merged PR199/f642e9a; all6 required checks pass and pinned upstream agent SHA7635fe4... unchanged."
     },
     {
       "number": 2,
@@ -22,7 +22,7 @@
       "number": 3,
       "requirement": "Actual method clearly named",
       "status": "PASS",
-      "evidence": "RoboSkills pinned core.agent.run/Repl8a286 unchanged; gpt-6-sol, initialnone/subsequentlow, actual public configuration and dedicated51test CI receipt verified."
+      "evidence": "Genuine RoboSkills8a286023 core.agent.run/Repl unchanged; actual gpt-6-sol initialnone/subsequentmedium; promptf9a77510... and live source receipt verified."
     },
     {
       "number": 4,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Current7f23d80e executed56waypoints/1packet, right approach2.709mm/0.206deg with no correction, then stopped before contact on camera surface inconsistency. No grasp/stack. Earlier failures retained."
+      "evidence": "Current a264d5d7 used actual measured block/table depth and completed first approach2.547mm/0.250deg, then attempted descent. Seven packets77waypoints total; descent remained24.483mm short after bounded correction, ending before grasp. No stack."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Current7f23d80e matching65s physical replay actually played and sought to32s in normal history, camera06:03:01.3PDT and honest precontact stop/tasknotcompleted/agentassessment label retained."
+      "evidence": "Current a264d5d7 matching55s physical replay played and sought46s in normal public history, actual camera06:58:30.4PDT; exact tracking-failure explanation and no-native-score label retained."
     },
     {
       "number": 10,
@@ -76,25 +76,25 @@
       "number": 12,
       "requirement": "Usable visitor path",
       "status": "PASS",
-      "evidence": "Published Site19 anonymous path: actual live source/target marks421195/330109, editable confirmed human fields, normal Run, native queue/lease, owned Stop. Submitted/history task retains exact coordinates; no operator sign-in."
+      "evidence": "Anonymous Site19 normal form submitted confirmed human/task/source31083/target314108 after fresh scene inspection; actual queue/lease/owned Stop and exact coordinates retained in run/history. No operator sign-in."
     },
     {
       "number": 13,
       "requirement": "Every-run startup timing",
       "status": "OPEN: new historical miss outside accepted exceptions",
-      "evidence": "Ten measured startup passes now include current7f23d80e: postHome upper14.102866s/fullRun25.922550s, no queue deduction needed. Exact seven prior owner exceptions unchanged. Additional900123,2437,e15b,63f792,812bf9 cases remain outside that acceptance."
+      "evidence": "Eleven measured startup passes include current a264d5d7 upper14.581975s postHome/26.824464s fullRun, no queue deduction needed. Exact seven earlier owner exceptions unchanged. Additional900123,2437,e15b,63f792,812bf9 cases remain outside those exceptions."
     },
     {
       "number": 14,
       "requirement": "Persistent honest progress and recovery",
       "status": "PASS",
-      "evidence": "Site19 persistent inline stages retain actual timings and honest refusal result. Currentfae camera-read retry recovered on attempt2 without repeating motion; local unreachable correction rejected with zero dispatch."
+      "evidence": "Site19 persistent inline stages retain actual queue/preparation/scene/model/motion/recording timing. Current a264d5d7 final measured tracking failure is visible in progress/history; no uncertain-motion replay. Earlier camera-read/local rejection recovery evidence retained."
     },
     {
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "Current normalSite19 test7f23d80e verifies real runner/method/taskmarks, actual approach, both startup limits, inline lifecycle, timed live UI capture, honest stop and matching replay/seeking/nativepark. Full manipulation remains unqualified because no contact/grasp/stack."
+      "evidence": "Current normalSite19 test a264d5d7 verifies genuine method/confirmed runner/taskmarks, measured approach and attempted descent, both startup limits, actual live UI capture, terminal failure explanation, matching replay playback/seeking and native park/torque-off. Full task remains unqualified: no grasp/stack."
     }
   ],
   "checked": 12,
@@ -152,8 +152,9 @@
     "dc54f9d2ab40471796028d43d991cde3",
     "cd7316b5a15847a49769a456c300c54d",
     "fae84cbc177940b9a5e0eec76c5e2121",
-    "7f23d80e1b0644f18fc88589ca72fbe9"
+    "7f23d80e1b0644f18fc88589ca72fbe9",
+    "a264d5d7c2384119b9d426ce99d6d5ac"
   ],
-  "candidateRuntimeSource": "uncommitted surface-correspondence candidate; not deployed",
+  "candidateRuntimeSource": null,
   "candidateEvidence": "2026-10-31-surface-correspondence.md"
 }
