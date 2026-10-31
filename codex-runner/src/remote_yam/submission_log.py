@@ -44,8 +44,8 @@ class LoggedSessionAPI:
             setattr(self.api, name, value)
 
     def setup(self, payload, paid=False):
-        # Forward only private contact fields, never provider credentials.
-        self.queue_identity = {k: payload[k] for k in ("runner_name", "email") if k in payload}
+        # Forward only contact and model fields, never provider credentials.
+        self.queue_identity = {k: payload[k] for k in ("runner_name", "email", "model") if k in payload}
         if payload.get('email_run_video') is True:
             self.queue_identity['email_run_video'] = True
         self.submission_id = uuid.uuid4().hex

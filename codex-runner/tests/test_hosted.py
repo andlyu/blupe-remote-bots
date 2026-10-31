@@ -70,6 +70,19 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls, [('codex','gpt-6.1-sol')])
         self.assertEqual(hosted.model_display_name({'provider':'codex','model':'gpt-6.1-sol'}), 'gpt-6.1-sol')
 
+    async def test_queue_notification_uses_effective_provider_model(self):
+        browser = await self.session()
+        original = self.app.provider_factory
+        def factory(name, key, model, directory):
+            provider = original(name, key, model, directory)
+            provider.model = 'configured-checkpoint'
+            return provider
+        self.app.provider_factory = factory
+        code, result, _ = await self.call('/api/run', method='POST', payload={
+            'provider': 'openai', 'api_key': 'private-key', 'prompt': 'Move block'}, **browser)
+        self.assertEqual(code, 200, result)
+        self.assertEqual(self.apis[-1].create_requests[0]['model'], 'configured-checkpoint')
+
     async def test_model_floor_cannot_be_bypassed_by_manually_entered_id(self):
         browser = await self.session()
         for provider, model in [('openai','gpt-6-sol'),('anthropic','claude-opus-5-4'),

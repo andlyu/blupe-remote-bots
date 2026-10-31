@@ -1240,7 +1240,9 @@ class HostedRunner:
             try:
                 visitor.controller._share_conversation = (self.share_conversation and share_conversation
                     and getattr(provider, "share_conversation", True))
-                visitor.controller._session_api.setup(payload, paid=paid)
+                # Record the effective model, including configured defaults/checkpoints.
+                visitor.controller._session_api.setup(
+                    {**payload, "model": provider.public_config().get("model") or model}, paid=paid)
                 visitor.controller.join_and_run(provider, prompt.strip(), run_duration_s=duration)
                 with visitor.controller._lock:
                     analytics_run = getattr(visitor.controller, "_analytics_run", None)
