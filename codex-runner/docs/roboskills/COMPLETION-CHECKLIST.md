@@ -465,3 +465,15 @@ with the frozen-task solver not run. This is not a complete research integration
 - An optional product question asks whether the owner explicitly waives the
   strict startup target for this version. Until answered, no waiver is assumed.
   Timing and full completion remain unchecked.
+
+
+## Worker continuity recovery — October30,2026
+
+- Interruption reconciliation found both task workers absent and both public readiness endpoints offline, with no active/queued Site runs. No interrupted run was replayed.
+- Site version11/source `ca4ab9c843c49135e8845c87cbb00bf5cf6e42d8` deployed successfully at2026-10-31T04:41:14.680359Z, environment revision3. Separate `PHYSICAL_WORKER_TOKEN` and `SIMULATION_WORKER_TOKEN` isolate the two roles; existing operator-only control and public viewing remain. Secrets are not in source or output.
+- `worker-agent/launch.py` starts a detached loopback provider plus configured workers, using stdin for secrets and persistent local logs/PID metadata. It refuses duplicate live services and occupied ports; it never kills, automatically restarts or replays a job. It requires this runner machine to remain awake; it is not an always-on hosting/reboot service.
+- Provider/physical/simulation PIDs32026/32029/32030 remained alive after the launcher exited. Public Site `/api/config` returned online=true and `/api/physical/station` runnerOnline=true, queueCount0. This recovery verification initiates no Run/motion/recording.
+- Two process regression tests pass (0.105s), including actual child survival after parent exit and duplicate rejection. TypeScript and production build pass. CI now also runs these launcher regressions.
+- The final physical evidence remains run`2ea288ea830e471a86eb6d1d98971c50` against version9; version11's worker authentication/launch changes were verified without a duplicate motion test. Full checklist qualification remains incomplete: strict entry/per-Run15s timings, legacy backend caller-label consistency, original explicitly denied recording publication, and final all-requirements review. No startup waiver or visibility exception is inferred from “please proceed”.
+
+Role authentication verified after deployment: each dedicated credential reaches its own worker handler (nonmutating unknown action404); cross-role requests reject401. No readiness heartbeat was fabricated and no run was claimed by these probes.

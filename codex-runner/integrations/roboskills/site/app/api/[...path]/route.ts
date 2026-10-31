@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { skills } from '../../../lib/skills';
 export const dynamic='force-dynamic';
-type Bindings={DB:D1Database;BUCKET:R2Bucket;WORKER_TOKEN?:string;RUNNER_OWNER_EMAIL?:string};
+type Bindings={DB:D1Database;BUCKET:R2Bucket;WORKER_TOKEN?:string;SIMULATION_WORKER_TOKEN?:string;RUNNER_OWNER_EMAIL?:string};
 type Row={id:string;owner:string;skill:string;instruction:string;runner_name:string;runner_email:string;status:string;stage:string;created_at:number;updated_at:number;cancel_requested:number;worker:string|null;result:string|null;assets:string};
 const active=['queued','building','solving','uploading'];
 function publicRun(r:Row){return {id:r.id,skill:r.skill,instruction:r.instruction,runnerName:r.runner_name,status:r.status,stage:r.stage,createdAt:r.created_at,updatedAt:r.updated_at,cancelRequested:!!r.cancel_requested,result:r.result?JSON.parse(r.result):null,assets:JSON.parse(r.assets)};}
@@ -14,7 +14,7 @@ async function route(req:Request,{params}:{params:Promise<{path:string[]}>}) {
  if(!db)return fail('Simulation storage is unavailable. Refresh to reconnect.',503);
  const now=Date.now();
  if(path[0]==='worker'){
-  const token=(env as unknown as Bindings).WORKER_TOKEN;
+  const b=env as unknown as Bindings,token=b.SIMULATION_WORKER_TOKEN||b.WORKER_TOKEN;
   if(!token||req.headers.get('authorization')!=='Bearer '+token)return fail('Worker authentication required.',401);
   if(req.method!=='POST')return fail('Use POST.',405);
   if(path[1]==='upload'){

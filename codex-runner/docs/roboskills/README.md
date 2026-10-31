@@ -89,3 +89,5 @@ after Run. Exact visual onset was not separately measured. Readiness flags
 alone do not prove a handoff bug; an external active run can also make the
 station unavailable. The cause of the long wait remains unverified. No queue
 or readiness rule was bypassed.
+
+Current hosted source: `ca4ab9c843c49135e8845c87cbb00bf5cf6e42d8` (Sites version11). Worker continuity recovery uses detached processes, isolated physical/simulation credentials, and preserved no-retry semantics. Both hosted readiness checks were online after the launcher exited. Physical motion evidence is unchanged; see the checklist for remaining qualification.

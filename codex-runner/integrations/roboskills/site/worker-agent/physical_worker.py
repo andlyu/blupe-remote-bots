@@ -11,7 +11,7 @@ import time
 import urllib.request
 
 from remote_yam.runner_policy_client import RunnerPolicyClient
-from worker import Worker
+from worker import Worker,read_config
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
@@ -145,10 +145,4 @@ class PhysicalWorker(Worker):
             time.sleep(1)
 
 if __name__=='__main__':
-    import sys,termios
-    flags=termios.tcgetattr(sys.stdin.fileno());hidden=flags.copy();hidden[3]&=~termios.ECHO
-    termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,hidden)
-    print('Ready for physical bridge configuration on stdin (hidden).',flush=True)
-    try:config=json.loads(sys.stdin.readline())
-    finally:termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,flags)
-    PhysicalWorker(config).serve()
+    PhysicalWorker(read_config()).serve()
