@@ -20,6 +20,30 @@ is missing or outdated. Start the coding agent in that integration so it loads
 the repository instructions. A chat outside the repository must explicitly load
 its `AGENTS.md` and checklist, as directed by its owner.
 
+## Ask the researcher about models
+
+Before model-dependent implementation, provisioning or tests, ask which models
+and versions the researcher wants for the method's relevant roles. Offer the
+paper's originals, newer/custom replacements, or a comparison, and accept model
+IDs beyond any suggested list. Reuse an explicit choice or delegation already
+given; continue model-independent work while awaiting an answer. Check current
+official model sources when suggesting options and explain compatibility,
+access, hardware, latency and cost constraints. Never silently fall back to a
+different model if the chosen one is unavailable or incompatible.
+
+The checklist requires selection evidence, configurable models, exact
+requested/resolved model IDs or checkpoint revisions and inference settings,
+with actual configuration visible in website run details. Label replacements
+and baseline comparisons; keep these choices separate from the harness's
+**Model** field, which identifies the research approach. Methods without a model
+dependency record a not-applicable explanation.
+
+Reinstall to refresh the startup question in `AGENTS.md`. Existing working
+checklists and their evidence are preserved, so deliberately add/reconcile the
+canonical model-selection requirement and evidence fields there, leaving the
+new requirement unchecked until verified. Earlier runs remain historical
+evidence; they do not establish a researcher's choice for new model variants.
+
 ## Proceed within existing authorization
 
 The contract records the permissions granted by the user's request to perform

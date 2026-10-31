@@ -125,6 +125,40 @@ harness; do not ask the user to grant the same covered permission again.
 References: [Codex instruction discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md#how-codex-discovers-guidance)
 and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/auto-review).
 
+## Choose models with the researcher
+
+Before model-dependent implementation, provisioning or policy/model tests, ask
+the researcher which underlying models and versions they want for each relevant
+role (for example planning, vision or robot policy). A useful opening question is:
+"Which models and versions would you like to use? We can keep the paper's
+original models, use newer replacements, or compare both."
+Reuse an explicit choice already given for this integration; do not ask again
+unless a material constraint requires a different choice. If the researcher
+explicitly delegates selection, record that delegation and the chosen models
+with the rationale. While awaiting a choice, continue model-independent work.
+Do not treat silence as a model selection or delegation. For methods with no
+model dependency, record why this requirement is not applicable.
+
+Accept researcher-specified providers, model IDs, versions and checkpoints,
+including newer or custom models beyond the paper or any suggested list. When
+offering recommendations, check current official provider/model documentation
+or available model catalogs and record the sources and date; do not assume a
+remembered model list is current. Explain relevant compatibility, access,
+hardware, latency and cost constraints so the researcher can choose. Verify the
+selected model's required capabilities and method/adapter compatibility before
+using it. If unavailable or incompatible, explain the issue and ask for an
+alternative; never silently substitute another model.
+
+Keep the chosen models configurable. Record the researcher's choice or explicit
+delegation, each model's role, provider and exact model ID/version or checkpoint
+revision, plus relevant inference settings. Retain requested and actually
+resolved model identifiers in run evidence, stating when a provider alias cannot
+be resolved to an immutable version. Show the actual configuration in website
+run details. Distinguish reproduction with the paper's original models from
+variants using replacements, and label comparisons and deviations accordingly.
+The harness's **Model** field still identifies the tested approach as specified
+below; underlying model/checkpoint selections remain separate metadata.
+
 ## Completion requirements
 
 - [ ] A usable website exists, with an associated repository containing the
@@ -136,6 +170,12 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
 - [ ] The website clearly names the actual approach/method being run. Use the
   executed method's name; Spotter is an example, not a shared hardcoded label.
   The **Model** field identifies the approach being tested, as specified below.
+- [ ] The researcher was asked which underlying models/versions to use before
+  model-dependent work, or their prior explicit choice/delegation was retained.
+  Choices include newer/custom models; current availability and compatibility
+  were checked. Configuration and run details retain the selected and actually
+  resolved models/settings, with baseline/replacement variants labelled and no
+  silent fallback. Record evidence below, or a justified no-model explanation.
 - [ ] When a human joins, collect or confirm their name and email. Prefill known
   identity/default values where available and let the runner edit both fields
   before joining.
@@ -426,6 +466,9 @@ record working public links or the explicit user-directed visibility exception.
 Verify that Model identifies the executed approach consistently in the website,
 run records, notifications and replay/history, with underlying model/checkpoint
 configuration recorded separately.
+Verify that the selected underlying models match the researcher's choice or
+explicit delegation, that run details show what actually executed, and that any
+replacement or comparison is labelled accurately.
 Verify wait status appears immediately, keeps a readable reason, and visibly
 confirms real stage completion (GPU ready before subsequent loading/running).
 Check failure/stall status and available recovery evidence too. Record the
@@ -436,6 +479,14 @@ before any completion claim.
 ## Integration and evidence
 
 - Paper / method (link and version):
+- Model-choice evidence (question/response or prior explicit choice/delegation,
+  reference, per-role preferences and constraints; or no-model explanation):
+- Selected model configuration (roles, providers, exact model IDs/versions or
+  checkpoint revisions, inference settings, editable configuration location and
+  original-paper baseline versus replacement/comparison variants):
+- Model verification and run provenance (current availability/capability and
+  compatibility checks, official sources/check date, run references, requested
+  versus actually resolved identifiers, unresolved aliases and website evidence):
 - Final verification (reviewer/date, tested website URL and deployed revision,
   physical run reference):
 - Final checklist review (evidence for every item, replay links/timings, unmet
