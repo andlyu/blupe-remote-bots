@@ -1,5 +1,13 @@
 # RoboSkills on BluPe remote arms
 
+Timing contract update (October 30, 2026): the shared harness now requires
+15 seconds after settled startup Home (or documented no-Home robot readiness)
+and 30 seconds after Run to observed method motion. Site entry is context only.
+References below to the former 15-second entry/Run gates are preserved historical
+assessments. The recorded 107.56-second Run-to-packet-preparation still misses
+the current Run target; post-Home visual timing remains unverified. See the
+maintained completion checklist; this documentation update performs no retest.
+
 The physical provider runs OpenRoboKit's persistent Python agent loop from
 `core.agent.run`, pinned to8a2860234768b4bec981994d1c14fa380a2c8c7f.
 The model sees actual RGB images, measured state and a small BluPe tool surface:

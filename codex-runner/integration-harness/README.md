@@ -60,6 +60,45 @@ changed by installation or rendering. Automatic review acceptance cannot be
 guaranteed by repository text. Complete the physical/replay/timing checklist with
 deployed evidence before declaring the integration finished.
 
+## Timing contract and existing integrations
+
+For every ordinary run, verify first observed method-driven physical motion
+within **15 seconds after matched settled startup Home completion** and
+**30 seconds after Run**. If Home is unnecessary, document the earliest per-run
+robot-ready boundary as specified in the checklist; do not wait for model/code
+readiness to start that clock. Home/preparation motion does not count. Site-entry
+timing is contextual evidence. Keep both full elapsed times and timed visual
+proof, with matched Home/readiness lifecycle evidence.
+
+A genuinely new GPU launch must be visible inline for its entire real
+start-to-ready interval. Keep full elapsed times and label a target miss caused
+by evidenced GPU-launch blocking time as an exception. Only that blocking
+overlap may be excused from each clock under the checklist's limits. Warm GPUs,
+queueing, coding and model loading receive no automatic exception. GPU ready
+before Home leaves the full 15-second post-Home limit intact.
+
+These illustrative timelines use seconds after Run and assume complete visual,
+Home/readiness and (where applicable) persistent UI/lifecycle evidence. They are
+worked examples, not physical verification:
+
+| Scenario | Home / motion | GPU launch and actual blocking | Full Run / post-Home seconds | Outcome |
+| --- | --- | --- | --- | --- |
+| Ordinary run | 12 / 26 | None | 26 / 14 | Both pass |
+| Queue delay | 40 / 45 | None | 45 / 5 | Run misses; post-Home passes |
+| New GPU ready before Home | 45 / 61 | Launch 0–40; blocks 0–40 | 61 / 16 | Run exception (21 non-launch seconds); post-Home misses |
+| Home completes during launch | 10 / 55 | Launch 0–45; blocks 10–45 after Home | 55 / 45 | Exceptions (Run: 20 non-launch seconds; post-Home: 10), never normal pass |
+| Warm GPU, slow coding | 5 / 35 | None; GPU already available | 35 / 30 | Both miss; coding is no automatic exemption |
+| No Home needed; robot already admitted/ready at Run | 0 / 14 | None | 14 / 14 | Both pass; readiness evidence fixes the boundary at Run |
+
+Reinstalling preserves an existing checklist, including its evidence and checked
+states; it does not automatically migrate old timing text. Review the updated
+canonical timing requirements and deliberately reconcile the maintained
+requirements, procedures and evidence fields in each integration copy. Preserve
+historical measurements and assessments as dated evidence, identify their old
+contract, and leave new or unverified requirements unchecked. An old pass or
+backend packet timestamp alone cannot qualify either new motion measure.
+The repository's maintained RoboSkills copies follow this preservation pattern.
+
 ## Verify the portable setup
 
 ```sh

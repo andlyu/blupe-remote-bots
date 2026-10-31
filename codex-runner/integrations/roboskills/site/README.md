@@ -1,5 +1,13 @@
 # RoboSkills × BluPe
 
+Timing contract update (October 30, 2026): the shared harness now requires
+15 seconds after settled startup Home (or documented no-Home robot readiness)
+and 30 seconds after Run to observed method motion. Site entry is context only.
+References below to the former 15-second entry/Run gates are preserved historical
+assessments. The recorded 107.56-second Run-to-packet-preparation still misses
+the current Run target; post-Home visual timing remains unverified. See the
+maintained completion checklist; this documentation update performs no retest.
+
 A website showing how RoboSkills' Agentic Simulation workflow works with two YAM arms. The two official examples are **Lift a tray** and **Thread a rope**. Demonstrations are embedded directly from OpenRoboKit, with attribution and upstream-reported seed results. New jobs use the actual pinned build → freeze → solve → native-check workflow, not an animation substitute.
 
 ## Website
