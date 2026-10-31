@@ -1,0 +1,24 @@
+{
+  "date_utc": "2026-10-31",
+  "approach": "RoboSkills",
+  "change": "retain validated runner_name in existing public Session API conversation projection",
+  "source_merge": "20d9f95a5b104beabed5a426e509ca3a3d26b573",
+  "runtime_deployment": 55,
+  "runtime_image": ":yam-session-api.roboskills-attribution-20261030.57",
+  "state": "activating",
+  "new_physical_run": false,
+  "new_recording_published": false,
+  "tests": {
+    "deployed_image": {
+      "passed": 51,
+      "seconds": 7.628
+    },
+    "published_main": {
+      "passed": 51,
+      "seconds": 7.676
+    }
+  },
+  "privacy": "email and capabilities stay excluded; conversation sharing stays opt-in",
+  "existing_physical_evidence": "2ea288ea830e471a86eb6d1d98971c50",
+  "full_checklist": "incomplete; no startup waiver or older-recording publication approval inferred"
+}
