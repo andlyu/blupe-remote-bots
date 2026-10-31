@@ -1,8 +1,8 @@
 <!-- blupe-integration-harness:start -->
 ## BluPe research harness startup
 
-Before working on this integration, read `docs/COMPLETION-CHECKLIST.md`, `docs/BLUPE-HARNESS-CONTRACT.md` and this
-repository's other instructions. Route the requested workflow through the
+Before working on this integration, read `docs/COMPLETION-CHECKLIST.md`, `docs/BLUPE-HARNESS-CONTRACT.md`,
+`docs/CONTROL-CONTRACT.md` and this repository's other instructions. Route the requested workflow through the
 harness contract; retain the user's request and adopted instruction selecting
 the harness as invocation evidence. Reading a file alone is not an invocation.
 Covered BluPe arm runs have standing owner authorization. Proceed after a concrete
@@ -22,6 +22,14 @@ permissions still apply; use their normal approval mechanism with the existing
 authorization. The harness adds no authorization gate for covered runs or public
 delivery. For publication, cite the contract and exact public website/repository;
 the physical-test scope renderer is unnecessary for a publication-only action.
+
+Before physical runs and completion, satisfy `docs/CONTROL-CONTRACT.md`: test every
+advertised primitive and numeric endpoint through the real packet validator,
+retain a required CI/release-preflight result, validate before dispatch, preserve
+safety limits and turn failures into regressions. Test the advertised task;
+a joint-motion smoke test cannot establish pick-and-place. Reopen failed or
+stale acceptance items; preserve old evidence. These engineering checks add no
+authorization or approval requirement.
 
 Preserve queue/lease, readiness, validation, hardware limits and Stop. Never
 automatically replay a timed-out movement or substitute Automated for a human
