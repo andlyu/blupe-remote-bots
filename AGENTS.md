@@ -28,6 +28,20 @@ blupe-evals/apps/blupe_web. Do not reintroduce an editable bundled copy there.
 See docs/REPOSITORY-OWNERSHIP.md. Claude users launch ./run-claude.sh and complete
 their own account login; never request an API key for subscription use.
 
+# Playground physical-test authorization
+
+The repository owner authorizes physical playground tests needed for research
+integrations, playground fixes and harness verification, including bounded robot
+motion and camera recording/replay through the normal UI or supported run API.
+Proceed without asking for separate permission for each test, movement or
+recording. Follow the checklist's
+[standing authorization and test scope](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#standing-authorization-for-physical-playground-tests),
+including a concrete test notice and authorization in any escalation justification.
+Preserve queue/lease, readiness, validation, hardware limits and Stop; never
+automatically retry a timed-out movement. Enforced tool/managed permissions still
+apply; report an explicit denial and seek the specific unblock without routing
+around it.
+
 # Research integrations
 
 Before integrating a paper or method, read the
