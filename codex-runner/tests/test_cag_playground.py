@@ -184,3 +184,17 @@ def test_finished_run_keeps_actual_cag_method_and_runner_after_provider_teardown
     assert code==200
     assert state['public_run']['runner_name']=='Andrew'
     assert state['public_run']['model_name']=='MolmoAct2 + CAG-inspired guidance'
+
+
+def test_shared_replay_keeps_local_confirmed_name_and_actual_approach(app):
+    runner,api=app
+    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
+    runner.run_names.remember('ep_history','Andrew')
+    runner.run_names.remember_metadata('ep_history','yam-1','Put box in bin',1,config)
+    result=runner.decorate_history({'runs':[{'episode_id':'ep_history','runner_name':'Name not recorded','model':None,'video_url':'/api/quick-replays/unchanged.mp4'}]})
+    row=result['runs'][0]
+    assert row['runner_name']=='Andrew'
+    assert row['model_version']=='MolmoAct2 + CAG-inspired guidance'
+    assert row['model']=='allenai/MolmoAct2-BimanualYAM'
+    assert row['video_url']=='/api/quick-replays/unchanged.mp4'
+    assert '@' not in json.dumps(row)

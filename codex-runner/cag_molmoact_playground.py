@@ -1,5 +1,8 @@
 """MolmoAct2 baseline / CAG-inspired variant through the existing BluPe queue."""
 import argparse
+import asyncio
+import json
+import sqlite3
 from pathlib import Path
 from urllib.parse import urlsplit
 from local_playground import LocalPlayground, PUBLIC_SESSION_API
@@ -47,6 +50,38 @@ class CAGPlayground(LocalPlayground):
             await self.respond(send,200,(ROOT/'static'/name).read_bytes(),content_type)
             return True
         return await super().public_extension(scope,receive,send,headers)
+
+    def decorate_history(self, value):
+        # The media catalog is shared with BluPe, while this runner owns its
+        # confirmed names and frozen method configuration. Keep both together.
+        names=self.run_names.names()
+        configurations={}
+        if self.run_names.path.exists():
+            with sqlite3.connect(self.run_names.path.resolve().as_uri()+'?mode=ro',uri=True,timeout=2) as db:
+                if db.execute("SELECT name FROM sqlite_master WHERE name='run_configuration'").fetchone():
+                    configurations={eid:json.loads(config) for eid,config in db.execute('SELECT episode_id,configuration FROM run_configuration')}
+        for row in value.get('runs',[]):
+            eid=row.get('episode_id')
+            if eid in names:row['runner_name']=names[eid]
+            config=configurations.get(eid,{})
+            if config.get('provider') in ('molmoact_baseline','molmoact_guided'):
+                row['model']=config['model']
+                row['model_version']=config['approach']
+                row['approach']=config['approach']
+                row['run_context']=config.get('run_context')
+        return value
+
+    async def http(self, scope, receive, send):
+        if scope.get('method')!='GET' or scope.get('path')!='/api/past-runs':
+            return await super().http(scope,receive,send)
+        messages=[]
+        async def capture(message):messages.append(message)
+        await super().http(scope,receive,capture)
+        if messages and messages[0].get('status')==200:
+            data=json.loads(b''.join(m.get('body',b'') for m in messages[1:]))
+            data=await asyncio.to_thread(self.decorate_history,data)
+            return await self.json(send,200,data)
+        for message in messages:await send(message)
 
     def launch(self, visitor, payload, **kwargs):
         if self.preview: raise RequestError(403,'Read-only comparison preview: robot runs are disabled')
