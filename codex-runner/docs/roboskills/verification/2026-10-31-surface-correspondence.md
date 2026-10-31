@@ -36,8 +36,12 @@ Two medium samples instead selected valid gray block-face and table depths;
 their source-generation times were22.09s and24.27s. Subsequent effort changes to
 medium, while initial effort remains none. This small archived-scene result
 does not establish reliability, physical grasp accuracy or full-task execution
-within300s. An initial-none sample from the earlier812bf9 startup context took
-6.187s and selected the requested marked pixels; it was not physically executed.
+within300s. An initial-none reconstructed sample used7f23 startup imagery/Home/perception
+with the identical-mark instruction from the812bf9 public snapshot. It took
+6.187s and was not executed. The original receipt mislabeled the imagery812bf9;
+the input script and task snapshot establish this correction. The JSON retains
+the original label alongside the corrected provenance. Physical timing evidence
+is independent and unchanged.
 
 Validation:
 

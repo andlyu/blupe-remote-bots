@@ -1,0 +1,892 @@
+{
+  "assembledAt": "2026-10-31T14:22:57.963893+00:00",
+  "scope": "Bounded archiveda264d5d7 model/Repl/native serializer comparison; no physical transport, calibration validation, controller diagnosis or stacking success. Prototype guide wording names current boxes/mat; candidate production guidance generalizes this to objects visible in fresh scene and is added only after initial decision.",
+  "currentLiveSource": "5c7b3af520a3c1a29092fcca9c25493e8c38d3ef",
+  "physicalFailure": {
+    "run": "a264d5d7c2384119b9d426ce99d6d5ac",
+    "reason": "Measured descent tracking residual24.483mm/5.294deg before grasp; contact versus controller cause unproven.",
+    "independentPlanningDefect": "Tilted approach offset retained while requesting only base Z;24.33mm horizontal separation from newly measured surface point."
+  },
+  "measurements": {
+    "sol_first": [
+      {
+        "trial": 0,
+        "wall_s": 22.679011457999877,
+        "model": "gpt-6-sol",
+        "effort": "medium",
+        "reply": "```python\nview = bot.rgbd('right')['rgb']\nyy, xx = np.indices(view.shape[:2])\npurple = (\n    (xx >= 275) & (xx <= 385) & (yy >= 185) & (yy <= 315)\n    & (view[:, :, 2] > 1.2 * view[:, :, 1])\n    & (view[:, :, 0] > 1.1 * view[:, :, 1])\n)\nblock = bot.localize_object('purple block', purple, camera='right', arm='right')\ntable = bot.measure_depth(400, 260, camera='right', arm='right')\nprint('purple visible surface:', block)\nprint('nearby table:', table['point_base_m'])\nprint('measured pose and axes:', bot.status()['coordinates'], bot.status()['opening_axes_base']['right'], bot.status()['approach_axes_base']['right'])\nshow({'right': view})\n```",
+        "scope": "Reconstructed first post-approach context of actuala264d5d7: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+        "usage": {
+          "input_tokens": 18738,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 624,
+          "reasoning_output_tokens": 422
+        },
+        "prompt_addition": "A tilted plan_approach target includes horizontal as well as vertical clearance: input_point minus tool_Z times clearance. It is an approach position, not the grasp position. Changing only base-frame Z leaves the horizontal offset in place. After the above-object observation, choose supported grasp X/Y from the actual object surfaces and a supported grasp Z with table clearance, then preflight the full XYZ grasp and placement. Account for the complete open-finger and wrist path around the cardboard box, mat and other objects. Neither local reachability nor a single surface pixel proves a clear grasp. Stop if the path or contact geometry cannot be established. Do not use contact or tracking error to probe for the table."
+      }
+    ],
+    "sol_three_decisions": {
+      "scope": "One archived a264d5d7 stationary scene with prototype full-XYZ guidance. Actual upstream Repl and native serializer, mocked HTTP and BaseException stops before transport. No physical command or success claim.",
+      "records": [
+        {
+          "stage": "execute_first_generated_readonly_program",
+          "receipt": "ERROR:\n  File \"<turn>\", line 8, in <module>\n  File \"/Users/andrew/.cache/blupe-roboskills/shared-runtime-5c7b3af/codex-runner/src/remote_yam/roboskills_policy.py\", line 365, in localize_object\n    result=self.policy._perception.localize(self.policy._state,label,mask,camera,arm)\n  File \"/Users/andrew/.cache/blupe-roboskills/shared-runtime-5c7b3af/codex-runner/src/remote_yam/roboskills_perception.py\", line 237, in localize\n    raise ValueError('Object mask has too little measured depth; no object location available')\nValueError: Object mask has too little measured depth; no object location available\n\n",
+          "ended": false,
+          "error": true
+        },
+        {
+          "stage": "next_generated_decision",
+          "wall_s": 15.189369916999567,
+          "reply": "```python\ndata = bot.rgbd('right')\nrgb, depth = data['rgb'], data['depth_m']\nroi = depth[210:300, 285:375]\nvalid = np.isfinite(roi) & (roi > 0)\nprint('Block-region valid depth pixels:', int(valid.sum()))\nprint('Block-region depth range:', (float(roi[valid].min()), float(roi[valid].max())) if valid.any() else None)\nprint('Purple block surface:', bot.measure_depth(318, 230, camera='right', arm='right')['point_base_m'])\nprint('Nearby exposed table:', bot.measure_depth(400, 260, camera='right', arm='right')['point_base_m'])\nshow({'right': rgb})\n```",
+          "receipt": "Block-region valid depth pixels: 3920\nBlock-region depth range: (0.10799131542444229, 0.17483609914779663)\nPurple block surface: [0.4956020768249392, 0.2574742676337728, 0.019590324143079527]\nNearby exposed table: [0.4663006486561384, 0.25471512311495426, 0.005783997241486635]\n",
+          "ended": false,
+          "error": false,
+          "reused_already_generated_program": true
+        },
+        {
+          "stage": "next_generated_decision",
+          "wall_s": 29.04199570900164,
+          "reply": "```python\nrgb = bot.rgbd('right')['rgb']\ny, x = np.indices(rgb.shape[:2])\nblock_mask = ((x - 327) / 50) ** 2 + ((y - 251) / 53) ** 2 < 1\nblock = bot.localize_object('purple block visible surface', block_mask, camera='right', arm='right')\ntop = bot.measure_depth(330, 218, camera='right', arm='right')\ntable = bot.measure_depth(400, 260, camera='right', arm='right')\nprint('block:', block)\nprint('possible top:', top['point_base_m'])\nprint('nearby table:', table['point_base_m'])\nshow({'right': rgb})\n```",
+          "receipt": "block: {'label': 'purple block visible surface', 'camera': 'right', 'captured_at': 1793455061.4172041, 'calibration_id': '9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958', 'pixel_count': 8307, 'valid_depth_count': 4214, 'mask_sha256': 'aa44c75b43362172664448078deae8b0a9e372048669a6a977ed477182921740', 'surfaces_in_arm_bases': {'right': {'center_m': [0.484612004907261, 0.2576518045062457, 0.011836486082424692], 'lower_m': [0.47227967352376043, 0.2532937004996599, 0.0050150950074922575], 'upper_m': [0.5039278829530964, 0.28240137013250355, 0.02954313670244873]}}, 'quality': {'status': 'experimental_requires_fresh_validation', 'operator_selected': True, 'extrinsics_provisional': True, 'failures': [], 'unverified': ['Fresh independent physical accuracy of this packaged calibration', 'RealSense depth accuracy at the grasp and placement'], 'limitations': ['Same capture session used for fitting and consistency comparison.', 'No surveyed reference, measured tool contact or independent depth validation.', 'Parallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'warning': 'Agent-selected mask, measured visible surface only; not a full object pose, grasp target, object height or proof of grasp. Calibration remains experimental.', 'full_quality': 'result[\"quality\"] or bot.rgbd(camera)[\"quality\"]'}\npossible top: [0.4966130472445772, 0.2583695790184256, 0.009592671856178459]\nnearby table: [0.4663006486561384, 0.25471512311495426, 0.005783997241486635]\n",
+          "ended": false,
+          "error": false
+        }
+      ],
+      "proposals": []
+    },
+    "astra_first": [
+      {
+        "trial": 0,
+        "wall_s": 18.240445417002775,
+        "model": "gpt-6-astra",
+        "effort": "medium",
+        "reply": "```python\nrgb = bot.rgbd('right')['rgb']\nyy, xx = np.indices(rgb.shape[:2])\nvertices = np.array([[276, 270], [290, 227], [329, 201], [377, 233], [372, 275], [321, 307]])\nedges = np.roll(vertices, -1, axis=0) - vertices\ncross = [e[0] * (yy - v[1]) - e[1] * (xx - v[0]) for v, e in zip(vertices, edges)]\nmask = np.logical_and.reduce([c >= 0 for c in cross])\npurple = bot.localize_object('purple block', mask, camera='right', arm='right')\npurple_top = bot.measure_depth(332, 228, camera='right', arm='right')\nsource_table = bot.measure_depth(397, 285, camera='right', arm='right')\norange_top = bot.measure_depth(600, 145, camera='left', arm='right')\nprint('Purple visible surface:', purple)\nprint('Top, table, destination:', purple_top['points_base_m'], source_table['points_base_m'], orange_top['points_base_m'])\n```\n",
+        "scope": "Reconstructed first post-approach context of actuala264d5d7: original first reply/receipt, all initial3views and latest same-stationary-pose3views. step56files overwrite earlier framebytes; not exact historical replay. New automatic historical reference evidence added from retained data; age-at-receipt is an offline fixture only, not a live freshness claim. Emitted Python not executed in this generation command; no hardware.",
+        "usage": {
+          "input_tokens": 18746,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 384,
+          "reasoning_output_tokens": 125
+        },
+        "prompt_addition": "A tilted plan_approach target includes horizontal as well as vertical clearance: input_point minus tool_Z times clearance. It is an approach position, not the grasp position. Changing only base-frame Z leaves the horizontal offset in place. After the above-object observation, choose supported grasp X/Y from the actual object surfaces and a supported grasp Z with table clearance, then preflight the full XYZ grasp and placement. Account for the complete open-finger and wrist path around the cardboard box, mat and other objects. Neither local reachability nor a single surface pixel proves a clear grasp. Stop if the path or contact geometry cannot be established. Do not use contact or tracking error to probe for the table."
+      }
+    ],
+    "astra_three_decisions_validated": {
+      "scope": "One archived a264d5d7 stationary scene with prototype full-XYZ guidance. Actual upstream Repl and native serializer, mocked HTTP and BaseException stops before transport. No physical command or success claim.",
+      "records": [
+        {
+          "stage": "execute_first_generated_readonly_program",
+          "receipt": "ERROR:\n  File \"<turn>\", line 7, in <module>\n  File \"/Users/andrew/.cache/blupe-roboskills/shared-runtime-5c7b3af/codex-runner/src/remote_yam/roboskills_policy.py\", line 365, in localize_object\n    result=self.policy._perception.localize(self.policy._state,label,mask,camera,arm)\n  File \"/Users/andrew/.cache/blupe-roboskills/shared-runtime-5c7b3af/codex-runner/src/remote_yam/roboskills_perception.py\", line 237, in localize\n    raise ValueError('Object mask has too little measured depth; no object location available')\nValueError: Object mask has too little measured depth; no object location available\n\n",
+          "ended": false,
+          "error": true
+        },
+        {
+          "stage": "next_generated_decision",
+          "wall_s": 13.83327620899945,
+          "reply": "```python\nrgb = bot.rgbd('left')['rgb']\nyy, xx = np.indices(rgb.shape[:2])\nvertices = np.array([[543, 102], [557, 87], [578, 82], [596, 98], [582, 116], [558, 124]])\nedges = np.roll(vertices, -1, axis=0) - vertices\nmask = np.logical_and.reduce([\n    e[0] * (yy - v[1]) - e[1] * (xx - v[0]) >= 0\n    for v, e in zip(vertices, edges)\n])\npurple = bot.localize_object('purple block', mask, camera='left', arm='right')\npurple_top = bot.measure_depth(575, 94, camera='left', arm='right')\nsource_table = bot.measure_depth(532, 130, camera='left', arm='right')\norange_top = bot.measure_depth(600, 140, camera='left', arm='right')\nprint('Purple surface:', purple)\nprint('Purple top:', purple_top['points_base_m'])\nprint('Source support:', source_table['points_base_m'])\nprint('Orange top:', orange_top['points_base_m'])\n```",
+          "receipt": "Purple surface: {'label': 'purple block', 'camera': 'left', 'captured_at': 1793455060.327814, 'calibration_id': '9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958', 'pixel_count': 1364, 'valid_depth_count': 1364, 'mask_sha256': 'e98b7cacc1c3cb0697856e28235085d9300bc27ddec226fb40bd265e8b67ed7d', 'surfaces_in_arm_bases': {'right': {'center_m': [0.49027226355040265, 0.27680388053228455, 0.012106268801562015], 'lower_m': [0.4813891555107458, 0.2600758008869929, -0.0030815320373166755], 'upper_m': [0.5072515892386253, 0.2825306398082739, 0.019218459137323216]}}, 'quality': {'status': 'experimental_requires_fresh_validation', 'operator_selected': True, 'extrinsics_provisional': True, 'failures': [], 'unverified': ['Fresh independent physical accuracy of this packaged calibration', 'RealSense depth accuracy at the grasp and placement'], 'limitations': ['Same capture session used for fitting and consistency comparison.', 'No surveyed reference, measured tool contact or independent depth validation.', 'Parallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'warning': 'Agent-selected mask, measured visible surface only; not a full object pose, grasp target, object height or proof of grasp. Calibration remains experimental.', 'full_quality': 'result[\"quality\"] or bot.rgbd(camera)[\"quality\"]'}\nPurple top: {'right': [0.49463096275673457, 0.27346949375762863, 0.018612543226974476]}\nSource support: {'right': [0.4725598897323935, 0.30492293494874406, -0.007718412114957218]}\nOrange top: {'right': [0.4354953180327306, 0.27971535325600144, 0.02780375190740239]}\n",
+          "ended": false,
+          "error": false,
+          "reused_already_generated_program": true
+        },
+        {
+          "stage": "next_generated_decision",
+          "wall_s": 12.107527584001218,
+          "reply": "```python\ngrasp_xyz = np.array(purple['surfaces_in_arm_bases']['right']['center_m'])\ntop_z = purple_top['points_base_m']['right'][2]\nsupport_z = source_table['points_base_m']['right'][2]\ngrasp_xyz[2] = top_z - min(0.006, (top_z - support_z) / 4)\nplace_xyz = np.array(orange_top['points_base_m']['right'])\nplace_xyz[2] = grasp_xyz[2] + place_xyz[2] - support_z\ngrasp_targets = dict(zip(('right_x', 'right_y', 'right_z'), grasp_xyz))\nplace_targets = dict(zip(('right_x', 'right_y', 'right_z'), place_xyz))\ngrasp_plan = bot.plan_move(**grasp_targets, rotation=candidate['rotation'])\nplace_plan = bot.plan_move(**place_targets, rotation=candidate['rotation'])\nif grasp_plan['reachable'] and place_plan['reachable']:\n    bot.move_to(**grasp_targets, rotation=candidate['rotation'])\n    show(bot.observe())\nelse:\n    finish(reason='The measured grasp or supported placement did not pass local planning; no grasp attempted.', task_success=False)\n```",
+          "proposal": {
+            "waypoint_count": 6,
+            "first": {
+              "step_id": 56,
+              "left_joints_deg": [
+                -1.1474892898591635,
+                46.63747897460335,
+                33.50579496810944,
+                -25.225344207088323,
+                -2.785037064371301,
+                -0.6229227573521173
+              ],
+              "right_joints_deg": [
+                28.00889323086561,
+                122.79544963012377,
+                88.46723012754074,
+                -20.80540172318134,
+                -0.22838358528909153,
+                89.56141194463939
+              ],
+              "left_gripper": 0.9997830018083183,
+              "right_gripper": 0.9986414015016088
+            },
+            "last": {
+              "step_id": 61,
+              "left_joints_deg": [
+                -1.1474892898591635,
+                46.63747897460335,
+                33.50579496810944,
+                -25.225344207088323,
+                -2.785037064371301,
+                -0.6229227573521173
+              ],
+              "right_joints_deg": [
+                29.24045855413162,
+                130.01673342596328,
+                92.99878237351015,
+                -17.985199545203375,
+                0.49861435769368273,
+                90.71201458800645
+              ],
+              "left_gripper": 0.9997830018083183,
+              "right_gripper": 0.9986414015016088
+            },
+            "native_transport": "mocked; stopped before physical transport",
+            "scope": "Actual SDK/native bounds/pacing/canonical serializer only, not collision/contact/grasp/physical proof"
+          }
+        }
+      ],
+      "proposals": [
+        {
+          "waypoint_count": 6,
+          "first": {
+            "step_id": 56,
+            "left_joints_deg": [
+              -1.1474892898591635,
+              46.63747897460335,
+              33.50579496810944,
+              -25.225344207088323,
+              -2.785037064371301,
+              -0.6229227573521173
+            ],
+            "right_joints_deg": [
+              28.00889323086561,
+              122.79544963012377,
+              88.46723012754074,
+              -20.80540172318134,
+              -0.22838358528909153,
+              89.56141194463939
+            ],
+            "left_gripper": 0.9997830018083183,
+            "right_gripper": 0.9986414015016088
+          },
+          "last": {
+            "step_id": 61,
+            "left_joints_deg": [
+              -1.1474892898591635,
+              46.63747897460335,
+              33.50579496810944,
+              -25.225344207088323,
+              -2.785037064371301,
+              -0.6229227573521173
+            ],
+            "right_joints_deg": [
+              29.24045855413162,
+              130.01673342596328,
+              92.99878237351015,
+              -17.985199545203375,
+              0.49861435769368273,
+              90.71201458800645
+            ],
+            "left_gripper": 0.9997830018083183,
+            "right_gripper": 0.9986414015016088
+          },
+          "native_transport": "mocked; stopped before physical transport",
+          "scope": "Actual SDK/native bounds/pacing/canonical serializer only, not collision/contact/grasp/physical proof"
+        }
+      ]
+    },
+    "sol_initial_with_prototype_guide": [
+      {
+        "trial": 0,
+        "model": "gpt-6-sol",
+        "effort": "none",
+        "camera_presentation": "actuala264d5d7 three startup views, exact normal-UI source/target marks in task",
+        "wall_s": 7.098128833000374,
+        "source_expected_roi": [
+          300,
+          75,
+          320,
+          95
+        ],
+        "pixels": [
+          [
+            310,
+            83,
+            "top"
+          ],
+          [
+            314,
+            108,
+            "top"
+          ]
+        ],
+        "source_ok": true,
+        "reply": "```python\nsource = bot.measure_depth(310, 83, camera='top')\ntarget = bot.measure_depth(314, 108, camera='top')\noptions = bot.plan_approach(source['points_base_m'])\nif options['candidates']:\n    candidate = options['candidates'][0]\n    bot.move_to(**candidate['targets'], rotation=candidate['rotation'])\n    show(bot.observe())\nelse:\n    finish(reason='No tested above-purple-block approach passed local reachability; no motion attempted.', task_success=False)\n```",
+        "usage": {
+          "input_tokens": 15076,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 112,
+          "reasoning_output_tokens": 0
+        },
+        "note": "Archived observation, one scene; program text not executed, no robot control"
+      }
+    ],
+    "astra_none_error": {
+      "model": "gpt-6-astra",
+      "effort": "none",
+      "status": 400,
+      "code": "unsupported_value",
+      "param": "reasoning.effort",
+      "supported": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "wall_s": "not separately measured",
+      "productionChanged": false,
+      "physicalTransport": false
+    },
+    "local_pose_comparison": {
+      "scope": "Archived measured state, actual SDK/native workspace/joint bounds and canonical packet parser; no physical transport, collision/contact/grasp/calibration accuracy or success proof.",
+      "source": [
+        0.49859299976985316,
+        0.26925989673739453,
+        0.008496801651974972
+      ],
+      "near_surface": [
+        0.49588999610957984,
+        0.25738447528649305,
+        0.016026194261835575
+      ],
+      "table": [
+        0.4698495493987976,
+        0.2573033381023221,
+        0.00022465452439532352
+      ],
+      "rows": [
+        {
+          "tilt_deg": 35,
+          "label": "same_old_xy_vertical",
+          "targets": {
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 6
+          }
+        },
+        {
+          "tilt_deg": 35,
+          "label": "measured_surface_xy",
+          "targets": {
+            "right_x": 0.49588999610957984,
+            "right_y": 0.25738447528649305,
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 6
+          }
+        },
+        {
+          "tilt_deg": 35,
+          "label": "initial_surface_xy",
+          "targets": {
+            "right_x": 0.49859299976985316,
+            "right_y": 0.26925989673739453,
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 6
+          }
+        },
+        {
+          "tilt_deg": 35,
+          "label": "placement",
+          "targets": {
+            "right_x": 0.4343689520368681,
+            "right_y": 0.2628353841237969,
+            "right_z": 0.03799273322827286
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 6
+          }
+        },
+        {
+          "tilt_deg": 45,
+          "label": "same_old_xy_vertical",
+          "targets": {
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 24
+          }
+        },
+        {
+          "tilt_deg": 45,
+          "label": "measured_surface_xy",
+          "targets": {
+            "right_x": 0.49588999610957984,
+            "right_y": 0.25738447528649305,
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 12
+          }
+        },
+        {
+          "tilt_deg": 45,
+          "label": "initial_surface_xy",
+          "targets": {
+            "right_x": 0.49859299976985316,
+            "right_y": 0.26925989673739453,
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 12
+          }
+        },
+        {
+          "tilt_deg": 45,
+          "label": "placement",
+          "targets": {
+            "right_x": 0.4343689520368681,
+            "right_y": 0.2628353841237969,
+            "right_z": 0.03799273322827286
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 24
+          }
+        },
+        {
+          "tilt_deg": 55,
+          "label": "same_old_xy_vertical",
+          "targets": {
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 24
+          }
+        },
+        {
+          "tilt_deg": 55,
+          "label": "measured_surface_xy",
+          "targets": {
+            "right_x": 0.49588999610957984,
+            "right_y": 0.25738447528649305,
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 24
+          }
+        },
+        {
+          "tilt_deg": 55,
+          "label": "initial_surface_xy",
+          "targets": {
+            "right_x": 0.49859299976985316,
+            "right_y": 0.26925989673739453,
+            "right_z": 0.012865886314347524
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 24
+          }
+        },
+        {
+          "tilt_deg": 55,
+          "label": "placement",
+          "targets": {
+            "right_x": 0.4343689520368681,
+            "right_y": 0.2628353841237969,
+            "right_z": 0.03799273322827286
+          },
+          "result": {
+            "from_step_id": 56,
+            "dispatched": false,
+            "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+            "reachable": true,
+            "waypoint_count": 24
+          }
+        }
+      ]
+    },
+    "actual_joint_response": [
+      {
+        "packet": 0,
+        "step": 55,
+        "target_joints_deg": [
+          27.90039120095466,
+          121.75976315817164,
+          88.29570162750454,
+          -21.53687629941965,
+          -0.2699822612735269,
+          89.61428164079102
+        ],
+        "measured_joints_deg": [
+          27.7473838757374,
+          121.39982970870429,
+          87.7320850536254,
+          -21.493627481388447,
+          -0.38184476724863636,
+          89.29652368989768
+        ],
+        "error_measured_minus_target_deg": [
+          -0.15301,
+          -0.35993,
+          -0.56362,
+          0.04325,
+          -0.11186,
+          -0.31776
+        ],
+        "right_gripper": 0.9986414015016088
+      },
+      {
+        "packet": 1,
+        "step": 61,
+        "target_joints_deg": [
+          27.721394322955096,
+          124.49673516849253,
+          83.67921137364434,
+          -14.185210412874188,
+          -0.4607038198444988,
+          89.34188546115452
+        ],
+        "measured_joints_deg": [
+          27.703669998028477,
+          122.86424461195313,
+          84.7595413694188,
+          -13.384703166383895,
+          -0.5785572169385752,
+          89.29652368989768
+        ],
+        "error_measured_minus_target_deg": [
+          -0.01772,
+          -1.63249,
+          1.08033,
+          0.80051,
+          -0.11785,
+          -0.04536
+        ],
+        "right_gripper": 0.998569896317483
+      },
+      {
+        "packet": 2,
+        "step": 64,
+        "target_joints_deg": [
+          27.58118898894308,
+          123.49353413509381,
+          79.94217063240862,
+          -11.452589448029713,
+          -0.5586065233625711,
+          89.20204117905209
+        ],
+        "measured_joints_deg": [
+          27.638099181465098,
+          121.96811011892025,
+          81.76514074635774,
+          -9.472311111435305,
+          -0.5785572169385752,
+          89.27466675104323
+        ],
+        "error_measured_minus_target_deg": [
+          0.05691,
+          -1.52542,
+          1.82297,
+          1.98028,
+          -0.01995,
+          0.07263
+        ],
+        "right_gripper": 0.998569896317483
+      },
+      {
+        "packet": 3,
+        "step": 67,
+        "target_joints_deg": [
+          27.278314686154484,
+          123.25654439659203,
+          79.54816140135895,
+          -11.29755686905644,
+          -0.6872116761147651,
+          89.01832932440074
+        ],
+        "measured_joints_deg": [
+          27.441386731774955,
+          121.79325460808457,
+          81.37171584697747,
+          -9.21002784518178,
+          -1.0375529328824442,
+          89.27466675104323
+        ],
+        "error_measured_minus_target_deg": [
+          0.16307,
+          -1.46329,
+          1.82355,
+          2.08753,
+          -0.35034,
+          0.25634
+        ],
+        "right_gripper": 0.998569896317483
+      },
+      {
+        "packet": 4,
+        "step": 70,
+        "target_joints_deg": [
+          27.263798492111857,
+          123.25684355525834,
+          79.54876752589698,
+          -11.29861987813018,
+          -0.7303389803288304,
+          88.95671837861752
+        ],
+        "measured_joints_deg": [
+          27.419529792920496,
+          121.59654215839443,
+          81.17500339728733,
+          -9.231884784036446,
+          -1.0594098717367009,
+          89.25280981218877
+        ],
+        "error_measured_minus_target_deg": [
+          0.15573,
+          -1.6603,
+          1.62624,
+          2.06674,
+          -0.32907,
+          0.29609
+        ],
+        "right_gripper": 0.998569896317483
+      },
+      {
+        "packet": 5,
+        "step": 73,
+        "target_joints_deg": [
+          27.264614331786948,
+          123.25680370162264,
+          79.54868295687064,
+          -11.298528997725079,
+          -0.7279143861367209,
+          88.9601822309547
+        ],
+        "measured_joints_deg": [
+          27.419529792920496,
+          121.48725746412212,
+          81.1312895195784,
+          -9.297455600599623,
+          -1.0594098717367009,
+          89.2309528733343
+        ],
+        "error_measured_minus_target_deg": [
+          0.15492,
+          -1.76955,
+          1.58261,
+          2.00107,
+          -0.3315,
+          0.27077
+        ],
+        "right_gripper": 0.998569896317483
+      },
+      {
+        "packet": 6,
+        "step": 76,
+        "target_joints_deg": [
+          27.227744612205672,
+          123.25782568781685,
+          79.55077142970639,
+          -11.3017324411878,
+          -0.8374679533619946,
+          88.80366440764318
+        ],
+        "measured_joints_deg": [
+          27.419529792920496,
+          121.44354358641321,
+          81.10943258072395,
+          -9.406740294872128,
+          -1.1905515048634623,
+          89.05609736249862
+        ],
+        "error_measured_minus_target_deg": [
+          0.19179,
+          -1.81428,
+          1.55866,
+          1.89499,
+          -0.35308,
+          0.25243
+        ],
+        "right_gripper": 0.998569896317483
+      }
+    ],
+    "actual_fk_response": [
+      {
+        "packet": 0,
+        "desired_xyz_m": [
+          0.4733572214618749,
+          0.255631514666194,
+          0.04945378928561378
+        ],
+        "measured_xyz_m": [
+          0.47185510770483063,
+          0.2536077842079097,
+          0.049084762761361214
+        ],
+        "error_xyz_m": [
+          -0.0015021137570442877,
+          -0.0020237304582843008,
+          -0.00036902652425256643
+        ],
+        "joint_error_deg": [
+          -0.15300732521726346,
+          -0.3599334494673485,
+          -0.5636165738791448,
+          0.04324881803120206,
+          -0.11186250597510944,
+          -0.3177579508933377
+        ]
+      },
+      {
+        "packet": 1,
+        "desired_xyz_m": [
+          0.471856358816084,
+          0.2536084524755469,
+          0.012866480665408103
+        ],
+        "measured_xyz_m": [
+          0.48155744404927175,
+          0.2589256162770367,
+          0.03685353417407944
+        ],
+        "error_xyz_m": [
+          0.009701085233187745,
+          0.005317163801489777,
+          0.023987053508671335
+        ],
+        "joint_error_deg": [
+          -0.01772432492661835,
+          -1.632490556539409,
+          1.0803299957744628,
+          0.8005072464902927,
+          -0.11785339709407638,
+          -0.04536177125683594
+        ]
+      },
+      {
+        "packet": 2,
+        "desired_xyz_m": [
+          0.46385652659914506,
+          0.2482913779263508,
+          0.0048665451924939235
+        ],
+        "measured_xyz_m": [
+          0.4806126515993205,
+          0.25772465067151923,
+          0.03568375712296103
+        ],
+        "error_xyz_m": [
+          0.016756125000175426,
+          0.00943327274516842,
+          0.030817211930467103
+        ],
+        "joint_error_deg": [
+          0.05691019252201812,
+          -1.5254240161735595,
+          1.8229701139491254,
+          1.9802783365944077,
+          -0.019950693576004097,
+          0.07262557199113928
+        ]
+      },
+      {
+        "packet": 3,
+        "desired_xyz_m": [
+          0.46385593326575925,
+          0.24560824295984957,
+          0.004866442280837588
+        ],
+        "measured_xyz_m": [
+          0.47996978444160165,
+          0.2568756301319424,
+          0.03538563273611005
+        ],
+        "error_xyz_m": [
+          0.01611385117584241,
+          0.011267387172092858,
+          0.03051919045527246
+        ],
+        "joint_error_deg": [
+          0.16307204562047062,
+          -1.463289788507467,
+          1.8235544456185124,
+          2.0875290238746587,
+          -0.35034125676767913,
+          0.2563374266424887
+        ]
+      },
+      {
+        "packet": 4,
+        "desired_xyz_m": [
+          0.4638556508274155,
+          0.24560808087110572,
+          0.004866337242057844
+        ],
+        "measured_xyz_m": [
+          0.47928765436391074,
+          0.2563637362872603,
+          0.03580182620113584
+        ],
+        "error_xyz_m": [
+          0.015432003536495265,
+          0.010755655416154558,
+          0.030935488959077995
+        ],
+        "joint_error_deg": [
+          0.15573130080863962,
+          -1.6603013968639146,
+          1.6262358713903495,
+          2.066735094093735,
+          -0.3290708914078705,
+          0.2960914335712488
+        ]
+      },
+      {
+        "packet": 5,
+        "desired_xyz_m": [
+          0.46385554730523454,
+          0.24560802586514213,
+          0.0048663034753385764
+        ],
+        "measured_xyz_m": [
+          0.479021556825,
+          0.25622569637656273,
+          0.03632329508085405
+        ],
+        "error_xyz_m": [
+          0.015166009519765433,
+          0.010617670511420596,
+          0.031456991605515475
+        ],
+        "joint_error_deg": [
+          0.15491546113354815,
+          -1.7695462375005206,
+          1.5826065627077668,
+          2.001073397125456,
+          -0.33149548559998,
+          0.2707706423796026
+        ]
+      },
+      {
+        "packet": 6,
+        "desired_xyz_m": [
+          0.4638554967768323,
+          0.2456080035817948,
+          0.0048662909566646595
+        ],
+        "measured_xyz_m": [
+          0.4784612477099339,
+          0.25639042733379214,
+          0.03627698017086663
+        ],
+        "error_xyz_m": [
+          0.014605750933101624,
+          0.010782423751997339,
+          0.03141068921420197
+        ],
+        "joint_error_deg": [
+          0.19178518071482387,
+          -1.8142821014036343,
+          1.55866115101756,
+          1.8949921463156727,
+          -0.35308355150146764,
+          0.25243295485543626
+        ]
+      }
+    ]
+  },
+  "evaluatorCorrections": [
+    "Restore actual right candidate rather than the first successful left plan when rebuilding the selected approach.",
+    "Restore persistent source/target/candidate namespace from the actual recorded initial program. The omitted candidate NameError was an evaluator defect; replaying the SAME generated fullXYZ program with actual candidate metadata produced the valid6waypoint packet with no new model call.",
+    "Propagate actual mask-depth rejection as ordinary read-only REPL feedback; do not classify it as a physical failure."
+  ],
+  "limitations": [
+    "One stationary archived scene, not statistical evidence of reliability.",
+    "No grasp/contact/motion was executed by these offline proposals.",
+    "Astra/none is unsupported400; retain Sol/none startup, use Astra/medium only after the first decision.",
+    "Sol startup with guide7.098s is generation only, not15s physical timing proof; candidate keeps initial prompt unchanged and delays guide until subsequent calls.",
+    "Object masks remain agent-selected visible surface summaries, not full object poses.",
+    "No gain, calibration, hardware, tolerance, bounded-correction or uncertain-motion rule changes."
+  ],
+  "localGates": [
+    {
+      "check": "full",
+      "command": [
+        "<existing Python3.13 runtime>",
+        "-m",
+        "pytest",
+        "codex-runner/tests",
+        "-q"
+      ],
+      "exit_code": 0,
+      "wall_s": 89.82275283299896,
+      "output": "blupe-grasp-routing-full-01a18fc4.txt"
+    },
+    {
+      "check": "worker",
+      "command": [
+        "<existing Python3.13 runtime>",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "codex-runner/integrations/roboskills/site/worker-agent",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "wall_s": 0.2163087919980171,
+      "output": "blupe-grasp-routing-worker-01a18fc4.txt"
+    }
+  ]
+}

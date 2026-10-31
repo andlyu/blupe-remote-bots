@@ -27,7 +27,7 @@
     "step56 NPZ files retain the last stationary observation, not every historical query byte.",
     "Historical references are untracked surface points, not current object poses or object identity.",
     "Low reasoning yielded one overly broad color mask and one depth-hole query; medium yielded two valid gray-face/table selections but cost22\u201324s. This does not prove grasp accuracy or fit the full300s budget.",
-    "Initial-none sample is actual812bf9 startup context, not7f23. Its6.187s source generation was not executed and is not physical startup proof.",
+    "Initial-none sample combines7f23 startup imagery/Home/perception and the identical-mark812bf9 task snapshot; original812bf9 image label was incorrect. Its6.187s source generation was not executed and is not physical startup proof.",
     "No joint/workspace/gripper/collision/Stop/uncertain-motion rules changed."
   ],
   "measurements": {
@@ -36,7 +36,7 @@
         "trial": 0,
         "model": "gpt-6-sol",
         "effort": "none",
-        "camera_presentation": "actual812bf9 three startup views, exact normal-UI source/target marks in task",
+        "camera_presentation": "Reconstructed context: actual7f23 initial images/Home/perception; identical-mark instruction from812bf9 public snapshot. Not an exact812bf9 image replay.",
         "wall_s": 6.187040249998972,
         "source_expected_roi": [
           300,
@@ -65,7 +65,8 @@
           "output_tokens": 106,
           "reasoning_output_tokens": 0
         },
-        "note": "Archived observation, one scene; program text not executed, no robot control"
+        "note": "Archived observation, one scene; program text not executed, no robot control",
+        "original_camera_presentation_label": "actual812bf9 three startup views, exact normal-UI source/target marks in task"
       }
     ],
     "automatic_references_low": [
@@ -260,5 +261,13 @@
         }
       ]
     }
+  },
+  "inputProvenanceCorrection": {
+    "correctedAt": "2026-10-31T14:22:57.963893+00:00",
+    "originalLabel": "actual812bf9 three startup views",
+    "imageHomePerceptionRun": "7f23d80e1b0644f18fc88589ca72fbe9",
+    "imageRoot": "robocurve_5a29e4b0939d4eb4bdddf77c8a052d2d",
+    "taskSnapshotRun": "812bf9eba1c9461d8323c29a276b8639",
+    "scope": "Original6.187s duration/generated program unchanged and never executed. Input script root and task snapshot inspected directly; actual physical camera startup evidence unaffected. Original label preserved with measurement."
   }
 }

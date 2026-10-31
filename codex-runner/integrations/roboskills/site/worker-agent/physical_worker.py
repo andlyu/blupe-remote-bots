@@ -98,6 +98,9 @@ class PhysicalWorker(Worker):
                 state=self._read_contact('status',client,run,reconnect)
                 result={key:state.get(key) for key in ('status','attempt_id','session_id','episode_id','error','commands_submitted','packets_submitted','run_started_at','run_ended_at','provider','step_timings','run_metrics','safety_error','run_summary')}
                 result.update(approach='RoboSkills',execution='physical',robot_id='yam-1',inference_model=(state.get('provider') or {}).get('inference_model'))
+                provider=state.get('provider') or {}
+                result['inference_models']={phase:provider.get(phase+'_inference_model',provider.get('inference_model'))
+                                            for phase in ('initial','subsequent')}
                 if isinstance(result.get('provider'),dict):
                     result['provider']=dict(result['provider'])
                     result['provider'].pop('recording_path',None)

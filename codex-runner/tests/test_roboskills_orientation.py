@@ -125,6 +125,28 @@ class OrientationContract(TestCase):
             self.p._llm=None;self.p._call('system',[]);self.p._call('system',[])
         self.assertEqual([x.kwargs['effort'] for x in codex.call_args_list],['none','medium'])
         self.assertEqual(self.p.public_config()['subsequent_reasoning_effort'],'medium')
+    def test_phase_models_and_guidance_match_actual_calls_events_and_metadata(self):
+        from roboskills.core import llm
+        import hashlib
+        with TemporaryDirectory() as directory:
+            p=RoboSkillsPolicy(camera_source=Cameras(),recording_root=directory,
+                              subsequent_inference_model='gpt-6-astra')
+            with patch.object(llm,'codex',return_value='```python\nfinish()\n```') as codex,patch.object(p,'_interaction') as events:
+                p._call('initial rendered system',[]);p._call('initial rendered system',[])
+            calls=codex.call_args_list
+            self.assertEqual([c.kwargs['model'] for c in calls],['gpt-6-sol','gpt-6-astra'])
+            self.assertEqual([c.kwargs['effort'] for c in calls],['none','medium'])
+            self.assertEqual(calls[0].args[0],'initial rendered system')
+            self.assertIn('Changing only base-frame Z',calls[1].args[0])
+            requests=[c for c in events.call_args_list if c.args[0]=='model_request']
+            self.assertEqual([c.kwargs['inference_model'] for c in requests],['gpt-6-sol','gpt-6-astra'])
+            self.assertEqual([c.kwargs['rendered_system_prompt_sha256'] for c in requests],
+                             [hashlib.sha256(c.args[0].encode()).hexdigest() for c in calls])
+            config=p.public_config()
+            self.assertEqual(config['initial_inference_model'],'gpt-6-sol')
+            self.assertEqual(config['subsequent_inference_model'],'gpt-6-astra')
+            self.assertEqual(config['system_prompt_sha256'],hashlib.sha256(PROMPT.encode()).hexdigest())
+            self.assertNotEqual(config['system_prompt_sha256'],config['subsequent_system_prompt_sha256'])
     def test_approach_query_finds_feasible_level_jaw_frame_without_state_change(self):
         self.p._geometry.observe(self.p._state);before=deepcopy(self.p._geometry.start_rotations);cursor=self.p._state['step_id']
         with patch.object(self.p,'_execute') as execute:
