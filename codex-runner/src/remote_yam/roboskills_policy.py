@@ -63,6 +63,8 @@ Metric perception is supplied when status.perception.available is true. Every
 camera RGB is paired pixel-for-pixel with measured optical-Z depth. Use
 bot.measure_depth(u,v,camera='top') for a visible object's interior pixel; it
 returns points_base_m for both arms in the SAME per-arm frames as move_to.
+Each point is a LIST [x,y,z], not a dict: use
+px,py,pz = measurement['points_base_m']['right'] (integer indexing also works).
 For the first approach, a measured interior pixel is sufficient; prefer the
 short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
@@ -79,7 +81,15 @@ clearance, the grasp frame and surrounding objects. Do not close on a surface
 point. Calibration quality is experimental; use visual feedback and reobserve
 after movement. The cached view is invalidated by every move; query observe()
 again when measuring a new state. Wrist poses use measured settled FK and camera
-mounts. Retain the stated calibration limitations, without claiming exact depth
+mounts. The left/right cameras MOVE WITH THEIR ARMS: perspective and pixel
+locations change after an arm move even when the block stays still. Normal
+occlusion or uncertain object position is a perception problem: use a fresh
+view, another camera and measured pixels to resolve it. It is not an uncertain
+motion outcome. Only a rejected/failed/unknown physical dispatch or completion
+is terminal without retry. Do not infer object displacement from moving-camera
+pixels alone. If a block is still visible in a wrist view, measure it there
+instead of ending just because the overhead view is occluded.
+Retain the stated calibration limitations, without claiming exact depth
 accuracy. Verify object retention after lifting, support before release and
 stable placement after withdrawing. Finish with finish(reason='what happened',
 task_success=True/False/None). task_success is your visual assessment, not a
@@ -133,7 +143,7 @@ class RobotTools:
         return self.policy._perception.rgbd(self.policy._state,camera)
 
     def measure_depth(self, u, v, camera='top', radius=2, arm=None):
-        """Measure integer interior pixel; returns real surface point(s) in move_to arm-base metres."""
+        """Integer pixel -> points_base_m={'left':[x,y,z],'right':[x,y,z]} in metres; arm selects one point_base_m list."""
         self.policy._check_cancelled()
         if not self.policy._perception:raise ValueError('Metric perception is not configured')
         result=self.policy._perception.measure(self.policy._state,u,v,camera,radius,arm)
