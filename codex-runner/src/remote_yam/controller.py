@@ -742,7 +742,7 @@ class RunnerController(HomeSceneStartup):
                 "entries": entries, "stations": stations,
                 "public_run": response.get("public_run") if isinstance(response.get("public_run"), Mapping) else None,
             }
-            note_queue = getattr(self._provider, "note_queue_snapshot", None)
+            note_queue = getattr(getattr(self, "_provider", None), "note_queue_snapshot", None)
             if callable(note_queue):
                 note_queue(self._queue_snapshot)
 

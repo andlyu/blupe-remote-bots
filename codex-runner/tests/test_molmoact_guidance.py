@@ -56,3 +56,24 @@ def test_mask_uses_actual_expansion_and_fails_ambiguous():
     assert g.task_indices(text,'pick up cup',encoded,[99,99,1,2,3])==[3]
     with pytest.raises(ValueError):
         g.task_indices(text,'pick up cup',encoded,[2,2])
+
+
+def test_zero_guidance_is_processor_noop_even_when_token_mapping_would_fail():
+    from unittest.mock import Mock
+    guide = g.Guidance(SimpleNamespace())
+    result = {'input_ids': torch.tensor([[1, 2, 3]])}
+    processor = Mock(return_value=result)
+    # Baseline can accept a task whose words also occur in the setup/prompt.
+    # Strength zero must not need any guidance-only tokenization or mapping.
+    guide.tokenizer = SimpleNamespace(encode=Mock(side_effect=ValueError('Ambiguous task token mapping')))
+    proxy = g.ProcessorProxy(processor, guide, 'the task')
+    for mode in ('baseline', 'guided'):
+        with guide.request(mode, 0):
+            assert proxy(text='The task is to the task. The setup is robot. Complete the task?') is result
+        assert guide.last_receipt['calls'] == 0
+        assert guide.last_receipt['kv_delta_l1'] == 0
+    guide.tokenizer.encode.assert_not_called()
+    # The nonzero path must retain the existing mapping validation.
+    with pytest.raises(ValueError, match='Ambiguous task'), guide.request('guided', .15):
+        proxy(text='The task is to the task. The setup is robot. Complete the task?')
+    guide.tokenizer.encode.assert_called_once()

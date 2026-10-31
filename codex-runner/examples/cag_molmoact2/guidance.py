@@ -63,7 +63,8 @@ class ProcessorProxy:
 
     def __call__(self, *args, **kwargs):
         result = self.processor(*args, **kwargs)
-        if self.guidance.active and self.guidance.active['mode'] == 'guided':
+        if (self.guidance.active and self.guidance.active['mode'] == 'guided'
+                and self.guidance.active['strength'] != 0):
             from tokenizers import Tokenizer
             if self.guidance.tokenizer is None:
                 self.guidance.tokenizer = Tokenizer.from_file('/runpod-volume/molmoact2-yam/tokenizer.json')
