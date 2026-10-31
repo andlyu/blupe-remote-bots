@@ -1,9 +1,10 @@
 """Absolute RoboSkills tool rotations through the real serializer; never hardware."""
 from copy import deepcopy
+import importlib.util
 import json,math
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import TestCase
+from unittest import TestCase,skipUnless
 from unittest.mock import patch
 import numpy as np
 from remote_yam.roboskills_policy import RoboSkillsPolicy,RobotTools
@@ -19,6 +20,7 @@ def level_grasp(point,degrees=45):
     z=np.sin(a)*np.array([np.cos(phi),np.sin(phi),0.])-np.array([0.,0.,np.cos(a)])
     return np.column_stack((x,np.cross(z,x),z))
 
+@skipUnless(importlib.util.find_spec('roboskills'),'Install the pinned RoboSkills runtime; required roboskills CI does so')
 class OrientationContract(TestCase):
     def setUp(self):
         self.tmp=TemporaryDirectory();self.p=RoboSkillsPolicy(camera_source=Cameras(),recording_root=self.tmp.name,llm=lambda s,m:'')
