@@ -46,6 +46,13 @@ around it.
 
 Before integrating a paper or method, read the
 [integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
+The playground exists for demos and showing people how well approaches work.
+Everything in the playground demo is public by default: website, source,
+runs/results, live demos, recordings, replays/history, simulation outputs and
+supporting evidence. Only an explicit user instruction or visibility change
+sets a nonpublic exception for its stated scope; record and respect it. Verify
+public access as a logged-out visitor. Keep credentials, access tokens and
+private contact details out of public demo materials.
 Verify actual user attribution for policy/model tests, editable name/email with
 known defaults prefilled and real-name confirmation if missing. Keep execution
 mode and actual approach separate from human identity; unattended system activity

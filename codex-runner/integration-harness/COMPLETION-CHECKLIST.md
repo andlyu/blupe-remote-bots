@@ -8,6 +8,23 @@ evidence. Report checklist status, evidence links, unmet items and explicit
 exceptions; leave unfinished requirements unchecked and do not describe the
 integration as complete.
 
+## Purpose and public visibility by default
+
+The playground exists for demos and for showing people how well approaches work.
+Everything in the playground demo is **public by default**: the website, source
+repository, approach/configuration descriptions, runs and results, live demos,
+recordings, replays/history, simulation outputs, and supporting demo evidence.
+
+Publish these demo materials so people can inspect the actual behavior and
+results. This is the standing visibility default; an additional routine
+confirmation is not required. Only an explicit user instruction or user visibility
+change overrides it, for the scope the user specifies. Respect that change and
+record the affected materials and instruction below. An existing private setting
+alone does not establish a user-requested exception.
+
+Keep credentials, access tokens and private contact details out of public demo
+materials.
+
 ## Standing authorization for physical playground tests
 
 The repository owner authorizes agents working on BluPe research integrations,
@@ -42,8 +59,10 @@ unverified, and request only the specific permission needed to unblock it.
 
 - [ ] A usable website exists, with an associated repository containing the
   website's source code. Record both links and the deployed source revision.
-- [ ] The website and its source repository are public, unless an explicit
-  public-visibility exception for either is recorded below.
+- [ ] Everything in the playground demo is public by default, including the
+  website, source repository, runs/results, live demos, recordings, replays/history,
+  simulation outputs and supporting evidence. Any nonpublic exception reflects
+  an explicit user instruction or visibility change, recorded below.
 - [ ] The website clearly names the actual approach/method being run. Use the
   executed method's name; Spotter is an example, not a shared hardcoded label.
   The **Model** field identifies the approach being tested, as specified below.
@@ -191,6 +210,8 @@ actual arms live. Check both 15-second measures, approach/runner identities,
 replay of the just-completed run and selection/replay of previous runs. Review
 every checklist item against current evidence, including public visibility and
 actual user attribution in policy/model tests, with execution mode separate.
+Check the website, repository and each demo artifact type as a logged-out visitor;
+record working public links or the explicit user-directed visibility exception.
 Verify that Model identifies the executed approach consistently in the website,
 run records, notifications and replay/history, with underlying model/checkpoint
 configuration recorded separately.
@@ -226,8 +247,11 @@ before any completion claim.
 - Failure/stall status and available recovery evidence:
 - Website URL:
 - Website source repository URL / deployed revision:
-- Public-visibility exceptions (write "none", or the affected website/repository,
-  explicit exception, reason and approval reference):
+- Public-default evidence (logged-out access checks and links for website,
+  repository, runs/results, live demos, recordings, replay/history, simulation
+  outputs and supporting demo evidence; explain any artifact type not produced):
+- User-directed visibility exceptions (write "none", or affected materials/scope,
+  current visibility, explicit user instruction/change, date and reference):
 - Physical-test authorization/scope (standing owner authorization or task
   reference, website, station/arms, confirmed runner, method/task, duration,
   expected motion and recording; permission-review result if applicable):

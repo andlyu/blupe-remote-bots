@@ -32,6 +32,11 @@ model, inspect cameras/calibration, and control sessions through HTTP/WebSockets
 [Local setup and troubleshooting](docs/local-playground.md) ·
 [API source](docs/API.md) · [Repository ownership](docs/REPOSITORY-OWNERSHIP.md)
 
+The playground exists for demos and showing people how well approaches work.
+Everything in the playground demo is public by default, including its website,
+source, runs, results, recordings, replays, simulation outputs and supporting
+evidence, unless a user explicitly changes visibility for the relevant materials.
+
 Integrating a research paper or method? Start with the
 [integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
 Its Model field identifies the approach being tested, with underlying model and
