@@ -89,9 +89,6 @@
     $('pastRunDetails').textContent = [run.model ? `${run.model} · ${run.model_version || 'version unknown'}` : 'Model not recorded · version unknown', [run.result, reason].filter(Boolean).join(': ')].filter(Boolean).join(' · ');
     renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
-    $('aspirePastLineage')?.remove();
-    const lineage = document.createElement('div'); lineage.id = 'aspirePastLineage';
-    window.yamAspireLineage?.history(lineage, run); $('pastRunPrompt').after(lineage);
   }
   function openEpisode(id, known = {}) {
     if (!validId(id) || !robot) return;

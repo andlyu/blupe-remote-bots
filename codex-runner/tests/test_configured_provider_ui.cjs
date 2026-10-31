@@ -13,7 +13,7 @@ test('configured policy clears stale credentials and subscription state but keep
   $('prompt').value = 'Put blue block in bin.';
   $('prompt').readOnly = true;
   const changed = vm.runInNewContext('(function(){' + body + ')', {
-    $ , window:{}, selectedRobot:'fixture',localStorage:{getItem(){return null}},aspireRetryLimit(){return 1}, setupProvider: 'codex', aspireRunAvailable:false, updateRunLabel() {},
+    $ , window:{}, selectedRobot:'fixture',localStorage:{getItem(){return null}},setupProvider: 'codex', updateRunLabel() {},
     configuredProviders: {molmoact: {model: 'test-abc', label: 'ABC MolmoAct', help: 'Pinned policy'}}
   });
   changed();
@@ -31,8 +31,7 @@ test('Gemini mode is visible only for Gemini and changing provider preserves sel
   const nodes = {};
   const $ = id => nodes[id] ||= {value:'',hidden:false,dataset:{},options:[],selectedOptions:[],close(){}};
   const changed = vm.runInNewContext('(function(){' + body + ')', {
-    $, window:{}, selectedRobot:'fixture', localStorage:{getItem(){return null}}, aspireRetryLimit(){return 1},
-    setupProvider:null, aspireRunAvailable:false, updateRunLabel(){}, updateSavedKey(){}, claudeModel:'claude-opus-5-5',
+    $, window:{}, selectedRobot:'fixture', localStorage:{getItem(){return null}}, setupProvider:null, updateRunLabel(){}, updateSavedKey(){}, claudeModel:'claude-opus-5-5',
     configuredProviders:{gemini:{model:'gemini-4-argon',label:'Gemini 4 Argon'}}
   });
   $('provider').value='gemini'; $('geminiCallingMode').value='normal'; changed();

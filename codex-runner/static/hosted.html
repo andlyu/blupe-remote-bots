@@ -29,7 +29,7 @@
     <nav class="robotNavigation" aria-label="Robot selection"><label for="robotSelector">Robot</label><select id="robotSelector" disabled><option value="">Loading robots…</option></select><span id="robotSelectorStatus" class="help" role="status"></span></nav>
 
   </div>
-  <p class="playgroundIntro">Control real robot arms with AI. Watch, prompt, and run. <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md" target="_blank" rel="noopener noreferrer">API docs</a> · <a href="https://github.com/andlyu/blupe-remote-yam#run-the-blupe-playground-locally" target="_blank" rel="noopener noreferrer">Run locally</a> · <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/codex-runner/docs/aspire/README.md" target="_blank" rel="noopener noreferrer">ASPIRE README</a></p>
+  <p class="playgroundIntro">Control real robot arms with AI. Watch, prompt, and run. <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md" target="_blank" rel="noopener noreferrer">API docs</a> · <a href="https://github.com/andlyu/blupe-remote-yam#run-the-blupe-playground-locally" target="_blank" rel="noopener noreferrer">Run locally</a></p>
   <dialog id="codexInstructions" aria-labelledby="codexInstructionsTitle">
     <div class="codexDialogHeader"><h2 id="codexInstructionsTitle">Run locally through a subscription</h2><form method="dialog"><button class="codexDialogClose" aria-label="Close Codex instructions"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></form></div>
     <div class="codexPromptLabel"><p>Paste this into your coding assistant</p></div>
@@ -132,7 +132,6 @@
   <section id="liveConversationPanel" data-mode="reasoning" class="panel liveConversation" aria-label="Current run conversation">
     <div class="statusHeader"><h2 id="conversationModeTitle">Astra decision notes</h2></div>
     <p id="sideRunner" class="help">Runner: —</p>
-    <p id="policyRouteNotice" class="help" role="status" hidden></p>
     <details class="runPrompt" open><summary>Prompt</summary><p id="sidePrompt">Waiting for someone to run a policy.</p></details>
     <div class="statusHeader"><h2 id="sideConversationTitle">Response notes</h2><span id="sideConversationState" class="tag">Waiting for a run</span></div>
     <ol id="sideConversationMessages" tabindex="0" aria-label="Live conversation messages" aria-live="polite" aria-relevant="additions"><li>Astra’s replies and robot feedback from the current run appear here for everyone.</li></ol>
@@ -158,11 +157,6 @@
           <datalist id="availableModels"></datalist>
           <button id="refreshModels" type="button">Refresh models</button>
           <p id="modelCatalogStatus" class="help" role="status">Choose Astra or GPT 6.1+, or Claude Opus 5.5+. You can enter a new model ID directly.</p>
-        </div>
-        <div id="aspireRetrySettings" hidden>
-          <label for="automaticRetryLimit">Automatic recovery retry limit</label>
-          <input id="automaticRetryLimit" type="number" min="0" max="3" step="1" value="1" aria-describedby="automaticRetryHelp">
-          <p id="automaticRetryHelp" class="help">0 disables automatic retries; 1–3 bounds live recovery attempts. Saved in this browser for the next submission. Current runs keep their recorded limit. Changing this setting does not rerun old tasks.</p>
         </div>
         <div id="effortField" hidden>
           <label for="reasoningEffort">Thinking effort</label>
@@ -238,7 +232,7 @@
         </details>
         <dialog id="localRunDialog" aria-labelledby="localRunTitle">
           <div class="localRunHeader"><h3 id="localRunTitle">Select model and run</h3><button id="closeLocalRun" type="button" aria-label="Close run setup">Close</button></div>
-          <div id="localRunDialogBody"><div class="runTimeControl runDurationControl"><label for="runDuration">Time</label><input id="runDuration" form="runForm" type="number" min="1" max="10" step="1" value="5" aria-describedby="runDurationUnit" required><span id="runDurationUnit">min</span></div><p id="aspireSetupGuidance" class="help" hidden>To develop and run your own ASPIRE programs locally with Codex, follow the <a href="https://github.com/andlyu/blupe-remote-yam/blob/main/codex-runner/docs/aspire/README.md" target="_blank" rel="noopener noreferrer">ASPIRE quick-start README</a>.</p></div>
+          <div id="localRunDialogBody"><div class="runTimeControl runDurationControl"><label for="runDuration">Time</label><input id="runDuration" form="runForm" type="number" min="1" max="10" step="1" value="5" aria-describedby="runDurationUnit" required><span id="runDurationUnit">min</span></div></div>
           <p id="localRunMessage" role="status" aria-live="polite"></p>
         </dialog>
       </form>
@@ -258,7 +252,6 @@
   </div>
   </div>
   <div class="watchBelow">
-    <div id="aspireTaskDetails" class="aspireTaskPanel aspireTaskDetails" hidden><div id="aspireTaskEvidence"></div></div>
 
   </div>
   </div>
@@ -333,7 +326,7 @@
   <section id="playground-guide" class="panel playgroundResources" aria-labelledby="tryForYourselfTitle">
     <h2 id="tryForYourselfTitle">How to use the playground</h2>
     <ol class="playgroundSteps"><li><strong>Choose a robot and model.</strong> Open the model menu to set up your connection and run duration.</li><li><strong>Describe the task.</strong> Send your prompt to join the queue. Watch the cameras and follow the robot’s progress in task chat.</li><li><strong>Review the run.</strong> Browse recordings below, or open the dataset to explore the camera and action data.</li></ol>
-    <p class="resourceLinks"><a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md" target="_blank" rel="noopener noreferrer">API docs ↗</a><a href="https://github.com/andlyu/blupe-remote-yam#run-the-blupe-playground-locally" target="_blank" rel="noopener noreferrer">Run locally ↗</a><a href="https://github.com/NVlabs/ASPIRE" target="_blank" rel="noopener noreferrer">ASPIRE README ↗</a></p>
+    <p class="resourceLinks"><a href="https://github.com/andlyu/blupe-remote-yam/blob/main/docs/API.md" target="_blank" rel="noopener noreferrer">API docs ↗</a><a href="https://github.com/andlyu/blupe-remote-yam#run-the-blupe-playground-locally" target="_blank" rel="noopener noreferrer">Run locally ↗</a></p>
   </section>
   <footer>Keys stay out of logs. Robot controls stay with your session.<!-- application-operator -->
     <button id="resetRuns" type="button" disabled aria-describedby="resetRunsStatus" title="Refresh your 20-run allowance when your run is idle. History and settings are kept.">Reset runs</button>

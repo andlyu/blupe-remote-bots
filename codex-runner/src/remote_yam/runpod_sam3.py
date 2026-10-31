@@ -27,7 +27,7 @@ MAX_RESPONSE_BYTES = 16_000_000
 
 
 def selected_backend(default='bundlesdf'):
-    """Explicit environment override also reaches external ASPIRE subprocesses."""
+    """Explicit environment override selects the segmentation subprocess backend."""
     return os.environ.get('YAM_SEGMENTATION_BACKEND', default)
 
 

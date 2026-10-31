@@ -11,8 +11,7 @@ function page(initial='5') {
   const $=id=>nodes[id]||={value:'',hidden:false,required:true,dataset:{},options:[],selectedOptions:[],close(){}};
   $('runDuration').value=initial;$('runDuration').defaultValue='5';
   $('runDuration').addEventListener=(name,fn)=>listeners[name]=fn;
-  const context=vm.createContext({$,window:{},selectedRobot:'fixture',setupProvider:null,aspireRunAvailable:false,
-    localStorage:{getItem(){return null}},aspireRetryLimit(){return 1},updateRunLabel(){},updateSavedKey(){},
+  const context=vm.createContext({$,window:{},selectedRobot:'fixture',setupProvider:null,localStorage:{getItem(){return null}},updateRunLabel(){},updateSavedKey(){},
     configuredProviders:{reset_bin:{model:'reset',task:'Reset bin',label:'Reset bin',default_run_duration_s:600},
       dream:{model:'dreamlabs/dream-1-beta',default_run_duration_s:120,max_run_duration_s:1200},
       dream_flash:{model:'dreamlabs/dream-1-flash',default_run_duration_s:120,max_run_duration_s:1200},

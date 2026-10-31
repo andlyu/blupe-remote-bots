@@ -25,7 +25,7 @@ a new scene.
 
 The runner supports the standard RGB YAM `AstraAdapter`, `OpenAIAdapter`, and
 `CodexAdapter` trajectory paths. Depth policies, other robot embodiments,
-ASPIRE session policies, and legacy single-action transport are not included.
+session policies and legacy single-action transport are not included.
 Both Responses vision input and Codex's image attachments use the saved bytes;
 model text explicitly calls these the *future home starting state*, not live
 feedback. First-call wandering is suppressed when the extension is active.

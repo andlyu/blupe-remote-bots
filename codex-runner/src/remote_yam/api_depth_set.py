@@ -107,7 +107,7 @@ class ApiDepthSet(CameraFrameSource):
         """
         if observation.get('source') != 'hardware' or not depth_robot_stopped(observation):
             return
-        # ASPIRE retains the correlated Home/packet completion epoch separately
+        # Session policies retain the correlated Home/packet completion epoch separately
         # from newer stationary telemetry, under the same lease and step cursor.
         settled_at = observation.get('settled_after', observation.get('observed_at'))
         if type(settled_at) not in (int, float) or not math.isfinite(settled_at) or settled_at <= 0:

@@ -19,8 +19,6 @@ from PIL import Image
 from remote_yam.runpod_sam3 import (RunpodSam3Client, RunpodSam3Segmenter, RunpodVisionSession,
     segmentation_environment, configured_vision_session)
 from remote_yam.runpod_sam3_worker import Sam3Worker, TransformersSam3Engine, encode_object
-from remote_yam.aspire_codex_policy import AspireCodexPolicy, configured_aspire_policy
-from remote_yam.aspire_adapter import BlupeAspireAdapter
 
 
 class Response:
@@ -210,49 +208,6 @@ class IntegrationTests(unittest.TestCase):
                 {'YAM_SEGMENTATION_BACKEND':'astra'})
             self.assertEqual(segmentation_environment({},environ=source),{})
 
-    def test_environment_override_replaces_astra_binding_and_batches_the_existing_query_file(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            queries = root/'queries.json';queries.write_text(json.dumps({'block': 'green block', 'towel': 'green towel'}))
-            config = {'robot.segmentation_backend': 'astra', 'robot.astra_queries_file': str(queries)}
-            modules = {
-                'cap.env.real_bimanual_yam.skills': SimpleNamespace(make_namespace=lambda *args, **kwargs: {}),
-                'cap.agent.tool_handle': SimpleNamespace(make_tool_runner_namespace=lambda: {}),
-                'cap.agent.robot_adapters.base': SimpleNamespace(cfg_select=lambda cfg, key, default: cfg.get(key, default))}
-            engine = Engine();worker = Sam3Worker(lambda: engine)
-            client = Mock();client.last_timing = {}
-            client.call.side_effect = lambda payload: worker.handle({'input': payload})
-            env = Mock(output_dir=root, cancelled=lambda: False)
-            adapter = BlupeAspireAdapter(origin='https://example.invalid', robot_id='fixture', output_dir=root)
-            adapter.create_environment = Mock(return_value=env)
-            with patch.dict('sys.modules', modules), patch.dict(os.environ, {'YAM_SEGMENTATION_BACKEND': 'runpod_sam3'}), \
-                    patch.object(RunpodSam3Client, 'from_env', return_value=client):
-                _, namespace = adapter.create_runtime(cfg=config)
-                result = namespace['segment_camera_rgb'](np.zeros((8, 10, 3), np.uint8), 'green block')
-            self.assertEqual(env.segmentation_backend, 'runpod_sam3')
-            self.assertEqual(result['segmentation_backend'], 'runpod_sam3')
-            self.assertEqual(engine.calls[0][1], {'block': 'green block', 'towel': 'green towel'})
-            self.assertEqual(client.call.call_count, 1)
-
-    def test_configured_provider_creates_a_keeper_without_exposing_credentials(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            module = root/'station.py'
-            module.write_text('def HarnessClient(*args): return lambda **kwargs: {}\ndef coding_instructions(config): return "fixture"\n')
-            keeper = Mock(ready_result=None,client=SimpleNamespace(endpoint_id='fixture-endpoint'))
-            with patch.dict(os.environ, {'YAM_SEGMENTATION_BACKEND': 'runpod_sam3', 'RUNPOD_API_KEY': 'runpod-fixture-secret',
-                    'RUNPOD_SAM3_ENDPOINT_ID':'fixture-endpoint'}), \
-                    patch('remote_yam.runpod_sam3.RunpodVisionSession', return_value=keeper) as factory, \
-                    patch('remote_yam.api_depth.ApiDepth.read', return_value='{}'):
-                policy = configured_aspire_policy({'harness_module': str(module), 'skill_directory': str(root/'skills')},
-                    origin='https://example.invalid', robot_id='fixture', model=None, directory=root)
-            factory.assert_called_once()
-            self.assertEqual(factory.call_args.args[0].endpoint_id,'fixture-endpoint')
-            self.assertIs(policy.vision_session, keeper)
-            self.assertNotIn('runpod-fixture-secret', json.dumps(policy.public_config()))
-            policy.close_transport()
-            keeper.close.assert_called_once()
-
 
 class InferenceTests(unittest.TestCase):
     def test_long_task_description_is_encoded_to_actual_model_limit_with_provenance(self):
@@ -321,7 +276,7 @@ class InferenceTests(unittest.TestCase):
 
 
 class SessionTests(unittest.TestCase):
-    def test_public_startup_status_tracks_warmup_and_survives_policy_handoff(self):
+    def test_public_startup_status_tracks_warmup_through_readiness_and_close(self):
         entered, release = threading.Event(), threading.Event()
         clock = [100.]
         client = Mock();client.last_timing = {'private': 'fixture-secret'}
@@ -340,11 +295,6 @@ class SessionTests(unittest.TestCase):
                 self.assertEqual(starting['state'], 'starting')
                 self.assertEqual(starting['started_at'], 100.)
                 self.assertIsNone(starting['ready_at'])
-                with tempfile.TemporaryDirectory() as directory:
-                    policy = AspireCodexPolicy(harness=Mock(), calibration={}, robot_id='fixture', task='Fixture',
-                        directory=Path(directory)/'run', instructions='', skill_directory=Path(directory)/'skills',
-                        vision_session=session)
-                    self.assertEqual(policy.public_config()['task_progress']['vision'], starting)
                 clock[0] = 145.8
                 release.set();session.wait_ready()
                 ready = session.public_status()
@@ -358,6 +308,8 @@ class SessionTests(unittest.TestCase):
                 self.assertEqual(session.public_status()['ended_at'], 147.)
             finally:
                 release.set();session.close();session._thread.join(2)
+
+
 
     def test_failed_startup_has_a_terminal_timestamp_without_exposing_raw_error(self):
         session = RunpodVisionSession(Mock(warmup=Mock(side_effect=RuntimeError('fixture-private-error'))))
@@ -383,45 +335,6 @@ class SessionTests(unittest.TestCase):
         failed.start()
         with self.assertRaisesRegex(RuntimeError, 'load failed'):failed.wait_ready()
         failed.close()
-
-    def test_warmup_overlaps_generation_and_is_ready_before_planning(self):
-        with tempfile.TemporaryDirectory() as directory:
-            order = []
-            vision = Mock()
-            vision.start.side_effect = lambda **kwargs: order.append('start')
-            vision.wait_ready.side_effect = lambda: order.append('ready')
-            vision.close.side_effect = lambda: order.append('close')
-            reply = dict(action='program', source="def build_task(tools):\n return {}\ndef evaluate(tools, task):\n return {}\n",
-                summary='fixture', lesson='', queries=[dict(name='block', query='green block')])
-            def generate(**kwargs):order.append('generate');return reply
-            def harness(**kwargs):
-                order.append(kwargs['mode'])
-                if kwargs['mode'] == 'observe':return dict(status='OBSERVED', context={}, images={}, snapshot='fixture')
-                return dict(status='PLAN_ONLY', planning_success=True)
-            policy = AspireCodexPolicy(harness=harness, calibration={}, robot_id='fixture', task='pick block',
-                directory=Path(directory)/'run', instructions='', skill_directory=Path(directory)/'skills',
-                generator=generate, vision_session=vision)
-            policy.prepare_before_session(policy.task)
-            self.assertLess(order.index('start'), order.index('generate'))
-            self.assertLess(order.index('generate'), order.index('ready'))
-            self.assertLess(order.index('ready'), order.index('plan'))
-            self.assertNotIn('close', order)
-            policy.close_transport()
-            self.assertEqual(order[-1], 'close')
-
-    def test_vision_failure_prevents_plan_and_closes_keeper(self):
-        with tempfile.TemporaryDirectory() as directory:
-            vision = Mock();vision.wait_ready.side_effect = RuntimeError('GPU unavailable')
-            reply = dict(action='program', source="def build_task(tools):\n return {}\ndef evaluate(tools, task):\n return {}\n",
-                summary='fixture', lesson='', queries=[dict(name='block', query='green block')])
-            harness = Mock(return_value=dict(status='OBSERVED', context={}, images={}, snapshot='fixture'))
-            policy = AspireCodexPolicy(harness=harness, calibration={}, robot_id='fixture', task='pick block',
-                directory=Path(directory)/'run', instructions='', skill_directory=Path(directory)/'skills',
-                generator=lambda **kwargs: reply, vision_session=vision)
-            with self.assertRaisesRegex(RuntimeError, 'GPU unavailable'):
-                policy.prepare_before_session(policy.task)
-            self.assertEqual([c.kwargs['mode'] for c in harness.call_args_list], ['observe'])
-            vision.close.assert_called_once()
 
 
 if __name__ == '__main__':unittest.main()

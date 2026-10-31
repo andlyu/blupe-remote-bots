@@ -16,8 +16,7 @@ def reference_contact(runtime_root):
 
     Reference: docs/refs/i2rt-gripper-occlusion/INDEX.md; upstream I2RT
     120c3c81400171174604e503943f8d1ebc891058. Mesh transforms follow the
-    existing remote_yam.aspire_gripper_model.mesh_geometry example, but this
-    is the native API grasp frame (jaw opening Y), not ASPIRE's rotated frame.
+    native API grasp frame (jaw opening Y).
     """
     import mujoco
     root=Path(resource('gripper_assets'))

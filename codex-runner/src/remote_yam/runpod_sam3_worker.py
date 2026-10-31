@@ -1,4 +1,4 @@
-"""GPU-only SAM 3 RunPod handler using ASPIRE's Meta/Hugging Face model path.
+"""GPU-only SAM 3 RunPod handler using the Meta/Hugging Face model path.
 
 Imports and weights are loaded once per worker. Image embeddings are shared
 by all text prompts in a request, and outputs retain the supplied pixel grid.
