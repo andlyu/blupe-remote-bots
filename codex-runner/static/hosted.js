@@ -358,7 +358,7 @@ function createRunLaunchGuard() {
     if (zeroSecondVideo(run.video_duration_s) || (live && run.original_available === false)) return;
     window.yamReplayReview?.ready();
     stopPreview();
-    $('pastRunTitle').textContent = `${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
+    $('pastRunTitle').textContent = `${run.runner_name || 'Name not recorded'}${run.approach ? ' · '+run.approach : ''} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt;
     document.getElementById('aspirePastLineage')?.remove?.();
     const lineageBox = document.createElement('div'); lineageBox.id = 'aspirePastLineage';
@@ -440,7 +440,7 @@ function createRunLaunchGuard() {
         const title = document.createElement('span'); title.className = 'pastRunLabel';
         const robotName = {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods SO101', 'robot-abecb4cd868ab24b':'SO101'}[run.robot_id || 'yam-1'] || run.robot_id;
         title.textContent = `${robotName} · ${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : '#'+run.episode_index} · ${new Date(run.started_at*1000).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
-        if (run.model) title.textContent += ` · ${run.model}`;
+        if (run.approach || run.model) title.textContent += ` · ${run.approach || run.model}`;
         const prompt = document.createElement('span'); prompt.className = 'pastRunPrompt'; prompt.textContent = run.prompt;
         const watch = document.createElement('span'); watch.className = 'pastRunWatch'; watch.textContent = '▶ Watch replay';
         const outcome = document.createElement('span'); outcome.className = 'pastRunLabel';
