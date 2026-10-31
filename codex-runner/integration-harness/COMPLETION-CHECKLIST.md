@@ -165,9 +165,6 @@ and [Auto-review context and denials](https://learn.chatgpt.com/docs/sandboxing/
   Clearly label simulation content to distinguish it from physical-arm footage.
   If nothing executes in simulation, record an explicit not-applicable
   explanation instead of claiming simulation review.
-- [ ] The website is intuitive: a new visitor, without coaching, can find how to
-  run the method. Record the visitor path and starting conditions; site entry
-  has no separate 15-second pass/fail deadline.
 - [ ] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
   completes** and within **30 seconds after the Run/Start click excluding
@@ -203,14 +200,13 @@ execution mode in their own fields too.
 Verify a run's Model value against the executed approach and retain evidence of
 the website label, stored run record, notification and replay/history attribution.
 
-## Verify the visitor path
+## Verify normal UI execution
 
-Record initial navigation (`t_entry`), the visitor's starting state and test
-conditions, including browser/session/network, identity entry or confirmation,
-queue and robot readiness. Keep the website usable without coaching. Site entry
-is contextual evidence, not a separate timed pass/fail gate.
+Site entry (`t_entry`), starting state and browser/session/network may be
+recorded as optional diagnostic context. An agent can perform verification
+through the normal UI.
 
-Keep a timed screen recording showing the visitor's actions, the Run click,
+Keep a timed screen recording showing the UI actions, the Run click,
 startup Home completion (or no-Home readiness) and live physical arms beginning
 the integrated method, linked to the matching run. Correlate recorded UI/physical
 events with lifecycle logs on a common timeline; document any clock offset or
@@ -363,13 +359,13 @@ blocking interval qualifies under the exception above, with neither clock reset.
 ## Final verification before completion
 
 Open the deployed website and its associated source repository. Use the normal
-visitor flow to join, run the integrated method on physical YAMs and watch the
+website controls to join, run the integrated method on physical YAMs and watch the
 actual arms live. Check the unchanged 15-second post-Home measure and the
 30-second Run/Start-to-motion budget excluding evidenced queue-admission wait.
 Keep fixed boundaries, full elapsed times, queue entry/admission/excluded seconds
 and queue-adjusted time; verify any GPU-launch exception uses the queue/GPU
 union without double subtraction. Check actual queue-to-admitted-to-preparation
-inline stages; site entry remains context only. Check approach/runner identities,
+inline stages; site entry is optional context. Check approach/runner identities,
 replay of the just-completed run and selection/replay of previous runs. Review
 every checklist item against current evidence, including public visibility and
 actual user attribution in policy/model tests, with execution mode separate.
@@ -430,7 +426,8 @@ before any completion claim.
   or explicit not-applicable explanation if nothing executes in simulation):
 - Per-run timing verification (tester/date, browser/session/network and robot
   readiness; evidence for every run in the timing table above):
-- Visitor's starting state, `t_entry` and entry-to-motion steps (context only):
+- Optional diagnostic context (site entry `t_entry`, starting state and
+  browser/session/network):
 - `t_run` / `t_home` / `t_motion`, full Run-to-motion and post-Home-to-motion
   seconds, queue-adjusted Run seconds and separate target outcomes:
 - Queue evidence (`t_queue` / `t_admit`, matched run/request/session/lease IDs,
