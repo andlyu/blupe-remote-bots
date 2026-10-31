@@ -31,6 +31,59 @@ def quality_summary(quality):
             'failures','unverified','limitations') if k in quality}
 
 
+def _dominant_surface_plane(points):
+    """Expose a measured consensus separately; never replace the raw plane."""
+    threshold, minimum_fraction = .002, .75
+    result=dict(available=False, distance_threshold_m=threshold,
+        minimum_inlier_fraction=minimum_fraction, sample_count=len(points),
+        scope='Dominant sampled depth surface, not semantic top, contact clearance '
+              'or calibration accuracy. The 2mm segmentation threshold is not a '
+              'motion tolerance. Inspect excluded pixels and original raw fit; '
+              'normal sign is arbitrary.')
+    count=len(points)
+    # The caller has checked finite, nondegenerate 3D input. A fixed generator
+    # makes hypothesis selection independent of base coordinates and repeatable.
+    rng=np.random.default_rng(0)
+    best=None
+    for _ in range(192):
+        a,b,c=points[rng.choice(count,3,replace=False)]
+        normal=np.cross(b-a,c-a);length=np.linalg.norm(normal)
+        if length<=1e-18:continue
+        distances=np.abs((points-a)@(normal/length))
+        mask=distances<=threshold
+        score=(int(mask.sum()),-float(np.sum(distances[mask]**2)))
+        if best is None or score>best[0]:best=(score,mask)
+    if best is None:
+        return dict(result,reason='No nondegenerate sampled plane hypothesis')
+    mask=best[1]
+    for _ in range(8):
+        inliers=int(mask.sum())
+        counts=dict(inlier_count=inliers,outlier_count=count-inliers,
+                    inlier_fraction=inliers/count)
+        if inliers<9 or inliers<count*minimum_fraction:
+            return dict(result,**counts,reason='No plane covers at least 75% of sampled points')
+        center=np.mean(points[mask],axis=0)
+        _,singular,axes=np.linalg.svd(points[mask]-center,full_matrices=False)
+        principal=singular/np.sqrt(inliers)
+        if principal[1]<=1e-9:
+            return dict(result,**counts,reason='Consensus points do not span a surface')
+        normal=axes[-1].copy()
+        if normal[np.argmax(np.abs(normal))]<0:normal=-normal
+        residual=(points-center)@normal
+        updated=np.abs(residual)<=threshold
+        if np.array_equal(updated,mask):
+            return dict(result,**counts,available=True,center_m=center.tolist(),
+                normal_base=normal.tolist(),principal_rms_m=principal.tolist(),
+                rms_residual_m=float(np.sqrt(np.mean(residual[mask]**2))),
+                abs_residual_95_m=float(np.quantile(np.abs(residual[mask]),.95)),
+                all_sample_rms_residual_m=float(np.sqrt(np.mean(residual**2))),
+                all_sample_abs_residual_max_m=float(np.max(np.abs(residual))),
+                outlier_indices=np.flatnonzero(~mask).tolist())
+        mask=updated
+    return dict(result,inlier_count=int(mask.sum()),outlier_count=int((~mask).sum()),
+                inlier_fraction=float(mask.mean()),reason='Consensus membership did not stabilize')
+
+
 def _surface_plane(points):
     """Least-squares shape of selected measured points, not semantic face truth."""
     points=np.asarray(points,dtype=float)
@@ -54,7 +107,7 @@ def _surface_plane(points):
     return dict(result,available=True,center_m=center.tolist(),normal_base=normal.tolist(),
                 rms_residual_m=float(np.sqrt(np.mean(residual**2))),
                 abs_residual_95_m=float(np.quantile(np.abs(residual),.95)),
-                principal_rms_m=principal.tolist())
+                principal_rms_m=principal.tolist(),dominant_plane=_dominant_surface_plane(points))
 
 
 def _project_factory(profile, optical):
@@ -267,9 +320,14 @@ class RoboSkillsPerception:
         surfaces = {}
         for a in arms:
             points = np.array([v['points_base_m'][a] if arm is None else v['point_base_m'] for v in samples])
+            plane=_surface_plane(points)
+            dominant=plane.get('dominant_plane',{})
+            if dominant.get('available'):
+                dominant['outlier_pixels']=[[int(xs[indices[i]]),int(ys[indices[i]])]
+                                           for i in dominant['outlier_indices']]
             surfaces[a] = dict(center_m=np.median(points,axis=0).tolist(),
                 lower_m=np.quantile(points,.05,axis=0).tolist(),
-                upper_m=np.quantile(points,.95,axis=0).tolist(),plane_fit=_surface_plane(points))
+                upper_m=np.quantile(points,.95,axis=0).tolist(),plane_fit=plane)
         return MeasuredResult(label=label, camera=camera, captured_at=snapshot.metadata['captured_at'],
                     calibration_id=self.report['calibration_id'], pixel_count=selected,
                     valid_depth_count=len(xs), mask_sha256=hashlib.sha256(mask.tobytes()).hexdigest(),

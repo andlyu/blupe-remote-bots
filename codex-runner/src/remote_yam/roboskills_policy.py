@@ -352,8 +352,15 @@ All later contact/grasp plans use fresh measurements and ordinary move_to.
 Wrist images rotate with the arm. A face that is uppermost in the IMAGE is not
 necessarily the physical top. A whole-object visible-surface median is not its
 top height either. For a block, separately mask each visible planar face and a
-nearby clear table patch with localize_object; inspect each plane_fit normal,
-principal_rms_m and residuals. Compare abs(dot(unit normals)) in the SAME camera
+nearby clear table patch with localize_object; batch those read-only measurements
+in one Python program. Inspect each plane_fit's raw normal, principal_rms_m and
+residuals. Isolated bad depth pixels can rotate the raw least-squares plane.
+plane_fit['dominant_plane'], when available, separately reports a stable surface
+covering at least75% of samples within2mm, its residuals, and all excluded
+outlier_pixels. Inspect those pixels in RGB, coverage and original fit before
+using its normal; this segmentation criterion is not sensor accuracy or a
+contact/motion tolerance. Refine interior face masks or inspect another available
+camera when ambiguous. Compare abs(dot(unit normals)) in the SAME camera
 and state: a supported top face should be approximately parallel to the local
 support plane, while a side face is closer to perpendicular. Do not take grasp
 height from a side-face pixel. Recheck the face's measured heights/coverage and
