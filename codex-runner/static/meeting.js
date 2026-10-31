@@ -17,6 +17,9 @@
     expand: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
     down: '<path d="m6 9 6 6 6-6"/>',
+    sound: '<path d="m11 4-6 5H2v6h3l6 5V4Z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+    muted: '<path d="m11 4-6 5H2v6h3l6 5V4Z"/><path d="m16 9 6 6m0-6-6 6"/>',
+    reaction: '<circle cx="12" cy="12" r="9"/><path d="M8 14a4 4 0 0 0 8 0M8 9h.01M16 9h.01"/>',
     more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>'
   };
   const icon = name => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
@@ -51,7 +54,7 @@
   document.querySelector('.taskChatHeading').append(closePanel);
   const dock = document.createElement('section');
   dock.className = 'meetingPromptDock'; dock.setAttribute('aria-labelledby', 'meetingPromptTitle');
-  dock.innerHTML = '<div class="meetingPromptHeading"><h2 id="meetingPromptTitle">Prompt the arms</h2><p id="meetingSuggestionStatus" role="status" aria-live="polite">Loading suggestions…</p></div><div id="meetingSuggestions" class="meetingSuggestions" role="group" aria-label="Suggested tasks"></div>';
+  dock.innerHTML = '<div class="meetingPromptHeading"><h2 id="meetingPromptTitle">Prompt the arms</h2><p id="meetingSuggestionStatus" role="status" aria-live="polite">Loading suggestions…</p></div><div id="meetingSuggestions" class="meetingSuggestions" role="group" aria-label="Suggested tasks and discovery"></div>';
   dock.querySelector('.meetingPromptHeading').after(document.querySelector('.runSetup'));
   room.append(dock);
   $('prompt').placeholder = 'What should the arms do?';
@@ -71,7 +74,7 @@
   discover.id = 'meetingExplore'; discover.type = 'button'; discover.className = 'meetingExplore';
   discover.innerHTML = 'What have people run?' + icon('down');
   discover.setAttribute('aria-controls', 'pastRunsCloud');
-  dock.querySelector('.meetingPromptHeading').append(discover);
+  $('meetingSuggestions').append(discover);
   discover.addEventListener('click', () => {
     const cloud = $('pastRunsCloud'), toggle = $('pastRunsCloudView');
     if (!cloud || !toggle) return;
@@ -98,28 +101,75 @@
   const visitors = $('openVisitorChat'); visitors.classList.add('meetingControl');
   visitors.title = 'Visitor chat'; visitors.setAttribute('aria-label', 'Visitor chat');
   visitors.innerHTML = icon('people') + '<span class="meetingControlLabel">Visitors</span>';
-  const notes = button('meetingNotes', 'Task & notes', 'notes');
-  notes.querySelector('span').textContent = 'Notes';
+  const notes = button('meetingNotes', 'Task chat', 'notes');
+  notes.querySelector('span').textContent = 'Chat';
   notes.setAttribute('aria-controls', panel.id); notes.setAttribute('aria-expanded', 'false');
   const guide = document.createElement('a'); guide.href = '#playground-guide'; guide.textContent = 'Guide';
   moreOptions.append(expand, guide);
   const social = document.querySelector('.cameraSocialControls');
-  if (social) moreOptions.append(social);
+  const reactions = document.createElement('details'); reactions.className = 'meetingReactions';
+  const reactionToggle = document.createElement('summary');
+  reactionToggle.className = 'meetingMoreSummary'; reactionToggle.setAttribute('aria-label', 'Send a reaction');
+  reactionToggle.innerHTML = icon('reaction');
+  const reactionDock = $('reactionDock');
+  reactions.append(reactionToggle);
+  if (social && reactionDock) {
+    // Effects and live errors remain visible even while the picker is closed.
+    social.append($('reactionStage'), $('reactionStatus'));
+    social.classList.add('meetingSocialOverlay'); room.append(social);
+    reactions.append(reactionDock);
+    reactionDock.addEventListener('click', event => {
+      if (!event.target.closest('[data-reaction]')) return;
+      reactions.open = false; reactionToggle.focus({preventScroll:true});
+    });
+  }
+  reactions.hidden = !reactionDock;
+  reactions.addEventListener('toggle', () => {
+    reactionToggle.setAttribute('aria-expanded', String(reactions.open));
+    if (reactions.open) more.open = false;
+  });
+  more.addEventListener('toggle', () => { if (more.open) reactions.open = false; });
+  const audio = $('robotAudioToggle');
+  if (audio) {
+    audio.classList.add('meetingControl');
+    function decorateAudio() {
+      const label = audio.textContent;
+      const symbol = /^Mute$/.test(label) ? 'sound' : 'muted';
+      if (audio.dataset.meetingSymbol === symbol && audio.querySelector('svg')) return;
+      audio.dataset.meetingSymbol = symbol; audio.title = audio.getAttribute('aria-label');
+      audio.innerHTML = icon(symbol);
+      const text = document.createElement('span'); text.className = 'meetingControlLabel'; text.textContent = label;
+      audio.append(text);
+    }
+    decorateAudio(); new MutationObserver(decorateAudio).observe(audio, {childList:true});
+  }
   more.append(moreToggle, moreOptions);
   const roomInfo = document.createElement('div'); roomInfo.className = 'meetingInfo';
   roomInfo.innerHTML = '<time id="meetingClock"></time><span class="meetingInfoDivider"></span><span id="meetingRoomName"></span>';
   const callControls = document.createElement('div'); callControls.className = 'meetingCallControls';
-  callControls.append(views, notes, more, stop);
+  callControls.append(views);
+  if (audio) callControls.append(audio);
+  callControls.append(notes, reactions, more, stop);
   const peopleControls = document.createElement('div'); peopleControls.className = 'meetingPeopleControls';
   peopleControls.append(visitors);
   bar.append(roomInfo, callControls, peopleControls); room.append(bar);
+  const mobile = window.matchMedia('(max-width:600px), (max-width:1000px) and (max-height:500px)');
+  function arrangeControls() {
+    if (mobile.matches) moreOptions.prepend(views, visitors);
+    else { callControls.prepend(views); peopleControls.append(visitors); }
+    peopleControls.hidden = mobile.matches;
+  }
+  arrangeControls(); mobile.addEventListener('change', arrangeControls);
   moreOptions.addEventListener('click', event => {
     const action = event.target.closest('button,a');
     if (!action) return;
     more.open = false;
     if (action.tagName === 'BUTTON') moreToggle.focus({preventScroll:true});
   });
-  document.addEventListener('click', event => { if (!more.contains(event.target)) more.open = false; });
+  document.addEventListener('click', event => {
+    if (!more.contains(event.target)) more.open = false;
+    if (!reactions.contains(event.target)) reactions.open = false;
+  });
 
   const below = document.createElement('a'); below.className = 'meetingBelow';
   below.href = '#past-runs'; below.innerHTML = 'Run library ' + icon('down');
@@ -141,6 +191,7 @@
   notes.addEventListener('click', () => setPanel(!$('visitorChatPanel').hidden || !room.classList.contains('meetingPanelOpen')));
   closePanel.addEventListener('click', () => setPanel(false));
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && reactions.open) { reactions.open = false; reactionToggle.focus({preventScroll:true}); return; }
     if (event.key === 'Escape' && more.open) { more.open = false; moreToggle.focus({preventScroll:true}); return; }
     if (event.key === 'Escape' && room.classList.contains('meetingPanelOpen') && !document.querySelector('dialog[open]') && $('visitorChatPanel').hidden) setPanel(false);
   });
@@ -171,7 +222,7 @@
     room.classList.toggle('meetingCanStop', !stop.disabled);
     const active = $('runForm').classList.contains('runActive');
     dock.classList.toggle('meetingPromptActive', active);
-    for (const suggestion of $('meetingSuggestions').children) suggestion.disabled = $('prompt').disabled || $('prompt').readOnly;
+    for (const suggestion of $('meetingSuggestions').children) if (suggestion !== discover) suggestion.disabled = $('prompt').disabled || $('prompt').readOnly;
     if (!$('robotSelector').disabled && suggestionRobot !== $('robotSelector').value) void refreshSuggestions();
   }
   const lifecycle = new MutationObserver(updateControls);
@@ -190,7 +241,7 @@
     const request = ++suggestionRequest;
     if (suggestionRobot !== robot) {
       suggestionRobot = robot; suggestionSignature = '';
-      $('meetingSuggestions').replaceChildren();
+      $('meetingSuggestions').replaceChildren(discover);
       $('meetingSuggestionStatus').textContent = 'Loading suggestions…';
     }
     try {
@@ -211,7 +262,7 @@
             $('prompt').focus({preventScroll:true});
           });
           return choice;
-        }));
+        }), discover);
         suggestionSignature = signature;
       }
       $('meetingSuggestionStatus').textContent = '';
@@ -226,7 +277,7 @@
   }
   window.addEventListener('blupe-robot-selected', () => {
     suggestionRobot = null;
-    $('meetingSuggestions').replaceChildren(); suggestionSignature = '';
+    $('meetingSuggestions').replaceChildren(discover); suggestionSignature = '';
     $('meetingSuggestionStatus').textContent = 'Loading suggestions…';
     void refreshSuggestions(true);
   });
@@ -263,5 +314,5 @@
   function clock() { $('meetingClock').textContent = new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }
   clock(); setInterval(clock, 30000);
   updateControls(); updateCameras(); updateQuietStatus();
-  setPanel(true, false, false);
+  setPanel(!mobile.matches, false, false);
 })();
