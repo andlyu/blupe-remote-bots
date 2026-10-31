@@ -1,0 +1,72 @@
+{
+  "sourceRun": "e15b4276205b41f082f0c0303e1a21fe",
+  "runtime": "aada98c2632e6cdd0dcdd362b58984ed61b04e8e",
+  "observation": {
+    "source": "hardware",
+    "observed_at": 1793446737.0030723,
+    "homed": true,
+    "settled": true,
+    "step_id": 0,
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.57136578467282,
+      -25.203487268233864,
+      -2.8287509420800183,
+      -0.5136380630800196
+    ],
+    "right_joints_deg": [
+      -1.3442017395493058,
+      45.79667821112606,
+      34.42301118759663,
+      -19.307933595942625,
+      -1.1905515048634623,
+      -0.6010658184978607
+    ],
+    "left_gripper": 0.9997836746466686,
+    "right_gripper": 0.9988444316047956,
+    "episode_id": "offline",
+    "lease_id": "offline"
+  },
+  "sourcePoints": {
+    "right": [
+      0.4965675840782255,
+      0.2692946430845838,
+      0.00798359681773464
+    ],
+    "left": [
+      0.4965675840782255,
+      -0.23070535691541624,
+      0.00798359681773464
+    ]
+  },
+  "note": "Measured source/Home from a zero-dispatch refusal. Tilted pose validity is local geometry/packet evidence, not physical clearance or grasp success.",
+  "calibration": {
+    "robot_id": "yam-1",
+    "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+    "base_geometry": {
+      "spacing_m": 0.5,
+      "convention": "Parallel level arm bases; common world midpoint; left y=+spacing/2, right y=-spacing/2.",
+      "independently_surveyed": false
+    },
+    "quality": {
+      "status": "experimental_requires_fresh_validation",
+      "operator_selected": true,
+      "extrinsics_provisional": true,
+      "failures": [],
+      "unverified": [
+        "Fresh independent physical accuracy of this packaged calibration",
+        "RealSense depth accuracy at the grasp and placement"
+      ],
+      "limitations": [
+        "Same capture session used for fitting and consistency comparison.",
+        "No surveyed reference, measured tool contact or independent depth validation.",
+        "Parallel level bases and 0.50 m spacing assumed.",
+        "Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees."
+      ]
+    },
+    "provenance": {
+      "selected_file_sha256": {}
+    }
+  }
+}
