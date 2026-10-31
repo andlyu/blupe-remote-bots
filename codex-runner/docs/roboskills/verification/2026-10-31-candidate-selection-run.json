@@ -1,0 +1,48 @@
+{
+  "runId": "812bf9eba1c9461d8323c29a276b8639",
+  "siteVersion": 19,
+  "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
+  "runtimeSource": "d222c77b303a4f5585846614d6c533d563e91529",
+  "releaseMerge": "a738ee4c04ce24c00e69ec6ef20ebf1600185901",
+  "requiredReleaseChecks": "All six push/PR checks pass; dedicated54tests11.048s, all three prior repair regressions executed",
+  "runClickHostEpochBounds": [
+    1793450800.408,
+    1793450800.459
+  ],
+  "robotMinusHostBounds": [
+    0.08624553680419922,
+    0.09552145004272461
+  ],
+  "matchedSettledHomeRobotEpoch": 1793450813.698595,
+  "observedQueueJoinHostEpoch": 1793450802.717613,
+  "observedAdmissionHostEpoch": 1793450813.615476,
+  "queueObservationScope": "Joined and first Session preparing/jetson_leased observations; no invented native queue timestamp. No adjusted onset calculated because no method movement.",
+  "nativeEpisode": "ep_f19abf8d34934a24",
+  "sessionId": "sess_430056bcd06c4c11",
+  "submittedWaypoints": 0,
+  "submittedPackets": 0,
+  "nativeExecutionSeconds": 13.12821102142334,
+  "taskSuccess": false,
+  "agentAssessment": "No locally reachable, level-jaw first approach to the measured purple block.",
+  "observedCause": "False agent refusal: six locally feasible candidates discarded by checking left in flat target kwargs. Actual arm selector is candidate['arm']. Source/depth/planner worked; no physical approach was attempted.",
+  "timingStatus": "UNQUALIFIED: after startupHome, no method motion. Neither limit is proved; no cancellation-before-Home N/A or historical waiver applies.",
+  "physicalApproachCorrectionStatus": "Not exercised by this zero-packet run; no physical convergence claim.",
+  "nativePark": {
+    "ok": true,
+    "command": "status",
+    "mode": "DISABLED",
+    "parked": true,
+    "torque_off_verified": true,
+    "feedback_available": true,
+    "auto_queue_enabled": true,
+    "event": "Both physical arms parked at joint zero and torque-disabled",
+    "disconnected": false,
+    "elapsed_s": 0.021
+  },
+  "replayUrl": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/812bf9eba1c9461d8323c29a276b8639/assets/physical.mp4",
+  "replayVerification": "Matching14s replay played in normal Site history and sought to7s; camera05:46:55.5PDT shown, tasknotcompleted/agentassessment/unscored label explicit.",
+  "uiRecording": "2026-10-31-candidate-selection-timed-ui.mp4",
+  "uiManifest": "2026-10-31-candidate-selection-ui-frames.json",
+  "uiRecordingScope": "81retained native CUA screenshots/98attempts over38.317s at original variable cadence. Confirmed email field blank before/after each retained capture; no private capabilities.",
+  "ownerHistoricalException": "none: outside exact accepted seven"
+}

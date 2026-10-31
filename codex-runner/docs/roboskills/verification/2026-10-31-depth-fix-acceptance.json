@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T12:37:29.309509+00:00",
+  "reviewedAt": "2026-10-31T12:53:34.933093+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "ebfaf697208f82dbd4ab1012bb1d5b35923984bc",
+  "runtimeSource": "d222c77b303a4f5585846614d6c533d563e91529",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "Public Site19 source4d76cfb; native SDK ebfaf69 via merged PR195/669abc9, all six release checks passed. Genuine upstream agent unchanged. Candidate correction repair not yet deployed."
+      "evidence": "Public Site19 source4d76cfb; live d222c77 provider13706/physical13710 via merged PR196/a738ee4, all six release checks passed. Genuine agent unchanged; candidate API guidance repair not yet deployed."
     },
     {
       "number": 2,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Latest63f792 on runtimeebfaf69 sent67waypoints/6completed packets, failed first approach5.876mm against3mm; no grasp/stack. Earlierfae retained grasp/lift/transfer but timed out before release/withdrawal."
+      "evidence": "Latest812bf9 used actual scene/depth and found6locally valid approaches, then false agent filtering yielded0packets. Prior63f792 failed approach accuracy; fae grasp/lift/transfer timed out before release. Full stack remains unqualified."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Latest63f792 matching32s actual physical replay played and sought to16s through normal website player; native camera05:25:16.8PDT visible, honest failed outcome retained."
+      "evidence": "Latest812bf9 matching14s actual physical replay played and sought to7s through normal Site player; actual camera05:46:55.5PDT and explicit tasknotcompleted/agentassessment/unscored label retained."
     },
     {
       "number": 10,
@@ -82,7 +82,7 @@
       "number": 13,
       "requirement": "Every-run startup timing",
       "status": "OPEN: new historical miss outside accepted exceptions",
-      "evidence": "Nine prior measured startup passes preserved. Exact seven accepted historical exceptions unchanged. Later900123 postHome miss,2437/e15b afterHome no-motion and63f792 postHome21.737\u201322.737s miss remain outside that acceptance. Latest queue-adjusted upper25.559s passes30s but does not excuse15s."
+      "evidence": "Nine earlier startup passes and exact seven accepted exceptions preserved. Additional900123,2437,e15b,63f792 and812bf9 cases remain outside acceptance. Latest812bf9 has startupHome but0method motion, so neither timing limit is qualified; not a preadmission cancellation exemption."
     },
     {
       "number": 14,
@@ -94,7 +94,7 @@
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "Latest normalSite19 run63f792 verifies actual method/name, admission/preparation/model/motion stages, live/timedUIcapture, honest failed result, actual replay/seeking and native park/torque-off. Full stack remains unqualified."
+      "evidence": "Latest normalSite19 test812bf9 verifies actual method/runner, exact taskmarks, observed native admission/Home and persistent UI stages, timed live capture, honest agent failure, retained replay/seeking and normalpark/torqueoff. No physical stack qualified."
     }
   ],
   "checked": 12,
@@ -136,7 +136,8 @@
     "900123781dec40b49bb223e6c91a4283",
     "2437a5f1acf84da090bb360ecc1d756a: zero-packet refusal after Home; no motion onset to qualify",
     "e15b4276205b41f082f0c0303e1a21fe: afterHome zero-packet vertical-only refusal; Run-click not measured",
-    "63f7924023834731b5afce3e066a59a0: postHome21.737\u201322.737s FAIL; queue-adjusted24.512\u201325.559s PASS"
+    "63f7924023834731b5afce3e066a59a0: postHome21.737\u201322.737s FAIL; queue-adjusted24.512\u201325.559s PASS",
+    "812bf9eba1c9461d8323c29a276b8639: afterHome zero-packet false agent refusal; no first method motion"
   ],
   "notApplicableStartup": [
     "540a8e90829340d99038076309fd48ea: cancelled before admission, no Home/episode/model/packet"
@@ -152,5 +153,5 @@
     "cd7316b5a15847a49769a456c300c54d",
     "fae84cbc177940b9a5e0eec76c5e2121"
   ],
-  "candidateRuntimeSource": "working correction repair, not deployed"
+  "candidateRuntimeSource": "candidate API guidance repair; not deployed"
 }

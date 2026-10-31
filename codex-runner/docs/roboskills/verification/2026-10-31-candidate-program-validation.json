@@ -1,0 +1,130 @@
+[
+  {
+    "trial": 0,
+    "model": "gpt-6-sol",
+    "effort": "none",
+    "generation_wall_s": 7.672548291997373,
+    "serialized_packets": 1,
+    "waypoints": 60,
+    "last_move": {
+      "targets": {
+        "left_x": 0.47068338198295906,
+        "left_y": -0.2185625448571566,
+        "left_z": 0.05309596049364611
+      },
+      "position_error_m": {
+        "left": 0.0,
+        "right": 0.0
+      },
+      "orientation_error_deg": {
+        "left": 3.5114852004310282e-06,
+        "right": 1.2586848070162373e-16
+      },
+      "rotation_requested": {
+        "left": [
+          [
+            0.42116040808603294,
+            0.742959574434618,
+            0.5202258946041974
+          ],
+          [
+            0.9069861689468072,
+            -0.34499440925725994,
+            -0.24156768600213904
+          ],
+          [
+            0.0,
+            0.573576436351046,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "tracking_corrections": 0,
+      "pose_target_arms": [
+        "left"
+      ],
+      "measured_coordinates": {
+        "left_x": 0.4706832150489973,
+        "left_y": -0.21856246912390923,
+        "left_z": 0.053095880871951495,
+        "left_yaw": 4.666142641943117e-10,
+        "left_pitch": 5.562912525070021e-08,
+        "left_roll": -2.571529528205833e-08,
+        "left_gripper": 0.9997835185452446,
+        "right_x": 0.30032314009523287,
+        "right_y": 0.0004421456017430214,
+        "right_z": 0.1857816211944065,
+        "right_yaw": -1.932591185491415e-19,
+        "right_pitch": 0.0,
+        "right_roll": 3.2526065174565075e-19,
+        "right_gripper": 0.9988435964151489
+      }
+    },
+    "native_hardware_dispatched": false,
+    "scope": "Actual generated program; retained measured pixels/state, real canonical HTTP serialization with mocked transport and ideal-feedback model. No physical success inference."
+  },
+  {
+    "trial": 1,
+    "model": "gpt-6-sol",
+    "effort": "none",
+    "generation_wall_s": 6.697620750001079,
+    "serialized_packets": 1,
+    "waypoints": 60,
+    "last_move": {
+      "targets": {
+        "left_x": 0.47068338198295906,
+        "left_y": -0.2185625448571566,
+        "left_z": 0.05309596049364611
+      },
+      "position_error_m": {
+        "left": 0.0,
+        "right": 0.0
+      },
+      "orientation_error_deg": {
+        "left": 3.5114852004310282e-06,
+        "right": 1.2586848070162373e-16
+      },
+      "rotation_requested": {
+        "left": [
+          [
+            0.42116040808603294,
+            0.742959574434618,
+            0.5202258946041974
+          ],
+          [
+            0.9069861689468072,
+            -0.34499440925725994,
+            -0.24156768600213904
+          ],
+          [
+            0.0,
+            0.573576436351046,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "tracking_corrections": 0,
+      "pose_target_arms": [
+        "left"
+      ],
+      "measured_coordinates": {
+        "left_x": 0.4706832150489973,
+        "left_y": -0.21856246912390923,
+        "left_z": 0.053095880871951495,
+        "left_yaw": 4.666142641943117e-10,
+        "left_pitch": 5.562912525070021e-08,
+        "left_roll": -2.571529528205833e-08,
+        "left_gripper": 0.9997835185452446,
+        "right_x": 0.30032314009523287,
+        "right_y": 0.0004421456017430214,
+        "right_z": 0.1857816211944065,
+        "right_yaw": -1.932591185491415e-19,
+        "right_pitch": 0.0,
+        "right_roll": 3.2526065174565075e-19,
+        "right_gripper": 0.9988435964151489
+      }
+    },
+    "native_hardware_dispatched": false,
+    "scope": "Actual generated program; retained measured pixels/state, real canonical HTTP serialization with mocked transport and ideal-feedback model. No physical success inference."
+  }
+]
