@@ -173,11 +173,13 @@ Invocation evidence: user requested “please use the harness” and connection 
   has no separate 15-second pass/fail deadline.
 - [ ] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
-  completes** and within **30 seconds after the Run click**, using the boundaries
-  below (including a documented readiness timestamp when Home is unnecessary).
-  Homing/preparation motion does not count. Verify and record both full elapsed
-  times for every run; a sampled demonstration is insufficient. Apply only the
-  documented GPU-launch or research-grounded exceptions below.
+  completes** and within **30 seconds after the Run/Start click excluding
+  evidenced queue-admission waiting**, using the boundaries below (including a
+  documented readiness timestamp when Home is unnecessary). Homing/preparation
+  motion does not count. Record full elapsed times, queue entry/admission,
+  excluded queue seconds and the queue-adjusted Run time for every run; a sampled
+  demonstration is insufficient. Apply only the documented GPU-launch or
+  research-grounded exceptions below.
 - [x] Every meaningful wait after a website action is immediately explained in
   a persistent inline status/progress area at that action (below Run in the run
   panel for launches). Show the current stage, a plain-language reason and real
@@ -221,9 +223,11 @@ measurement uncertainty. Backend timing alone cannot verify physical onset.
 
 For every run, record these fixed boundaries:
 
-- `t_run`: the actual Run click, including any subsequent queue, preparation,
-  coding, model loading or inference time. Do not restart this clock at admission,
-  acknowledgement, dispatch, GPU readiness or a later status change.
+- `t_run`: the actual Run/Start click. Retain all subsequent wall-clock time,
+  including queue waiting, preparation, coding, model loading and inference.
+  Exclude only evidenced queue-admission waiting from the 30-second calculation
+  below; do not restart the clock at admission, acknowledgement, dispatch, GPU
+  readiness or a later status change.
 - `t_home`: completion of that run's startup move to Home, using matched
   settled/ready completion for all participating arms, corroborated by live
   footage. Starting/submitting Home or reporting it accepted is insufficient.
@@ -238,15 +242,38 @@ For every run, record these fixed boundaries:
   queued request, submitted packet, UI "running" status, inference start or
   backend-only timestamp is insufficient.
 
-Ordinary runs must satisfy **both** `t_motion - t_home <= 15 seconds` and
-`t_motion - t_run <= 30 seconds`. Retain full Run-to-motion and post-Home-to-motion
-elapsed times even for failures and exceptions. Missing visual evidence or an
-unmatched Home/readiness boundary makes the timing unverified.
+### Queue-admission wait in the 30-second budget
 
-Record every run below (add rows), with visual evidence of Run and physical
-onset plus matched Home/readiness evidence. Mark each timing outcome as pass,
-missed target, unverified or exception. A normal pass requires both full elapsed
-times within target; an exception is never a passed normal 30-second run.
+Record `t_queue` when this run's request actually enters the normal robot queue
+and `t_admit` when that same request is first admitted/granted its robot
+session/lease. Match queue/request and session/lease identifiers to the run and
+retain actual lifecycle evidence. An accepted/queued submission is not admission.
+Time between Start and queue entry still counts. Post-admission hardware
+preparation, readiness checks, Home, coding, model loading/inference and other
+setup still count; they must not be relabeled queue waiting. Later preparation
+status changes or reacquisition cannot move the initial admission boundary.
+
+Let `Q_run` be the duration of the evidenced queue-admission wait interval
+`[t_queue, t_admit]` overlapping `[t_run, t_motion]`. Clip any queue waiting that
+began before Start to `t_run`. If already admitted or there is no queue wait,
+record `Q_run = 0` with matching admission/no-queue evidence. For a queued
+request, missing entry or admission evidence makes the adjusted Run measure
+unverified; do not assume zero or infer admission from Home, method readiness
+or eventual motion.
+
+Ordinary runs must satisfy **both** `t_motion - t_home <= 15 seconds` and
+`t_motion - t_run - Q_run <= 30 seconds`. The queue exclusion is a normal part of
+the 30-second budget, not a GPU or research exception; a full wall time over
+30 seconds may still be a normal pass when the evidenced queue-adjusted time
+meets its target. It does not change or pause the 15-second post-Home measure.
+
+Retain full Run-to-motion and post-Home-to-motion times, excluded queue seconds
+and queue-adjusted Run seconds even for failures and exceptions. Record every
+run below (add rows), with visual evidence of Run and physical onset plus
+matched Home/readiness and queue-admission evidence. Mark each target as pass,
+missed target, unverified or exception. A normal pass requires the queue-adjusted
+Run time and full post-Home time within their limits. Missing visual evidence or
+an unmatched Home/readiness boundary leaves the affected timing unverified.
 
 ### GPU-launch exception
 
@@ -263,28 +290,36 @@ Keep the original clocks and full elapsed times. Record `t_gpu_start`,
 seconds overlapping each measured interval (`B_run` and `B_home`). Only blocking
 time inside both the actual launch interval and the relevant Run/Home-to-motion
 interval can be excused; do not deduct concurrent time spent on unrelated work.
-For a GPU exception, require `t_motion - t_run - B_run <= 30 seconds` and
-`t_motion - t_home - B_home <= 15 seconds`, while labeling any full-time target
-miss caused by launch as **exception**, not normal pass. If GPU readiness
-precedes Home completion, `B_home = 0`: the full 15-second post-Home target still
+For the Run clock, also record `O_run`, the duration shared by the evidenced
+queue-wait and GPU-blocking intervals inside `[t_run, t_motion]`. Exclude their
+union, `Q_run + B_run - O_run`, never the overlapping seconds twice. For a GPU
+exception, require `t_motion - t_run - Q_run - B_run + O_run <= 30 seconds` and
+`t_motion - t_home - B_home <= 15 seconds`. Label a queue-adjusted Run target miss
+or full post-Home target miss excused by GPU launch as **exception**, not normal
+pass. Queue exclusion alone remains normal budget accounting. Keep raw queue and
+GPU intervals, overlap, full timings and both adjusted calculations separately.
+If GPU readiness precedes Home completion, `B_home = 0`: the full 15-second post-Home target still
 applies. If Home completes during launch, only its evidenced remaining launch
 blocking time can be excused; do not silently restart either clock at GPU ready.
 Missing lifecycle or persistent UI evidence leaves the exception unverified.
 
-Queueing, coding, model loading, inference, setup and other infrastructure delays
-outside actual GPU provisioning remain in their respective clocks. A warm GPU,
-a generic "loading" message or a slow model call is not a launch exception.
+Only the evidenced initial queue-admission interval is excluded from the
+30-second budget; coding, model loading, inference, post-admission preparation
+and other infrastructure delays outside actual GPU provisioning remain counted.
+A warm GPU, a generic "loading" message or a slow model call is not a launch
+exception.
 Unrelated delays remain missed targets if they exceed the remaining limits.
 
 Other exceptions require a specific justification grounded in the integrated
 paper/research, explaining why it applies to that run and which target it affects,
 plus a supporting source citation/link and relevant section/page. Slow coding,
-loading, queueing, setup or infrastructure delay is not in itself a
+loading, setup, post-admission delay or infrastructure delay is not in itself a
 paper/research-grounded exemption; there is no permanent coding exemption.
+Queue-admission waiting uses the normal exclusion above, not this mechanism.
 
-| Run reference | Run click (`t_run`) | Startup Home settled completion / no-Home readiness (`t_home`) and evidence | First observed method motion (`t_motion`) / visual evidence | Full Run-to-motion seconds | Full post-Home-to-motion seconds | Run / post-Home outcomes |
-| --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | |
+| Run reference | Run/Start click (`t_run`) | Queue entry / admission (`t_queue` / `t_admit`), matching lifecycle evidence; or evidenced no-wait | Excluded queue seconds (`Q_run`) | Startup Home settled completion / no-Home readiness (`t_home`) and evidence | First observed method motion (`t_motion`) / visual evidence | Full Run-to-motion seconds | Queue-adjusted Run seconds | Full post-Home-to-motion seconds | Run / post-Home outcomes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| | | | | | | | | | |
 
 - Exception record (repeat for each affected run):
 - Exception category (GPU launch or paper/research-grounded):
@@ -293,8 +328,9 @@ paper/research-grounded exemption; there is no permanent coding exemption.
 - GPU-launch evidence (if applicable: provider, instance/job reference,
   `t_gpu_start`, `t_gpu_ready`, full launch seconds, lifecycle log/link and
   persistent inline UI evidence covering the entire launch period):
-- GPU-launch blocking overlap evidence (`B_run`, `B_home`, non-launch elapsed
-  times for both clocks and separate outcome for each target):
+- GPU-launch blocking evidence (`B_run`, `B_home`), queue/GPU shared seconds
+  (`O_run`), excluded union (`Q_run + B_run - O_run`), both adjusted calculations
+  and separate outcome for each target:
 - Supporting paper/research source (for other exceptions: citation/link and
   relevant section/page):
 
@@ -305,6 +341,14 @@ run panel; keep other meaningful waits beside their initiating control. Show the
 current stage and why it is taking time immediately, keep it readable throughout
 the wait, and visibly mark completed stages as actual lifecycle state advances.
 A transient toast alone or a generic spinner is insufficient.
+
+While actually awaiting queue admission, show `Waiting for robot admission` (or
+clear equivalent), with the real queue reason/state and entry timestamp. Retain
+its completed admission/grant state and timestamp, then show actual hardware
+preparation/Home/model stages separately. Keep queue and GPU launch stages
+distinct when concurrent; do not leave the queue stage pending after admission
+or label all startup as queue waiting. Retain matching per-run lifecycle evidence
+for the queue exclusion; no invented queue positions, times or completion.
 
 When a model requires a new GPU, show only the stages that actually exist:
 `Starting GPU` / "We're launching a GPU on RunPod for this model" -> `GPU ready`
@@ -323,9 +367,12 @@ blocking interval qualifies under the exception above, with neither clock reset.
 
 Open the deployed website and its associated source repository. Use the normal
 visitor flow to join, run the integrated method on physical YAMs and watch the
-actual arms live. Check the 15-second post-Home and 30-second Run-to-motion
-measures with fixed boundaries, full elapsed times and any evidenced GPU-launch
-exception; site entry remains context only. Check approach/runner identities,
+actual arms live. Check the unchanged 15-second post-Home measure and the
+30-second Run/Start-to-motion budget excluding evidenced queue-admission wait.
+Keep fixed boundaries, full elapsed times, queue entry/admission/excluded seconds
+and queue-adjusted time; verify any GPU-launch exception uses the queue/GPU
+union without double subtraction. Check actual queue-to-admitted-to-preparation
+inline stages; site entry remains context only. Check approach/runner identities,
 replay of the just-completed run and selection/replay of previous runs. Review
 every checklist item against current evidence, including public visibility and
 actual user attribution in policy/model tests, with execution mode separate.
@@ -385,11 +432,15 @@ before any completion claim.
   readiness; evidence for every run in the timing table above):
 - Visitor's starting state, `t_entry` and entry-to-motion steps (context only):
 - `t_run` / `t_home` / `t_motion`, full Run-to-motion and post-Home-to-motion
-  seconds, and separate target outcomes:
+  seconds, queue-adjusted Run seconds and separate target outcomes:
+- Queue evidence (`t_queue` / `t_admit`, matched run/request/session/lease IDs,
+  lifecycle links and persistent inline stages), excluded `Q_run` seconds; or
+  evidenced already-admitted/no-wait with zero exclusion:
 - Matched settled Home completion evidence for participating arms, or no-Home
   reason and earliest robot-ready timestamp/evidence (already ready: Run time):
-- GPU launch start/ready/full interval and inline UI/lifecycle evidence, blocking
-  overlap per clock and exception outcome if applicable (otherwise "none"):
+- GPU launch start/ready/full interval and inline UI/lifecycle evidence, `B_run`
+  / `B_home`, queue/GPU overlap `O_run`, excluded union, adjusted calculations and
+  exception outcome if applicable (otherwise "none"):
 - Timed screen recording / matching physical run evidence and clock correlation:
 - Remaining gaps:
 
@@ -397,14 +448,17 @@ before any completion claim.
 ## Timing contract update — October 30, 2026
 
 The maintained requirements above now use 15 seconds from settled startup Home
-completion (or documented no-Home robot readiness) and 30 seconds from Run to
-first observed method-driven physical motion. Site entry is context only. The
-historical evidence below retains its original 15-second entry/Run assessments;
+completion (or documented no-Home robot readiness) and 30 seconds from Run/Start
+to first observed method-driven physical motion, excluding evidenced initial
+queue-admission waiting from the 30-second budget only. Site entry is context
+only. The historical evidence below retains its original 15-second entry/Run assessments;
 those entries are not current gates or new verification. Existing runs are not
 reclassified as passes: full visual onset and matched Home/readiness evidence
 remain required, and no GPU/research exception is newly claimed. The recorded
-107.56-second Run-to-packet-preparation already exceeds the current 30-second
-Run target; the post-Home target remains unverified without its matched boundary.
+107.56-second Run-to-packet-preparation and approximately 97 seconds described
+as queue/readiness do not establish a queue-adjusted pass: exact queue admission,
+visual onset and matched Home/readiness evidence remain necessary. Both current
+timing measures remain unverified here; historical assessments are unchanged.
 
 ## RoboSkills evidence — October30,2026
 
