@@ -32,6 +32,35 @@ More menu is removed; per-camera expand controls and the guide below remain. The
 single presentation/task surfaces; older quick-entry nodes retain their existing
 listeners but are visually hidden in this shell.
 
+The live **Your run result** assessment is a dedicated footer of **Task & notes**.
+The implementation appends the existing `liveAssessment` node to
+`sidePrompt.closest('.watchInteraction')`, outside the scrolling
+`liveConversationPanel`, with a nonshrinking flex footer rule. When that parent
+is absent, it falls back to placement after the prompt disclosure. Selecting
+visitor chat hides the footer through `visitorChatSelected`, keeping run results
+with task chat. Its existing button nodes, handlers, `data-label` values,
+disabled states and server `can_edit` checks remain in place. A task caption
+immediately above the buttons comes from this assessment
+scope's own `state.task` or `state.prompt`, with its previous task retained when
+ending metadata omits it. It therefore stays tied to the assessed run even if the
+public chat shows a different prompt. The caption is clamped to two lines with
+its full text in the `title` attribute and is hidden when no task is available.
+Visible **Neutral**, **Failure** and **Success** labels replace the compact
+assessment presentation. Neutral retains the empty value mapped to `null`,
+leaving the run unscored. Saving, provisional/final and review-window messages
+remain visible in their existing status elements. These result controls are
+separate from the emoji reaction picker, whose actions are unchanged.
+
+The assessment placement review inspected `static/hosted.js`,
+`static/hosted.css`, `static/run-assessments.js` and the test definitions in
+`tests/test_assessment_placement_ui.cjs` and `tests/test_run_assessment_ui.cjs`.
+The placement definition checks that the footer receives the original assessment
+node while preserving button identity, disabled states, handlers and labels. The
+assessment definition checks retention of the run's own task when ending metadata
+omits it. Existing assessment requests and mutation behavior are unchanged.
+This is source-conformance evidence only; this documentation pass ran no tests
+or browser and establishes no rendered desktop/phone result.
+
 Validation: full shared Python/Node suites, controller owner/Origin/persistence
 checks, browser desktop/phone review and simulated Stop. No model or physical
 robot execution is required for this presentation change.

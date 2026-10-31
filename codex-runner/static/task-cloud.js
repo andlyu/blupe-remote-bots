@@ -21,6 +21,23 @@
   const regionRadius = .08;
   const validPosition = run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite);
   const distanceSquared = (a,b) => a.reduce((sum,value,i) => sum+(value-b[i])**2,0);
+  const runKey = run => `${run.robot_id || ''}:${run.episode_id}`;
+  function medianPrompt(runs) {
+    const mapped=runs.filter(validPosition);
+    if (!mapped.length) return '';
+    const median=[0,1,2].map(axis=>{
+      const values=mapped.map(run=>run.xyz[axis]).sort((a,b)=>a-b), middle=Math.floor(values.length/2);
+      return values.length%2 ? values[middle] : (values[middle-1]+values[middle])/2;
+    });
+    return mapped.filter(run=>typeof run.prompt==='string' && run.prompt.trim())
+      .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || runKey(a).localeCompare(runKey(b)) || a.prompt.localeCompare(b.prompt))[0]?.prompt.trim() || '';
+  }
+  function summarizeArea(runs) {
+    const counts={Success:0,Failure:0,Uncertain:0,Unscored:0};
+    for(const run of runs)counts[outcome(run)]++;
+    const scored=counts.Success+counts.Failure;
+    return {...counts,total:runs.length,scored,successRate:scored ? counts.Success/scored : null,medianPrompt:medianPrompt(runs)};
+  }
   function regionsFor(runs) {
     // Count in persisted 3D coordinates, before display jitter or rotation.
     // Aggregate identical tasks and use a spatial hash to bound the search.
@@ -57,15 +74,9 @@
       if (regions.some(r=>r.label===candidate.label && distanceSquared(r.xyz,candidate.xyz)<(regionRadius*1.5)**2)) continue;
       regions.push(candidate);
     }
-    for (const region of regions.filter(region=>region.label==='Failure')) {
-      const failed=runs.filter(run=>validPosition(run) && outcome(run)==='Failure' && distanceSquared(region.xyz,run.xyz)<=regionRadius**2);
-      const median=[0,1,2].map(axis=>{
-        const values=failed.map(run=>run.xyz[axis]).sort((a,b)=>a-b), middle=Math.floor(values.length/2);
-        return values.length%2 ? values[middle] : (values[middle-1]+values[middle])/2;
-      });
-      const representative=failed.filter(run=>typeof run.prompt==='string' && run.prompt.trim())
-        .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || String(a.episode_id || '').localeCompare(String(b.episode_id || '')) || a.prompt.localeCompare(b.prompt))[0];
-      region.representativePrompt=representative?.prompt.trim() || '';
+    for (const region of regions) {
+      const matching=runs.filter(run=>validPosition(run) && outcome(run)===region.label && distanceSquared(region.xyz,run.xyz)<=regionRadius**2);
+      region.representativePrompt=medianPrompt(matching);
     }
     return {regions,nearby};
   }
@@ -194,17 +205,39 @@
     }
     return {show,hide,warm};
   }
-  function create(canvas, focusText, onSelect, onPreview = () => {}, onWarm = () => {}) {
+  function create(canvas, focusText, onSelect, onPreview = () => {}, onWarm = () => {}, onAreaChange = () => {}) {
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null;
+    let areaMode=false, areaApplied=false, areaKeys=new Set(), areaBounds=null, brush=null, areaStats=summarizeArea([]), areaRobot;
+    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush});
+    const refreshArea = () => {areaStats=summarizeArea(rows.filter(run=>areaKeys.has(runKey(run))));notifyArea();};
+    function setAreaSelection(enabled) {
+      areaMode=!!enabled;brush=null;pointers.clear();last=null;moved=true;clearPreview();
+      canvas.style.cursor=areaMode?'crosshair':'grab';notifyArea();schedule();
+    }
+    function clearArea() {areaApplied=false;areaKeys.clear();areaBounds=brush=null;refreshArea();schedule();}
+    function dropAreaBox() {areaBounds=brush=null;notifyArea();}
+    const canvasPoint = event => {
+      const rect=canvas.getBoundingClientRect();
+      return [Math.max(0,Math.min(canvas.clientWidth,event.clientX-rect.left)),Math.max(0,Math.min(canvas.clientHeight,event.clientY-rect.top))];
+    };
+    function applyBrush() {
+      if(!brush)return;
+      const [a,b]=brush, width=canvas.clientWidth,height=canvas.clientHeight;
+      let x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),right=Math.max(a[0],b[0]),bottom=Math.max(a[1],b[1]);
+      if(right-x<4 && bottom-y<4){x=Math.max(0,x-6);y=Math.max(0,y-6);right=Math.min(width,right+6);bottom=Math.min(height,bottom+6);}
+      areaBounds={x,y,w:right-x,h:bottom-y};areaApplied=true;
+      areaKeys=new Set(points.filter(point=>point.x>=x && point.x<=right && point.y>=y && point.y<=bottom).map(point=>runKey(point.run)));
+      brush=null;refreshArea();schedule();
+    }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
     const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
     function highlightSummary() {
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
-      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. Failure labels include a median task prompt.`;
+      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. Area labels include a median task prompt.`;
     }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
@@ -220,10 +253,11 @@
         if (counts) focusText.textContent+=` · Nearby: ${counts.Success} Success / ${counts.Failure} Failure; ${counts.Uncertain} Uncertain and ${counts.Unscored} unlabeled or excluded not counted.`;
         const region=visibleRegions().filter(region=>region.representativePrompt && distanceSquared(region.xyz,run.xyz)<=regionRadius**2)
           .sort((a,b)=>distanceSquared(a.xyz,run.xyz)-distanceSquared(b.xyz,run.xyz))[0];
-        if(region)focusText.textContent+=` · Median failure prompt: ${region.representativePrompt}`;
+        if(region)focusText.textContent+=` · Median ${region.label.toLowerCase()} prompt: ${region.representativePrompt}`;
       }
     }
     function marker(point) {
+      ctx.globalAlpha=areaApplied && !areaKeys.has(runKey(point.run)) ? .22 : 1;
       const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
       const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
       ctx.beginPath();
@@ -235,6 +269,7 @@
       if (selected === point.run.episode_id || hover === point.run.episode_id) {
         ctx.beginPath();ctx.arc(point.x,point.y,11,0,Math.PI*2);ctx.strokeStyle='#172c21';ctx.lineWidth=1.5;ctx.stroke();
       }
+      ctx.globalAlpha=1;
     }
     function draw() {
       frame = null;
@@ -244,6 +279,8 @@
       }
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
       ctx.fillStyle='#f8faf5';ctx.fillRect(0,0,width,height);
+      const box=brush ? {x:Math.min(brush[0][0],brush[1][0]),y:Math.min(brush[0][1],brush[1][1]),w:Math.abs(brush[1][0]-brush[0][0]),h:Math.abs(brush[1][1]-brush[0][1])} : areaBounds;
+      if(box){ctx.fillStyle='rgba(23,44,33,.07)';ctx.fillRect(box.x,box.y,box.w,box.h);}
       const regionPoints=visibleRegions().map(region=>({...region,...project(region.xyz,yaw,pitch,magnification,width,height)})).sort((a,b)=>b.depth-a.depth);
       for (const region of regionPoints) {
         const radius=Math.min(width,height)*2.6*magnification*regionRadius/Math.max(.8,3+region.depth);
@@ -273,7 +310,7 @@
       const rankedRegions=regionPoints.slice().sort((a,b)=>b.strength-a.strength);
       const successes=rankedRegions.filter(r=>r.label==='Success'), failures=rankedRegions.filter(r=>r.label==='Failure');
       const labelRegions=highlight==='both'
-        ? Array.from({length:3},(_,i)=>[successes[i],failures[i]]).flat().filter(Boolean)
+        ? Array.from({length:width<600?2:3},(_,i)=>[successes[i],failures[i]]).flat().filter(Boolean)
         : rankedRegions.slice(0,6);
       for (const region of labelRegions) {
         if (region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
@@ -291,8 +328,12 @@
           for(let i=0;i<lines.length;i++)if(ctx.measureText(lines[i]).width>maxTextWidth){while(lines[i].length && ctx.measureText(lines[i]+'…').width>maxTextWidth)lines[i]=lines[i].slice(0,-1);lines[i]+='…';}
         }
         const w=Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=24+lines.length*16;
-        const x=Math.max(4,Math.min(width-w-4,region.x-w/2)), y=Math.max(4,Math.min(height-h-4,region.y-42));
-        if (boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y)) continue;
+        const x=Math.max(4,Math.min(width-w-4,region.x-w/2));
+        const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
+        const position=positions.find(({y})=>!boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
+        if(!position)continue;
+        const y=position.y;
+        if(position.offset){ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,region.x)),Math.max(y,Math.min(y+h,region.y)));ctx.lineTo(region.x,region.y);ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.stroke();}
         boxes.push({x,y,w,h});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);
         ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
         ctx.font='600 12px system-ui';
@@ -309,10 +350,12 @@
         if(boxes.some(b=>x<b.x+b.w && x+length>b.x && y<b.y+b.h && y+24>b.y)) continue;
         boxes.push({x,y,w:length,h:24});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,length,24);ctx.fillStyle='#172c21';ctx.fillText(text,x+6,y+17,length-12);
       }
+      if(box){ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.setLineDash(brush?[5,4]:[]);ctx.strokeRect(box.x,box.y,box.w,box.h);ctx.setLineDash([]);}
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
       canvas.dataset.highlightRegions=String(regionPoints.length);
       canvas.dataset.regionMode=highlight;
+      canvas.dataset.areaSelected=String(areaKeys.size);
     }
     function hit(event) {
       const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left,y=event.clientY-rect.top;
@@ -320,29 +363,32 @@
     }
     function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight} : null);}
     function clearPreview() {hover=null;preview(null);}
-    function previewFocused() {const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
-    function zoom(factor) {clearPreview();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
-    function reset() {clearPreview();yaw=-.3;pitch=.2;magnification=1;schedule();}
+    function previewFocused() {if(areaMode)return;const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
+    function zoom(factor) {clearPreview();dropAreaBox();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
+    function reset() {clearPreview();dropAreaBox();yaw=-.3;pitch=.2;magnification=1;schedule();}
     function open() {if(rows[focused]) {clearPreview();selected=rows[focused].episode_id;focus(rows[focused]);onSelect(rows[focused]);schedule();}}
     function step(delta) {if(rows.length) {focused=(focused+delta+rows.length)%rows.length;focus(rows[focused]);previewFocused();}}
     canvas.addEventListener('pointerdown',event=>{
       clearPreview();
       pointers.set(event.pointerId,[event.clientX,event.clientY]);canvas.setPointerCapture(event.pointerId);
       last=[event.clientX,event.clientY];moved=false;
-      if(pointers.size===2) {const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);}
+      if(pointers.size===2) {dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
+      else if(areaMode){const point=canvasPoint(event);brush=[point,point];last=null;notifyArea();schedule();}
     });
     canvas.addEventListener('pointermove',event=>{
       if(pointers.has(event.pointerId)) {
         pointers.set(event.pointerId,[event.clientX,event.clientY]);
-        if(pointers.size===2) {
+        if(brush && pointers.size===1){brush[1]=canvasPoint(event);moved=true;schedule();}
+        else if(pointers.size===2) {
           const [a,b]=[...pointers.values()],distance=Math.hypot(a[0]-b[0],a[1]-b[1]);
           if(lastDistance>0) zoom(distance/lastDistance);lastDistance=distance;moved=true;
         } else if(last) {
           const dx=event.clientX-last[0],dy=event.clientY-last[1];
           if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
-          yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));last=[event.clientX,event.clientY];schedule();
+          dropAreaBox();yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));last=[event.clientX,event.clientY];schedule();
         }
       } else {
+        if(areaMode){canvas.style.cursor='crosshair';return;}
         if (event.pointerType !== 'touch') {
           const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
           onWarm(points.map(p=>({point:p,distance:Math.hypot(p.x-x,p.y-y)})).filter(p=>p.distance<100)
@@ -353,6 +399,8 @@
       }
     });
     canvas.addEventListener('pointerup',event=>{
+      if(!pointers.has(event.pointerId))return;
+      if(brush){brush[1]=canvasPoint(event);pointers.delete(event.pointerId);last=null;moved=true;applyBrush();return;}
       const dragged=moved || pointers.size>1;pointers.delete(event.pointerId);last=null;
       if(!dragged) {
         const hits=hit(event),signature=hits.map(p=>p.run.episode_id).join(',');
@@ -360,26 +408,35 @@
         if(hits.length) {focused=rows.indexOf(hits[hitCycle].run);open();}
       }
     });
-    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;clearPreview();});
+    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;brush=null;clearPreview();notifyArea();schedule();});
     canvas.addEventListener('pointerleave',()=>{clearPreview();focus(rows[focused]);schedule();});
     canvas.addEventListener('focus',previewFocused);
     canvas.addEventListener('blur',clearPreview);
     canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
     canvas.addEventListener('keydown',event=>{
       const key=event.key;
-      if(key==='Escape') {clearPreview();schedule();return;}
+      if(key==='Escape') {if(brush){brush=null;notifyArea();}else if(areaMode)setAreaSelection(false);clearPreview();schedule();return;}
+      if(areaMode && (key.startsWith('Arrow') || key==='Enter')) {
+        event.preventDefault();
+        if(!brush){const w=canvas.clientWidth,h=canvas.clientHeight;brush=[[w*.35,h*.35],[w*.65,h*.65]];}
+        if(key==='Enter'){applyBrush();return;}
+        const dx=key==='ArrowLeft'?-10:key==='ArrowRight'?10:0,dy=key==='ArrowUp'?-10:key==='ArrowDown'?10:0;
+        if(event.shiftKey){brush[1]=[Math.max(brush[0][0]+8,Math.min(canvas.clientWidth,brush[1][0]+dx)),Math.max(brush[0][1]+8,Math.min(canvas.clientHeight,brush[1][1]+dy))];}
+        else {const x=Math.max(-brush[0][0],Math.min(canvas.clientWidth-brush[1][0],dx)),y=Math.max(-brush[0][1],Math.min(canvas.clientHeight-brush[1][1],dy));brush=brush.map(point=>[point[0]+x,point[1]+y]);}
+        notifyArea();schedule();return;
+      }
       if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-','Home','[',']','Enter'].includes(key)) return;
       event.preventDefault();
-      if(key.startsWith('Arrow')) clearPreview();
+      if(key.startsWith('Arrow')) {clearPreview();dropAreaBox();}
       if(key==='ArrowLeft') yaw-=.12;if(key==='ArrowRight') yaw+=.12;
       if(key==='ArrowUp') pitch-=.12;if(key==='ArrowDown') pitch+=.12;
       if(key==='+' || key==='=') zoom(1.2);if(key==='-') zoom(1/1.2);
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
-    if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();schedule();}).observe(canvas);
-    return {setRuns(next,id) {clearPreview();rows=next;regionData=null;selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+    if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();dropAreaBox();schedule();}).observe(canvas);
+    return {setRuns(next,id) {clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;areaBounds=brush=null;const keys=new Set(rows.filter(validPosition).map(runKey));areaKeys=new Set([...areaKeys].filter(key=>keys.has(key)));refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
       setHighlight(mode) {highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
-      select(id) {selected=id;schedule();},clearPreview,reset,zoom,step,open};
+      select(id) {selected=id;schedule();},setAreaSelection,clearArea,clearPreview,reset,zoom,step,open};
   }
-  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor};
+  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor,summarizeArea,medianPrompt};
 })();

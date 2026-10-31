@@ -24,11 +24,25 @@
       .sort((a,b)=>Number(b.exact)-Number(a.exact) || b.overlap-a.overlap || (a.distance ?? 1)-(b.distance ?? 1) || (b.row.started_at || 0)-(a.row.started_at || 0) || a.row.episode_id.localeCompare(b.row.episode_id))
       .slice(0,limit).map(item=>item.row);
   }
-  window.yamSimilarRuns={rank:rankSimilar};
+  function similarSuccessSummary(rows, source) {
+    const nearest=rows.slice(0,10), counts={Success:0,Failure:0,Uncertain:0,Unscored:0};
+    if(!nearest.length)return 'No similar published runs to score.';
+    for(const row of nearest){const label=window.yamRunLabels?.outcome(row,source) || 'Unscored';counts[label in counts?label:'Unscored']++;}
+    const scored=counts.Success+counts.Failure;
+    const basis=nearest.length===10?'the 10 closest similar runs':`${nearest.length} available similar ${nearest.length===1?'run':'runs'}`;
+    const result=scored ? `${(counts.Success/scored*100).toFixed(1)}% success (${counts.Success}/${scored} Success/Failure labels) across ${basis}.` : `No Success/Failure labels among ${basis}.`;
+    return `${result} ${counts.Uncertain} Uncertain and ${counts.Unscored} unlabeled or excluded. ${source==='auto'?'Auto-labeled':'Human-labeled'}.`;
+  }
+  window.yamSimilarRuns={rank:rankSimilar,summary:similarSuccessSummary};
   const $=id=>document.getElementById(id), dialog=$('pastRunDialog'), body=$('runSidebarBody'), list=$('similarRunsList');
   if (!dialog?.classList?.contains('runSidebar') || !body || !list) return;
-  const status=$('similarRunsStatus'), more=$('moreSimilarRuns'), sentinel=$('similarRunsSentinel'), catalog=new Map();
-  let active=null, source=$('pastRunsLabelSource')?.value==='human'?'human':'auto', scope=null, signature='', returnFocus=null, catalogRevision=0;
+  const status=$('similarRunsStatus'), score=$('similarRunsScore'), more=$('moreSimilarRuns'), sentinel=$('similarRunsSentinel'), catalog=new Map();
+  let active=null, source=$('pastRunsLabelSource')?.value==='human'?'human':'auto', scope=null, signature='', returnFocus=null, catalogRevision=0, filters={models:[],query:''};
+  const catalogKey = robot => JSON.stringify([robot,filters.models,filters.query]);
+  function rememberCatalog(key,rows) {
+    catalog.delete(key);catalog.set(key,{rows,at:Date.now(),version:++catalogRevision});
+    while(catalog.size>6)catalog.delete(catalog.keys().next().value);
+  }
   const stateText=row=>{
     const label=window.yamRunLabels?.outcome(row,source) || 'Unscored';
     return `${source==='auto'?'Auto':'Human'}: ${label==='Unscored'?'Unlabeled or excluded':label}`;
@@ -105,20 +119,22 @@
   }
   async function refresh(force=false) {
     if (!active || !dialog.open) return;
-    const cached=catalog.get(active.robot_id), nextSignature=`${active.robot_id}:${active.episode_id}:${source}:${cached?.version || 0}`;
+    const key=catalogKey(active.robot_id), cached=catalog.get(key), nextSignature=`${key}:${active.episode_id}:${source}:${cached?.version || 0}`;
     if(!force && signature===nextSignature)return;
-    signature=nextSignature;const oldShown=scope?.shown || 8;cancelScope();list.replaceChildren();more.hidden=true;more.textContent='Show more similar videos';status.textContent='Finding similar videos…';
-    const request=scope={run:{...active},robot:active.robot_id,closed:false,controllers:new Set(),media:new Map(),entries:new Map(),queue:[],busy:0,shown:0,rows:[]};
+    signature=nextSignature;const oldShown=scope?.shown || 8;cancelScope();list.replaceChildren();more.hidden=true;more.textContent='Show more similar videos';status.textContent='Finding similar videos…';if(score)score.textContent='';
+    const request=scope={run:{...active},robot:active.robot_id,filters:{models:filters.models.slice(),query:filters.query},closed:false,controllers:new Set(),media:new Map(),entries:new Map(),queue:[],busy:0,shown:0,rows:[]};
     try {
       let rows=cached && Date.now()-cached.at<60000 ? cached.rows : null;
       if (!rows) {
         const controller=new AbortController();request.controllers.add(controller);
-        const response=await fetch(`/api/run-catalog?view=cloud&robot_id=${encodeURIComponent(request.robot)}`,{cache:'no-store',signal:controller.signal,headers:{'X-Blupe-Robot':request.robot}});
+        const modelQuery=request.filters.models.map(model=>`&model=${encodeURIComponent(model)}`).join(''), query=request.filters.query?`&q=${encodeURIComponent(request.filters.query)}`:'';
+        const response=await fetch(`/api/run-catalog?view=cloud&robot_id=${encodeURIComponent(request.robot)}${modelQuery}${query}`,{cache:'no-store',signal:controller.signal,headers:{'X-Blupe-Robot':request.robot}});
         if(!response.ok)throw new Error();const data=await response.json();rows=data.runs || [];
-        if(request.closed)return;catalog.set(request.robot,{rows,at:Date.now(),version:++catalogRevision});
+        if(request.closed)return;rememberCatalog(key,rows);
       }
       await window.yamRunLabels?.load();if(request.closed || scope!==request)return;
       request.rows=rankSimilar(request.run,rows);
+      if(score)score.textContent=similarSuccessSummary(request.rows,source);
       if(typeof IntersectionObserver!=='undefined') {
         request.mediaObserver=new IntersectionObserver(entries=>{
           for(const observed of entries){const entry=request.entries.get(observed.target);if(!entry)continue;entry.visible=observed.isIntersecting;if(entry.visible)enqueue(request,entry);else release(request,entry);}
@@ -141,8 +157,10 @@
       if(switchingInside)$('closePastRun')?.focus({preventScroll:true});
       refresh();
     },
-    setCatalog(rows,{robot,complete,source:labelSource}) {
-      source=labelSource || source;if(complete)catalog.set(robot,{rows:rows.slice(),at:Date.now(),version:++catalogRevision});
+    setCatalog(rows,{robot,complete,source:labelSource,filters:nextFilters}) {
+      source=labelSource || source;
+      if(nextFilters)filters={models:[...(nextFilters.models || [])].sort(),query:nextFilters.query || ''};
+      if(complete)rememberCatalog(catalogKey(robot),rows.slice());
       if(dialog.open && active?.robot_id===robot)refresh();
     },
     setSource(value) {source=value;signature='';refresh();}

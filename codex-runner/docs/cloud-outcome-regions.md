@@ -10,11 +10,11 @@ The overlay uses the existing green Success (`#246744`) and red Failure
 (`#b2352c`) colors as translucent tints behind the run markers. Selected areas
 may also show a count label such as `Success: 6/8`: six Success labels among
 eight nearby Success/Failure labels. These are local descriptive counts, not a
-confidence estimate, statistical test or new model score. Failure count labels
-also show a representative failed task prompt beneath the count when one is
-available.
+confidence estimate, statistical test or new model score. Both Success and
+Failure count labels show a representative task prompt from their matching
+outcome beneath the count when one is available.
 
-## Neighborhood and selection rules
+## Automatic neighborhood rules
 
 [`regionsFor` in `../static/task-cloud.js`](../static/task-cloud.js) applies these
 rules to runs with exactly three finite persisted `xyz` coordinates:
@@ -37,39 +37,77 @@ rules to runs with exactly three finite persisted `xyz` coordinates:
    with the same outcome must be at least `0.12` apart (`1.5 × 0.08`); centers
    with different outcomes may be closer.
 
-Area selection is a compact summary rather than a partition of the cloud.
-Neighborhoods can overlap, one run can support multiple areas, and spacing or
+Automatic region selection is a compact summary rather than a partition of the
+cloud. Neighborhoods can overlap, one run can support multiple areas, and spacing or
 the per-outcome cap can suppress qualifying candidates. A missing tint does not
 mean no nearby Success or Failure labels exist. For count labels, the renderer
-considers the three strongest regions per outcome in the combined mode, or the
-six strongest regions in a single-outcome mode, before skipping
-offscreen centers and colliding labels. The tint fades beyond the analysis radius to
-`1.4` times its projected size; its soft edge is not a membership boundary.
+considers the two strongest regions per outcome in combined mode when the canvas
+is narrower than `600px`, and three per outcome otherwise. Single-outcome mode
+considers the six strongest regions. Offscreen centers are skipped, and labels
+are omitted if no bounded, collision-free placement is available. The tint fades
+beyond the analysis radius to `1.4` times its projected size; its soft edge is not a membership boundary.
 
-## Median failure prompts
+## Median outcome prompts
 
-Each selected Failure area receives a `representativePrompt` from failed runs
-inside the same inclusive `0.08` neighborhood in persisted 3D coordinates. For
-each coordinate axis, take the median across individual failed attempts;
-repeated attempts carry equal weight, and an even-sized set uses the average
-of its two middle values. Failed runs with blank prompts still contribute to
-this coordinatewise median.
+Each selected Success or Failure region receives a `representativePrompt` from
+runs with that same outcome inside its inclusive `0.08` neighborhood in persisted
+3D coordinates. For each coordinate axis, take the median across individual
+matching attempts; repeated attempts carry equal weight, and an even-sized set
+uses the average of its two middle values. Matching runs with blank prompts still
+contribute to this coordinatewise median.
 
-Choose the actual nonblank failed prompt whose run coordinates are nearest to
-that median by Euclidean distance. Ties are resolved by episode identifier and
-then prompt text using the implementation's string comparison. The displayed
-value is trimmed. If no failed run has a nonblank prompt, it is empty and the
+Choose the actual nonblank matching prompt whose run coordinates are nearest to
+that median by Euclidean distance. Ties are resolved by the combined robot and
+episode key, then prompt text using the implementation's string comparison. The displayed
+value is trimmed. If no matching run has a nonblank prompt, it is empty and the
 label remains count-only. This is an observed task prompt, not a generated
-summary or a median of words; Success, Uncertain and Unscored runs do not enter
-its selection.
+summary or a median of words. Success captions use successful attempts, Failure
+captions use failed attempts, and neither uses Uncertain or Unscored attempts.
 
 The canvas keeps the count above up to two prompt lines. Prompt text wraps at
 word boundaries and is ellipsized when needed, with a text-width limit of
 `210px` or the available canvas width minus `30px`, whichever is smaller. Label
 height grows by `16px` per prompt line from the existing `24px` count label.
 Collision checks use those variable heights for both area labels and individual
-run labels. The existing area ranking, label limits, offscreen checks, colors
-and interactions remain in effect.
+run labels. Each area caption tries vertical offsets in order `0, +1, -1, +2,
+-2, +3, -3`, multiplied by its height plus `10px`, from the usual position above
+the region center. Each candidate is clamped within the canvas and checked
+against placed labels. A caption moved to an alternate position has a `1px`
+connector in its outcome color back to the region center. These placement rules
+do not alter the 3D analysis, outcome counts, region ranking or median prompt;
+the existing offscreen checks, colors and interactions remain in effect.
+
+## Select an arbitrary area
+
+**Select area** switches the canvas from rotating/opening runs to drawing a
+selection box. Drag over point centers and release to apply; the box includes
+centers at all depths, including overlapping points, using the current projected
+positions and display offsets. It is a screen-space selection, not a 3D volume
+or an automatic neighborhood. In selection mode, arrow keys start or move a box,
+Shift+arrows resize it,
+and Enter applies it. Escape cancels an in-progress box; with no box being drawn,
+Escape leaves selection mode. **Clear selection** removes the selected set.
+
+The summary reports total selected runs and separate Success, Failure, Uncertain
+and unlabeled or excluded counts. Its success rate is `Success / (Success +
+Failure)` under the current Auto/Human label source; Uncertain and Unscored runs
+are excluded from that denominator. Empty selections and selections with no
+Success/Failure labels explicitly say that a rate is unavailable.
+
+**Median prompt** chooses an actual prompt nearest the coordinatewise median,
+as the automatic captions do, but includes every selected mapped attempt across
+all outcomes. It is not restricted to the successful or failed subset. A blank
+prompt contributes coordinates but cannot be the displayed representative; when
+no selected prompt is available, the summary says so.
+
+Applied membership is retained by the combined robot and episode key. Camera rotation, zoom,
+reset and resizing remove the old screen box while preserving membership and
+dimming unselected points. Changing label source recomputes counts without
+changing membership. Catalog/model/search changes prune runs that are no longer
+mapped in the current catalog; switching to another robot clears selection.
+Selection and summaries stay in memory and do not load more runs, write labels
+or issue robot commands. Leaving selection mode restores the usual camera,
+preview and replay interactions while retaining the applied set.
 
 ## Label source, robot and filter scope
 
@@ -96,18 +134,18 @@ resolver is absent, recognizes only included runner Success/Failure labels.
 The status text reports how many success-heavy and failure-heavy areas pass the
 current selection, explains the five-label/two-thirds rule, and explains when
 none qualify or highlights are off. With highlights enabled, it also explains
-that failure labels include a median task prompt. It is a `role="status"`
+that area labels include a median task prompt. It is a `role="status"`
 paragraph associated with the canvas through `aria-describedby`.
 
 With highlights enabled, hovering or focusing any mapped run adds its nearby
 Success, Failure, Uncertain and Unscored counts to the existing textual run
 description, even when its neighborhood does not qualify for a tint. Uncertain
 and Unscored counts are explicitly described as excluded from the binary
-denominator. When the run is within a Failure area visible under the current
-highlight selection and that area has a representative prompt, the description
-also includes the full **Median failure prompt**. If several such areas contain
-the run, it uses the nearest area center. This supports inspection without
-relying on tint color or the limited canvas labels. Table remains the accessible
+denominator. When the run is within a Success or Failure area visible under the
+current highlight selection and that area has a representative prompt, the
+description also includes the full **Median success prompt** or **Median failure
+prompt**. If several such areas contain the run, it uses the nearest area
+center. This supports inspection without relying on tint color or the limited canvas labels. Table remains the accessible
 alternative for run browsing. Highlight choices do not change point selection, replay opening,
 preview behavior, rotation or zoom.
 
@@ -119,8 +157,10 @@ is cached until the supplied run set changes; camera movement only reprojects
 the selected areas. Switching highlight mode reuses the analysis. This avoids
 an unconditional pairwise search over all attempts, but a densely packed set of
 many distinct positions can still require quadratic work. Selecting a median
-prompt additionally scans the supplied runs for each retained Failure area
-(at most 12) and sorts that area's failed attempts. No browser timing or
+prompt additionally scans the supplied runs for each retained outcome region
+(at most 12 per outcome) and sorts that region's matching attempts. Applying an
+arbitrary selection filters projected point centers, then sorts the selected
+mapped attempts for its median prompt. No browser timing or
 large-catalog performance result is claimed by this documentation review.
 
 The map expresses similarity between task descriptions. Nearby points do not
@@ -132,22 +172,25 @@ individual run descriptions and replay evidence when interpreting an area.
 
 ## Design conformance evidence
 
-This is a narrow Operate extension of the incumbent playground's green/red
-canvas labels. This documentation pass inspected the uncommitted changes in
-`task-cloud.js` and `tests/test_task_cloud_ui.cjs` against the existing behavior
-described above. The count retains its stronger type treatment above the
-regular-weight prompt text, using the incumbent paper background, outcome border
-colors and body text color. Wrapping, ellipsis and variable-height collision
-bounds accommodate the added text. The existing focused-run description
-exposes the full prompt alongside the nearby counts. Label source resolution,
-filters, region selection and run interactions retain their existing rules.
-No new product or design-system files are needed for this extension.
+This is a narrow Operate extension of the incumbent playground's canvas and
+native controls. This documentation pass inspected the uncommitted changes in
+`static/task-cloud.js`, `static/hosted.html`, `static/hosted.css`,
+`static/hosted.js` and `tests/test_task_cloud_ui.cjs`. Automatic labels retain the
+stronger count above regular-weight prompt text, paper background and existing
+outcome colors. The selection toggle has pressed and focus states; visible help
+explains keyboard controls and depth inclusion. Counts use a polite status
+region, and the full summary is associated with the focusable canvas.
 
-**Verdict: conforms at the inspected source scope.** The test changes contain
-assertions for failed-attempt median selection, input-order stability, blank
-prompt fallback, count preservation, canvas prompt rendering, full focus text
-and bounded two-line rendering on a narrow canvas. This documentation pass did
-not execute those tests or run a browser, backend service, network request or
-hardware action. It makes no claim about rendered layout, responsive behavior,
-screen-reader output or measured interaction performance; those require the
-parent task's finish verification.
+**Verdict: conforms at the inspected source scope.** The test definitions cover
+all-outcome selected-area medians, separate unknown counts and binary-label
+rates, pointer and keyboard selection, cancellation, retained membership under
+camera/source changes, filter pruning, robot clearing, empty states, and both
+Success and Failure captions. Existing caption tests cover stable median choice,
+blank fallback, rendering and bounded two-line text. The added combined-mode
+`320 × 360` canvas regression checks that both Success and Failure captions are
+drawn when their default positions collide, that label boxes remain within the
+canvas, and that region and run counts are preserved. This documentation pass
+executed no tests, browser, backend, network or hardware action. It makes no
+rendered-layout, screen-reader, playback or measured-performance claim; those
+require the parent task's verification. No product or design-system file was
+created or modified by this pass.

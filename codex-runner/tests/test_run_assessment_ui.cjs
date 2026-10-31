@@ -17,7 +17,9 @@ function setup(){
 }
 test('controls stay visible during running and runner can save without Stop; later replay edits stay enabled',async()=>{
  const c=setup(),api=c.window.yamRunAssessment;
- api.observe({session_id:'own',episode_id:'ep_own',status:'running'},'yam-1','csrf');
+ api.observe({session_id:'own',episode_id:'ep_own',status:'running',task:'Lift the bottle'},'yam-1','csrf');
+ assert.equal(c.node('liveAssessmentTask').textContent,'Lift the bottle');
+ assert.equal(c.node('liveAssessmentTask').attributes['data-clarity-mask'],'true');
  assert.equal(c.node('liveAssessment').hidden,false);c.answer(c.requests[0],c.data);await c.flush();
  const button=c.node('liveAssessmentControls').children[2];assert.equal(button.disabled,false);
  c.node('liveAssessmentControls').listeners.click({target:button});
@@ -28,6 +30,7 @@ test('controls stay visible during running and runner can save without Stop; lat
  c.answer(write,{...c.data,revision:1,label:'Success'});await c.flush();
  assert.equal(button.attributes['aria-pressed'],'true');assert.equal(c.events[0].type,'yam-assessment-changed');
  api.observe({session_id:'own',episode_id:'ep_own',status:'stopped'},'yam-1','csrf');
+ assert.equal(c.node('liveAssessmentTask').textContent,'Lift the bottle','ending metadata must retain the task tied to this assessment');
  c.answer(c.requests.at(-1),{...c.data,revision:1,label:'Success',eligibility:'included'});await c.flush();
  assert.equal(c.node('replayAssessmentControls').hidden,false);assert.equal(c.node('replayVoteControls').hidden,true);
  assert.match(c.node('replayAssessmentSummary').textContent,/Success.*Included in score/);
