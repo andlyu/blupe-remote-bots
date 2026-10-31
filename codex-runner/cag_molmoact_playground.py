@@ -37,7 +37,7 @@ class CAGPlayground(LocalPlayground):
             'research_integration': dict(method='Completion Aware Guidance', variant=VARIANT,
                 experimental=True, human_email_required=True, robot_id='yam-1', runs_enabled=self.runs_enabled),
             'configured_providers': {'molmoact_'+mode:dict(
-                label='MolmoAct2 baseline' if mode=='baseline' else 'MolmoAct2 + CAG variant', model=MODEL,
+                label='MolmoAct2 baseline' if mode=='baseline' else 'MolmoAct2+CAG variant', model=MODEL,
                 help=('Read-only preview. ' if self.preview else '')+'YAM1 · same pinned weights in both modes. Choose a task, select a mode, then press Run. The RunPod key stays on the server.')
                 for mode in ('baseline','guided')}}, headers
 
@@ -102,6 +102,7 @@ class CAGPlayground(LocalPlayground):
         if row.get('approach'):
             if row.get('runner_name'): public['runner_name']=row['runner_name']
             public['model_name']=row['approach']
+            public['approach']=row['approach']
         error=public_run_error(public)
         if error=='Run reached time limit':
             public['error']=error
@@ -175,7 +176,7 @@ class CAGPlayground(LocalPlayground):
             raise RequestError(503,'GPU inference is paused. Live cameras and previous runs remain available.')
         name=payload.get('provider')
         if name not in ('molmoact_baseline','molmoact_guided'):
-            raise RequestError(400,'Choose MolmoAct2 baseline or MolmoAct2 + CAG variant')
+            raise RequestError(400,'Choose MolmoAct2 baseline or MolmoAct2+CAG variant')
         try:
             mode,strength=comparison_options(name.removeprefix('molmoact_'),payload.get('guidance_strength',.15))
             runner=research_runner(payload)
@@ -186,7 +187,7 @@ class CAGPlayground(LocalPlayground):
         def configure(provider):
             provider.mode,provider.strength=mode,strength
             provider.run_context=dict(method='Completion Aware Guidance', variant=VARIANT,
-                approach='MolmoAct2 baseline' if mode=='baseline' else 'MolmoAct2 + CAG-inspired guidance',
+                approach='MolmoAct2 baseline' if mode=='baseline' else 'MolmoAct2+CAG variant',
                 mode=mode,guidance_strength=strength,runner=runner)
             return transform(provider) if transform else provider
         result=super().launch(visitor,payload,provider_transform=configure,**kwargs)

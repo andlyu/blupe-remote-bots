@@ -28,7 +28,7 @@
     selectRobot(robot) { return robot !== 'yam-1'; },
     modelDisplayName() {
       return document.getElementById('provider').value === 'molmoact_guided'
-        ? 'MolmoAct2 + CAG-inspired guidance' : 'MolmoAct2 baseline';
+        ? 'MolmoAct2+CAG variant' : 'MolmoAct2 baseline';
     },
     configuredProviderChanged: update,
     sessionReady(session) {

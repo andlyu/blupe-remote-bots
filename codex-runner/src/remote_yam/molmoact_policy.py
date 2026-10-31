@@ -69,8 +69,8 @@ class MolmoActAdapter:
             warmup=self._warm_state,
             warmup_elapsed_s=round(time.monotonic()-self._warm_started_at, 1) if self._warm_started_at else 0,
             display_name=('MolmoAct2 baseline' if self.mode == 'baseline'
-                else 'MolmoAct2 + CAG-inspired guidance'), approach=('MolmoAct2 baseline' if self.mode == 'baseline'
-                else 'MolmoAct2 + CAG-inspired guidance'), run_context=self.run_context)
+                else 'MolmoAct2+CAG variant'), approach=('MolmoAct2 baseline' if self.mode == 'baseline'
+                else 'MolmoAct2+CAG variant'), run_context=self.run_context)
 
     def _json(self, path, payload=None):
         # Reuse the verified endpoint connection across health and inference.

@@ -90,7 +90,7 @@ def test_confirmed_attribution_reaches_queue_and_run_context(app,monkeypatch,ide
     visitor=next(iter(runner.visitors.values()))
     context=visitor.controller._provider.public_config()['run_context']
     assert context['runner']==expected
-    assert context['approach']=='MolmoAct2 + CAG-inspired guidance'
+    assert context['approach']=='MolmoAct2+CAG variant'
     assert context['guidance_strength']==.19
     assert '@' not in json.dumps(context)
     assert visitor.runner_name==expected['name']
@@ -185,12 +185,12 @@ def test_finished_run_keeps_actual_cag_method_and_runner_after_provider_teardown
     code,state=asyncio.run(get_status())
     assert code==200
     assert state['public_run']['runner_name']=='Andrew'
-    assert state['public_run']['model_name']=='MolmoAct2 + CAG-inspired guidance'
+    assert state['public_run']['model_name']=='MolmoAct2+CAG variant'
 
 
 def test_shared_replay_keeps_local_confirmed_name_and_actual_approach(app):
     runner,api=app
-    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
+    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2+CAG variant',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
     runner.run_names.remember('ep_history','Andrew')
     runner.run_names.remember_metadata('ep_history','yam-1','Put box in bin',1,config)
     runner.run_names.results=Mock(return_value={'ep_history':{'result':'Failure','result_reason':'Robot rejected the action packet before motion','errors':'adjacent_delta_limit'}})
@@ -198,7 +198,7 @@ def test_shared_replay_keeps_local_confirmed_name_and_actual_approach(app):
     row=result['runs'][0]
     assert row['runner_name']=='Andrew'
     assert row['result']=='Failure' and 'rejected' in row['result_reason']
-    assert row['model_version']=='MolmoAct2 + CAG-inspired guidance'
+    assert row['model_version']=='MolmoAct2+CAG variant'
     assert row['model']=='allenai/MolmoAct2-BimanualYAM'
     assert row['video_url']=='/api/quick-replays/unchanged.mp4'
     assert '@' not in json.dumps(row)
@@ -208,7 +208,7 @@ def test_current_replay_does_not_wait_for_archive_and_retains_andrew(app):
     runner,api=app
     _,_,session=call(runner,'/api/session',{})
     visitor=next(iter(runner.visitors.values()))
-    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
+    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2+CAG variant',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
     runner.run_names.remember('ep_ready','Andrew')
     runner.run_names.remember_metadata('ep_ready','yam-1','Put box in bin',1,config)
     visitor.episode_ids.add('ep_ready')
@@ -216,7 +216,7 @@ def test_current_replay_does_not_wait_for_archive_and_retains_andrew(app):
     runner.past_runs.page=Mock(side_effect=AssertionError('Current replay must not wait for archive catalog'))
     code,body,_=call(runner,'/api/my-runs',{'offset':0},session)
     assert code==200 and body['runs'][0]['runner_name']=='Andrew'
-    assert body['runs'][0]['model_version']=='MolmoAct2 + CAG-inspired guidance'
+    assert body['runs'][0]['model_version']=='MolmoAct2+CAG variant'
     assert body['runs'][0]['video_url'].endswith('.mp4')
     assert '@' not in json.dumps(body)
     visitor.episode_ids.clear()
@@ -228,7 +228,7 @@ def test_current_replay_does_not_wait_for_archive_and_retains_andrew(app):
 
 def test_shared_terminal_status_keeps_person_method_and_neutral_time_limit(app):
     runner,_=app
-    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
+    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2+CAG variant',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
     runner.run_names.remember('ep_status','Andrew')
     runner.run_names.remember_metadata('ep_status','yam-1','Put box in bin',1,config)
     state={'public_run':{'run_id':'ep_status','runner_name':'API caller','status':'stopped','error':'policy_runtime_timeout: Run duration limit reached; parking at zero and disabling torque',

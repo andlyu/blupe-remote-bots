@@ -32,12 +32,12 @@ function fixture({live=true,storage=true}={}) {
       getAll(){const query={};queueMicrotask(()=>{query.result=[...stored.values()];query.onsuccess();});return query;}
     };}};return transaction;}};request.onsuccess();
   });return request;}};
-  const window={MediaRecorder:Recorder,yamApplication:{sessionReady(){},modelDisplayName(){return 'MolmoAct2 + CAG-inspired guidance';}},yamReplayReview:{ready(){}}};
+  const window={MediaRecorder:Recorder,yamApplication:{sessionReady(){},modelDisplayName(){return 'MolmoAct2+CAG variant';}},yamReplayReview:{ready(){}}};
   vm.runInNewContext(fs.readFileSync('static/cag-live-replay.js','utf8'),{
     window,document,indexedDB:idb,MediaRecorder:Recorder,HTMLCanvasElement:Node,Blob,Date,Map,Set,Promise,URL:{createObjectURL(){return 'blob:test';},revokeObjectURL(){}},
     setInterval(fn){timers.set(++interval,fn);return interval;},clearInterval(id){timers.delete(id);}
   });
-  const state={status:'running',session_id:'sess_test',episode_id:'ep_test',runner_name:'Andrew',provider:{approach:'MolmoAct2 + CAG-inspired guidance'},email:'private@example.com'};
+  const state={status:'running',session_id:'sess_test',episode_id:'ep_test',runner_name:'Andrew',provider:{approach:'MolmoAct2+CAG variant'},email:'private@example.com'};
   const tick=()=>{source.dataset.presentedFrame=String(Number(source.dataset.presentedFrame)+1);for(const fn of timers.values())fn();};
   return {window,document,source,stored,state,tick,stopped:()=>tracksStopped};
 }

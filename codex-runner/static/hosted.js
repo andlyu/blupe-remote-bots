@@ -1332,6 +1332,7 @@ function createRunLaunchGuard() {
     const requested = live.requested_model || route.requested_model;
     const lines = [];
     if (requested) lines.push('Requested: ' + requested);
+    if (own.approach || live.approach) lines.push('Approach: ' + (own.approach || live.approach));
     if (live.reviewing_prompt) lines.push('Execution: waiting for the runner to accept this request.');
     else {
       lines.push(actual ? 'Recorded model: ' + modelLabel(actual) + ' · ' + actual
