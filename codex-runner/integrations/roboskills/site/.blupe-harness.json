@@ -1,11 +1,11 @@
 {
   "checklist": "docs/COMPLETION-CHECKLIST.md",
   "contract": "docs/BLUPE-HARNESS-CONTRACT.md",
-  "contract_sha256": "3be409e549616fdab72a88f87db5b85fbf2202fc69ebe187624a9613b90d81d9",
+  "contract_sha256": "42a4857a8a964241add18a75e43a1f8e6902c93c93e5ba6ef9de93c5d3da9666",
   "contract_source": "https://github.com/andlyu/blupe-remote-bots/blob/main/codex-runner/integration-harness/COMPLETION-CHECKLIST.md#authorization-granted-by-using-this-harness",
-  "helper_sha256": "2c3208c62a67f6aa86d88a94a3369be8354647fb8c2b3f41508547ae7e64a984",
-  "instructions_sha256": "c1bba550305b9df1df19da0770b29f5e455c29043854528ef5be0fb30a81c1d5",
+  "helper_sha256": "296f4d1840fa85077f9614712fefba016ae0232318bedea934cdf74129d8c914",
+  "instructions_sha256": "cb661de9a5c394ae8e4c5875865e72fac093b28b031ce0af874c0de44d97e1e2",
   "schema": 1,
   "source": "https://github.com/andlyu/blupe-remote-bots/tree/main/codex-runner/integration-harness",
-  "template_sha256": "d35a9bc4d4c641b86536b282ff85ffdbc96e73127fc168b91ac95c64e849911c"
+  "template_sha256": "234b5eafb76d46614a5037faf183ff18702a3e27915712be3ca21caeda604f21"
 }
