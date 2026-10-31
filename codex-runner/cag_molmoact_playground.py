@@ -4,7 +4,7 @@ import asyncio
 import json
 import sqlite3
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 from local_playground import LocalPlayground, PUBLIC_SESSION_API
 from playground import RequestError
 from remote_yam.molmoact_policy import MolmoActAdapter, MODEL, VARIANT, comparison_options
@@ -19,6 +19,8 @@ class CAGPlayground(LocalPlayground):
             raise ValueError('This pinned checkpoint supports only YAM1, with its top/left/right cameras and 6+6 joints')
         self.preview, self._runpod_key, self.endpoint = preview, runpod_key, endpoint
         self.runs_enabled = runs_enabled
+        from remote_yam.quick_replays import QuickReplays
+        self.quick_replays = QuickReplays()
         super().__init__(**kwargs, default_provider='molmoact_baseline', local_codex=False, local_claude=False)
         self.cookie_name += '-cag-' + str(urlsplit(kwargs['public_origin']).port or 443)
         for mode in ('baseline','guided'):
@@ -74,6 +76,35 @@ class CAGPlayground(LocalPlayground):
                 row['run_context']=config.get('run_context')
         return value
 
+    def local_history(self, episode_ids=None):
+        # The local replay cache is ready before the remote archive catalog.
+        if not self.run_names.path.exists():
+            return []
+        with sqlite3.connect(self.run_names.path.resolve().as_uri()+'?mode=ro', uri=True, timeout=2) as db:
+            if not db.execute("SELECT name FROM sqlite_master WHERE name='run_metadata'").fetchone():
+                return []
+            records = list(db.execute('SELECT episode_id FROM run_metadata WHERE robot_id=? ORDER BY started_at DESC LIMIT 100', (self.robot_id,)))
+        rows=[]
+        for (eid,) in records:
+            if episode_ids is not None and eid not in episode_ids:
+                continue
+            row=self.quick_replays.get(eid,self.robot_id) or self.run_names.pending(eid,self.robot_id)
+            if row:rows.append(row)
+        return self.decorate_history({'runs':rows})['runs']
+
+    async def action_extension(self,path,visitor,payload,cookies,send):
+        if path != '/api/my-runs':
+            return await super().action_extension(path,visitor,payload,cookies,send)
+        offset=payload.get('offset',0)
+        if 'email' in payload or 'episode_ids' in payload or type(offset) is not int or not 0<=offset<=100000:
+            raise RequestError(400,'Run history is limited to your current session')
+        await asyncio.to_thread(self.remember_runner,visitor)
+        rows=await asyncio.to_thread(self.local_history,visitor.episode_ids.copy())
+        end=offset+12
+        await self.json(send,200,{'runs':rows[offset:end], 'next_offset':end if end<len(rows) else None,
+            'stale':False,'total':len(rows)})
+        return True
+
     async def http(self, scope, receive, send):
         if scope.get('method')!='GET' or scope.get('path')!='/api/past-runs':
             return await super().http(scope,receive,send)
@@ -83,6 +114,21 @@ class CAGPlayground(LocalPlayground):
         if messages and messages[0].get('status')==200:
             data=json.loads(b''.join(m.get('body',b'') for m in messages[1:]))
             data=await asyncio.to_thread(self.decorate_history,data)
+            query=parse_qs(scope.get('query_string',b'').decode())
+            eid=query.get('episode_id',[None])[0]
+            if eid or query.get('offset',['0'])[0]=='0':
+                local=await asyncio.to_thread(self.local_history,{eid} if eid else None)
+                model=query.get('model',[''])[0]
+                if model:local=[row for row in local if row.get('model')==model]
+                if query.get('q',[''])[0].strip() and not eid:
+                    from remote_yam.run_search import rank_runs
+                    local=rank_runs(local,query['q'][0])
+                known={row.get('episode_id') for row in data.get('runs',[])}
+                additions=[row for row in local if row['episode_id'] not in known]
+                data['runs']=sorted(additions+data.get('runs',[]),key=lambda row:row.get('started_at') or 0,reverse=True)
+                if 'total' in data:data['total']+=len(additions)
+                if additions and 'models' in data:
+                    data['models']=sorted(set(data['models'])|{row['model'] for row in additions if row.get('model')})
             return await self.json(send,200,data)
         for message in messages:await send(message)
 

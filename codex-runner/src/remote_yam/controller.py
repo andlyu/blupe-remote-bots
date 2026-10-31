@@ -837,11 +837,13 @@ class RunnerController(HomeSceneStartup):
         else:
             raise RuntimeError(f"Unsupported Session API event type: {event_type}")
 
-    def _lifecycle(self, event: Mapping[str, Any], payload: Mapping[str, Any]) -> None:
+    def _lifecycle(self, event: Mapping[str, Any], payload: Mapping[str, Any], *, expected_session=None):
         state = str(payload.get("state", ""))
-        self._interactions.add('lifecycle', f'Session {state}', reason=payload.get('reason'),
-                               episode_id=event.get('episode_id') or self._episode_id)
         with self._lock:
+            if expected_session is not None and self._session_id != expected_session:
+                return False
+            self._interactions.add('lifecycle', f'Session {state}', reason=payload.get('reason'),
+                                   episode_id=event.get('episode_id') or self._episode_id)
             self._status = state
             if state in {"preparing", "running"} and getattr(self, "_run_started_at", None) is None:
                 self._run_started_at = time.time()
@@ -877,6 +879,7 @@ class RunnerController(HomeSceneStartup):
 
         if self._is_terminal(state):
             self._cancel_home_plan()
+        return True
 
     def _prepare_leased_provider(self, *, lease_event=False):
         with self._lock:
@@ -1939,6 +1942,34 @@ class RunnerController(HomeSceneStartup):
             "images": images,
         }
 
+    def _reconcile_expired_session(self):
+        # A gateway can park at its deadline while its final stream event is
+        # lost. Read authoritative session state; elapsed time alone is not an
+        # acknowledgement that motion has stopped, and never dispatch a retry.
+        with self._lock:
+            started = getattr(self, '_run_started_at', None)
+            session_id = self._session_id
+            if (self._status != 'running' or not session_id or started is None
+                    or time.time() - started < self._run_duration_s
+                    or time.monotonic() < getattr(self, '_next_terminal_check', 0)):
+                return False
+            self._next_terminal_check = time.monotonic() + 2
+        try:
+            state = self._session_api.get_session(session_id)
+        except Exception:
+            return False  # Retain stream/Stop behavior if confirmation is unavailable.
+        with self._lock:
+            if (self._session_id != session_id or self._status != 'running'
+                    or not self._is_terminal(state.get('status', ''))):
+                return False
+        if not self._lifecycle({}, {'state': state['status'],
+                'reason': state.get('reason') or ('policy_runtime_timeout'
+                    if state['status'] == 'timed_out' else 'session_state_reconciled')},
+                expected_session=session_id):
+            return False
+        self._close_events()
+        return True
+
     def _run_loop(self, max_steps: int | None) -> None:
         with self._lock:
             provider = self._provider
@@ -1950,6 +1981,8 @@ class RunnerController(HomeSceneStartup):
             self._last_stop_reason=None
         try:
             while not self._stop_event.is_set():
+                if self._reconcile_expired_session():
+                    return
                 self._poll_home_scene()
                 try:
                     self.process_next_event(0.5)

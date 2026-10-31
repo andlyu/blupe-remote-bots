@@ -40,7 +40,7 @@
       status.setAttribute('role', 'status');
       runsEnabled = session.research_integration?.runs_enabled !== false;
       status.textContent = window.cagProgress({}, runsEnabled).text;
-      document.querySelector('.runnerContent').prepend(status);
+      document.getElementById('liveViewer').closest('.videoPanel').after(status);
       document.title = 'Completion Aware Guidance · MolmoAct2 · BluPe';
       const name = document.getElementById('runnerName');
       const email = document.getElementById('email');
@@ -66,6 +66,8 @@
         status.textContent = progress.text;
         status.dataset.phase = progress.phase;
         status.setAttribute('aria-busy', String(progress.phase === 'starting'));
+        const message=document.getElementById('message');
+        if(message?.textContent.startsWith('Starting RunPod GPU')) message.textContent=progress.text;
       }
       if (!runsEnabled) {
         for (const id of ['run', 'quickRun', 'composerSend']) {

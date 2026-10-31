@@ -200,3 +200,25 @@ def test_shared_replay_keeps_local_confirmed_name_and_actual_approach(app):
     assert row['model']=='allenai/MolmoAct2-BimanualYAM'
     assert row['video_url']=='/api/quick-replays/unchanged.mp4'
     assert '@' not in json.dumps(row)
+
+
+def test_current_replay_does_not_wait_for_archive_and_retains_andrew(app):
+    runner,api=app
+    _,_,session=call(runner,'/api/session',{})
+    visitor=next(iter(runner.visitors.values()))
+    config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
+    runner.run_names.remember('ep_ready','Andrew')
+    runner.run_names.remember_metadata('ep_ready','yam-1','Put box in bin',1,config)
+    visitor.episode_ids.add('ep_ready')
+    runner.quick_replays.get=Mock(return_value={'episode_id':'ep_ready','started_at':1,'video_url':'/api/quick-replays/ep_ready/'+'a'*64+'.mp4'})
+    runner.past_runs.page=Mock(side_effect=AssertionError('Current replay must not wait for archive catalog'))
+    code,body,_=call(runner,'/api/my-runs',{'offset':0},session)
+    assert code==200 and body['runs'][0]['runner_name']=='Andrew'
+    assert body['runs'][0]['model_version']=='MolmoAct2 + CAG-inspired guidance'
+    assert body['runs'][0]['video_url'].endswith('.mp4')
+    assert '@' not in json.dumps(body)
+    visitor.episode_ids.clear()
+    code,body,_=call(runner,'/api/my-runs',{'offset':0},session)
+    assert code==200 and body['runs']==[]
+    code,_,_=call(runner,'/api/my-runs',{'episode_ids':['ep_ready']},session)
+    assert code==400

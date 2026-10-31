@@ -16,3 +16,13 @@ test('unavailable service is neutral and startup failure has its actual cause', 
  assert.equal(progress({status:'failed',error:'GPU startup timed out'}).text,'GPU startup timed out');
  assert.match(progress({}).text,/available on demand/);
 });
+
+test('running retains GPU-ready confirmation and person; terminal state explains replay', () => {
+ assert.match(progress({status:'running',runner_name:'Andrew'}).text,/GPU ready.*Andrew/);
+ assert.match(progress({status:'timed_out',runner_name:'Andrew'}).text,/Andrew.*finished.*recording/);
+});
+
+test('elapsed duration waits for authoritative stop instead of inventing completion', () => {
+ const s=progress({status:'running',run_elapsed_s:61,run_duration_s:60});
+ assert.equal(s.phase,'finishing');assert.match(s.text,/waiting for the robot to confirm/);
+});

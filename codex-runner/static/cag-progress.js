@@ -12,7 +12,9 @@
     if (state.status === 'failed' || provider.warmup === 'failed') return {phase:'failed', text:state.error || 'GPU startup failed. The robot has not started this task.'};
     if (state.status === 'queued') return {phase:'queued', text:'GPU ready · waiting for your turn in the robot queue.'};
     if (state.status === 'preparing') return {phase:'preparing', text:'GPU ready · preparing the robot for your task.'};
-    if (state.status === 'running') return {phase:'running', text:'MolmoAct2 is running your task. Follow the live cameras below.'};
+    if (state.status === 'running' && Number(state.run_elapsed_s)>=Number(state.run_duration_s) && Number(state.run_duration_s)>0) return {phase:'finishing',text:'Time limit reached · waiting for the robot to confirm it has stopped. Stop remains available.'};
+    if (state.status === 'running') return {phase:'running', text:`GPU ready · ${state.runner_name || 'Your run'} · MolmoAct2 is running your task. Follow the live cameras above.`};
+    if (['timed_out','stopped','completed'].includes(state.status)) return {phase:'finished',text:`${state.runner_name || 'Your run'} · Run finished. Check Your runs below for the recording; it may take a moment to prepare.`};
     return {phase:'available', text:'RunPod GPU available on demand. Press Run to start MolmoAct2. GPU startup progress will appear here; cameras remain live while you wait.'};
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = cagProgress;
