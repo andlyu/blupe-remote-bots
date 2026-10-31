@@ -78,14 +78,14 @@ unverified, and request only the specific permission needed to unblock it.
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
-- [ ] A person can use the website to run the integrated paper's method on
+- [x] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
-- [ ] The actual physical arms are visible live on the website while the method
+- [x] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
-- [ ] Immediately after a run finishes, the person can replay that just-completed
+- [x] Immediately after a run finishes, the person can replay that just-completed
   physical YAM execution through the website, with retained footage showing the
   actual arms executing the integrated method.
-- [ ] The person can browse/select previous runs on the website and replay their
+- [x] The person can browse/select previous runs on the website and replay their
   retained physical arm footage, associated with the executed method and run.
   Mock animations do not satisfy either replay requirement.
 - [x] If the integrated method executes anything in simulation, those executions
@@ -289,3 +289,62 @@ Status: INCOMPLETE / physical retest and recording-publication approval required
 - Remaining gaps: corrected physical method execution, timed entry/Run-to-motion evidence, immediate and historical physical replay, and successful native build/frozen-task solve.
 
 Final code/evidence update: public source PR164; final Sites source d272543c470daaeed3c3f8b56f9ee77efd494116. All mirrored source bytes match. Corrected provider17tests+8subtests passed0.81s. Final TypeScript/build passed; SQLite migration equivalence and Drizzle no-change checks passed. New detailed model-wait wording is implemented but its corrected physical lifecycle remains unverified because the retest was denied; that checkbox stays unchecked.
+
+
+## October 30 follow-up: standing authorization applied
+
+The owner reaffirmed that physical tests are covered by the harness and asked
+to resolve the approval mismatch. The same normal website Run action was
+re-submitted with that clarification and concrete bounded scope. Review allowed
+it; no robot command or safeguard was bypassed.
+
+- Deployed source remains `d272543c470daaeed3c3f8b56f9ee77efd494116`.
+- Website run `249450342a5e4286b9d406d3e8738d34`, episode
+  `ep_a59c7a3174ef44c7`, was created by the actual website Run button at
+  `2026-10-31T03:37:20.120Z` (October 30, 8:37:20 PM Pacific).
+- The upstream RoboSkills Python agent generated one checked paired lift packet.
+  Measured left/right fingertip rises were 14.04 / 14.38 mm against a 20 mm
+  request. Its 3 mm tolerance check failed, so it ended without a hold/return
+  attempt. This is verified method-driven physical motion, not a successful
+  lift-hold-return task. Task success remains unscored. No uncertain motion was
+  retried.
+- The controller accepted the packet and matched measured completion. Normal
+  `policy_complete` Stop was accepted. The documented YAM-control-harness
+  read-only status subsequently returned `DISABLED`, `parked=true`,
+  `torque_off_verified=true`, with auto queue still enabled.
+- Live actual-arm footage remained visible beside the run controls. The new
+  physical replay appeared immediately after this run and played in the browser.
+  Clearing and reselecting this retained run in physical history reloaded its
+  recording. Anonymous replay access returned HTTP 206 for bytes 0-1023 of the
+  570,939-byte MP4, with no authentication supplied.
+- Public replay: [actual YAM footage](https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/249450342a5e4286b9d406d3e8738d34/assets/physical.mp4).
+- Public receipt: [measured execution](https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/249450342a5e4286b9d406d3e8738d34/assets/result.json).
+- Name/email defaults remained editable. The website, retained run and local
+  queue submission journal name Andrew Lyubovsky; Model is RoboSkills, with
+  gpt-6-astra separate. The remote public station feed nevertheless showed
+  `API caller`. Cross-surface attribution is not fully qualified. No email or
+  visitor/lease capability is published in this documentation.
+- The website visibly transitioned from submitting to readiness/queue, model
+  wait, and finished/replay. Completed-stage retention and all failure/recovery
+  paths are not fully qualified; the wait-stage requirement stays unchecked.
+- The Run-to-motion target was missed: the checked packet was prepared at
+  `03:38:01.716Z`, already 41.6 seconds after Run, before dispatch/physical motion.
+  Planning took 27.28 s including 21.56 s model time; hardware execution was
+  0.79 s. These are measured controller timings, not a claimed visual
+  first-motion timestamp. There was no GPU startup and no timing exception.
+  Site-entry timing remains unqualified.
+- Automatic review still denied publishing the older failed-test recording,
+  citing missing trusted authorization for that specific existing recording.
+  It remains local; no alternate upload route was used. The pending specific
+  authorization request covers that recording. Public-by-default qualification
+  remains unchecked because this enforced denial is not a user visibility
+  exception.
+
+| Run reference | Run click | First observed method motion / evidence | Elapsed | Outcome |
+| --- | --- | --- | --- | --- |
+| 249450342a5e4286b9d406d3e8738d34 | 03:37:20.120Z | Real footage and measured packet completion; precise visual onset not separately measured | Packet not prepared until +41.6 s; actual onset later | Missed 15 s target; partial physical task |
+
+Remaining qualification gaps: all-public older recording, full identity
+consistency, site-entry and every-Run latency, completed-stage/failure UX, and
+full final checklist qualification. The native simulation build remains rejected
+with the frozen-task solver not run. This is not a complete research integration.
