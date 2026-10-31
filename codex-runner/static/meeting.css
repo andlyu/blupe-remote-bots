@@ -375,3 +375,8 @@
   .meetingConsole .meetingRoom #meetingNotes { flex-direction:column; gap:0; width:44px; min-width:44px; height:44px; min-height:44px; padding:4px; border-radius:50%; }
   .meetingConsole #meetingNotes .meetingControlLabel { font-size:10px; line-height:13px; }
 }
+
+@media(max-width:600px) and (max-height:700px) {
+  .meetingConsole .meetingPanelOpen .watchInteraction { top:110px; }
+  .meetingConsole .meetingRoom .watchInteraction>.visitorChat { overflow-y:auto; }
+}
