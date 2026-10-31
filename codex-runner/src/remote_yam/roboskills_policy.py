@@ -278,6 +278,19 @@ missing objects or a grasp that could not be completed.
 """
 
 
+POST_APPROACH_GUIDANCE = """A tilted plan_approach target includes horizontal as
+well as vertical clearance: input_point minus tool_Z times clearance. It is an
+approach position, not the grasp position. Changing only base-frame Z leaves
+the horizontal offset in place. After the above-object observation, choose
+supported grasp X/Y from the actual object surfaces and a supported grasp Z
+with table clearance, then preflight the full XYZ grasp and placement. Account
+for the complete open-finger and wrist path around all objects in the fresh
+scene, including boxes and mats if present. Neither local reachability nor a
+single surface pixel proves a clear grasp. Stop if the path or contact geometry
+cannot be established. Do not use contact or tracking error to probe for the table.
+"""
+
+
 class RobotTools:
     def __init__(self, policy, instruction):
         self.policy, self.instruction = policy, instruction
@@ -532,7 +545,8 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
     provider_name='roboskills'
     supports_runtime_steering=False
 
-    def __init__(self, *, camera_source, recording_root, inference_model='gpt-6-sol', llm=None):
+    def __init__(self, *, camera_source, recording_root, inference_model='gpt-6-sol',
+                 subsequent_inference_model=None, llm=None):
         try:
             import roboskills.core.agent
         except ImportError as exc:
@@ -549,6 +563,8 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         self.refresh_observation=None
         self.interaction_sink=None
         self.inference_model=inference_model
+        # Direct SDK callers retain a single model unless explicitly configured.
+        self.subsequent_inference_model=subsequent_inference_model or inference_model
         self._llm=llm
         self._init_packet_bridge()
         self._state=None
@@ -636,6 +652,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'startup_home_feedback':deepcopy(self._startup_home_feedback),
                 'perception':self._perception.summary() if self._perception else dict(available=False),
                 'system_prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest(),
+                'subsequent_system_prompt_sha256':hashlib.sha256((PROMPT+'\n'+POST_APPROACH_GUIDANCE).encode()).hexdigest(),
                 'recording_path':str(self._recorder.path) if self._recorder else None,
                 **({'controller_workspace':self._workspace_profile.summary()} if self._workspace_profile else {}),
                 **({'controller_joint_limits':dict(
@@ -646,6 +663,8 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                    if self._workspace_profile else {}),
                 'display_name':'RoboSkills · Python agent',
                 'inference_model':self.inference_model, 'upstream_revision':REVISION,
+                'initial_inference_model':self.inference_model,
+                'subsequent_inference_model':self.subsequent_inference_model,
                 'initial_reasoning_effort':INITIAL_EFFORT,'subsequent_reasoning_effort':SUBSEQUENT_EFFORT,
                 'explicit_rotation_tolerance_deg':ROTATION_TOLERANCE_DEG,
                 'tool_attitude_references':self._geometry.attitude_references.copy(),
@@ -672,10 +691,13 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         self._check_cancelled()
         self._calls+=1
         self._vision_state='requesting'
+        model=self.inference_model if self._calls==1 else self.subsequent_inference_model
+        if self._calls>1:system=system+'\n'+POST_APPROACH_GUIDANCE
         self._interaction('model_request','RoboSkills is choosing its next Python action',
-                          model=APPROACH,inference_model=self.inference_model)
+                          model=APPROACH,inference_model=model,
+                          rendered_system_prompt_sha256=hashlib.sha256(system.encode()).hexdigest())
         started=time.monotonic()
-        fn=self._llm or (lambda s,m:llm.codex(s,m,model=self.inference_model,
+        fn=self._llm or (lambda s,m:llm.codex(s,m,model=model,
                             effort=INITIAL_EFFORT if self._calls==1 else SUBSEQUENT_EFFORT,timeout=180,env=codex_environment()))
         reply=fn(system,messages)
         elapsed=time.monotonic()-started
