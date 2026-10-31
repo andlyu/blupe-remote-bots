@@ -98,6 +98,10 @@ px,py,pz = measurement['points_base_m']['right'] (integer indexing also works).
 The points_base_m mapping ALWAYS exists, even with arm='right' or arm='left';
 then it contains just that arm. Missing/noisy depth raises a descriptive error,
 not None. A single-arm call also has point_base_m as a convenience alias.
+Use the overhead/top image to identify the requested source and destination
+in the whole scene first; wrists may show other, similar objects. Select a
+visible interior pixel on the actual requested object, not its shadow or a
+similarly colored object elsewhere. Cross-check identity across cameras.
 For the first approach, a measured interior pixel is sufficient; prefer the
 short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
@@ -116,9 +120,17 @@ bot.rgbd(camera)['rgb'] to compute a boolean mask
 in Python and bot.localize_object(label,mask,camera). These are real depth
 measurements, not guessed positions or simulator ground truth. You may measure
 and approach in the same Python turn. status.bounds documents the validated envelope.
-Surface points are not grasp targets: account for visible object height, finger
-clearance, the grasp frame and surrounding objects. Do not close on a surface
-point. Calibration quality is experimental; use visual feedback and reobserve
+The Cartesian target is the modeled grasp point BETWEEN THE FINGERTIP ENDS,
+not the wrist, palm or camera center. The finger pads extend back toward the
+wrist from those ends. An above-object approach is not a grasp height: closing
+while the fingertip ends are ABOVE the measured object top closes in free air.
+Before closing around a block, measure its top and nearby exposed table in the
+same arm frame, check the fresh wrist view, and lower the open fingertip ends
+BELOW the object top but safely ABOVE the table, so the pads overlap its sides.
+Use the measured heights and visible clearance; do not assume a fixed table
+height, block size, hidden contact or an exact physical finger dimension.
+Keep fingers away from adjacent objects. Calibration quality is experimental;
+use visual feedback and reobserve
 after movement. The cached view is invalidated by every move; query observe()
 again when measuring a new state. Wrist poses use measured settled FK and camera
 mounts. The left/right cameras MOVE WITH THEIR ARMS: perspective and pixel
@@ -133,7 +145,11 @@ Retain the stated calibration limitations, without claiming exact depth
 accuracy. Verify object retention after lifting, support before release and
 stable placement after withdrawing. Finish with finish(reason='what happened',
 task_success=True/False/None). task_success is your visual assessment, not a
-native score; use None if unverified. Explain missing objects or failed grasps.
+native score; use None if unverified. A visually confirmed empty grasp after
+a completed move is a task failure, not an unknown actuator outcome: if time
+permits, reopen, reobserve and remeasure before a bounded new grasp plan. Do
+not replay a previous packet or retry a failed/unknown physical move. Explain
+missing objects or a grasp that could not be completed.
 """
 
 
