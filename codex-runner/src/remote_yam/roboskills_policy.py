@@ -80,7 +80,17 @@ manipulating objects. bot.status() gives the latest measured per-arm coordinates
 in metres and rotations in radians, grippers 0 closed to 1 open. Dimensions are
 left_x/y/z/yaw/pitch/roll/gripper and right_x/y/z/yaw/pitch/roll/gripper.
 Use bot.move_to(left_z=..., right_z=..., ...) for coordinated changes. Omitted
-dimensions hold their current values. Each move is resolved by the existing
+dimensions hold their current values. By default pitch/roll zero refer to the
+initial measured Home attitude, which is tilted on YAM; they do NOT mean vertical.
+For object manipulation, use attitude='base_vertical' on the FIRST above-object
+Cartesian approach (not at contact). This explicitly changes only the named
+arm(s) to a fixed base-Z-down grasp reference: zero pitch/roll point tool Z down
+along base -Z, zero yaw points finger-opening X toward base -X. Later omitted
+attitude retains that reference. bot.status() reports the reference and actual
+approach axis for each arm. Gripper-only moves preserve measured joints and
+cannot request alignment. Pure lift/hold/return keeps the existing reference.
+This is a base-frame convention, not a measured gravity sensor reading.
+Each move is resolved by the existing
 BluPe IK, workspace, pacing, gateway and measured completion checks. A rejected
 move sends nothing; correct the stated cause. Never replay simulation joints.
 Inspect measured feedback after movement. A camera is an observation, not proof
@@ -107,7 +117,7 @@ short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
 coordinates for an above-object approach in the SAME first Python block. Keep
 that first program to about4–8 lines: measure source and destination, unpack the
-selected source point, move above it, then show a fresh observation.
+selected source point, move above it with attitude='base_vertical', then show a fresh observation.
 For object manipulation, leave grippers unchanged until that fresh above-object
 view; later turns handle contact/grasp after reviewing the view. move_to
 already validates bounds/IK/packets; do not duplicate bounds checks, nested
@@ -191,6 +201,8 @@ class RobotTools:
         _, state, _ = p._geometry.observe(p._state)
         return dict(instruction=self.instruction, step=p._state['step_id'],
                     coordinates=dict(zip(NAMES, state.tolist())),
+                    attitude_references=p._geometry.attitude_references.copy(),
+                    approach_axes_base={arm:r[:,2].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
                             for i,n in enumerate(NAMES)}, ended=self.result is not None,
                     perception=p._perception.summary(concise=True) if p._perception else dict(available=False))
@@ -237,14 +249,14 @@ class RobotTools:
         self.policy._record('object_localization',result=result)
         return result
 
-    def move_to(self, **targets):
-        """Checked coordinated Cartesian move; returns measured completion."""
+    def move_to(self, *, attitude=None, **targets):
+        """Checked move. For above-object approach, attitude='base_vertical' aligns named Cartesian arms tool-Z-down. Omit to retain reference. Gripper-only holds measured joints."""
         p=self.policy
         p._check_cancelled()
         if self.motion_failure:
             raise RuntimeError(self.motion_failure)
         state=p._feedback()
-        points=p._prepare_move(targets,state)
+        points=p._prepare_move(targets,state,attitude=attitude)
         _, expected, _ = p._geometry.observe({**state,**points[-1],'settled':True})
         offset=np.zeros_like(expected)
         pose_arms=[arm for arm,i in (('left',0),('right',7)) if any(n in targets for n in NAMES[i:i+6])]
@@ -388,12 +400,17 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
     def _record(self,kind,**details):
         self._recorder.write(kind,**details)
 
-    def _prepare_move(self,targets,state):
+    def _prepare_move(self,targets,state,*,attitude=None):
+        previous=self._geometry.start_rotations
+        modes=self._geometry.attitude_references.copy()
         try:
             # Same complete canonical serializer/validator as HttpSessionAPI,
             # before the bridge can hand anything to RunnerController.
-            points=_trajectory_waypoints(self._geometry.build(targets,state,state['step_id']))
+            points=_trajectory_waypoints(self._geometry.build(targets,state,state['step_id'],**({'attitude':attitude} if attitude is not None else {})))
         except ValueError as exc:
+            if attitude is not None:
+                self._geometry.start_rotations=previous
+                self._geometry.attitude_references=modes
             reason='Local command rejected before dispatch: '+str(exc)
             self._local_rejection=dict(reason=reason,dispatched=False)
             self._interaction('local_packet_rejected',reason,dispatched=False)
@@ -428,6 +445,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'display_name':'RoboSkills · Python agent',
                 'inference_model':self.inference_model, 'upstream_revision':REVISION,
                 'initial_reasoning_effort':'none','subsequent_reasoning_effort':'medium',
+                'tool_attitude_references':self._geometry.attitude_references.copy(),
                 'workflow':'core.agent.run with BluPe physical tools',
                 'execution':'physical', 'native_success_score':False}
 

@@ -3,6 +3,7 @@ import importlib.util
 import json
 import math
 from tempfile import TemporaryDirectory
+from pathlib import Path
 from unittest import TestCase, skipUnless
 from unittest.mock import patch
 import numpy as np
@@ -88,6 +89,71 @@ class CommandContract(TestCase):
                     except ValueError as exc:
                         self.assertIn(getattr(exc.__cause__,'code',None),('unreachable_target','joint_pacing_limit','packet_waypoint_budget'))
                         execute.assert_not_called()
+
+    def test_recorded_home_cartesian_moves_align_selected_grasp_base_z_down(self):
+        fixture=json.loads((Path(__file__).parent/'fixtures/roboskills-home-attitude.json').read_text())['observation']
+        for bind_workspace in (False,True):
+            for index,arm in enumerate(('left','right')):
+                with self.subTest(arm=arm,bind_workspace=bind_workspace):
+                    self.p=RoboSkillsPolicy(camera_source=Cameras(),recording_root=self.root.name,llm=lambda s,m:'')
+                    if bind_workspace:self.p.configure_robot_workspace('yam-1')
+                    self.p._state=fixture.copy();self.p._identity=('ep_unit','lease_unit')
+                    self.bot=RobotTools(self.p,'offline vertical grasp contract');self.sent=[]
+                    with patch.object(self.p,'_execute',side_effect=self.plant):
+                        self.bot.move_to(**{arm+'_x':.32,arm+'_y':-.20 if arm=='left' else .20,arm+'_z':.12},attitude='base_vertical')
+                    _,rotation=self.p._geometry.ik._poses()[index]
+                    np.testing.assert_allclose(rotation[:,2],[0,0,-1],atol=1e-5)
+                    other=('right','left')[index]
+                    previous=np.deg2rad(fixture[arm+'_joints_deg'])
+                    for point in self.sent[0]['waypoints']:
+                        np.testing.assert_array_equal(point[other+'_joints_deg'],fixture[other+'_joints_deg'])
+                        current=np.deg2rad(point[arm+'_joints_deg'])
+                        self.assertLessEqual(np.max(abs(current-previous)),.035+1e-10)
+                        previous=current
+                        for side in ('left','right'):self.assertEqual(point[side+'_gripper'],fixture[side+'_gripper'])
+                    held=self.p._state.copy();self.sent=[]
+                    with patch.object(self.p,'_execute',side_effect=self.plant):self.bot.move_to(**{arm+'_gripper':0.})
+                    for point in self.sent[0]['waypoints']:
+                        for side in ('left','right'):np.testing.assert_array_equal(point[side+'_joints_deg'],held[side+'_joints_deg'])
+                    self.assertEqual(self.p._geometry.attitude_references[arm],'base_vertical')
+                    self.assertEqual(self.p._geometry.attitude_references[other],'observed')
+
+    def test_invalid_alignment_is_zero_dispatch_and_preserves_reference(self):
+        self.bot.status()
+        original=tuple(r.copy() for r in self.p._geometry.start_rotations)
+        for kwargs in ({'right_gripper':0.,'attitude':'base_vertical'},
+                       {'right_z':.1,'attitude':'invalid'},
+                       {'right_z':-1.,'attitude':'base_vertical'}):
+            with self.subTest(kwargs=kwargs),patch.object(self.p,'_execute') as execute:
+                with self.assertRaises(ValueError):self.bot.move_to(**kwargs)
+                execute.assert_not_called()
+                self.assertEqual(self.p._geometry.attitude_references,{'left':'observed','right':'observed'})
+                for a,b in zip(self.p._geometry.start_rotations,original):np.testing.assert_array_equal(a,b)
+
+    def test_canonical_rejection_rolls_back_prepared_attitude_without_dispatch(self):
+        self.bot.status()
+        original=tuple(r.copy() for r in self.p._geometry.start_rotations)
+        real_build=self.p._geometry.build
+        def malformed(*args,**kwargs):
+            points=real_build(*args,**kwargs)
+            points[-1]['right_gripper']=-1e-16
+            return points
+        with patch.object(self.p._geometry,'build',side_effect=malformed),patch.object(self.p,'_execute') as execute:
+            with self.assertRaisesRegex(ValueError,'before dispatch.*right_gripper'):
+                self.bot.move_to(right_x=.32,right_y=.2,right_z=.12,attitude='base_vertical')
+            execute.assert_not_called()
+        self.assertEqual(self.p._geometry.attitude_references,{'left':'observed','right':'observed'})
+        for a,b in zip(self.p._geometry.start_rotations,original):np.testing.assert_array_equal(a,b)
+
+    def test_observed_reference_remains_the_default_for_other_policies(self):
+        from remote_yam.robocurve_trajectory import RoboCurveTrajectory
+        fixture=json.loads((Path(__file__).parent/'fixtures/roboskills-home-attitude.json').read_text())['observation']
+        geometry=RoboCurveTrajectory(preserve_uninstructed=True)
+        _,state,_=geometry.observe(fixture);before=geometry.ik._poses()[1][1].copy()
+        self.assertGreater(abs(before[0,2]),.8)
+        points=geometry.build({'right_z':state[9]+.01},fixture,0)
+        geometry.observe({**fixture,**points[-1],'settled':True})
+        np.testing.assert_allclose(geometry.ik._poses()[1][1],before,atol=1e-4)
 
     def test_malformed_generated_packet_is_actionable_without_dispatch(self):
         malformed=dict(step_id=0,left_joints_deg=[0.]*6,right_joints_deg=[0.]*6,left_gripper=-1.1102230246251565e-16)
