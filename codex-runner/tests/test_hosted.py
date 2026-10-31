@@ -25,6 +25,22 @@ class HeldProvider(ScriptedAdapter):
 
 
 class HostedTests(unittest.IsolatedAsyncioTestCase):
+    async def test_task_suggestions_follow_robot_and_saved_overrides_without_starting_run(self):
+        from remote_yam.task_suggestions import DEFAULTS, save_suggestions
+        path = self.app.root / 'task-suggestions.sqlite3'
+        with patch.dict('os.environ', {'YAM_TASK_SUGGESTIONS_DATABASE': str(path)}):
+            code, data, _ = await self.call('/api/task-suggestions')
+            self.assertEqual((code, data), (200, {'robot_id':'yam-1', 'suggestions':DEFAULTS['yam-1']}))
+            values = ['Lift the apple', 'Move the markers', 'Stack two blocks']
+            save_suggestions(path, 'yam-1', values)
+            self.assertEqual((await self.call('/api/task-suggestions'))[1]['suggestions'], values)
+            self.app.robot_id = 'yam-2'
+            self.assertEqual((await self.call('/api/task-suggestions'))[1]['suggestions'], DEFAULTS['yam-2'])
+            self.assertEqual((await self.call('/api/task-suggestions', extra={'sec-fetch-site':'cross-site'}))[0], 403)
+            self.assertEqual((await self.call('/api/task-suggestions', method='POST'))[0], 401)
+            self.assertFalse(self.app.visitors)
+            self.assertFalse(self.providers)
+
     async def test_public_label_export_is_separate_from_runner_assessments(self):
         code, data, _ = await self.call('/api/run-labels')
         self.assertEqual(code, 200)

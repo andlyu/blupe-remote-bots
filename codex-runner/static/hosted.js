@@ -2899,8 +2899,10 @@ function bindQuickTaskDraft(prompt, quick) {
     if (quickPrompt.readOnly !== $('prompt').readOnly) quickPrompt.readOnly = $('prompt').readOnly;
     send.setAttribute('aria-label', steering ? 'Update prompt' : running ? (queued ? 'Leave queue' : 'Stop run') : 'Send task');
     send.title = send.getAttribute('aria-label');
+    if (!send.querySelector('svg')) {
     const icon = running && !steering ? '■' : '↑';
     if (send.firstElementChild.textContent !== icon) send.firstElementChild.textContent = icon;
+    }
     const settingsDisabled = running || $('openLocalRun').disabled;
     if ($('composerSettings').disabled !== settingsDisabled) $('composerSettings').disabled = settingsDisabled;
   }
