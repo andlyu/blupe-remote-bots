@@ -41,7 +41,7 @@ python tools/blupe_harness.py scope --target . --spec /path/to/private-scope.jso
 Start with `scope.example.json`; fill its placeholders using the actual task and
 prior user instructions. Keep identity details and private task records outside
 public source. The renderer requires exact HTTPS site/backend origins, station,
-arms, approach, task, duration, movement, recording destination, and the actual
+arms, exact action, approach, execution mode, task, duration, movement, recording destination, and the actual
 user invocation reference. Name/email submission requires already-confirmed
 runner fields, their confirmation reference and the task's exact operational destinations.
 It refuses unfilled placeholders, credential-bearing URLs and unrelated identity

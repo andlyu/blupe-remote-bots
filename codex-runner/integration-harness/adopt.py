@@ -213,6 +213,7 @@ def scope(root, specification):
     else:
         identity_text = "No runner name/email submission is included in this scope."
     value = dict(approach=required(data, "approach", 200), website=site, backend=backend,
+                 action=required(data, "action", 2000), execution_mode=required(data, "execution_mode", 100),
                  station=required(data, "station", 200), arms=arms, duration_s=duration,
                  task=required(data, "task"), expected_motion=required(data, "expected_motion"),
                  recording_destination=required(data, "recording_destination"),
@@ -223,6 +224,7 @@ def scope(root, specification):
     notice = ("User harness invocation: " + value["invocation_reference"] + ".\n"
               f"Applicable harness contract ({manifest['contract']}; {manifest['contract_source']}):\n"
               + grant + "\n"
+              f"Action: {value['action']}\nExecution mode: {value['execution_mode']}.\n"
               f"Website: {site}; backend: {backend}. Station: {value['station']}; "
               f"arms: {', '.join(arms)}. Approach: {value['approach']}. "
               f"Duration: {duration}s.\nTask: {value['task']}\n"

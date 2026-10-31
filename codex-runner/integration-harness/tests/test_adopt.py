@@ -27,6 +27,7 @@ class Adoption(unittest.TestCase):
 
     def specification(self):
         return dict(website="https://fixture.example", backend="https://api.fixture.example",
+                    action="Render fixture context only", execution_mode="automated_test",
                     station="fixture-yam", arms=["left"], approach="Fixture method",
                     duration_s=60, task="Disposable fixture; no physical action",
                     expected_motion="No movement occurs in this test",

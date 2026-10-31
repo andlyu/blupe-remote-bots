@@ -1,6 +1,8 @@
 {
   "website": "https://integration.example",
   "backend": "https://api.example",
+  "action": "REPLACE_WITH_THE_EXACT_UI_CONTROL_OR_SUPPORTED_API_OPERATION",
+  "execution_mode": "automated_test",
   "station": "REPLACE_WITH_TARGET_STATION",
   "arms": ["left"],
   "approach": "REPLACE_WITH_ACTUAL_APPROACH",
