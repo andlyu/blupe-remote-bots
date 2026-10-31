@@ -78,6 +78,7 @@
         const current=document.getElementById('cagStatus');
         current.textContent=window.cagProgress({status:'preparing',provider:{warmup:'checking',warmup_elapsed_s:0}},runsEnabled).text;
         current.dataset.runClickAt=String(Date.now());
+        delete current.dataset.homeCompletedAt;
         document.getElementById('cagStartupStages').replaceChildren();
       }, {capture:true});
       const provider = document.getElementById('provider');
@@ -103,7 +104,9 @@
         const home=state.cag_startup?.home?.completed_at;
         if (home) status.dataset.homeCompletedAt=String(home * 1000);
         const message=document.getElementById('message');
-        if(message?.textContent.startsWith('Starting RunPod GPU')) message.textContent=progress.text;
+        if (message && ['preparing','queued'].includes(state.status)) message.textContent=progress.text;
+        const queue=document.getElementById('yourQueue');
+        if (queue && state.status === 'preparing' && !state.session_id) queue.hidden=true;
       }
       if (!runsEnabled) {
         for (const id of ['run', 'quickRun', 'composerSend']) {

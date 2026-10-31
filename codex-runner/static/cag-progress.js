@@ -22,7 +22,7 @@
     if (number(home?.completed_at)) stages.push(`Both arms settled at Home ${clock(home.completed_at)}`);
     const result = (phase, text) => ({phase, text, stages});
     if (!enabled) return result('unavailable', 'GPU service is unavailable. Cameras and previous runs remain available.');
-    if (state.status === 'failed' || provider.warmup === 'failed') return result('failed', state.error || 'Startup failed. Use Stop before trying another run.');
+    if (state.status === 'failed' || provider.warmup === 'failed' || (['stopped','completed','timed_out'].includes(state.status) && state.error && state.error !== 'Run reached time limit')) return result('failed', state.error || 'Startup failed. Use Stop before trying another run.');
     if (state.status === 'preparing' && !state.session_id) {
       if (gpu.launch_required === true && number(gpu.launch_started_at)) {
         return result('starting', `Starting GPU · loading MolmoAct2 on RunPod · ${duration(now - gpu.launch_started_at)} elapsed. The robot will join the queue when the model is ready. You can cancel with Stop.`);

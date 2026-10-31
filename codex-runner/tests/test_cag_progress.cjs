@@ -46,3 +46,9 @@ test('completed GPU, queue and Home stages retain actual timestamps after comple
  assert.match(s.stages[2],/queue entered/);assert.match(s.stages[3],/admission confirmed/);
  assert.match(s.stages[4],/settled at Home/);
 });
+
+test('a safety rejection remains visible even when the session reports stopped', () => {
+ const s=progress({status:'stopped',error:'joint_1_outside_limits: Trajectory rejected before motion'});
+ assert.equal(s.phase,'failed');assert.match(s.text,/joint_1_outside_limits/);
+ assert.equal(progress({status:'timed_out',error:'Run reached time limit'}).phase,'finished');
+});
