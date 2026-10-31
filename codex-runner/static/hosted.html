@@ -312,9 +312,11 @@
         </div>
         <div id="pastRunsCloud" hidden>
           <p class="help">Nearby points have similar task descriptions; this does not establish identical starting conditions or physical difficulty. Small offsets separate repeated attempts.</p>
+          <div class="cloudToolbar"><label class="cloudRegionControl" for="taskCloudHighlight">Highlight <select id="taskCloudHighlight"><option value="both">Success &amp; failure areas</option><option value="success">Success-heavy areas</option><option value="failure">Failure-heavy areas</option><option value="none">None</option></select></label></div>
+          <p id="taskCloudRegionStatus" class="help" role="status"></p>
           <div class="cloudToolbar"><button id="resetTaskCloud" type="button">Reset view</button><button id="zoomTaskCloudIn" type="button" aria-label="Zoom task cloud in">Zoom in</button><button id="zoomTaskCloudOut" type="button" aria-label="Zoom task cloud out">Zoom out</button><span class="cloudLegend"><span class="cloudKey"><i class="cloudDot success" aria-hidden="true"></i>Green: Success</span><span class="cloudKey"><i class="cloudDot failure" aria-hidden="true"></i>Red: Failure</span><span class="cloudKey"><i class="cloudDot uncertain" aria-hidden="true"></i>Amber: Uncertain</span><span class="cloudKey"><i class="cloudDot unscored" aria-hidden="true"></i>Hollow: Unscored (unlabeled or excluded)</span></span></div>
           <div class="taskCloudStage">
-            <canvas id="taskCloudCanvas" class="taskCloudCanvas" width="1000" height="540" tabindex="0" aria-label="3D task cloud" aria-describedby="taskCloudHelp taskCloudFocus"></canvas>
+            <canvas id="taskCloudCanvas" class="taskCloudCanvas" width="1000" height="540" tabindex="0" aria-label="3D task cloud" aria-describedby="taskCloudHelp taskCloudFocus taskCloudRegionStatus"></canvas>
             <div id="taskCloudPreview" class="taskCloudPreview" hidden aria-hidden="true">
               <div class="taskCloudPreviewMedia"></div><p class="taskCloudPreviewTitle"></p><p class="taskCloudPreviewState"></p>
             </div>
