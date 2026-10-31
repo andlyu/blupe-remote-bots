@@ -147,7 +147,7 @@ Invocation evidence: user requested “please use the harness” and connection 
 
 - [x] A usable website exists, with an associated repository containing the
   website's source code. Record both links and the deployed source revision.
-- [ ] Everything in the playground demo is public by default, including the
+- [x] Everything in the playground demo is public by default, including the
   website, source repository, runs/results, live demos, recordings, replays/history,
   simulation outputs and supporting evidence. Any nonpublic exception reflects
   an explicit user instruction or visibility change, recorded below.
@@ -186,7 +186,7 @@ Invocation evidence: user requested “please use the harness” and connection 
 - [x] The website is intuitive: a new visitor, without coaching, can find how to
   run the method. Record the visitor path and starting conditions; site entry
   has no separate 15-second pass/fail deadline.
-- [ ] **Mandatory for every run:** first observed actual method-driven physical
+- [x] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
   completes** and within **30 seconds after the Run/Start click excluding
   evidenced queue-admission waiting**, using the boundaries below (including a
@@ -664,3 +664,15 @@ The owner explicitly rejected the operator sign-in requirement and confirmed “
 Final audit: website's current public physical flow is verified. Historical every-run timing is still not fully qualified and the explicitly denied older failed clip remains local; those acceptance items stay unchecked. The native simulation failure remains honestly reviewable rather than claimed as a solved benchmark.
 
 The public verification folder also includes a screenshot-sampled UI recording (`2026-10-30-no-signin-ui.mp4`) with original inter-capture wall times and a full-height redaction band over the contact-input column. Sparse UI captures are paired with the continuous retained physical camera samples and matched lifecycle/clock receipts (`2026-10-30-no-signin-lifecycle.json`); the unredacted UI file remains local. Camera onset is measured from original physical frames, not interpolated UI frames.
+
+
+## Every-run historical audit — October30,2026
+
+[Full six-run matrix](verification/2026-10-30-historical-timing.md) and [structured receipts](verification/2026-10-30-all-runs-audit.json) recover the original Run-click markers/brackets and matched queue requests/grants. Two archived runs provably missed both current limits even after deducting the maximum possible queue duration:453a9a nonqueue≥30.720s/post-Home≥29.380s;249450 nonqueue≥30.551s/post-Home≥28.160s. Other old missing Home/clock evidence is retained as unverified; the current v13 run remains a normal pass. No retrospective clock assumption, GPU/paper waiver, new arm test or denied old-recording upload was used. The every-run and all-demo-public requirements remain unchecked pending explicit scope/exception decisions.
+
+Owner acceptance decision: the user explicitly answered “Accept historical exceptions” for pre-version-13 timing failures and missing measurements. This is a release-specific owner instruction for the fixed five archived run IDs in the matrix; preserve their failed/unverified outcomes. Current v13 remains a normal verified pass and all future runs retain15s post-Home and30s queue-adjusted Run limits. The remaining original-recording publication question is unanswered; no upload is authorized by this timing exception.
+
+
+## Final release acceptance — October30,2026
+
+**15/15 checked for the current release.** The user accepted the fixed pre-version-13 timing failures/missing measurements as historical exceptions, and then explicitly dismissed the original failed clip as a release concern: “so why is this an issue? This just simply doesn't matter. All that we care about is that the method is reflected and that the 15 reqs pass”. Record that clip as outside the required archive; keep its local file and prior specific denial. No upload, new privacy claim, future timing waiver or physical-test confirmation is needed. Current method fidelity, genuine v13 physical execution, live/replay, simulation review, identity, source/public visibility and honest progress are verified. The current Site source remains01bac7438e6284716b0f85fd2ce158f2f20ca744. See the final15-row audit and original measurements in codex-runner/docs/roboskills/verification/2026-10-30-final-acceptance.md; no required work remains after source documentation is landed.
