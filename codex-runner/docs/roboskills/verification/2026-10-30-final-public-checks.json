@@ -1,0 +1,121 @@
+{
+  "verifiedAt": "2026-10-31T06:32:37.548390+00:00",
+  "unauthenticated": true,
+  "checks": {
+    "/api/config": {
+      "status": 200,
+      "bytes": 73,
+      "online": true,
+      "detail": "Ready to build and solve a new bimanual scene."
+    },
+    "/api/physical/station": {
+      "status": 200,
+      "bytes": 3026,
+      "runnerOnline": true,
+      "stationConnected": true
+    },
+    "/api/physical/runs": {
+      "status": 200,
+      "bytes": 41942,
+      "count": 6,
+      "runs": [
+        {
+          "id": "b1d79ff0fe8944e8ab47342bdcffbad2",
+          "runner": "Andrew Lyubovsky",
+          "status": "finished",
+          "assets": [
+            "physical.mp4",
+            "result.json"
+          ]
+        },
+        {
+          "id": "2ea288ea830e471a86eb6d1d98971c50",
+          "runner": "Andrew Lyubovsky",
+          "status": "finished",
+          "assets": [
+            "physical.mp4",
+            "result.json"
+          ]
+        },
+        {
+          "id": "62623309ad3c4c47a88aa91ef209668a",
+          "runner": "Andrew Lyubovsky",
+          "status": "failed",
+          "assets": [
+            "physical.mp4",
+            "result.json"
+          ]
+        },
+        {
+          "id": "13e819ec7b494429ab91a8a09f41e645",
+          "runner": "Andrew Lyubovsky",
+          "status": "failed",
+          "assets": [
+            "physical.mp4",
+            "result.json"
+          ]
+        },
+        {
+          "id": "249450342a5e4286b9d406d3e8738d34",
+          "runner": "Andrew Lyubovsky",
+          "status": "finished",
+          "assets": [
+            "physical.mp4",
+            "result.json"
+          ]
+        },
+        {
+          "id": "453a9a037e874840ad4382597c25e8c1",
+          "runner": "Andrew Lyubovsky",
+          "status": "failed",
+          "assets": []
+        }
+      ]
+    },
+    "/api/runs": {
+      "status": 200,
+      "bytes": 11,
+      "count": 0,
+      "runs": []
+    },
+    "/verification/native-lift-20261030/receipt.json": {
+      "status": 200,
+      "bytes": 8765,
+      "topLevelFields": [
+        "task",
+        "seeds",
+        "demo",
+        "passed",
+        "checks",
+        "episodes"
+      ]
+    },
+    "/verification/native-lift-20261030/result.json": {
+      "status": 200,
+      "bytes": 519,
+      "topLevelFields": [
+        "passed",
+        "phase",
+        "build"
+      ]
+    },
+    "/verification/native-lift-20261030/task.py": {
+      "status": 200,
+      "bytes": 5504
+    },
+    "/verification/native-lift-20261030/demo.mp4": {
+      "status": 200,
+      "bytes": 23721
+    },
+    "/api/physical/runs/b1d79ff0fe8944e8ab47342bdcffbad2/assets/physical.mp4": {
+      "status": 206,
+      "bytes": 1024
+    },
+    "/api/physical/camera/top": {
+      "status": 200,
+      "contentType": "image/jpeg",
+      "bytes": 31761,
+      "jpeg": true
+    }
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "reviewedAt": "2026-10-31T06:35:11.310491+00:00",
+  "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
+  "siteVersion": 13,
+  "siteSource": "01bac7438e6284716b0f85fd2ce158f2f20ca744",
+  "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
+  "testedRun": "b1d79ff0fe8944e8ab47342bdcffbad2",
+  "requirements": [
+    {
+      "number": 1,
+      "requirement": "Website and associated source",
+      "status": "PASS",
+      "evidence": "Public Site v13; source01bac7438e6284716b0f85fd2ce158f2f20ca744; associated public repository code merged inPR177."
+    },
+    {
+      "number": 2,
+      "requirement": "Public demo and source",
+      "status": "PASS with explicit archive exception",
+      "evidence": "Site access_mode=public and GitHub isPrivate=false; current physical replays and simulation artifacts open anonymously. Original failed development clip453a9a is excluded by the latest owner scope decision and remains local."
+    },
+    {
+      "number": 3,
+      "requirement": "Actual method clearly named",
+      "status": "PASS",
+      "evidence": "RoboSkills labels match executed RoboSkillsPolicy; foundation inference gpt-6-sol is separate. Live adapter source matches public main byte-for-byte."
+    },
+    {
+      "number": 4,
+      "requirement": "Confirmed editable human name/email",
+      "status": "PASS",
+      "evidence": "Anonymous physical form exposes editable required fields. Known account defaults are used when available. Current normal-UI run confirmed Andrew Lyubovsky and the existing email; public projection excludes email."
+    },
+    {
+      "number": 5,
+      "requirement": "Approach and runner in run context",
+      "status": "PASS",
+      "evidence": "Runb1d79ff0fe8944e8ab47342bdcffbad2 and captured live backend feed name Andrew Lyubovsky and RoboSkills; same identity in replay/history."
+    },
+    {
+      "number": 6,
+      "requirement": "Human attribution distinct from execution mode",
+      "status": "PASS",
+      "evidence": "All six retained physical run records name the actual human. Audit metadata identifies automated verification separately; model=RoboSkills and underlying inference IDs stay separate."
+    },
+    {
+      "number": 7,
+      "requirement": "Method runs on physical YAMs",
+      "status": "PASS",
+      "evidence": "Normal public UI runb1d79f executed pinned upstream core.agent.run/Repl through BluPe measured tools.20mm lift,1s hold and return all within3mm; four matched packets, no uncertain-motion retry."
+    },
+    {
+      "number": 8,
+      "requirement": "Actual arms visible live",
+      "status": "PASS",
+      "evidence": "Live camera visible during the physical run; current fixed public top-camera endpoint returns200 JPEG; station and runner online."
+    },
+    {
+      "number": 9,
+      "requirement": "Immediate just-completed replay",
+      "status": "PASS",
+      "evidence": "Newb1d79f replay appeared after completion and played through normal website UI; retained29.5s MP4 and anonymous HTTP206 verified."
+    },
+    {
+      "number": 10,
+      "requirement": "Previous-run browsing and replay",
+      "status": "PASS",
+      "evidence": "Selected and played earlier2ea288 run, then reselected the new run through physical history."
+    },
+    {
+      "number": 11,
+      "requirement": "Simulation executions reviewable",
+      "status": "PASS",
+      "evidence": "Native-lift-20261030 has public receipt, generated task.py, workflow result and real replay. Build rejection/demo8of8/solver-not-run are shown honestly, separate from physical footage; source/upstream examples credited."
+    },
+    {
+      "number": 12,
+      "requirement": "Usable visitor path",
+      "status": "PASS",
+      "evidence": "Live YAM arms \u2192 editable name/email \u2192 Run on physical YAMs. No operator sign-in. Original15-item checklist retains this fulfilled diagnostic; latest shared harness no longer adds a separate visitor gate."
+    },
+    {
+      "number": 13,
+      "requirement": "Every-run startup timing",
+      "status": "PASS with explicit historical exceptions",
+      "evidence": "Currentb1d79f conservative upper bounds:13.865s after Run excluding only guaranteed queue wait and13.134s after measured Home readiness. Owner accepted the fixed five pre-version-13 timing failures/missing measurements as historical exceptions. Original failures remain visible; all future runs retain15s/30s limits."
+    },
+    {
+      "number": 14,
+      "requirement": "Persistent honest progress and recovery",
+      "status": "PASS",
+      "evidence": "Run immediately shows submission then queue/admission, preparation, scene/model, measured motion and saving replay, retaining observed timestamps. Stop available on owned run. Connection recovery clears stale errors; real failures retain measured reasons."
+    },
+    {
+      "number": 15,
+      "requirement": "Final normal-UI physical verification",
+      "status": "PASS",
+      "evidence": "Final functional deployment v13 was tested end-to-end by anonymous normal UI, with live footage, timing, actual attribution, new/prior replay and native parked/torque-off evidence. Current Sites version/source is unchanged; subsequent changes are audit documentation only."
+    }
+  ],
+  "checked": 15,
+  "unchecked": 0,
+  "ownerExceptions": [
+    {
+      "instruction": "Accept historical exceptions",
+      "scope": "Fixed five archived physical runs before version13, covering historical timing failures and missing original measurements; current v13 passed both limits; future runs retain the limits.",
+      "recordedAt": "2026-10-31T06:28:03.937020+00:00",
+      "unattended_reclassification": false
+    },
+    {
+      "recordedAt": "2026-10-31T06:35:11.310491+00:00",
+      "instruction": "so why is this an issue? This just simply doesn't matter. All that we care about is that the method is reflected and that the 15 reqs pass",
+      "scope": "Original failed development clip453a9a037e874840ad4382597c25e8c1 is outside the release-required public demo archive. Keep the existing local file and prior specific upload denial; do not retry its upload. This is a completion-scope exception, not a newly asserted privacy concern or confidential-visibility policy. All current method/demo/source/live/replay/simulation materials remain public."
+    }
+  ],
+  "methodFidelity": {
+    "upstreamRevision": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+    "agentSourceMatchesPinnedCommit": true,
+    "actualCore": "roboskills.core.agent.run and Repl",
+    "physicalAdapter": "BluPe RobotTools and ProgramPacketBridge with native queue/lease/gateway/feedback",
+    "limits": "Physical adapter does not claim the complete RoboKit/SAM tool surface or a native physical benchmark score. Simulation build failure is explicitly retained, not claimed as solved."
+  },
+  "remainingRequiredWork": [],
+  "reverificationNote": "Exact current functional Site source still equals the deployment used for the final UI physical run. A later stale browser-automation handle does not replace or invalidate the retained same-deployment UI/physical evidence; no unnecessary new arm run was performed."
+}
