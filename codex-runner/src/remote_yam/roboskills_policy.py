@@ -404,7 +404,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 **({'controller_workspace':self._workspace_profile.summary()} if self._workspace_profile else {}),
                 'display_name':'RoboSkills · Python agent',
                 'inference_model':self.inference_model, 'upstream_revision':REVISION,
-                'initial_reasoning_effort':'none','subsequent_reasoning_effort':'low',
+                'initial_reasoning_effort':'none','subsequent_reasoning_effort':'medium',
                 'workflow':'core.agent.run with BluPe physical tools',
                 'execution':'physical', 'native_success_score':False}
 
@@ -431,7 +431,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                           model=APPROACH,inference_model=self.inference_model)
         started=time.monotonic()
         fn=self._llm or (lambda s,m:llm.codex(s,m,model=self.inference_model,
-                            effort='none' if self._calls==1 else 'low',timeout=180,env=codex_environment()))
+                            effort='none' if self._calls==1 else 'medium',timeout=180,env=codex_environment()))
         reply=fn(system,messages)
         elapsed=time.monotonic()-started
         self.last_step_model_s+=elapsed
