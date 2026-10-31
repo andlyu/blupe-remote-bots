@@ -182,4 +182,20 @@ class RoboCurveTrajectory:
 
         for i in range(count):
             seed = extend(i/count, (i+1)/count, seed)
+        self.validate_joint_limits(points)
         return points
+
+    def validate_joint_limits(self, points):
+        """Final command-space check also covers measured uninstructed joints."""
+        for point in points:
+            joints=np.deg2rad(point['left_joints_deg']+point['right_joints_deg'])
+            # 1e-10rad covers degrees/radians serialization roundoff only;
+            # it is not an expanded actuator target or hardware tolerance.
+            invalid=np.flatnonzero(~np.isfinite(joints) | (joints<self.ik.low-1e-10)
+                                   | (joints>self.ik.high+1e-10))
+            if len(invalid):
+                i=int(invalid[0])
+                raise InvalidMove(
+                    f'{ARMS[i//6]} joint {i%6+1} target {point[ARMS[i//6]+"_joints_deg"][i%6]:.6f} degrees '
+                    f'is outside configured limits [{math.degrees(self.ik.low[i]):.6f}, '
+                    f'{math.degrees(self.ik.high[i]):.6f}]. No motion was sent.', 'joint_limit')

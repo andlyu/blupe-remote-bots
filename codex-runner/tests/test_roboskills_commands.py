@@ -183,6 +183,54 @@ class CommandContract(TestCase):
         self.bot.motion_failure='Physical move outcome uncertain'
         with self.assertRaisesRegex(RuntimeError,'uncertain'):self.bot.plan_move(right_z=.12)
 
+    def test_recorded_native_joint_rejection_is_now_zero_dispatch(self):
+        fixture=json.loads((Path(__file__).parent/'fixtures/roboskills-native-joint-rejection.json').read_text())
+        self.p.configure_robot_workspace('yam-1')
+        self.p._state=fixture['observation'].copy()
+        self.bot.status()
+        self.p._geometry.start_rotations=(self.p._geometry.start_rotations[0],np.diag([-1.,1.,-1.]))
+        self.p._geometry.attitude_references['right']='base_vertical'
+        with patch.object(self.p,'_execute',side_effect=self.plant) as execute:
+            with self.assertRaisesRegex(ValueError,'before dispatch'):
+                self.bot.move_to(**fixture['targets'])
+            execute.assert_not_called()
+            self.assertFalse(self.bot.plan_move(**fixture['targets'])['reachable'])
+        self.assertIsNone(self.bot.motion_failure)
+        self.assertEqual(self.p._state['step_id'],125)
+        self.assertEqual(self.p._completed_moves,0)
+        with self.assertRaisesRegex(ValueError,'right joint 4'):
+            self.p._geometry.validate_joint_limits(fixture['waypoints'])
+        # A new valid gripper request can use the unchanged cursor; it is not
+        # replay of the rejected motion or a claim of physical task success.
+        with patch.object(self.p,'_execute',side_effect=self.plant):self.bot.move_to(left_gripper=.8)
+        self.assertEqual(self.sent[-1]['waypoints'][0]['step_id'],125)
+        self.p._geometry.validate_joint_limits(self.sent[-1]['waypoints'])
+
+    def test_native_joint_binding_only_tightens_without_changing_fk_and_checks_held_arm(self):
+        from remote_yam.robocurve_trajectory import RoboCurveTrajectory
+        canonical=RoboCurveTrajectory()
+        self.p.configure_robot_workspace('yam-1')
+        ik=self.p._geometry.ik
+        self.assertGreaterEqual(ik.low[9],-1.5306984343835146)
+        self.assertTrue(np.all(ik.low>=canonical.ik.low))
+        self.assertTrue(np.all(ik.high<=canonical.ik.high))
+        np.testing.assert_array_equal(ik.model.qpos0,canonical.ik.model.qpos0)
+        for i in range(12):
+            arm=('left','right')[i//6]
+            for bound,direction in ((ik.low[i],-1),(ik.high[i],1)):
+                with self.subTest(joint=i,bound=bound):
+                    point=observation()
+                    point[arm+'_joints_deg'][i%6]=math.degrees(bound)
+                    self.p._geometry.validate_joint_limits([point])
+                    point[arm+'_joints_deg'][i%6]=math.degrees(bound+direction*1e-8)
+                    with self.assertRaises(ValueError):self.p._geometry.validate_joint_limits([point])
+        self.p._state=observation()
+        self.p._state['right_joints_deg'][3]=math.degrees(ik.low[9]-1e-6)
+        with patch.object(self.p,'_execute') as execute:
+            with self.assertRaisesRegex(ValueError,'right joint 4'):
+                self.bot.move_to(left_gripper=.8)
+            execute.assert_not_called()
+
     def test_invalid_alignment_is_zero_dispatch_and_preserves_reference(self):
         self.bot.status()
         original=tuple(r.copy() for r in self.p._geometry.start_rotations)
