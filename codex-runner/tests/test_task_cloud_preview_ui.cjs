@@ -106,7 +106,7 @@ test('ready catalog hints start media immediately without a hover-detail request
  assert.equal(c.layouts[0].layout,'observer-focus');
 });
 test('Cloud reuses recent ready Table media without retaining assessment data',async()=>{
- const c=require('./helpers/past-runs.cjs')();c.events['blupe-robot-selected']({detail:'yam-1'});
+ const c=require('./helpers/past-runs.cjs')('','table');c.events['blupe-robot-selected']({detail:'yam-1'});
  const row={...detail('ep_a'),robot_id:'yam-1',assessment:{label:'Success'},replay_speed:2};
  c.answer(c.requests[0],[row]);await c.flush();c.nodes.get('pastRunsCloudView').emit('click');
  c.answer(c.requests[1],[run('ep_a')]);await c.flush();

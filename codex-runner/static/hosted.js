@@ -329,8 +329,8 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
-  let historyModels = [], historyView = 'table', catalogRows = [], cloud = null, cloudTimer = null;
-  try { historyView = localStorage.getItem('yam-past-runs-view') === 'cloud' ? 'cloud' : 'table'; } catch (_) {}
+  let historyModels = [], historyView = 'cloud', catalogRows = [], cloud = null, cloudTimer = null;
+  try { historyView = localStorage.getItem('yam-past-runs-view') === 'table' ? 'table' : 'cloud'; } catch (_) {}
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
   if ($('pastRunsQuery')) $('pastRunsQuery').value = historySearch;
   if ($('clearPastRunsSearch')) $('clearPastRunsSearch').hidden = !historySearch;

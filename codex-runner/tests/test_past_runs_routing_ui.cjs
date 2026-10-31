@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf8').split('\n})();')[0]+'\n})();';
 test('Table recording blocks wait for robot selection, ignore stale responses and open shared details', async () => {
-  const c = require('./helpers/past-runs.cjs')();
+  const c = require('./helpers/past-runs.cjs')('','table');
   assert.equal(c.requests.length,0);
   c.events['blupe-robot-selected']({detail:'robot-3652c537a175cbae'});
   assert.match(c.requests[0].url,/api\/run-catalog.*robot_id=robot-3652c537a175cbae/);
@@ -34,7 +34,7 @@ test('Table recording blocks wait for robot selection, ignore stale responses an
 });
 
 test('incumbent previews are muted, exclusive and pause on replay, view switch, exit and hidden page',async()=>{
-  const c=require('./helpers/past-runs.cjs')();
+  const c=require('./helpers/past-runs.cjs')('','table');
   c.events['blupe-robot-selected']({detail:'yam-1'});
   const run={episode_id:'ep_one',episode_index:1,prompt:'Move block',started_at:1,model:'M',
     video_url:'https://example.com/previews/one.mp4',original_video_url:'https://example.com/videos/one.mp4',
@@ -57,7 +57,7 @@ test('incumbent previews are muted, exclusive and pause on replay, view switch, 
 });
 
 test('recording blocks retain reason, assessment text and the live-speed replay action',async()=>{
- const c=require('./helpers/past-runs.cjs')();c.events['blupe-robot-selected']({detail:'yam-1'});
+ const c=require('./helpers/past-runs.cjs')('','table');c.events['blupe-robot-selected']({detail:'yam-1'});
  const run={episode_id:'ep_one',episode_index:1,prompt:'Move block',started_at:1,model:'M',
    video_url:'https://example.com/previews/one.mp4',original_video_url:'https://example.com/videos/one.mp4',camera_order:[],
    result:'Stopped',ending_reason:'Time limit',assessment:{label:'Success',correct:1,incorrect:2,eligibility:'excluded'}};
@@ -71,7 +71,7 @@ test('recording blocks retain reason, assessment text and the live-speed replay 
 });
 
 test('Cloud lazily requests only its preview detail and clears media scope on search, view, robot and hidden page',async()=>{
- const c=require('./helpers/past-runs.cjs')();c.events['blupe-robot-selected']({detail:'yam-1'});
+ const c=require('./helpers/past-runs.cjs')('','table');c.events['blupe-robot-selected']({detail:'yam-1'});
  c.answer(c.requests[0],[]);await c.flush();c.nodes.get('pastRunsCloudView').emit('click');
  c.answer(c.requests[1],[{episode_id:'ep_one',prompt:'Task',xyz:[0,0,0]}]);await c.flush();
  assert.equal(c.requests.length,2,'Cloud catalog load does not fetch all recording details');
@@ -89,7 +89,7 @@ test('Cloud lazily requests only its preview detail and clears media scope on se
 });
 
 test('native preparation updates its block without losing loaded pages and aborts stale detail requests',async()=>{
- const c=require('./helpers/past-runs.cjs')();c.document.body={dataset:{stationLocal:'true'}};
+ const c=require('./helpers/past-runs.cjs')('','table');c.document.body={dataset:{stationLocal:'true'}};
  c.events['blupe-robot-selected']({detail:'yam-1'});
  assert.equal(c.nodes.get('datasetViewer').src,undefined,'Native view never assigns the hosted viewer');
  const run={episode_id:'ep_one',robot_id:'yam-1',prompt:'Native task',started_at:1,
@@ -110,7 +110,7 @@ test('native preparation updates its block without losing loaded pages and abort
 });
 
 test('unavailable native replay never promises ongoing live-speed processing and details remain usable',async()=>{
- const c=require('./helpers/past-runs.cjs')();c.events['blupe-robot-selected']({detail:'yam-1'});
+ const c=require('./helpers/past-runs.cjs')('','table');c.events['blupe-robot-selected']({detail:'yam-1'});
  const run={episode_id:'ep_one',robot_id:'yam-1',prompt:'Native task',started_at:1,
    video_status:'unavailable',video_url:null,camera_order:[],original_available:false};
  c.answer(c.requests[0],[run,{...run,episode_id:'ep_two',video_status:'processing'}]);await c.flush();

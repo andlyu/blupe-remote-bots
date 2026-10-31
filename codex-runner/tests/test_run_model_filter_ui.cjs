@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const setup=require('./helpers/past-runs.cjs');
 const run={episode_id:'ep_one',prompt:'Move block',model:'A',started_at:1,xyz:[.1,.2,.3],assessment:{label:'Success',correct:0,incorrect:0,eligibility:'included'}};
 test('multi-model filters compose with pagination, search, refresh, robot and view changes',async()=>{
- const c=setup();c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[],null,0,false,['A','B','__unrecorded__']);await c.flush();
+ const c=setup('','table');c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[],null,0,false,['A','B','__unrecorded__']);await c.flush();
  assert.deepEqual(c.nodes.get('pastRunsModel').children.map(option=>option.textContent),['All models','A','B','Model not recorded']);
  c.choose('A','B');assert.match(c.requests[1].url,/model=A&model=B&view=table/);
  c.answer(c.requests[1],[run],100,101,false,['A','B']);await c.flush();
@@ -18,9 +18,10 @@ test('multi-model filters compose with pagination, search, refresh, robot and vi
  c.answer(c.requests[5],[],null,0,false,['Other']);await c.flush();c.choose('');
  assert.doesNotMatch(c.requests[6].url,/[?&]model=/);
 });
-test('first visit defaults to Table; later visits remember Cloud; Your runs remains above All runs',()=>{
- const first=setup();assert.equal(first.nodes.get('pastRunsTable').hidden,false);assert.equal(first.nodes.get('pastRunsCloud').hidden,true);
- const later=setup('','cloud');assert.equal(later.nodes.get('pastRunsCloud').hidden,false);
+test('first visit defaults to Cloud; later visits remember Table; Your runs remains above All runs',()=>{
+ const first=setup();assert.equal(first.nodes.get('pastRunsCloud').hidden,false);assert.equal(first.nodes.get('pastRunsTable').hidden,true);
+ const later=setup('','table');assert.equal(later.nodes.get('pastRunsTable').hidden,false);assert.equal(later.nodes.get('pastRunsCloud').hidden,true);
+ const savedCloud=setup('','cloud');assert.equal(savedCloud.nodes.get('pastRunsCloud').hidden,false);
  const html=fs.readFileSync(path.join(__dirname,'../static/hosted.html'),'utf8');
  assert.ok(html.indexOf('id="myRunsList"')<html.indexOf('id="pastRunsTableView"'));assert.ok(html.includes('<ol id="pastRunsList">'));
  assert.doesNotMatch(html,/Cards<\/button>/);
