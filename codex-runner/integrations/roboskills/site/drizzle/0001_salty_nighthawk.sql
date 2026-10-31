@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `runs_one_active_owner` ON `runs` (`owner`) WHERE "runs"."status" IN ('queued','building','solving','uploading');

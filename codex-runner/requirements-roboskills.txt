@@ -1,0 +1,4 @@
+# Optional workflow runtime; use Python3.13 in a project-local environment.
+# Core runner dependencies remain in requirements.txt.
+roboskills @ git+https://github.com/openrobokit/roboskills@8a2860234768b4bec981994d1c14fa380a2c8c7f
+imageio-ffmpeg==0.6.0

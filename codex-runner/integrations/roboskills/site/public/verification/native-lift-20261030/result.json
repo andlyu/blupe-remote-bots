@@ -1,0 +1,27 @@
+{
+  "passed": false,
+  "phase": "build",
+  "build": {
+    "passed": false,
+    "rounds": [
+      {
+        "round": 0,
+        "passed": false,
+        "seconds": 615,
+        "checks": {
+          "builds": true,
+          "starts_differ": true,
+          "holding_still_fails": true,
+          "robot_at_rest": false,
+          "scene_in_frame": false,
+          "demo_solves": true
+        },
+        "error": null
+      }
+    ],
+    "cost_usd": 0.0,
+    "turns": 8,
+    "end": "deadline",
+    "elapsed_s": 615
+  }
+}
