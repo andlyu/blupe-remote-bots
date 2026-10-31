@@ -103,7 +103,8 @@
         setTimeout(()=>{
           review?.ready();player.pause();player.removeAttribute('src');player.load();
           player.parentElement.hidden=true;
-          if(!dialog.open) dialog.showModal();
+          if(window.yamRunSidebar) window.yamRunSidebar.open({episode_id:timingId,robot_id:document.getElementById('robotSelector')?.value});
+          else if(!dialog.open) dialog.showModal();
           panel.dataset.timingStartedAt=String(at);
           begin(timingId,document.getElementById('robotSelector')?.value);
         },Math.max(0,at-Date.now()));

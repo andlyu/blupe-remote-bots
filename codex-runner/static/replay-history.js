@@ -1,3 +1,158 @@
+/* Nonmodal replay inspector and bounded, lazy related-video browsing. */
+(() => {
+  'use strict';
+  const validXYZ = row => Array.isArray(row.xyz) && row.xyz.length === 3 && row.xyz.every(Number.isFinite);
+  const normalized = text => String(text || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  const words = text => new Set(normalized(text).split(' ').filter(word => word && !['the','a','an','to','of','on','in','it','please','robot','up','down','with','for','and','then','at','from','me','you','can','do'].includes(word)));
+  function rankSimilar(selected, rows, limit = 40) {
+    const sameRobot=rows.filter(row=>row.robot_id===selected.robot_id);
+    const reference={...sameRobot.find(row=>row.episode_id===selected.episode_id),...selected};
+    const task=normalized(reference.prompt), tokens=words(reference.prompt), seen=new Set();
+    return sameRobot.filter(row=>{
+      if (!row.episode_id || row.episode_id===reference.episode_id || seen.has(row.episode_id)) return false;
+      if ((row.preview?.video_duration_s ?? row.video_duration_s) === 0 || row.video_status === 'unavailable') return false;
+      const published=!!row.preview?.video_url || !!row.video_url || row.original_available === true;
+      if(published)seen.add(row.episode_id);
+      return published;
+    }).map(row=>{
+      const exact=!!task && normalized(row.prompt)===task;
+      const distance=validXYZ(reference) && validXYZ(row) ? Math.sqrt(reference.xyz.reduce((sum,value,i)=>sum+(value-row.xyz[i])**2,0)) : null;
+      const other=words(row.prompt), common=[...tokens].filter(word=>other.has(word)).length;
+      const overlap=common/Math.max(1,new Set([...tokens,...other]).size);
+      return {row,exact,distance,overlap};
+    }).filter(item=>item.exact || (item.distance!==null ? item.overlap>=.4 || (item.overlap>=.2 && item.distance<=.2) : item.overlap>=.25))
+      .sort((a,b)=>Number(b.exact)-Number(a.exact) || b.overlap-a.overlap || (a.distance ?? 1)-(b.distance ?? 1) || (b.row.started_at || 0)-(a.row.started_at || 0) || a.row.episode_id.localeCompare(b.row.episode_id))
+      .slice(0,limit).map(item=>item.row);
+  }
+  window.yamSimilarRuns={rank:rankSimilar};
+  const $=id=>document.getElementById(id), dialog=$('pastRunDialog'), body=$('runSidebarBody'), list=$('similarRunsList');
+  if (!dialog?.classList?.contains('runSidebar') || !body || !list) return;
+  const status=$('similarRunsStatus'), more=$('moreSimilarRuns'), sentinel=$('similarRunsSentinel'), catalog=new Map();
+  let active=null, source=$('pastRunsLabelSource')?.value==='human'?'human':'auto', scope=null, signature='', returnFocus=null, catalogRevision=0;
+  const stateText=row=>{
+    const label=window.yamRunLabels?.outcome(row,source) || 'Unscored';
+    return `${source==='auto'?'Auto':'Human'}: ${label==='Unscored'?'Unlabeled or excluded':label}`;
+  };
+  function cancelScope() {
+    if (!scope) return;
+    scope.closed=true;scope.controllers.forEach(controller=>controller.abort());
+    scope.mediaObserver?.disconnect();scope.moreObserver?.disconnect();
+    for (const entry of scope.media.values()) {entry.video.pause();entry.video.removeAttribute('src');entry.video.load();}
+    scope=null;
+  }
+  function updateCount(request) {
+    if (scope!==request || request.closed) return;
+    status.textContent=request.rows.length
+      ? `Showing ${request.shown} of ${request.rows.length} similar published videos on this robot. ${source==='auto'?'Auto-labeled':'Human-labeled'} results. ${request.shown<request.rows.length?'Scroll for more.':'All suggestions shown.'}`
+      : 'No similar published videos found on this robot yet.';
+    more.hidden=request.shown>=request.rows.length;
+  }
+  function release(request,entry) {
+    entry.controller?.abort();entry.video.pause();entry.video.removeAttribute('src');entry.video.load();request.media.delete(entry.id);
+  }
+  function pump(request) {
+    if (request.closed) return;
+    while(request.busy<2 && request.queue.length) {
+      const entry=request.queue.shift();entry.queued=false;
+      if (!entry.visible || entry.video.hasAttribute('src')) continue;
+      const controller=new AbortController();entry.controller=controller;request.controllers.add(controller);request.busy++;
+      (async()=>{
+        try {
+          let detail=entry.run.preview?.video_url ? entry.run.preview : entry.run.video_url ? entry.run : null;
+          if (!detail) {
+            const response=await fetch(`/api/past-runs?episode_id=${encodeURIComponent(entry.run.episode_id)}&robot_id=${encodeURIComponent(request.robot)}`,{cache:'no-store',signal:controller.signal,headers:{'X-Blupe-Robot':request.robot}});
+            if (!response.ok) throw new Error();
+            const data=await response.json();detail=data.runs?.find(row=>row.episode_id===entry.run.episode_id && row.robot_id===request.robot);
+          }
+          if (request.closed || controller.signal.aborted || !entry.visible) return;
+          if (!detail?.video_url || detail.video_duration_s===0 || detail.video_status==='unavailable') {entry.note.textContent='Preview unavailable · select for run details';return;}
+          while(request.media.size>=6) {const oldest=[...request.media.values()].find(other=>other!==entry);if (!oldest) break;release(request,oldest);}
+          request.media.set(entry.id,entry);entry.video.preload='metadata';entry.video.src=detail.video_url;
+          entry.video.defaultPlaybackRate=entry.video.playbackRate=entry.run.replay_speed===2 ? 2/(detail.compressed?(detail.preview_speed || 10):1) : detail.compressed?1:10;
+          entry.note.textContent='Loading preview…';
+        } catch (_) {if(!controller.signal.aborted && !request.closed)entry.note.textContent='Preview unavailable · select to retry';}
+        finally {request.controllers.delete(controller);request.busy--;pump(request);}
+      })();
+    }
+  }
+  function enqueue(request,entry) {
+    if (request.closed || entry.queued || entry.video.hasAttribute('src')) return;
+    entry.queued=true;request.queue.push(entry);pump(request);
+  }
+  function append(request, count=8) {
+    if (request.closed || scope!==request) return;
+    for (const row of request.rows.slice(request.shown,request.shown+count)) {
+      const li=document.createElement('li'), button=document.createElement('button'), video=document.createElement('video'), text=document.createElement('span'), title=document.createElement('strong'), meta=document.createElement('span'), note=document.createElement('span');
+      button.type='button';button.className='similarRunCard';button.setAttribute('aria-label',`Watch similar run: ${row.prompt || 'Task not recorded'}`);
+      video.muted=true;video.playsInline=true;video.loop=true;video.preload='none';video.setAttribute('aria-hidden','true');video.tabIndex=-1;
+      text.className='similarRunText';title.textContent=row.prompt || 'Task not recorded';meta.className='similarRunMeta';meta.textContent=`${stateText(row)} · ${row.model || 'Model not recorded'}`;note.className='similarRunState';note.textContent=request.mediaObserver?'Preview loads when visible':'Hover or focus to preview';
+      text.append(title,meta,note);button.append(video,text);li.append(button);list.append(li);
+      const entry={id:row.episode_id,run:row,video,note,visible:false,queued:false};request.entries.set(li,entry);
+      button.addEventListener('click',()=>window.yamReplayHistory?.selectRun(row));
+      button.addEventListener('pointerenter',()=>{if(!entry.visible && request.mediaObserver)return;entry.visible=true;for(const other of request.media.values())if(other!==entry)other.video.pause();enqueue(request,entry);if(video.hasAttribute('src')&&!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)video.play().catch(()=>{});});
+      button.addEventListener('focus',()=>{if(!request.mediaObserver){entry.visible=true;enqueue(request,entry);}});
+      const leave=()=>{video.pause();if(!request.mediaObserver){entry.visible=false;release(request,entry);}};
+      button.addEventListener('pointerleave',leave);button.addEventListener('blur',leave);
+      video.addEventListener('loadedmetadata',()=>{if(video.hasAttribute('src')&&video.duration>0)video.currentTime=Math.min(1,video.duration/2);});
+      const previewReady=()=>{if(!request.closed && video.hasAttribute('src'))note.textContent='Select to watch';};
+      video.addEventListener('seeked',previewReady);video.addEventListener('loadeddata',previewReady);
+      video.addEventListener('error',()=>{if(!request.closed && video.hasAttribute('src'))note.textContent='Preview unavailable · select to retry';});
+      if(request.mediaObserver)request.mediaObserver.observe(li);
+      else if(request.shown<3){entry.visible=true;enqueue(request,entry);}
+      request.shown++;
+    }
+    updateCount(request);
+  }
+  async function refresh(force=false) {
+    if (!active || !dialog.open) return;
+    const cached=catalog.get(active.robot_id), nextSignature=`${active.robot_id}:${active.episode_id}:${source}:${cached?.version || 0}`;
+    if(!force && signature===nextSignature)return;
+    signature=nextSignature;const oldShown=scope?.shown || 8;cancelScope();list.replaceChildren();more.hidden=true;more.textContent='Show more similar videos';status.textContent='Finding similar videos…';
+    const request=scope={run:{...active},robot:active.robot_id,closed:false,controllers:new Set(),media:new Map(),entries:new Map(),queue:[],busy:0,shown:0,rows:[]};
+    try {
+      let rows=cached && Date.now()-cached.at<60000 ? cached.rows : null;
+      if (!rows) {
+        const controller=new AbortController();request.controllers.add(controller);
+        const response=await fetch(`/api/run-catalog?view=cloud&robot_id=${encodeURIComponent(request.robot)}`,{cache:'no-store',signal:controller.signal,headers:{'X-Blupe-Robot':request.robot}});
+        if(!response.ok)throw new Error();const data=await response.json();rows=data.runs || [];
+        if(request.closed)return;catalog.set(request.robot,{rows,at:Date.now(),version:++catalogRevision});
+      }
+      await window.yamRunLabels?.load();if(request.closed || scope!==request)return;
+      request.rows=rankSimilar(request.run,rows);
+      if(typeof IntersectionObserver!=='undefined') {
+        request.mediaObserver=new IntersectionObserver(entries=>{
+          for(const observed of entries){const entry=request.entries.get(observed.target);if(!entry)continue;entry.visible=observed.isIntersecting;if(entry.visible)enqueue(request,entry);else release(request,entry);}
+        },{root:body,rootMargin:'80px 0px'});
+        request.moreObserver=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)&&request.shown<request.rows.length)append(request);},{root:body,rootMargin:'0px 0px 120px 0px'});
+      }
+      append(request,Math.max(8,oldShown));request.moreObserver?.observe(sentinel);
+    } catch (_) {
+      if(request.closed || scope!==request)return;
+      status.textContent='Similar videos are unavailable. Retry to load them.';more.textContent='Retry similar videos';more.hidden=false;
+    }
+  }
+  window.yamRunSidebar={
+    open(run) {
+      const changed=!active || active.episode_id!==run.episode_id || active.robot_id!==run.robot_id;
+      const switchingInside=changed && dialog.open && dialog.contains(document.activeElement);
+      if(!dialog.open || !dialog.contains(document.activeElement))returnFocus=document.activeElement;
+      active={...(changed?{}:active),...run};if(changed){signature='';cancelScope();body.scrollTop=0;}
+      document.body.classList.add('runSidebarOpen');if(!dialog.open)dialog.show();
+      if(switchingInside)$('closePastRun')?.focus({preventScroll:true});
+      refresh();
+    },
+    setCatalog(rows,{robot,complete,source:labelSource}) {
+      source=labelSource || source;if(complete)catalog.set(robot,{rows:rows.slice(),at:Date.now(),version:++catalogRevision});
+      if(dialog.open && active?.robot_id===robot)refresh();
+    },
+    setSource(value) {source=value;signature='';refresh();}
+  };
+  more.addEventListener('click',()=>{if(scope?.rows.length)append(scope);else refresh(true);});
+  dialog.addEventListener('close',()=>{cancelScope();active=null;signature='';document.body.classList.remove('runSidebarOpen');if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape' && dialog.open && !document.querySelector?.('dialog:modal') && !document.fullscreenElement && !$('pastRunVideo').webkitDisplayingFullscreen){event.preventDefault();dialog.close();}});
+  window.addEventListener('blupe-robot-selected',event=>{if(dialog.open && active?.robot_id!==event.detail)dialog.close();});
+})();
+
 /* Personal public-run history and the post-run processing-to-replay transition. */
 (() => {
   'use strict';
@@ -14,7 +169,8 @@
   if (!$('replayRunAnother')) {
     const again = document.createElement('button'); again.id = 'replayRunAnother';
     again.type = 'button'; again.textContent = 'Close and run another';
-    $('pastRunDetails').after(again);
+    const advanced=$('runSidebarDetails')?.querySelector?.('summary');
+    if(advanced)advanced.after(again);else $('pastRunDetails').after(again);
     again.addEventListener('click', () => {
       dialog.close();
       const target = new URL(location.href); target.searchParams.delete('run');
@@ -82,11 +238,12 @@
     }
   }
   function renderSummary(run) {
-    $('pastRunTitle').textContent = `${run.runner_name || 'Your run'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
+    $('pastRunTitle').textContent = `${run.runner_name || 'Run replay'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt || '';
     window.yamRunAssessment?.showReplay(run);
     const reason = run.ending_reason || run.result_reason;
     $('pastRunDetails').textContent = [run.model ? `${run.model} · ${run.model_version || 'version unknown'}` : 'Model not recorded · version unknown', [run.result, reason].filter(Boolean).join(': ')].filter(Boolean).join(' · ');
+    window.yamRunLabels?.showReplay(run, $('pastRunDetails'));
     renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
     $('aspirePastLineage')?.remove();
@@ -95,16 +252,18 @@
   }
   function openEpisode(id, known = {}) {
     if (!validId(id) || !robot) return;
+    known = {...known,episode_id:id,robot_id:robot};
     ready();
     pending = {id, robot, generation, known};
-    $('past-runs').scrollIntoView({behavior: 'smooth', block: 'start'});
+    if (!window.yamRunSidebar) $('past-runs').scrollIntoView({behavior: 'smooth', block: 'start'});
     player.pause(); player.yamRecordingView?.(); player.yamRecordingView = null;
     player.removeAttribute('src'); player.load(); player.parentElement.hidden = true;
     processing.hidden = false;
     if ($('pastRunSpeed')) $('pastRunSpeed').hidden = true;
     renderSummary(known);
     $('pastRunError').textContent = '';
-    if (!dialog.open) dialog.showModal();
+    if (window.yamRunSidebar) window.yamRunSidebar.open({...known,episode_id:id,robot_id:robot});
+    else if (!dialog.open) dialog.showModal();
     poll(pending);
   }
   async function poll(request) {
@@ -117,7 +276,7 @@
       $('pastRunError').textContent = '';
       const run = data.runs?.find(row => row.episode_id === request.id && row.robot_id === request.robot);
       if (run) {
-        request.known = {...request.known, ...run};
+        request.known = {...request.known, ...run, model:run.model || request.known.model, model_version:run.model_version || request.known.model_version};
         renderSummary(request.known);
       }
       if (run && run.video_duration_s !== 0 && run.video_url) {
