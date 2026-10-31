@@ -1,0 +1,576 @@
+{
+  "run": "2a7c2a77824647cdbf031b48a20e6058",
+  "runtime": "186d4e46f299b0c4156b49cca1727be887f63436",
+  "scope": "Actual measured pose and last fresh measured purple_top center from archived step87 at fixed object before closure. Nominal installed-reference pad geometry only; not physical force/contact accuracy. Closed-pad centers reported for geometry analysis, not proof of actual closed or force. No new hardware call.",
+  "source_top_center_base_m": [
+    0.4960000478998421,
+    -0.23056358048512976,
+    0.025330633521984725
+  ],
+  "recorded_poses": [
+    {
+      "step": 97,
+      "state": {
+        "step_id": 97,
+        "observed_at": 1793463657.5088322,
+        "left_joints_deg": [
+          -25.627260806854856,
+          124.36075354106423,
+          89.30655986354668,
+          -21.028811947031954,
+          -0.6212001177795323,
+          -0.44806724651643526
+        ],
+        "right_joints_deg": [
+          -1.3004878618403852,
+          45.840392088834975,
+          34.29186955446987,
+          -19.65764461761399,
+          -1.2124084437179226,
+          -0.5792088796429933
+        ],
+        "left_gripper": 0.4333838274543747,
+        "right_gripper": 0.998698951933502,
+        "timing": {
+          "session_read_s": 0.38130370800354285,
+          "robot_observation_read_s": 0.3769662920021801,
+          "total_s": 0.7583296250013518
+        },
+        "episode_id": "offline",
+        "lease_id": "offline",
+        "settled": true,
+        "source": "hardware"
+      },
+      "grasp_position_base_m": [
+        0.4907834473018221,
+        -0.22933179128843045,
+        0.03373006362503969
+      ],
+      "rotation_base": [
+        [
+          -0.7515253545365355,
+          0.4211772835860831,
+          0.5077591331328107
+        ],
+        [
+          0.3518450559424273,
+          0.9069664917088369,
+          -0.23155310303737087
+        ],
+        [
+          -0.5580454265537936,
+          0.0046345127481971365,
+          -0.8297974591392661
+        ]
+      ],
+      "object_top_center_base_m": [
+        0.4960000478998421,
+        -0.23056358048512976,
+        0.025330633521984725
+      ],
+      "object_top_center_tool_m": [
+        0.000333457001943668,
+        0.0010409948772821774,
+        0.009903826966067238
+      ],
+      "object_center_beyond_max_tip_along_tool_z_m": -0.00011667738262260106,
+      "pads_at_closed_reference": [
+        {
+          "center_base_m": [
+            0.4912940513724542,
+            -0.23012626011601328,
+            0.032372335190562464
+          ],
+          "center_above_measured_block_top_m": 0.007041701668577739,
+          "bounds_base_m": [
+            [
+              0.4778446823088452,
+              -0.23637964737450345,
+              0.01879830948109186
+            ],
+            [
+              0.5047434204360631,
+              -0.22387287285752314,
+              0.04594636090003307
+            ]
+          ],
+          "local_bounds_m": [
+            [
+              -0.012440560852250203,
+              -0.0005197222644821231,
+              -0.006358460493411655
+            ],
+            [
+              0.012629385470384388,
+              -0.0005038660947302822,
+              0.009498190908815318
+            ]
+          ]
+        },
+        {
+          "center_base_m": [
+            0.4919684709205515,
+            -0.2293037713019527,
+            0.032312498170169957
+          ],
+          "center_above_measured_block_top_m": 0.006981864648185232,
+          "bounds_base_m": [
+            [
+              0.47861998060623745,
+              -0.23550661156191094,
+              0.018902590960531866
+            ],
+            [
+              0.5053169612348656,
+              -0.2231009310419945,
+              0.04572240537980805
+            ]
+          ],
+          "local_bounds_m": [
+            [
+              -0.01263007267358724,
+              0.0005164451832254027,
+              -0.005955405143516168
+            ],
+            [
+              0.012450771308468573,
+              0.0005194518015411266,
+              0.009498426469889132
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "step": 102,
+      "state": {
+        "step_id": 102,
+        "observed_at": 1793463661.2135503,
+        "left_joints_deg": [
+          -25.692831623418236,
+          124.36075354106423,
+          89.28470292469221,
+          -21.269238274430815,
+          -0.6430570566339926,
+          -0.4262103076621786
+        ],
+        "right_joints_deg": [
+          -1.3004878618403852,
+          45.840392088834975,
+          34.29186955446987,
+          -19.65764461761399,
+          -1.2124084437179226,
+          -0.5792088796429933
+        ],
+        "left_gripper": 0.008006924908028536,
+        "right_gripper": 0.998698951933502,
+        "timing": {
+          "session_read_s": 0.3594565000021248,
+          "robot_observation_read_s": 0.367315666997456,
+          "total_s": 0.726823000004515
+        },
+        "episode_id": "offline",
+        "lease_id": "offline",
+        "settled": true,
+        "source": "hardware"
+      },
+      "grasp_position_base_m": [
+        0.4896706474747361,
+        -0.22940956324266973,
+        0.03301296721444369
+      ],
+      "rotation_base": [
+        [
+          -0.7532537900007421,
+          0.4223292724970253,
+          0.5042288304348052
+        ],
+        [
+          0.35415378906515976,
+          0.9064274536352974,
+          -0.23013988134832603
+        ],
+        [
+          -0.5542416634829147,
+          0.005220812998432509,
+          -0.8323394268994635
+        ]
+      ],
+      "object_top_center_base_m": [
+        0.4960000478998421,
+        -0.23056358048512976,
+        0.025330633521984725
+      ],
+      "object_top_center_tool_m": [
+        -0.0009184750325678443,
+        0.001586950138743216,
+        0.009851360787790161
+      ],
+      "object_center_beyond_max_tip_along_tool_z_m": -0.00016914356089967747,
+      "pads_at_closed_reference": [
+        {
+          "center_base_m": [
+            0.4901749566791871,
+            -0.23020131965331841,
+            0.03165130729021972
+          ],
+          "center_above_measured_block_top_m": 0.006320673768234995,
+          "bounds_base_m": [
+            [
+              0.4767319019799706,
+              -0.23647243806416043,
+              0.018104803452191877
+            ],
+            [
+              0.5036180113784036,
+              -0.22393020124247637,
+              0.04519781112824757
+            ]
+          ],
+          "local_bounds_m": [
+            [
+              -0.012440560852250203,
+              -0.0005197222644821231,
+              -0.006358460493411655
+            ],
+            [
+              0.012629385470384388,
+              -0.0005038660947302822,
+              0.009498190908815318
+            ]
+          ]
+        },
+        {
+          "center_base_m": [
+            0.4908501687509305,
+            -0.22937952589235822,
+            0.031590861299956384
+          ],
+          "center_above_measured_block_top_m": 0.0062602277779716595,
+          "bounds_base_m": [
+            [
+              0.47750727974643525,
+              -0.23560039798459184,
+              0.01820901243212407
+            ],
+            [
+              0.5041930577554258,
+              -0.2231586538001246,
+              0.0449727101677887
+            ]
+          ],
+          "local_bounds_m": [
+            [
+              -0.01263007267358724,
+              0.0005164451832254027,
+              -0.005955405143516168
+            ],
+            [
+              0.012450771308468573,
+              0.0005194518015411266,
+              0.009498426469889132
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "observed_outcome": "The completed close/lift had an empty grasp; no transfer/release.",
+  "task": "Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\n\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.",
+  "planning_state": {
+    "step_id": 65,
+    "observed_at": 1793463596.8154163,
+    "left_joints_deg": [
+      -25.911401011962838,
+      106.85334551864156,
+      81.56920350906775,
+      -31.236002392064897,
+      -1.0801958337231976,
+      -1.6939127612208735
+    ],
+    "right_joints_deg": [
+      -1.3004878618403852,
+      45.840392088834975,
+      34.313726493324324,
+      -19.65764461761399,
+      -1.2124084437179226,
+      -0.5792088796429933
+    ],
+    "left_gripper": 0.9997114621654765,
+    "right_gripper": 0.998698951933502,
+    "timing": {
+      "session_read_s": 0.3748751250022906,
+      "robot_observation_read_s": 0.3530259170001955,
+      "total_s": 0.7279603330025566
+    },
+    "episode_id": "offline",
+    "lease_id": "offline",
+    "settled": true,
+    "source": "hardware"
+  },
+  "nominal_band_candidates": [
+    {
+      "arm": "left",
+      "tilt_deg": 15,
+      "engagement_m": 0.002,
+      "target_base_m": [
+        0.49448436066772655,
+        -0.2312267969233711,
+        0.024715575477312905
+      ],
+      "nominal_min_tip_bound_z_m": 0.011767786046794933,
+      "margin_over_table_q95_and_3mm_tracking_m": 0.00403953904916896,
+      "plan": {
+        "from_step_id": 65,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 32
+      },
+      "rotation_base": [
+        [
+          -0.8749907816675437,
+          0.42358339013914204,
+          0.23445307333249513
+        ],
+        [
+          0.4091501361224756,
+          0.9058571143388076,
+          -0.10963144855710125
+        ],
+        [
+          -0.25881904510252074,
+          0.0,
+          -0.9659258262890683
+        ]
+      ],
+      "remaining_after_additional_3mm_reference_allowance_m": 0.0010395390491689596
+    },
+    {
+      "arm": "right",
+      "tilt_deg": 15,
+      "engagement_m": 0.002,
+      "target_base_m": [
+        0.4944987295122761,
+        0.26838593120720794,
+        0.024715575477312905
+      ],
+      "nominal_min_tip_bound_z_m": 0.011767786046794933,
+      "margin_over_table_q95_and_3mm_tracking_m": 0.00403953904916896,
+      "plan": {
+        "from_step_id": 65,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 85
+      },
+      "rotation_base": [
+        [
+          -0.8489451848340642,
+          -0.4770194671962358,
+          0.22747417669457767
+        ],
+        [
+          -0.4607654230074952,
+          0.878892728332542,
+          0.12346172299504296
+        ],
+        [
+          -0.25881904510252074,
+          0.0,
+          -0.9659258262890683
+        ]
+      ],
+      "remaining_after_additional_3mm_reference_allowance_m": 0.0010395390491689596
+    }
+  ],
+  "candidate_scope": "Read-only nominal reference band geometry with measured broad-table upper95Z plus unchanged3mmtracking allowance. Not full collision, contact/force calibration or physical success.",
+  "nominal_span_candidates": [
+    {
+      "arm": "left",
+      "tilt_deg": 15,
+      "engagement_m": 0.003,
+      "target_base_m": [
+        0.4937810014477291,
+        -0.23089790257769977,
+        0.02961335295618011
+      ],
+      "nominal_min_tip_bound_z_m": 0.016665584748823837,
+      "margin_over_table_q95_and_3mm_tracking_m": 0.008937337751197864,
+      "plan": {
+        "from_step_id": 65,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 33
+      },
+      "path_plans": {
+        "approach": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 38
+        },
+        "lift": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 38
+        },
+        "transfer": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 32
+        },
+        "placement": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 21
+        }
+      },
+      "rotation_base": [
+        [
+          -0.8749907816675437,
+          0.42358339013914204,
+          0.23445307333249513
+        ],
+        [
+          0.4091501361224756,
+          0.9058571143388076,
+          -0.10963144855710125
+        ],
+        [
+          -0.25881904510252074,
+          0.0,
+          -0.9659258262890683
+        ]
+      ],
+      "targets": {
+        "approach": {
+          "left_x": 0.4797138170477794,
+          "left_y": -0.2243200156642737,
+          "left_z": 0.0875689025335242
+        },
+        "grasp": {
+          "left_x": 0.4937810014477291,
+          "left_y": -0.23089790257769977,
+          "left_z": 0.02961335295618011
+        },
+        "lift": {
+          "left_x": 0.4797138170477794,
+          "left_y": -0.2243200156642737,
+          "left_z": 0.0875689025335242
+        },
+        "transfer": {
+          "left_x": 0.42105428948580803,
+          "left_y": -0.22172422706477432,
+          "left_z": 0.12222147173825602
+        },
+        "placement": {
+          "left_x": 0.4351214738857577,
+          "left_y": -0.22830211397820038,
+          "left_z": 0.06426592216091193
+        }
+      }
+    },
+    {
+      "arm": "right",
+      "tilt_deg": 15,
+      "engagement_m": 0.003,
+      "target_base_m": [
+        0.49381630698219237,
+        0.2680155460382228,
+        0.02961335295618011
+      ],
+      "nominal_min_tip_bound_z_m": 0.016665584748823837,
+      "margin_over_table_q95_and_3mm_tracking_m": 0.008937337751197864,
+      "plan": {
+        "from_step_id": 65,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 86
+      },
+      "path_plans": {
+        "approach": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 88
+        },
+        "lift": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 88
+        },
+        "transfer": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 70
+        },
+        "placement": {
+          "from_step_id": 65,
+          "dispatched": false,
+          "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+          "reachable": true,
+          "waypoint_count": 69
+        }
+      },
+      "rotation_base": [
+        [
+          -0.8489451848340642,
+          -0.4770194671962358,
+          0.22747417669457767
+        ],
+        [
+          -0.4607654230074952,
+          0.878892728332542,
+          0.12346172299504296
+        ],
+        [
+          -0.25881904510252074,
+          0.0,
+          -0.9659258262890683
+        ]
+      ],
+      "targets": {
+        "approach": {
+          "right_x": 0.48016785638051773,
+          "right_y": 0.2606078426585202,
+          "right_z": 0.0875689025335242
+        },
+        "grasp": {
+          "right_x": 0.49381630698219237,
+          "right_y": 0.2680155460382228,
+          "right_z": 0.02961335295618011
+        },
+        "lift": {
+          "right_x": 0.48016785638051773,
+          "right_y": 0.2606078426585202,
+          "right_z": 0.0875689025335242
+        },
+        "transfer": {
+          "right_x": 0.4214730232840831,
+          "right_y": 0.264290182642097,
+          "right_z": 0.12222147173825602
+        },
+        "placement": {
+          "right_x": 0.4351214738857577,
+          "right_y": 0.2716978860217996,
+          "right_z": 0.06426592216091193
+        }
+      }
+    }
+  ]
+}

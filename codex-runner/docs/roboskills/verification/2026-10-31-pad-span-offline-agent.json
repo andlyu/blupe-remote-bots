@@ -1,0 +1,479 @@
+{
+  "scope": "Reconstructed actual2a7c2a77 pregrasp-planning step65 context, original assistant programs/receipts and retained three-camera captures0/54/65. Same-step files may overwrite earlier captures, not exact historical transport replay; last_move restored from retained same-owner matched step65 running-status snapshot. Reexecutes only original read-only programs in genuine persistent REPL; historical physical moves are not replayed. Fixture age override only; production freshness unchanged. Genuine sanitized production model callback, actual native canonical serializer with transport mocked, BaseException before hardware. No new robot session/queue/movement; proposed geometry is not physical success.",
+  "records": [
+    {
+      "trial": 0,
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "wall_s": 13.80243524999969,
+      "reply": "```python\nvertices = [(175, 175), (270, 155), (285, 220), (205, 265)]\nmask = np.ones(rgb.shape[:2], dtype=bool)\nfor a, b in zip(vertices, vertices[1:] + vertices[:1]):\n    mask &= (b[0]-a[0])*(yy-a[1]) - (b[1]-a[1])*(xx-a[0]) >= 0\nsurfaces['table_broad'] = bot.localize_object(\n    'table_broad', mask, camera='left', arm='left'\n)['surfaces_in_arm_bases']['left']\ns = surfaces['table_broad']\nf = s['plane_fit']\nprint('support', {k: s[k] for k in ['center_m', 'lower_m', 'upper_m']})\nprint('raw_fit', {k: f.get(k) for k in [\n    'normal_base', 'principal_rms_m', 'rms_residual_m', 'abs_residual_95_m'\n]})\nprint('top_support_normal_alignment', abs(np.dot(\n    surfaces['purple_top']['plane_fit']['normal_base'], f['normal_base']\n)))\nprint('destination', {k: surfaces['orange_top'][k] for k in [\n    'center_m', 'lower_m', 'upper_m'\n]})\n```",
+      "receipt": "support {'center_m': [0.4966337088819155, -0.1676130670413752, 0.00043353261727788195], 'lower_m': [0.4740706515575356, -0.19612047755772277, -0.0025669950324342314], 'upper_m': [0.5216681422274245, -0.14274709092565518, 0.003980752038588921]}\nraw_fit {'normal_base': [-0.004071644586467927, 0.012046437782815708, 0.9999191492551317], 'principal_rms_m': [0.0169667163025047, 0.015267159908167283, 0.002070425976425978], 'rms_residual_m': 0.0020704259764259786, 'abs_residual_95_m': 0.003987445221793867}\ntop_support_normal_alignment 0.9939611713689341\ndestination {'center_m': [0.4349431181270793, -0.22872663484564607, 0.03372758013145258], 'lower_m': [0.4221802058106243, -0.23991210796047432, 0.032074516964030395], 'upper_m': [0.44700271350974563, -0.21744164603699256, 0.034878630081146965]}\n",
+      "ended": false
+    },
+    {
+      "trial": 1,
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "wall_s": 14.79265566700633,
+      "reply": "```python\nstate = bot.status()\ngeometry = state['tool_geometry_reference']\ntop = np.array(surfaces['purple_top']['center_m'])\ndestination = np.array(surfaces['orange_top']['center_m'])\npad_mid = np.array(state['nominal_pad_pose']['arms']['left']['pad_midpoint_tool_m'])\nopening = np.array(state['opening_axes_base']['left'])\nopening[2] = 0\nopening /= np.linalg.norm(opening)\nforward = np.array([opening[1], -opening[0], 0])\nsupport_upper = max(surfaces[k]['upper_m'][2] for k in ['table_broad', 'table_near', 'table_clear'])\ngrasp_options = []\nfor degrees in [0, 10, 15, 20, 25, 35]:\n    angle = np.deg2rad(degrees)\n    approach = np.sin(angle)*forward + np.array([0, 0, -np.cos(angle)])\n    rotation = np.column_stack((np.cross(opening, approach), opening, approach))\n    grasp = top - rotation @ (pad_mid + np.array([0, 0, .003]))\n    lowest_tip = grasp[2] - .013*abs(rotation[2, 0]) - geometry['max_tip_z_m']*abs(rotation[2, 2])\n    budget = lowest_tip - support_upper - .003 - .003\n    placement = grasp + np.array([\n        destination[0]-top[0], destination[1]-top[1],\n        destination[2]-surfaces['table_broad']['center_m'][2]\n    ])\n    checks = {}\n    for label, point in [('grasp', grasp), ('placement', placement),\n                         ('approach', grasp-approach*.06)]:\n        checks[label] = bot.plan_move(\n            left_x=float(point[0]), left_y=float(point[1]), left_z=float(point[2]),\n            rotation={'left': rotation}\n        )\n    grasp_options.append((degrees, rotation, grasp, placement, budget, checks))\n    print(degrees, 'conservative_tip_clearance_m', budget, 'plans', checks)\n```\n",
+      "receipt": "0 conservative_tip_clearance_m 0.006756059274252705 plans {'grasp': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': False, 'reason': 'Cartesian target is unreachable; request a smaller move', 'code': 'unreachable_target'}, 'placement': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': False, 'reason': 'Cartesian target is unreachable; request a smaller move', 'code': 'unreachable_target'}, 'approach': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': False, 'reason': 'Cartesian target is unreachable; request a smaller move', 'code': 'unreachable_target'}}\n10 conservative_tip_clearance_m 0.004580307159305989 plans {'grasp': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 46}, 'placement': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 30}, 'approach': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': False, 'reason': 'Cartesian target is unreachable; request a smaller move', 'code': 'unreachable_target'}}\n15 conservative_tip_clearance_m 0.0035742973132151506 plans {'grasp': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 33}, 'placement': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet val\n...[clipped]...\n': 38}}\n20 conservative_tip_clearance_m 0.002633218696703179 plans {'grasp': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 24}, 'placement': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 12}, 'approach': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 25}}\n25 conservative_tip_clearance_m 0.0017642334862805389 plans {'grasp': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 19}, 'placement': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 8}, 'approach': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 14}}\n35 conservative_tip_clearance_m 0.00026839828524267105 plans {'grasp': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 12}, 'placement': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 8}, 'approach': {'from_step_id': 65, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 6}}\n",
+      "ended": false
+    },
+    {
+      "trial": 2,
+      "model": "gpt-6-astra",
+      "effort": "medium",
+      "wall_s": 10.54904562500451,
+      "reply": "```python\neligible = [\n    option for option in grasp_options\n    if option[4] > .003 and all(p['reachable'] for p in option[5].values())\n]\nif eligible:\n    degrees, grasp_rotation, grasp_point, placement_point, budget, checks = eligible[0]\n    view_point = grasp_point - grasp_rotation[:, 2] * .06\n    bot.move_to(\n        left_x=float(view_point[0]),\n        left_y=float(view_point[1]),\n        left_z=float(view_point[2]),\n        rotation={'left': grasp_rotation}\n    )\n    show(bot.observe())\nelse:\n    finish(reason='No tested approach combined reachability with the retained clearance margin. No grasp attempted.', task_success=False)\n```",
+      "proposal": {
+        "waypoint_count": 38,
+        "first": {
+          "step_id": 65,
+          "left_joints_deg": [
+            -25.90617513649803,
+            107.60012702051907,
+            82.71365337929157,
+            -32.20882180461854,
+            -1.0681334003105227,
+            -1.7350441516427235
+          ],
+          "right_joints_deg": [
+            -1.3004878618403852,
+            45.840392088834975,
+            34.313726493324324,
+            -19.65764461761399,
+            -1.2124084437179226,
+            -0.5792088796429933
+          ],
+          "left_gripper": 0.9997114621654765,
+          "right_gripper": 0.998698951933502
+        },
+        "last": {
+          "step_id": 102,
+          "left_joints_deg": [
+            -25.681315930253646,
+            138.05707139174686,
+            132.79657604165698,
+            -69.7464416193887,
+            -0.4602057329754919,
+            -1.7181536039596057
+          ],
+          "right_joints_deg": [
+            -1.3004878618403852,
+            45.840392088834975,
+            34.313726493324324,
+            -19.65764461761399,
+            -1.2124084437179226,
+            -0.5792088796429933
+          ],
+          "left_gripper": 0.9997114621654765,
+          "right_gripper": 0.998698951933502
+        },
+        "nominal_proposed_final_pad_pose": {
+          "available": true,
+          "measured_step_id": 102,
+          "coordinate_frame": "per_arm_base",
+          "units": "metres",
+          "arms": {
+            "left": {
+              "pad_midpoint_tool_m": [
+                2.2858406649750064e-06,
+                3.0771564122761275e-06,
+                0.0016705872019515797
+              ],
+              "pad_midpoint_base_m": [
+                0.47980176660328827,
+                -0.22515070150005834,
+                0.08595499628227492
+              ],
+              "pads": [
+                {
+                  "center_base_m": [
+                    0.49872916728435157,
+                    -0.18216138551520944,
+                    0.08602849079453322
+                  ],
+                  "bounding_box_base_m": [
+                    [
+                      0.48578056200391095,
+                      -0.18790608757551786,
+                      0.07512602218750984
+                    ],
+                    [
+                      0.5116777725647922,
+                      -0.17641668345490105,
+                      0.09693095940155659
+                    ]
+                  ]
+                },
+                {
+                  "center_base_m": [
+                    0.460874365922225,
+                    -0.26814001748490723,
+                    0.08588150177001662
+                  ],
+                  "bounding_box_base_m": [
+                    [
+                      0.4479712099605423,
+                      -0.2738598562525825,
+                      0.0751721698964748
+                    ],
+                    [
+                      0.4737775218839077,
+                      -0.2624201787172319,
+                      0.09659083364355846
+                    ]
+                  ]
+                }
+              ],
+              "measured_gripper_fraction": 0.9997114621654765
+            },
+            "right": {
+              "pad_midpoint_tool_m": [
+                2.2859368534471243e-06,
+                3.0771564122553108e-06,
+                0.0016705873039747092
+              ],
+              "pad_midpoint_base_m": [
+                0.30084816742100673,
+                0.0005360235930206834,
+                0.1827982251984959
+              ],
+              "pads": [
+                {
+                  "center_base_m": [
+                    0.3006845295672254,
+                    0.04745919413251864,
+                    0.1828799545007421
+                  ],
+                  "bounding_box_base_m": [
+                    [
+                      0.287412160969892,
+                      0.04741687023732853,
+                      0.16805103977777594
+                    ],
+                    [
+                      0.31395689816455874,
+                      0.04750151802770874,
+                      0.19770886922370823
+                    ]
+                  ]
+                },
+                {
+                  "center_base_m": [
+                    0.30101180527478805,
+                    -0.04638714694647727,
+                    0.18271649589624966
+                  ],
+                  "bounding_box_base_m": [
+                    [
+                      0.2879089412895568,
+                      -0.04642270482462746,
+                      0.16798719918878213
+                    ],
+                    [
+                      0.31411466926001924,
+                      -0.04635158906832707,
+                      0.19744579260371722
+                    ]
+                  ]
+                }
+              ],
+              "measured_gripper_fraction": 0.998698951933502
+            }
+          },
+          "scope": "Nominal installed-reference pad geometry transformed using matched measured joints/opening, not measured contact/force, object engagement, collision clearance or calibration accuracy. Bounding boxes enclose the rotated reference pad corners; inspect full tool/tip extents and fresh RGB-D."
+        },
+        "scope": "Proposed canonical kinematic endpoint only, transport mocked; never actual motion/contact."
+      }
+    }
+  ],
+  "proposals": [
+    {
+      "waypoint_count": 38,
+      "first": {
+        "step_id": 65,
+        "left_joints_deg": [
+          -25.90617513649803,
+          107.60012702051907,
+          82.71365337929157,
+          -32.20882180461854,
+          -1.0681334003105227,
+          -1.7350441516427235
+        ],
+        "right_joints_deg": [
+          -1.3004878618403852,
+          45.840392088834975,
+          34.313726493324324,
+          -19.65764461761399,
+          -1.2124084437179226,
+          -0.5792088796429933
+        ],
+        "left_gripper": 0.9997114621654765,
+        "right_gripper": 0.998698951933502
+      },
+      "last": {
+        "step_id": 102,
+        "left_joints_deg": [
+          -25.681315930253646,
+          138.05707139174686,
+          132.79657604165698,
+          -69.7464416193887,
+          -0.4602057329754919,
+          -1.7181536039596057
+        ],
+        "right_joints_deg": [
+          -1.3004878618403852,
+          45.840392088834975,
+          34.313726493324324,
+          -19.65764461761399,
+          -1.2124084437179226,
+          -0.5792088796429933
+        ],
+        "left_gripper": 0.9997114621654765,
+        "right_gripper": 0.998698951933502
+      },
+      "nominal_proposed_final_pad_pose": {
+        "available": true,
+        "measured_step_id": 102,
+        "coordinate_frame": "per_arm_base",
+        "units": "metres",
+        "arms": {
+          "left": {
+            "pad_midpoint_tool_m": [
+              2.2858406649750064e-06,
+              3.0771564122761275e-06,
+              0.0016705872019515797
+            ],
+            "pad_midpoint_base_m": [
+              0.47980176660328827,
+              -0.22515070150005834,
+              0.08595499628227492
+            ],
+            "pads": [
+              {
+                "center_base_m": [
+                  0.49872916728435157,
+                  -0.18216138551520944,
+                  0.08602849079453322
+                ],
+                "bounding_box_base_m": [
+                  [
+                    0.48578056200391095,
+                    -0.18790608757551786,
+                    0.07512602218750984
+                  ],
+                  [
+                    0.5116777725647922,
+                    -0.17641668345490105,
+                    0.09693095940155659
+                  ]
+                ]
+              },
+              {
+                "center_base_m": [
+                  0.460874365922225,
+                  -0.26814001748490723,
+                  0.08588150177001662
+                ],
+                "bounding_box_base_m": [
+                  [
+                    0.4479712099605423,
+                    -0.2738598562525825,
+                    0.0751721698964748
+                  ],
+                  [
+                    0.4737775218839077,
+                    -0.2624201787172319,
+                    0.09659083364355846
+                  ]
+                ]
+              }
+            ],
+            "measured_gripper_fraction": 0.9997114621654765
+          },
+          "right": {
+            "pad_midpoint_tool_m": [
+              2.2859368534471243e-06,
+              3.0771564122553108e-06,
+              0.0016705873039747092
+            ],
+            "pad_midpoint_base_m": [
+              0.30084816742100673,
+              0.0005360235930206834,
+              0.1827982251984959
+            ],
+            "pads": [
+              {
+                "center_base_m": [
+                  0.3006845295672254,
+                  0.04745919413251864,
+                  0.1828799545007421
+                ],
+                "bounding_box_base_m": [
+                  [
+                    0.287412160969892,
+                    0.04741687023732853,
+                    0.16805103977777594
+                  ],
+                  [
+                    0.31395689816455874,
+                    0.04750151802770874,
+                    0.19770886922370823
+                  ]
+                ]
+              },
+              {
+                "center_base_m": [
+                  0.30101180527478805,
+                  -0.04638714694647727,
+                  0.18271649589624966
+                ],
+                "bounding_box_base_m": [
+                  [
+                    0.2879089412895568,
+                    -0.04642270482462746,
+                    0.16798719918878213
+                  ],
+                  [
+                    0.31411466926001924,
+                    -0.04635158906832707,
+                    0.19744579260371722
+                  ]
+                ]
+              }
+            ],
+            "measured_gripper_fraction": 0.998698951933502
+          }
+        },
+        "scope": "Nominal installed-reference pad geometry transformed using matched measured joints/opening, not measured contact/force, object engagement, collision clearance or calibration accuracy. Bounding boxes enclose the rotated reference pad corners; inspect full tool/tip extents and fresh RGB-D."
+      },
+      "scope": "Proposed canonical kinematic endpoint only, transport mocked; never actual motion/contact."
+    }
+  ],
+  "current_nominal_pad_pose": {
+    "available": true,
+    "measured_step_id": 65,
+    "coordinate_frame": "per_arm_base",
+    "units": "metres",
+    "arms": {
+      "left": {
+        "pad_midpoint_tool_m": [
+          2.2858406649750064e-06,
+          3.0771564122761275e-06,
+          0.0016705872019515797
+        ],
+        "pad_midpoint_base_m": [
+          0.4354170795375903,
+          -0.2038075603509643,
+          0.10724797131459483
+        ],
+        "pads": [
+          {
+            "center_base_m": [
+              0.4543285941393983,
+              -0.16081119108093578,
+              0.10725361852447608
+            ],
+            "bounding_box_base_m": [
+              [
+                0.4407684412100781,
+                -0.16682673686135774,
+                0.09372428179362902
+              ],
+              [
+                0.4678887470687186,
+                -0.15479564530051382,
+                0.12078295525532315
+              ]
+            ]
+          },
+          {
+            "center_base_m": [
+              0.4165055649357822,
+              -0.24680392962099287,
+              0.1072423241047136
+            ],
+            "bounding_box_base_m": [
+              [
+                0.4030454388143265,
+                -0.2527703132050317,
+                0.09387794607228687
+              ],
+              [
+                0.429965691057238,
+                -0.24083754603695406,
+                0.12060670213714032
+              ]
+            ]
+          }
+        ],
+        "measured_gripper_fraction": 0.9997114621654765
+      },
+      "right": {
+        "pad_midpoint_tool_m": [
+          2.2859368534471243e-06,
+          3.0771564122553108e-06,
+          0.0016705873039747092
+        ],
+        "pad_midpoint_base_m": [
+          0.30084816742100673,
+          0.0005360235930206834,
+          0.1827982251984959
+        ],
+        "pads": [
+          {
+            "center_base_m": [
+              0.3006845295672254,
+              0.04745919413251864,
+              0.1828799545007421
+            ],
+            "bounding_box_base_m": [
+              [
+                0.287412160969892,
+                0.04741687023732853,
+                0.16805103977777594
+              ],
+              [
+                0.31395689816455874,
+                0.04750151802770874,
+                0.19770886922370823
+              ]
+            ]
+          },
+          {
+            "center_base_m": [
+              0.30101180527478805,
+              -0.04638714694647727,
+              0.18271649589624966
+            ],
+            "bounding_box_base_m": [
+              [
+                0.2879089412895568,
+                -0.04642270482462746,
+                0.16798719918878213
+              ],
+              [
+                0.31411466926001924,
+                -0.04635158906832707,
+                0.19744579260371722
+              ]
+            ]
+          }
+        ],
+        "measured_gripper_fraction": 0.998698951933502
+      }
+    },
+    "scope": "Nominal installed-reference pad geometry transformed using matched measured joints/opening, not measured contact/force, object engagement, collision clearance or calibration accuracy. Bounding boxes enclose the rotated reference pad corners; inspect full tool/tip extents and fresh RGB-D."
+  },
+  "candidate_source_hashes": {
+    "policy_source_sha256": "f7488ed44e31cbf159d4889274386e32a79eb6383a29b8c95f4baf2511874cff",
+    "initial_template_sha256": "4b2a66f64e38d39d46bf4396b9c3165a1b8349db25754bea2cf1cf6d7068192b",
+    "subsequent_template_sha256": "c7e1ce3c310ea918ae9ff0c7cf0d0e111b2fb0eeea54ec680fdb0d5fe7521698",
+    "upstream_revision": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+    "agent_sha256": "7635fe4ef76fed72c182f6565e5c2a43a1de0f89c01c8c7acd21c928ca85ba21"
+  },
+  "archived_context_runtime": "186d4e46f299b0c4156b49cca1727be887f63436",
+  "execution_stopped_before_actuator": true,
+  "physical_task_success": false
+}
