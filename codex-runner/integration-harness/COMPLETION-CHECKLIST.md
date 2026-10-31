@@ -38,6 +38,13 @@ integration as complete.
 - [ ] The person can browse/select previous runs on the website and replay their
   retained physical arm footage, associated with the executed method and run.
   Mock animations do not satisfy either replay requirement.
+- [ ] If the integrated method executes anything in simulation, those executions
+  are reviewable within the integration website and tied to the corresponding
+  run. A reviewer can inspect what ran and its results using suitable
+  replay/visualization and relevant outputs, as appropriate to the simulation.
+  Clearly label simulation content to distinguish it from physical-arm footage.
+  If nothing executes in simulation, record an explicit not-applicable
+  explanation instead of claiming simulation review.
 - [ ] The website is intuitive: a new visitor, without coaching, can find how to
   run the method and have the physical YAM arms actually executing it within
   **15 seconds of entering the website**, verified as described below.
@@ -173,6 +180,9 @@ before any completion claim.
 - Live physical arm footage (website location and evidence link):
 - Just-completed replay URL / immediate availability evidence (same physical run):
 - Previous-run browser URL / selected prior run and replay evidence:
+- Simulation review (corresponding run reference, website review link, what ran
+  and its results, suitable replay/visualization/outputs, clear simulation label;
+  or explicit not-applicable explanation if nothing executes in simulation):
 - 15-second test (tester/date, browser/session/network and robot readiness):
 - Visitor's starting state and entry-to-motion steps:
 - `t0` / `t1` / total elapsed seconds:
