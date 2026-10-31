@@ -68,11 +68,15 @@
         status.setAttribute('aria-busy', String(progress.phase === 'starting'));
       }
       if (!runsEnabled) {
-        document.getElementById('run').disabled = true;
+        for (const id of ['run', 'quickRun', 'composerSend']) {
+          const button = document.getElementById(id);
+          if (button) button.disabled = true;
+        }
         const notice = document.getElementById('publicRunError');
         if (notice?.textContent.includes('GPU inference is paused')) notice.hidden = true;
       }
     },
+    submit() { return !runsEnabled; },
     configureRunPayload(payload) {
       if (payload.provider.startsWith('molmoact_')) {
         payload.guidance_strength = Number(strength.value);
