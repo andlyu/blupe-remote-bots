@@ -102,7 +102,7 @@ unverified, and request only the specific permission needed to unblock it.
   arms start actual method-driven motion within **15 seconds**, unless that run
   requires launching a GPU as documented below. Verify and record every run;
   a sampled demonstration is insufficient.
-- [x] Every meaningful wait after a website action is immediately explained in
+- [ ] Every meaningful wait after a website action is immediately explained in
   a persistent inline status/progress area at that action (below Run in the run
   panel for launches). Show the current stage, a plain-language reason and real
   stage completion, with honest failure/stall status and available recovery.
@@ -287,3 +287,5 @@ Status: INCOMPLETE / physical retest and recording-publication approval required
 - Public scope: site, source, live camera monitoring, public run metadata and native simulation evidence. Private email and capabilities are excluded. Anonymous shared compute was rejected earlier and remains disabled. Physical recording publication awaits explicit approval after tool denial.
 - Standing physical-test authorization from this canonical checklist was retained. Enforced tool review remains controlling; no bypass was attempted.
 - Remaining gaps: corrected physical method execution, timed entry/Run-to-motion evidence, immediate and historical physical replay, and successful native build/frozen-task solve.
+
+Final code/evidence update: public source PR164; final Sites source d272543c470daaeed3c3f8b56f9ee77efd494116. All mirrored source bytes match. Corrected provider17tests+8subtests passed0.81s. Final TypeScript/build passed; SQLite migration equivalence and Drizzle no-change checks passed. New detailed model-wait wording is implemented but its corrected physical lifecycle remains unverified because the retest was denied; that checkbox stays unchecked.
