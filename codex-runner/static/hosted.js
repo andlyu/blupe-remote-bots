@@ -331,6 +331,9 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
+  let labelSource = 'auto';
+  try { labelSource = localStorage.getItem('yam-run-label-source') === 'human' ? 'human' : 'auto'; } catch (_) {}
+  if ($('pastRunsLabelSource')) $('pastRunsLabelSource').value = labelSource;
   let historyModels = [], historyView = 'table', catalogRows = [], cloud = null, cloudTimer = null;
   try { historyView = localStorage.getItem('yam-past-runs-view') === 'cloud' ? 'cloud' : 'table'; } catch (_) {}
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
@@ -384,6 +387,7 @@ function createRunLaunchGuard() {
     window.yamAspireLineage?.history(lineageBox, run); $('pastRunPrompt').after(lineageBox);
     selectedRun = run;
     window.yamRunAssessment?.showReplay(run);
+    window.yamRunLabels?.showReplay(run, $('pastRunDetails'));
     cloud?.select(run.episode_id);
     window.yamReplayEmail?.setRun(run);
     speedButton.hidden = run.original_available === false;
@@ -497,7 +501,7 @@ function createRunLaunchGuard() {
         version.textContent = 'Model version: ' + (run.model_version || 'unknown'); reasonDetails.append(version);
         const assessment = run.assessment || {};
         const assessmentNote = document.createElement('p'); assessmentNote.className = 'pastRunAssessment help';
-        assessmentNote.textContent = `Runner: ${assessment.label || 'Not completed'} · ${assessment.eligibility || 'unlabeled'} · ${assessment.correct || 0} correct / ${assessment.incorrect || 0} incorrect`;
+        assessmentNote.textContent = window.yamRunLabels?.describe(run, labelSource) || `Runner: ${assessment.label || 'Not completed'} · ${assessment.eligibility || 'unlabeled'} · ${assessment.correct || 0} correct / ${assessment.incorrect || 0} incorrect`;
         li.append(reasonDetails, assessmentNote, liveButton);
         $('pastRunsList').append(li);
         function showEmptyRun() {
@@ -552,6 +556,10 @@ function createRunLaunchGuard() {
     }
   }
   function renderView() {
+    if ($('pastRunsLabelSummary')) $('pastRunsLabelSummary').textContent = window.yamRunLabels?.summary(catalogRows, labelSource) || '';
+    if ($('pastRunsScores')) $('pastRunsScores').hidden = labelSource === 'auto';
+    const caveat = $('pastRunsScoreCaveat');
+    if (caveat) caveat.hidden = labelSource === 'auto';
     $('pastRunsTable').hidden = historyView !== 'table';
     $('pastRunsCloud').hidden = historyView !== 'cloud';
     $('pastRunsTableView').setAttribute('aria-pressed', String(historyView === 'table'));
@@ -577,7 +585,7 @@ function createRunLaunchGuard() {
       });
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
         (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm(runs));
-      cloud?.setRuns(catalogRows, selectedRun?.episode_id);
+      cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
     }
   }
@@ -594,6 +602,7 @@ function createRunLaunchGuard() {
       const response = await fetch(`/api/run-catalog?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}&view=${historyView}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
       if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
       const data = await response.json();
+      await window.yamRunLabels?.load();
       if (generation !== historyGeneration) return;
       if (Array.isArray(data.models) && $('pastRunsModel')) {
         const choices = ['', ...new Set([...data.models, ...historyModels])];
@@ -665,6 +674,12 @@ function createRunLaunchGuard() {
     historyView = view;
     try { localStorage.setItem('yam-past-runs-view', view); } catch (_) {}
     historyGeneration++; loading = false; next = 0; renderView(); load(true);
+  });
+  $('pastRunsLabelSource')?.addEventListener('change', () => {
+    labelSource = $('pastRunsLabelSource').value;
+    try { localStorage.setItem('yam-run-label-source', labelSource); } catch (_) {}
+    if (historyView === 'table') { clearBlocks(); renderBlocks(catalogRows); }
+    renderView();
   });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
   $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));

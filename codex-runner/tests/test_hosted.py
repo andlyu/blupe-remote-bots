@@ -25,6 +25,15 @@ class HeldProvider(ScriptedAdapter):
 
 
 class HostedTests(unittest.IsolatedAsyncioTestCase):
+    async def test_public_label_export_is_separate_from_runner_assessments(self):
+        code, data, _ = await self.call('/api/run-labels')
+        self.assertEqual(code, 200)
+        self.assertEqual(data['version'], 1)
+        self.assertEqual(len(data['runs']), 416)
+        self.assertEqual(self.app.run_assessments.summaries(), {})
+        code, _, _ = await self.call('/static/run-labels.js')
+        self.assertEqual(code, 200)
+
     async def test_model_catalog_requires_session_csrf_and_keeps_keys_private(self):
         with patch('remote_yam.model_catalog.discover_models', return_value={
                 'models':[{'id':'gpt-6.1-sol','label':'Sol 6.1'}], 'source':'provider'}) as discover:

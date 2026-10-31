@@ -1109,3 +1109,6 @@ body.cameraExpanded{overflow:hidden}
 @media(max-width:620px){#liveAssessment{grid-row:3}}
 
 .pastRunAssessment{margin:8px 0;font-size:12px;line-height:1.6}.playgroundConsole #pastRunsList>li[data-selected="true"]>.pastRunCard{outline:2px solid #567d26;outline-offset:3px}
+
+/* Label-source control extends the existing Cloud toolbar. */
+.runLabelSource{display:flex;align-items:center;gap:8px;font-size:14px}.runLabelSource select{width:auto;max-width:100%;margin:0}.cloudDot.uncertain{background:#946000;border-color:#946000}.runLabelEvidence{font-size:14px;line-height:1.6;overflow-wrap:anywhere}.runLabelEvidence p{margin:8px 0}.runLabelEvidence summary{cursor:pointer;font-weight:600}
