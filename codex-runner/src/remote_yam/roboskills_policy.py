@@ -420,7 +420,14 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         if report is not None and self._perception:
             geometry['base_spacing_m']=report['base_geometry']['spacing_m']
         self._geometry=RoboCurveTrajectory(**geometry,preserve_uninstructed=True)
-        if profile:profile.configure_geometry(self._geometry)
+        if profile:
+            profile.configure_geometry(self._geometry)
+            # The same hash-pinned controller snapshot also owns calibrated
+            # encoder limits. Canonical XML alone can permit a command that
+            # the native gateway rejects (notably right joint4 on YAM-1).
+            safety=profile._safety()
+            self._geometry.ik.constrain_joint_limits(dict(
+                lower_rad=safety['joint_lower_rad'],upper_rad=safety['joint_upper_rad']))
         self._workspace_profile=profile
 
     def configure_perception(self, source, report):
@@ -477,6 +484,12 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'system_prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest(),
                 'recording_path':str(self._recorder.path) if self._recorder else None,
                 **({'controller_workspace':self._workspace_profile.summary()} if self._workspace_profile else {}),
+                **({'controller_joint_limits':dict(
+                    source='intersection of canonical XML and hash-pinned controller safety snapshot',
+                    safety_sha256=self._workspace_profile.safety_sha256,
+                    lower_rad=self._geometry.ik.low.tolist(),upper_rad=self._geometry.ik.high.tolist(),
+                    coordinate_convention='command/feedback encoder radians; no additional offsets')}
+                   if self._workspace_profile else {}),
                 'display_name':'RoboSkills · Python agent',
                 'inference_model':self.inference_model, 'upstream_revision':REVISION,
                 'initial_reasoning_effort':'none','subsequent_reasoning_effort':'medium',
