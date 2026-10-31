@@ -1,12 +1,13 @@
 import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../../chatgpt-auth';
+import {physicalVisitor,newPhysicalVisitor,physicalVisitorCookie} from '../../../physical-visitor';
 export const dynamic='force-dynamic';
 const ORIGIN='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com';
 type B={DB:D1Database;BUCKET:R2Bucket;WORKER_TOKEN?:string;PHYSICAL_WORKER_TOKEN?:string;RUNNER_OWNER_EMAIL?:string};
 type Row={id:string;owner:string;instruction:string;runner_name:string;runner_email:string;status:string;stage:string;created_at:number;updated_at:number;worker:string|null;cancel_requested:number;result:string|null;assets:string};
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const fail=(error:string,status=400)=>json({error},status);
-const visible=(r:Row)=>({id:r.id,instruction:r.instruction,runnerName:r.runner_name,status:r.status,stage:r.stage,createdAt:r.created_at,updatedAt:r.updated_at,cancelRequested:!!r.cancel_requested,result:r.result?JSON.parse(r.result):null,assets:JSON.parse(r.assets),approach:'RoboSkills',robot:'yam-1',execution:'physical'});
+const visible=(r:Row,owner:string|null=null)=>({id:r.id,instruction:r.instruction,runnerName:r.runner_name,status:r.status,stage:r.stage,createdAt:r.created_at,updatedAt:r.updated_at,cancelRequested:!!r.cancel_requested,result:r.result?JSON.parse(r.result):null,assets:JSON.parse(r.assets),approach:'RoboSkills',robot:'yam-1',execution:'physical',canStop:!!owner&&r.owner===owner});
 const active=['queued','preparing','running','recording'];
 async function route(req:Request,{params}:{params:Promise<{path:string[]}>}){
  const path=(await params).path,b=env as unknown as B,db=b.DB,now=Date.now();
@@ -50,8 +51,10 @@ async function route(req:Request,{params}:{params:Promise<{path:string[]}>}){
   }
   return fail('Unknown worker action',404);
  }
+ const user=await getChatGPTUser(),visitor=physicalVisitor(req);
+ const requestOwner=user?.userId||(visitor?'visitor:'+visitor:null);
  if(path[0]==='runs'&&req.method==='GET'){
-  if(path.length===1){const rows=await db.prepare('SELECT * FROM physical_runs ORDER BY created_at DESC LIMIT 50').all<Row>();return json({runs:rows.results.map(visible)});}
+  if(path.length===1){const rows=await db.prepare('SELECT * FROM physical_runs ORDER BY created_at DESC LIMIT 50').all<Row>();return json({runs:rows.results.map(row=>visible(row,requestOwner))});}
   const row=await db.prepare('SELECT * FROM physical_runs WHERE id=?').bind(path[1]).first<Row>();if(!row)return fail('Run not found',404);
   if(path[2]==='assets'&&path.length===4){
    if(!JSON.parse(row.assets).includes(path[3]))return fail('Recording is not ready yet',404);
@@ -60,23 +63,26 @@ async function route(req:Request,{params}:{params:Promise<{path:string[]}>}){
    let status=200;if(obj.range&&'offset' in obj.range&&obj.range.offset!==undefined){const len=obj.range.length||obj.size;headers.set('Content-Range',`bytes ${obj.range.offset}-${obj.range.offset+len-1}/${obj.size}`);status=206;}
    return new Response(obj.body,{status,headers});
   }
-  return json({run:visible(row)});
+  return json({run:visible(row,requestOwner)});
  }
- const user=await getChatGPTUser();if(!user||user.email.toLowerCase()!==b.RUNNER_OWNER_EMAIL?.toLowerCase())return fail('Physical runs use the connected operator’s BluPe runner. Live views and replays are public.',403);
  if(req.method!=='POST'||req.headers.get('origin')!==new URL(req.url).origin)return fail('Reload before submitting',403);
  if(path[0]==='runs'&&path.length===1){
   const data=await req.json() as {instruction?:string;runnerName?:string;runnerEmail?:string};
   if(typeof data.instruction!=='string'||data.instruction.trim().length<30||data.instruction.length>3000||typeof data.runnerName!=='string'||!data.runnerName.trim()||data.runnerName.length>32||typeof data.runnerEmail!=='string'||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.runnerEmail)||data.runnerEmail.length>200)return fail('Enter a task, your name (up to32 characters) and email.');
   const w=await db.prepare('SELECT heartbeat FROM physical_workers ORDER BY heartbeat DESC LIMIT 1').first<{heartbeat:number}>();if(!w||now-w.heartbeat>15000)return fail('The RoboSkills BluPe runner is disconnected. Your task is kept.',503);
   const busy=await db.prepare("SELECT id FROM physical_runs WHERE status IN ('queued','preparing','running','recording') LIMIT 1").first();if(busy)return fail('A physical run is active. Wait for its result or use Stop.',409);
-  const id=crypto.randomUUID().replaceAll('-','');await db.prepare('INSERT INTO physical_runs(id,owner,instruction,runner_name,runner_email,status,stage,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,user.userId,data.instruction.trim(),data.runnerName.trim(),data.runnerEmail.trim(),'queued','Waiting for the BluPe harness to accept this run.',now,now).run();return json({run:visible((await db.prepare('SELECT * FROM physical_runs WHERE id=?').bind(id).first<Row>())!)},201);
+  const visitorId=visitor||newPhysicalVisitor(),owner=requestOwner||'visitor:'+visitorId;
+  const id=crypto.randomUUID().replaceAll('-','');await db.prepare('INSERT INTO physical_runs(id,owner,instruction,runner_name,runner_email,status,stage,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,owner,data.instruction.trim(),data.runnerName.trim(),data.runnerEmail.trim(),'queued','Waiting for the BluPe harness to accept this run.',now,now).run();const response=json({run:visible((await db.prepare('SELECT * FROM physical_runs WHERE id=?').bind(id).first<Row>())!,owner)},201);
+  if(!user&&!visitor)response.headers.set('Set-Cookie',physicalVisitorCookie(visitorId));
+  return response;
  }
  if(path[0]==='runs'&&path[2]==='stop'){
-  const row=await db.prepare('SELECT * FROM physical_runs WHERE id=? AND owner=?').bind(path[1],user.userId).first<Row>();if(!row)return fail('Run not found',404);
+  if(!requestOwner)return fail('Only this run’s browser can stop it.',403);
+  const row=await db.prepare('SELECT * FROM physical_runs WHERE id=? AND owner=?').bind(path[1],requestOwner).first<Row>();if(!row)return fail('Run not found',404);
   if(row.status==='queued')await db.prepare("UPDATE physical_runs SET status='cancelled',cancel_requested=1,stage='Cancelled before joining BluPe.',updated_at=? WHERE id=? AND status='queued'").bind(now,row.id).run();
   else await db.prepare('UPDATE physical_runs SET cancel_requested=1 WHERE id=?').bind(row.id).run();return json({ok:true});
  }
  return fail('Route not found',404);
 }
-async function safe(req:Request,ctx:{params:Promise<{path:string[]}>}){try{return await route(req,ctx);}catch(e){console.error('Physical workspace request failed',e instanceof Error?e.message:'unknown');return fail('BluPe could not finish this request. Refresh status before starting another run.',503);}}
+async function safe(req:Request,ctx:{params:Promise<{path:string[]}>}){try{return await route(req,ctx);}catch(e){if(e instanceof Error&&/physical_one_active/.test(e.message))return fail('A physical run is active. Wait for its result or use Stop.',409);console.error('Physical workspace request failed',e instanceof Error?e.message:'unknown');return fail('BluPe could not finish this request. Refresh status before starting another run.',503);}}
 export const GET=safe;export const POST=safe;

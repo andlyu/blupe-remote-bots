@@ -24,4 +24,18 @@ jobs:
         env:
           ASPIRE_TEST_CHECKOUT: ${{ github.workspace }}/external-aspire
       - run: node --test codex-runner/tests/*.cjs
-      - run: python -m unittest discover -s codex-runner/integrations/roboskills/site/worker-agent -p test_launch.py -v
+      - run: python -m unittest discover -s codex-runner/integrations/roboskills/site/worker-agent -p 'test_*.py' -v
+
+  website:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: codex-runner/integrations/roboskills/site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: node --test tests/physical-route.test.cjs
+      - run: npx tsc --noEmit

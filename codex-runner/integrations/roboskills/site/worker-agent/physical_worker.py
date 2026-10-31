@@ -12,6 +12,7 @@ import urllib.request
 
 from remote_yam.runner_policy_client import RunnerPolicyClient
 from worker import Worker,read_config
+from physical_progress import lifecycle_events,admission_event,current_stage
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
@@ -54,9 +55,10 @@ class PhysicalWorker(Worker):
         client=RunnerPolicyClient(self.config['harness'],robot_id='yam-1',timeout=20)
         stop_record=threading.Event();recorder=None;state=None;stopped=False
         progress=[]
-        def advance(key,label,detail):
+        seen_lifecycle=set()
+        def advance(key,label,detail,at=None):
             if progress and progress[-1]['key']==key:return
-            now=time.time()*1000
+            now=time.time()*1000 if at is None else at
             if progress:progress[-1]['completedAt']=now
             progress.append(dict(key=key,label=label,detail=detail,startedAt=now))
         try:
@@ -80,20 +82,22 @@ class PhysicalWorker(Worker):
                 if beat.get('cancel') and not stopped:
                     client.stop();stopped=True
                 status=state['status']
-                provider=state.get('provider') or {}
-                running_stage=('BluPe is executing a checked packet and waiting for measured completion.' if provider.get('pending_packet') else
-                               'RoboSkills is waiting for its next Python decision from the model.' if provider.get('vision',{}).get('state')=='requesting' else
-                               'RoboSkills is reading the actual cameras and measured arm state.')
-                stage=('Stopping this BluPe run.' if stopped else
-                       running_stage if status=='running' else
-                       'Waiting for BluPe queue admission and the station’s readiness checks.' if status in ('queued','preparing') else
-                       'BluPe execution ended. Saving the real camera recording.')
+                lifecycle=lifecycle_events(state)
+                result['lifecycle']=lifecycle
+                # Durable observed queue/admission transitions survive fast polling.
+                # Event receipt times are labelled as observed; not visual timing proof.
+                for event in lifecycle:
+                    if event.get('id') in seen_lifecycle:continue
+                    seen_lifecycle.add(event.get('id'))
+                    at=event.get('timestamp')
+                    at=at*1000 if isinstance(at,(int,float)) else None
+                    if event.get('kind')=='joined':
+                        advance('queue','Waiting for robot admission','Queue entry observed by the BluPe runner.',at)
+                    elif event==admission_event(lifecycle):
+                        advance('preparing','Preparing the arms','Admission observed. BluPe is checking startup Home and readiness.',at)
+                key,label,stage=current_stage(state,stopped)
                 phase='running' if status=='running' else 'preparing'
-                key=('stopping' if stopped else 'moving' if provider.get('pending_packet') else
-                     'planning' if status=='running' and provider.get('vision',{}).get('state')=='requesting' else
-                     'observing' if status=='running' else 'queue')
-                if status in ('queued','preparing','running'):advance(key,{'stopping':'Stopping','moving':'Moving the arms','planning':'Writing the Python skill',
-                             'observing':'Checking the actual scene','queue':'Queue and readiness'}[key],stage)
+                if status in ('queued','preparing','running'):advance(key,label,stage)
                 result['progress']=list(progress)
                 self.request('update',dict(id=run['id'],status=phase,stage=stage,result=result));previous=(status,stage)
                 if status not in ('queued','preparing','running'):break
