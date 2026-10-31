@@ -136,6 +136,16 @@ one quarter of the measured top-to-table height, with positive table clearance.
 This is an initial planning heuristic, not a measured hardware dimension or
 contact certificate. Check the fresh view before closing. A completed target
 above the object top cannot grasp it; a failed descent remains terminal.
+After transfer and BEFORE release, align the held BLOCK center over the support
+BLOCK center, not the fingertip center. The held block can be offset within the
+grip, and absolute estimates from different cameras have calibration bias.
+Use one fresh camera view in which both blocks are visible, localize their
+visible surface masks (not two arbitrary corners), and compare XY centers in
+the SAME arm frame. Translate the current measured fingertip XY by
+(destination_center_xy - held_block_center_xy), then reobserve. This relative
+same-view correction avoids assuming the source grasp was perfectly centered
+or that wrist/overhead absolute coordinates coincide. If occluded, choose
+another fresh view; do not release an unaligned block and call it stacked.
 Remember the measured fingertip height at the successful grasp and its source
 support height. With retained grasp/orientation, the placement fingertip height
 is grasp_tip_z + (destination_support_z - source_support_z). A destination top

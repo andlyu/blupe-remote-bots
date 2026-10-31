@@ -10,7 +10,7 @@ integration as complete.
 
 ## Current task qualification reopened — October31,2026
 
-The prior v13 acceptance qualified a20mm lift/hold/return smoke test. User run `ec2ecd43555b4c20a5c7e359ddb369d7` requested purple-on-orange stacking and submitted zero packets: the Python agent had only RGB/status, not depth/localization. Its stdout explained the missing robot-frame object coordinates; the UI hid that explanation. This failure reopens physical manipulation, timing, task/result UX and final normal-UI acceptance. Earlier receipts and explicit archival exceptions remain history, not stacking proof. Current task qualification is **in progress**, not15/15.
+The prior v13 acceptance qualified a20mm lift/hold/return smoke test. User run `ec2ecd43555b4c20a5c7e359ddb369d7` requested purple-on-orange stacking and submitted zero packets: the Python agent had only RGB/status, not depth/localization. Its stdout explained the missing robot-frame object coordinates; the UI hid that explanation. This failure reopens physical manipulation, timing, task/result UX and final normal-UI acceptance. Earlier receipts and explicit archival exceptions remain history, not stacking proof. Current task qualification is **in progress:12/15 checked**. Physical full-sequence manipulation, every-run timing reconciliation and final task qualification remain open; the current normal public visitor path and persistent result/progress explanations have been reverified.
 
 The fix connects all-camera ApiDepthSet to the genuine pinned RoboSkills REPL, pins the published calibration/base geometry, computes wrist poses from measured FK, supplies metric pixel queries and agent-mask visible-surface localization, invalidates views after moves, and publishes structured agent explanations separately from native scores. It also validates complete packets before bridge dispatch, preserves exact numeric endpoints and uninstructed arm joints, with real HTTP serializer/validator regression coverage. Calibration remains experimental; no exact metric accuracy claim is added. See `verification/2026-10-31-grounded-stacking.md`. The first depth-enabled v14 run completed an approach but stopped on an erroneous live-timestamp calibration comparison; it did not grasp/stack and missed timing. The comparison and receipt truncation are repaired; physical stacking and its timing remain unverified until a new final run.
 
@@ -189,7 +189,7 @@ Invocation evidence: user requested “please use the harness” and connection 
   Clearly label simulation content to distinguish it from physical-arm footage.
   If nothing executes in simulation, record an explicit not-applicable
   explanation instead of claiming simulation review.
-- [ ] The website is intuitive: a new visitor, without coaching, can find how to
+- [x] The website is intuitive: a new visitor, without coaching, can find how to
   run the method. Record the visitor path and starting conditions; site entry
   has no separate 15-second pass/fail deadline.
 - [ ] **Mandatory for every run:** first observed actual method-driven physical
@@ -201,7 +201,7 @@ Invocation evidence: user requested “please use the harness” and connection 
   excluded queue seconds and the queue-adjusted Run time for every run; a sampled
   demonstration is insufficient. Apply only the documented GPU-launch or
   research-grounded exceptions below.
-- [ ] Every meaningful wait after a website action is immediately explained in
+- [x] Every meaningful wait after a website action is immediately explained in
   a persistent inline status/progress area at that action (below Run in the run
   panel for launches). Show the current stage, a plain-language reason and real
   stage completion, with honest failure/stall status and available recovery.

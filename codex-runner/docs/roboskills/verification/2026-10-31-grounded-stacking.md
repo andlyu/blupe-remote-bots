@@ -77,3 +77,8 @@ Run540a8e90829340d99038076309fd48ea was cancelled by ConnectionResetError before
 ## Shallow-engagement planning experiment
 
 Published v18/source dc28dc740ccac01a992b99c911f5407071592968 with exact runtime5590cbb. Run5c9dcf0b80c54b0f97f7d357ff1ef981 retained real depth, one correct overhead approach, measured nearby table/visible block and7packets. Descent requested17.562mm and ended22.381mm (5.185mm positional error), so the unchanged3mm gate latched and no close was sent. Repeated low-descent residuals suggest alignment/contact or mechanical response, not missing depth; no physical cause is certified. The next prompt uses visible-surface center and shallow engagement (5–8mm below top, at most quarter measured height), then accounts for retained grasp offset at placement. These are explicit planning heuristics, not a hardware-dimension/accuracy claim or wider bound. Full task success remains unverified.
+
+
+## Held-object horizontal alignment
+
+Normal public v18 runf4346b709a134c4ba36ddc9e9f2ee8d6/sourcea610b7b exercised approach, close, lift, transfer, release/open and withdrawal. Actual closure stopped at0.535, fresh lift/transfer RGB retained the purple between jaws, and post-withdrawal RGB showed it beside the orange. The agent correctly reported task_success=False. This validates execution of the full sequence, not successful stacking. The remaining planning defect was using fingertip XY as held-block center and cross-camera absolute points without a final object-relative correction. Guidance now requires same-fresh-view visible-surface centers and current_tip_xy+(destination_center-held_center) before release, retaining calibration limitations and all native guards. New physical task success remains required.
