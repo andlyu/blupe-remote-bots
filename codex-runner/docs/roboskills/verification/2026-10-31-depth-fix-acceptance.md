@@ -1,42 +1,29 @@
-# Depth-fix acceptance — October31,2026
+# Site19 physical integration review
 
-**13/15 requirements checked.** The depth/software fix is deployed; historical timing acceptance remains open. This is not a successful-stacking claim.
+Current result: **12/15 verified; 7,13 and15 remain open. No successful stacking claim.**
 
-Site18: https://blupe-bimanual-skills.andlyu.chatgpt.site/ — source`dc28dc740ccac01a992b99c911f5407071592968`; actual runtime`f60495ac046fb5e8831d64b529f88777ee4c88a1`. All code changes merged after checks;24 adapter tests,16 worker tests,7route checks and full shared CI passed.
+Website: https://blupe-bimanual-skills.andlyu.chatgpt.site/ · Source: Site19 `4d76cfb3df3a4feceaef0ed07ce7e63458dc51df`; publicUI PR193/d65a0a2 merged53f2b6c; unchanged native runtime `aada98c2632e6cdd0dcdd362b58984ed61b04e8e`. All six push/PR release checks passed.
 
 | # | Requirement | Status | Evidence |
 |---|---|---|---|
-| 1 | Website and associated source | PASS | Public Site18/source dc28dc; public shared source includes runtimef60495a, worker sources byte-equal. Native deployment succeeded09:20:53.370865Z. |
+| 1 | Website and associated source | PASS | Public Site19 source4d76cfb3df3a4feceaef0ed07ce7e63458dc51df, production succeeded11:22:50.305695Z; runtimeaada98c; public source PR193 d65a0a2 adds object marks. Mirrored worker progress now matches liveaada source. |
 | 2 | Public demo and source | PASS with existing archive exception | Audience unchanged public; new run assets and native simulation results remain anonymous. The specifically denied original453a9a recording remains local/excluded under prior owner scope; no retry. |
 | 3 | Actual method clearly named | PASS | RoboSkills core.agent.run/Repl pinned8a286... unchanged; actual underlyinggpt-6-sol, firstnone/latermedium, configuration receipt retained. |
 | 4 | Confirmed editable human name/email | PASS | Normal anonymous form used real editable Andrew Lyubovsky name and confirmed email; email/caps excluded from public data. Contact field cleared only after submission for screenshots. |
 | 5 | Approach and runner in run context | PASS | Actual UI/backend public_run and history attribute Andrew Lyubovsky and RoboSkills. Same-run provider snapshot/source receipt separate from underlying model. |
 | 6 | Human attribution distinct from execution mode | PASS | Human identity retained; automated verification is separate execution mode, never fabricated identity. |
-| 7 | Method runs on physical YAMs | PASS | Real normal-UI full sequence f4346b: approach/close/lift/transfer/open/withdrawal,16matched packets; actual purple beside orange, reported failure. Final e730 used both arms and24packets then native300s timeout. Genuine measured method execution verified; successful stacking remains unqualified. |
+| 7 | Method runs on physical YAMs | OPEN | Site19/currentaada runfae84cbc executed measured approach, grasp/close, retained lift, transfer and final alignment,128submitted waypoints/13packets;300.360s timeout before supported release/withdrawal/stable stack. Full manipulation remains unqualified. |
 | 8 | Actual arms visible live | PASS | Actual top/left/right camera switching exercised during method execution; live arms alongside owned Stop. |
-| 9 | Immediate just-completed replay | PASS | Final e730 MP4 loaded194s and played through normal website (pausedfalse/timeadvanced), with retained native timeout/result; full-sequence f4346b replay also played119.5s. Actual recording timestamps, not media time, support timing. |
+| 9 | Immediate just-completed replay | PASS | Site19 just-completed2437 real replay played to13.5s through normal native player. Finalfae real replay loaded198s and advanced to131.930s with pausedfalse/readyState4 in the normal player. Honest timeout/result and task marks retained. |
 | 10 | Previous-run browsing and replay | PASS | Selected previous5c9dc through normal history;49.5s replay loaded and advanced11.836s through the native player. Source/result attribution and real footage remained tied to the selected run. |
 | 11 | Simulation executions reviewable | PASS | Existing native simulation build failure/demo8of8/solver-not-run, source task, checks and real replay remain publicly reviewable; unchanged by physical fix. No solved-solver claim. |
-| 12 | Usable visitor path | PASS | Reloadedv18 anonymous page → LiveYAMarms → real name/email fields → normal Run; no operator sign-in; owned Stop available. |
-| 13 | Every-run startup timing | OPEN | Five recent runs have independently bounded physical startup passes, no queue subtraction needed even for full Run upper bounds. Seven earlier post-v13 runs have timing misses/no motion/missing proof and are NOT covered by pre-v13 owner exception; request explicit additional archive decision. Future15s/30s limits unchanged. |
-| 14 | Persistent honest progress and recovery | PASS | Observed submission/admission/Home/scene/model/movement/recording stages persist inline with real times. Actual failed grasps, tracking stops and runtime timeout appear honestly. Same-attempt status/heartbeat recovery regression; no action replay. |
-| 15 | Final normal-UI physical verification | OPEN | Finalv18 normal-UI scenarios executed and reviewed, native park/torque-off verified. Final acceptance remains open only for outstanding historical timing decision; successful physical stacking is not claimed. |
+| 12 | Usable visitor path | PASS | Published Site19 anonymous path: actual live source/target marks421195/330109, editable confirmed human fields, normal Run, native queue/lease, owned Stop. Submitted/history task retains exact coordinates; no operator sign-in. |
+| 13 | Every-run startup timing | OPEN: new historical miss outside accepted exceptions | Nine recent measured startup passes, includingfae84cbc upper 12.527s postHome/24.876s fullRun. Exact seven prior owner exceptions remain accepted. Later900123 postHome26.163–27.163s fails15s (initialqueue10.291855s; adjustedRun29.156–30.508s unverified);2437 refused afterHome with0packets/no onset. Both are outside accepted exceptions. |
+| 14 | Persistent honest progress and recovery | PASS | Site19 persistent inline stages retain actual timings and honest refusal result. Currentfae camera-read retry recovered on attempt2 without repeating motion; local unreachable correction rejected with zero dispatch. |
+| 15 | Final normal-UI physical verification | OPEN | Final normalSite19 UI testfae84cbc has correct method/runner, actual recorded motion, startup pass, honest progress/camera recovery and nativepark/torqueoff, but no release/withdrawal/stable stack before300s. This advertised capability remains open. |
 
-## Current physical results
+The owner explicitly accepted the exact seven historical timing cases in PR188 (recorded in PR190). They remain accepted. The later900123 timing miss and2437 zero-motion refusal are preserved as unresolved every-run timing cases; no future waiver is inferred. Original453a9a recording remains local/excluded under the existing owner scope and specific upload denial. No upload of that recording or its derived frames was attempted.
 
-- f4346b: full sequence, retained purple after lift/transfer, released beside orange. Actual result failed, native score unset. See [post-withdrawal frame](2026-10-31-full-sequence-miss.png).
-- e730: both arms used while inspecting alignment;300s native timeout, normal parked/torque-off. No new Start or uncertain packet replay. [Configuration](2026-10-31-final-method-configuration.json), [timing](2026-10-31-held-center-timing-receipt.json).
+Latest physical result: fae84cbc retained the small source cube, transferred it toward orange, then locally rejected an8.6mm correction at65mm height. The agent planned61mm height and executed that correction with1.072mm measured TCP error, but reached the300s limit before release. Native park and torque-off verified. The first17 model decisions consumed210.434s; the18th completed after timeout and was not executed. This is a measured latency finding, not proof a faster setting would succeed.
 
-## Timing archive decision still needed
-
-The fixed prior five pre-v13 exceptions and original denied-clip exclusion remain unchanged. The following seven later runs are **not yet excepted**; preserve their actual failed/unverified outcomes:
-
-- `ec2ecd43555b4c20a5c7e359ddb369d7`
-- `f7b751b7a15240a8a71e5d88206104ea`
-- `899e4cee34eb48308989c58014956edc`
-- `2a97205b588f40b089ca4a420bc264f4`
-- `3e3c56a9d77d486086aa8e13b5d61d69`
-- `e3426b9a67e74877a6df5794c55d21a5`
-- `44ae94bf6daa4f3ba8a1470487faa070`
-
-Current five normal physical startups pass both limits using source camera clocks/Home evidence and fresh clock bounds. Read the structured receipts beside this audit. Queue wait is not counted as a failure; conservative full-Run upper bounds already pass30s, so no uncertain queue subtraction is needed. The pre-admission cancelled540a8e run is not a physical startup timing trial.
+Timing receipts: [marked task](2026-10-31-marked-task-timing.json), [earlier camera run](2026-10-31-camera-run-timing.json). Original camera-clock frames are retained next to these receipts. Queue exclusion applies only to the30s Run budget and is never double-counted; postHome remains15s.

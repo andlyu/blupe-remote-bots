@@ -192,7 +192,7 @@ Invocation evidence: user requested “please use the harness” and connection 
 - [x] The website is intuitive: a new visitor, without coaching, can find how to
   run the method. Record the visitor path and starting conditions; site entry
   has no separate 15-second pass/fail deadline.
-- [x] **Mandatory for every run:** first observed actual method-driven physical
+- [ ] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
   completes** and within **30 seconds after the Run/Start click excluding
   evidenced queue-admission waiting**, using the boundaries below (including a
@@ -742,3 +742,8 @@ Site19 source `4d76cfb3df3a4feceaef0ed07ce7e63458dc51df` adds source/target mark
 Evidence: six coordinate/keyboard/input-binding regressions plus seven existing anonymous admission/Stop/privacy checks pass (13/13,320.53ms), TypeScript passes, and the production build passes. Normal local browser keyboard selection produced source421195/target330109. One retained-scene first-decision check using the exact new formatter and unchanged gpt-6-sol/none selected both pixels in6.134s; emitted Python was not executed. Earlier explicit-mark samples passed3/3, while unmarked variants selected the intended source3/6. These samples establish input binding only; general object identification and full stacking remain unqualified.
 
 The already retained physical run `900123781dec40b49bb223e6c91a4283` timed out after grasp/lift/transfer, without verified supported release/stable stack. It also introduced a new startup miss: conservative first motion27.163s after matched Home; full Run40.800s with exact admission exclusion not established. That run is outside all accepted historical exceptions and reopens the every-run timing requirement. The seven exceptions explicitly accepted by the owner remain accepted and do not cover this new run. New Site19 full-task/timing verification is pending; no15/15 claim.
+
+
+## Site19 final UI verification — current12/15, still open
+
+See [the current full15-item audit](verification/2026-10-31-depth-fix-acceptance.md). Public source/target marks, actual task/history binding, anonymous admission/Stop, genuine agent, live cameras, retained replay and native safeguards work. Runfae84cbc passes both startup budgets and executes grasp/lift/transfer/alignment, but times out before release/withdrawal/stable stack. Items7and15 remain open. Item13 is reopened for900123 and2437, outside the exact seven owner-accepted exceptions. The earlier camera-run admission interval has now been recovered as10.291855s; its queue-adjusted Run interval is29.156–30.508s and its postHome26.163–27.163s still fails. No acceptance of these new cases is inferred.
