@@ -19,6 +19,7 @@ test('controls stay visible during running and runner can save without Stop; lat
  const c=setup(),api=c.window.yamRunAssessment;
  api.observe({session_id:'own',episode_id:'ep_own',status:'running',task:'Lift the bottle'},'yam-1','csrf');
  assert.equal(c.node('liveAssessmentTask').textContent,'Lift the bottle');
+ assert.equal(c.node('liveAssessmentTask').attributes['data-clarity-mask'],'true');
  assert.equal(c.node('liveAssessment').hidden,false);c.answer(c.requests[0],c.data);await c.flush();
  const button=c.node('liveAssessmentControls').children[2];assert.equal(button.disabled,false);
  c.node('liveAssessmentControls').listeners.click({target:button});
