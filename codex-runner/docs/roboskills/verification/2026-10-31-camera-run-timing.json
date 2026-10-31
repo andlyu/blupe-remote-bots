@@ -1,0 +1,80 @@
+{
+  "runId": "900123781dec40b49bb223e6c91a4283",
+  "siteVersion": 18,
+  "runtimeSource": "aada98c2632e6cdd0dcdd362b58984ed61b04e8e",
+  "task": "Small loose purple block onto single loose orange block",
+  "runClickHostEpochBounds": [
+    1793444022.04,
+    1793444022.386
+  ],
+  "robotMinusHostBounds": [
+    0.059669971,
+    0.06565094
+  ],
+  "matchedSettledHomeRobotEpoch": 1793444035.7366843,
+  "queueJoinHostEpoch": 1793444025.344649,
+  "queueAdmissionHostEpoch": 1793444035.6365042,
+  "excludedInitialQueueSeconds": 10.291855096817017,
+  "visualLastPriorRobotEpoch": 1793444061.9,
+  "visualFirstMovedRobotEpoch": 1793444062.8,
+  "visualPrecisionUpperSeconds": 0.1,
+  "postHomeMotionSecondsBounds": [
+    26.163315773010254,
+    27.163315773010254
+  ],
+  "fullRunMotionSecondsBounds": [
+    39.448349237383425,
+    40.800330162514406
+  ],
+  "postHomeStatus": "FAIL: lower bound exceeds15s",
+  "queueAdjustedRunStatus": "UNVERIFIED: interval straddles30s; queue excluded once",
+  "physicalTaskResult": "300.353s timeout; grasp/lift/transfer executed, supported release/stable stack unverified",
+  "ownerHistoricalException": "NOT ACCEPTED: outside previously accepted exact seven",
+  "replay": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/900123781dec40b49bb223e6c91a4283/assets/physical.mp4",
+  "evidence": "Embedded original camera wall clock; retained same-attempt lifecycle Home and queue events; host click bounds and five SSH clock samples. Media playback time is not used as elapsed wall time.",
+  "queueAdjustedRunMotionSecondsBounds": [
+    29.15649414056641,
+    30.50847506569739
+  ],
+  "clockSamples": [
+    {
+      "host_before": 1793444038.775469,
+      "robot": 1793444038.8435018,
+      "host_after": 1793444038.784138,
+      "offset_low": 0.05936384201049805,
+      "offset_high": 0.06803274154663086
+    },
+    {
+      "host_before": 1793444038.784151,
+      "robot": 1793444038.8503742,
+      "host_after": 1793444038.7920582,
+      "offset_low": 0.05831599235534668,
+      "offset_high": 0.06622314453125
+    },
+    {
+      "host_before": 1793444038.7920609,
+      "robot": 1793444038.8577719,
+      "host_after": 1793444038.798102,
+      "offset_low": 0.05966997146606445,
+      "offset_high": 0.06571102142333984
+    },
+    {
+      "host_before": 1793444038.798105,
+      "robot": 1793444038.863756,
+      "host_after": 1793444038.809261,
+      "offset_low": 0.05449485778808594,
+      "offset_high": 0.06565093994140625
+    },
+    {
+      "host_before": 1793444038.809263,
+      "robot": 1793444038.888273,
+      "host_after": 1793444038.833535,
+      "offset_low": 0.05473804473876953,
+      "offset_high": 0.079010009765625
+    }
+  ],
+  "runClickEvidence": {
+    "before_ms": 1793444022040,
+    "after_ms": 1793444022386
+  }
+}

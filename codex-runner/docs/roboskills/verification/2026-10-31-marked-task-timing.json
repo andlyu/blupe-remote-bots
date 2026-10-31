@@ -1,0 +1,87 @@
+{
+  "runId": "fae84cbc177940b9a5e0eec76c5e2121",
+  "siteVersion": 19,
+  "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
+  "runtimeSource": "aada98c2632e6cdd0dcdd362b58984ed61b04e8e",
+  "runClickHostEpochBounds": [
+    1793446200.517,
+    1793446200.795
+  ],
+  "robotMinusHostBounds": [
+    0.007479667663574219,
+    0.013044595718383789
+  ],
+  "matchedSettledHomeRobotEpoch": 1793446212.872825,
+  "queueJoinHostEpoch": 1793446202.81632,
+  "queueAdmissionHostEpoch": 1793446212.8731,
+  "excludedInitialQueueSeconds": 10.056780099868774,
+  "chosenPriorCameraClock": "2026-10-31 04:30:23.8 PDT",
+  "firstClearlyMovedCameraClock": "2026-10-31 04:30:25.3 PDT",
+  "visualPrecisionUpperSeconds": 0.1,
+  "firstMotionRobotEpochUpper": 1793446225.4,
+  "postHomeSecondsUpper": 12.527175188064575,
+  "fullRunSecondsUpper": 24.87552046775818,
+  "status": "PASS for both startup limits; no queue deduction needed to prove30s",
+  "nativeOutcome": "300.360s runtime timeout before release/withdrawal; no verified stack",
+  "submittedWaypoints": 128,
+  "submittedPackets": 13,
+  "nativePark": {
+    "ok": true,
+    "command": "status",
+    "mode": "DISABLED",
+    "parked": true,
+    "torque_off_verified": true,
+    "feedback_available": true,
+    "auto_queue_enabled": true,
+    "event": "Both physical arms parked at joint zero and torque-disabled",
+    "disconnected": false,
+    "elapsed_s": 0.021
+  },
+  "replay": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/fae84cbc177940b9a5e0eec76c5e2121/assets/physical.mp4",
+  "method": {
+    "name": "RoboSkills",
+    "upstreamRevision": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+    "model": "gpt-6-sol",
+    "initialEffort": "none",
+    "laterEffort": "medium"
+  },
+  "clockSamples": [
+    {
+      "before": 1793446196.928504,
+      "robot": 1793446196.9459276,
+      "after": 1793446196.938448,
+      "lower": 0.007479667663574219,
+      "upper": 0.017423629760742188
+    },
+    {
+      "before": 1793446196.938462,
+      "robot": 1793446196.9526606,
+      "after": 1793446196.945483,
+      "lower": 0.007177591323852539,
+      "upper": 0.014198541641235352
+    },
+    {
+      "before": 1793446196.945487,
+      "robot": 1793446196.9585316,
+      "after": 1793446196.953692,
+      "lower": 0.004839658737182617,
+      "upper": 0.013044595718383789
+    },
+    {
+      "before": 1793446196.953695,
+      "robot": 1793446196.9669974,
+      "after": 1793446196.960314,
+      "lower": 0.006683349609375,
+      "upper": 0.013302326202392578
+    },
+    {
+      "before": 1793446196.9603179,
+      "robot": 1793446196.9761462,
+      "after": 1793446196.970212,
+      "lower": 0.005934238433837891,
+      "upper": 0.015828371047973633
+    }
+  ],
+  "evidence": "Original embedded camera wall clock, matched settled hardwareHome, recorded UIclick bounds and5SSH clock samples; media playback time is not elapsed wall time.",
+  "queueAdjustedRunSecondsUpper": 14.818740367889404
+}
