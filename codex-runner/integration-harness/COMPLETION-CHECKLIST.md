@@ -8,6 +8,36 @@ evidence. Report checklist status, evidence links, unmet items and explicit
 exceptions; leave unfinished requirements unchecked and do not describe the
 integration as complete.
 
+## Standing authorization for physical playground tests
+
+The repository owner authorizes agents working on BluPe research integrations,
+playground fixes or harness verification to perform the physical playground tests
+needed to finish that work. This includes joining the normal robot queue with the
+confirmed runner identity, starting the selected method on the task's physical
+robots/arms, actual arm movement for a bounded run, capturing and retaining camera
+recordings, checking live footage and replay/history, and using Stop and normal
+parking/lease release. These tests are part of the requested work; do not ask for
+separate permission for each run, physical movement or recording. Reuse this
+standing authorization in the integration's copy of this checklist.
+
+Before a physical test, state the website, robot/station, method/task, run duration
+and expected motion/recording side effects in a brief progress update. Include
+that concrete scope and this standing owner authorization in any tool escalation
+justification so approval review can see why the action is authorized. This is a
+notice, not a new confirmation step; proceed without waiting for a reply.
+
+Use the normal playground UI or its supported run API with existing queue/lease,
+readiness, command validation, hardware limits and Stop behavior intact. Keep
+tests within the task's robots, method and existing run limits, respect other
+users' active runs, and never automatically retry a timed-out movement. This
+authorization does not extend to unrelated robots or disabling safeguards.
+
+Standing task authorization does not override enforced sandbox, managed-policy or
+tool permissions. Use the normal permission mechanism when required. If automatic
+approval review explicitly denies an action, do not retry it through another
+route: report the exact action and stated reason, leave physical verification
+unverified, and request only the specific permission needed to unblock it.
+
 ## Completion requirements
 
 - [ ] A usable website exists, with an associated repository containing the
@@ -176,6 +206,9 @@ before any completion claim.
 - Website source repository URL / deployed revision:
 - Public-visibility exceptions (write "none", or the affected website/repository,
   explicit exception, reason and approval reference):
+- Physical-test authorization/scope (standing owner authorization or task
+  reference, website, station/arms, confirmed runner, method/task, duration,
+  expected motion and recording; permission-review result if applicable):
 - Physical execution (date, method/configuration, YAM station/arm IDs, run ID):
 - Live physical arm footage (website location and evidence link):
 - Just-completed replay URL / immediate availability evidence (same physical run):
