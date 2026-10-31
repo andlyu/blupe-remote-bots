@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T17:18:31.529879+00:00",
+  "reviewedAt": "2026-10-31T17:48:11.844775+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "4d5878d4455b6e3c1c785a452f94bee3c597a26c",
+  "runtimeSource": "058d54f8ca424692feea83ecdf3b7caba498d5a5",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "Public Site19/source4d76cfb; live4d5878d via PR210/13d887fc after all six required checks. Provider73398/physical73401, simulation14674 preserved. Pinned upstream/initial prompt and native limits remain unchanged."
+      "evidence": "Public Site19/source4d76cfb; live058d54f via PR212/5f3724a after all six required checks. Provider97467/physical97471, simulation14674 preserved. Pinned upstream/initial prompt and native limits unchanged."
     },
     {
       "number": 2,
@@ -22,7 +22,7 @@
       "number": 3,
       "requirement": "Actual method clearly named",
       "status": "PASS",
-      "evidence": "Genuine RoboSkills8a286023 core.agent/Repl; Sol/none then Astra/medium. Matched nominal pad geometry uses installed joint axes, with compact both-arm midpoint and grounded pad-span/shallower-frame guidance. Actual model/request/template provenance retained."
+      "evidence": "Genuine RoboSkills8a286023 core.agent/Repl; Sol/none then Astra/medium. Subsequent public plan_move reports independent-arm finite correction samples through the actual canonical path; prompt/API initial path unchanged. Actual request/template hashes retained."
     },
     {
       "number": 4,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Current29b59179 executes source inspection/retreat and later10degree noncontact view.120waypoints/9packets134.303790s. That view completes3.6324mm outside3mm tolerance; proposed tracking correction is locally unreachable before dispatch. Terminal failure/no contact/grasp/stack; capability remains unqualified."
+      "evidence": "Currentadfe4fbf executes source inspection and40mm view retreat,60waypoints/3packets84.302525s. Agent remeasures actual masks, reports mixed top-face block/table returns and stops before contact. No grasp/lift/transfer/release/withdrawal/stack. Later reserve-aware selection not reached physically; offline genuine-agent selection passed separately."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Actual80.5s native replay played to end, then sought about70s showing camera10:06:12.8PDT. The matching execution-failed/BluPe-result/no-native-score label reports actual correction rejection, not an agent-success assertion."
+      "evidence": "Actual52.5s native replay played to end, then sought to displayed14s showing camera10:42:45.2PDT. Matching task-not-completed/agent-assessment/no-native-score label retains the actual reason; physical execution and task outcome stay distinct."
     },
     {
       "number": 10,
@@ -82,19 +82,19 @@
       "number": 13,
       "requirement": "Every-run startup timing",
       "status": "OPEN: seven later failed/unverified cases outside accepted exceptions",
-      "evidence": "Fifteen measured startup passes now include29b59179: original UI36 unchanged10:04:25.9/#1669505 then40 clearly moved10:04:27.8/#1669539. Upper14.287688s post-Home/27.956487s full Run with zero queue deduction. Seven historical failed/unverified cases remain outside accepted exceptions."
+      "evidence": "Sixteen measured startup passes includeadfe4fbf. OriginalUI42/native replay28 unchanged10:42:43.5; replay30 visibly moved10:42:45.2, also verified in website player. Upper14.516068s post-Home/28.122540s full Run with zero queue deduction. Coarser nextUI frame45.8 alone would straddle15s; native replay supplies retained visual bound. Seven historical cases remain outside accepted exceptions."
     },
     {
       "number": 14,
       "requirement": "Persistent honest progress and recovery",
       "status": "PASS",
-      "evidence": "Actual admission/Home/scene/model/motion/recording stages and actionable local correction error retained. Single Run, email immediately cleared; first guarded post-frame0.664s after click,168retained/213attempts. Native parked/DISABLED/torqueoff/autoqueue verified; rejected correction never dispatched or replayed."
+      "evidence": "Actual queue/Home/scene/model/motion/recording stages and honest incomplete-task reason retained. Single Run/email immediately cleared; first guarded post-frame0.641s after click,152retained/197attempts. Native parked/DISABLED/torqueoff/autoqueue verified; no failed/uncertain-motion replay."
     },
     {
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "Final normal UI29b59179 verifies released pad reporting/genuine agent/local planning/live/actual replay/seek/native parking and both startup limits. It ends before contact because the selected nominal pose has insufficient reachable correction room; retained grasp/transfer/release/withdrawal/stable stack remain open."
+      "evidence": "Final normalUIadfe4fbf verifies released source/genuine agent/source inspection/view retreat/live/actual replay/seek/native parking and both startup limits. Agent stops on mixed selected-face depth before contact; retained grasp/transfer/release/withdrawal/stable stack remain open."
     }
   ],
   "checked": 12,
@@ -159,8 +159,9 @@
     "c77e42b30927403e89e94ace21016e26",
     "d68d592f48fa43c38e88475cf4454975",
     "2a7c2a77824647cdbf031b48a20e6058",
-    "29b59179f3d3433897dfe7b57aec88cb"
+    "29b59179f3d3433897dfe7b57aec88cb",
+    "adfe4fbf492849cb80a3e8074923c767"
   ],
-  "candidateRuntimeSource": "4d5878d4455b6e3c1c785a452f94bee3c597a26c",
-  "candidateEvidence": "2026-10-31-pad-engagement-results.md"
+  "candidateRuntimeSource": "058d54f8ca424692feea83ecdf3b7caba498d5a5",
+  "candidateEvidence": "2026-10-31-tracking-reserve-results.md"
 }

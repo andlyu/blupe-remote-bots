@@ -10,7 +10,7 @@ integration as complete.
 
 ## Current task qualification reopened — October31,2026
 
-Prior v13 smoke testing did not qualify stacking. Current **12/15 checked**, items7/13/15 open. Current runtime4d5878d/Site19 was tested through normal UI29b59179. Actual source inspection and view retreat completed; a later nominally reachable10degree view missed3mm accuracy and its bounded correction was locally unreachable before dispatch. No contact/grasp/stack. Fifteen measured startup passes include current14.287688s post-Home/27.956487s full Run without deduction; seven historical failed/unverified cases remain outside owner exceptions. See [current result](verification/2026-10-31-pad-engagement-results.md).
+Prior v13 smoke testing did not qualify stacking. Current **12/15 checked**, items7/13/15 open. Current runtime058d54f/Site19 was tested through normalUIadfe4fbf. Source inspection and40mm view retreat completed; agent stopped before contact after remeasuring mixed block/table depth in its selected purple top face. No grasp/stack. Sixteen measured startup passes include current14.516068s post-Home/28.122540s full Run without queue deduction. Seven historical timing cases remain outside owner exceptions. See [current result](verification/2026-10-31-tracking-reserve-results.md).
 
 ## Owner timing exception — October30,2026
 
