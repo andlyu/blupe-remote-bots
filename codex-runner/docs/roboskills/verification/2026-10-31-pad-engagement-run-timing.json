@@ -1,0 +1,290 @@
+{
+  "assembledAt": "2026-10-31T17:17:18.916469+00:00",
+  "run": "29b59179f3d3433897dfe7b57aec88cb",
+  "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/",
+  "siteVersion": 19,
+  "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
+  "runtimeSource": "4d5878d4455b6e3c1c785a452f94bee3c597a26c",
+  "sourcePR": "https://github.com/andlyu/blupe-remote-bots/pull/210",
+  "merge": "13d887fc1f0d3230af3ed3e4f9fd63f4b7d0841d",
+  "runner": "Andrew Lyubovsky",
+  "identityScope": "Confirmed name/email submitted only to existing Site and existing BluPe operational backend. Email/capabilities excluded here.",
+  "task": "Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\n\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.",
+  "episode": "ep_5ab85803dfe84841",
+  "session": "sess_0be62e34f7a24e5d",
+  "nativeStatus": "stopped",
+  "websiteStatus": "failed",
+  "nativeWindow_s": 134.3037896156311,
+  "commands": 120,
+  "packets": 9,
+  "modelConfiguration": {
+    "initial_inference_model": "gpt-6-sol",
+    "subsequent_inference_model": "gpt-6-astra",
+    "initial_reasoning_effort": "none",
+    "subsequent_reasoning_effort": "medium",
+    "system_prompt_sha256": "4b2a66f64e38d39d46bf4396b9c3165a1b8349db25754bea2cf1cf6d7068192b",
+    "subsequent_system_prompt_sha256": "c7e1ce3c310ea918ae9ff0c7cf0d0e111b2fb0eeea54ec680fdb0d5fe7521698",
+    "upstream_revision": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+    "tool_geometry_reference": {
+      "available": true,
+      "model": "linear_4310",
+      "station": "yam-1",
+      "frame": "same tool frame as move_to rotation",
+      "jaw_opening_axis": "Y",
+      "approach_axis": "Z",
+      "physical_contact_calibration_measured": false,
+      "source_xml_sha256": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652",
+      "tip_mesh_sha256": [
+        "03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7",
+        "8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f"
+      ],
+      "closed_nominal_gap_m": -0.001,
+      "opening_travel_m": 0.095,
+      "per_jaw_travel_m": 0.0475,
+      "pad_opening_signs": [
+        1,
+        -1
+      ],
+      "pad_center_z_m": 0.0016706879354441567,
+      "pad_opening_axes_tool": [
+        [
+          -3.999999999948489e-06,
+          0.9999999999920002,
+          7.99987853739026e-12
+        ],
+        [
+          0.0,
+          -0.9999999999910001,
+          -4.242642374197025e-06
+        ]
+      ],
+      "max_tip_z_m": 0.010020504348689839,
+      "closed_pad_bounds_tool_m": [
+        [
+          [
+            -0.012440560852250203,
+            -0.0005197222644821231,
+            -0.006358460493411655
+          ],
+          [
+            0.012629385470384388,
+            -0.0005038660947302822,
+            0.009498190908815318
+          ]
+        ],
+        [
+          [
+            -0.01263007267358724,
+            0.0005164451832254027,
+            -0.005955405143516168
+          ],
+          [
+            0.012450771308468573,
+            0.0005194518015411266,
+            0.009498426469889132
+          ]
+        ]
+      ],
+      "scope": "Nominal installed-reference CAD, not measured current gap/contact/force or a collision certificate. Fixed native grasp origin is retained; distal tip extends about10mm along tool+Z. max_tip_z includes the reference1micrometre arithmetic guard. Do not substitute upstream changed attachment/TCP or infer geometry from visual proxies."
+    }
+  },
+  "actualModelRequests": [
+    {
+      "timestamp": 1793466257.648524,
+      "inference_model": "gpt-6-sol",
+      "rendered_system_prompt_sha256": "41ae86374d5f4dff320fdaed0a9609fb510869d2d2cc64a362673a667e29cc57"
+    },
+    {
+      "timestamp": 1793466287.041358,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "fc4c0f827aed27f85cf170a4ab4879f014a41101e64b070e016766046bd36c49"
+    },
+    {
+      "timestamp": 1793466303.610065,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "fc4c0f827aed27f85cf170a4ab4879f014a41101e64b070e016766046bd36c49"
+    },
+    {
+      "timestamp": 1793466310.732838,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "fc4c0f827aed27f85cf170a4ab4879f014a41101e64b070e016766046bd36c49"
+    },
+    {
+      "timestamp": 1793466329.8566852,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "fc4c0f827aed27f85cf170a4ab4879f014a41101e64b070e016766046bd36c49"
+    },
+    {
+      "timestamp": 1793466342.263102,
+      "inference_model": "gpt-6-astra",
+      "rendered_system_prompt_sha256": "fc4c0f827aed27f85cf170a4ab4879f014a41101e64b070e016766046bd36c49"
+    }
+  ],
+  "programs": [
+    {
+      "turn": 0,
+      "llm_s": 5.5,
+      "program": "```python\nshow(bot.inspect_source(310, 83))\n```",
+      "receipt": "[status] {'instruction': 'Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\\n\\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.', 'step': 57, 'nominal_pad_midpoints_base_m': {'left': [0.4584540908577214, -0.2110603144908841, 0.07338483945364177], 'right': [0.3010310169121966, 0.0005318692108913733, 0.1823436130799957]}, 'coordinates': {'left_x': 0.45758883722618665, 'left_y': -0.21067837833715392, 'left_z': 0.07476191505828678, 'left_yaw': 0.004979566368296896, 'left_pitch': -0.004068354379766885, 'left_roll': 0.009611704610407421, 'left_gripper': 0.9997113580603262, 'right_x': 0.29960421345072985, 'right_y': 0.0005258533713745628, 'right_z': 0.18321256229584837, 'right_yaw': 9.284615981043133e-07, 'right_pitch': -0.009153053378361623, 'right_roll': 0.00020785761147752534, 'right_gripper': 0.9974734714502274}, 'attitude_references': {'left': 'base_rotation', 'right': 'observed'}, 'approach_axes_base': {'left': [0.5181898337270837, -0.23077262105420362, -0.823543134021328], 'right': [0.8547842566450353, 0.0017567866778755354, -0.5189805278547197]}, 'opening_axes_base': {'left': [0.41608892325009095, 0.9092969161988156, 0.00700900420206918], 'right': [-0.0006329945011325512, 0.9999970560200948, 0.002342492071610427]}, 'inspection_reference': {'source': {'pixel': [310, 83], 'optical_z_m': 0.94808685779\n...[clipped]...\nrallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'surface_references': [{'source_camera': 'top', 'source_pixel': [310, 83], 'source_step_id': 0, 'source_captured_at': 1793466255.3065124, 'points_base_m': {'left': [0.49763417310595776, -0.2306900112741871, 0.010336120612976174], 'right': [0.49763417310595776, 0.26930998872581297, 0.010336120612976174]}, 'projections': {'top': {'projection_available': True, 'pixel': [310.0, 82.99999999999997], 'nearest_pixel': [310, 83], 'inside_image': True, 'expected_optical_z_m': 0.9480868577957152, 'measured_minus_expected_optical_z_m': -0.1801762580871581, 'captured_at': 1793466286.194017, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.7679105997085571, 'valid_samples': 25, 'patch_spread_m': 0.011002063751220703}}, 'left': {'projection_available': True, 'pixel': [323.7363470117161, 195.29034366417565], 'nearest_pixel': [324, 195], 'inside_image': True, 'expected_optical_z_m': 0.1652437938164041, 'measured_minus_expected_optical_z_m': -0.014938165039853818, 'captured_at': 1793466284.7502499, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.1503056287765503, 'valid_samples': 25, 'patch_spread_m': 0.00029969215393066406}}, 'right': {'projection_available': True, 'pixel': [79.2416661905348, 166.99364440954292], 'nearest_pixel': [79, 167], 'inside_image': True, 'expected_optical_z_m': 0.35287700697571156, 'measured_minus_expected_optical_z_m': -0.004183606354297376, 'captured_at': 1793466285.4812987, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.3486934006214142, 'valid_samples': 25, 'patch_spread_m': 0.011610478162765503}}}}], 'reference_scope': 'Last four distinct historical pixel queries, NOT tracked objects or current poses. Source pixel/step/time are retained. Projections and nearest-ray depth patches use the current captured views; inspect RGB correspondence/occlusion and calibration uncertainty.'}}\n"
+    },
+    {
+      "turn": 1,
+      "llm_s": 16.5,
+      "program": "```python\nrgb = bot.rgbd('left')['rgb']\nyy, xx = np.indices(rgb.shape[:2])\nfaces = {\n    'purple broad face': [(296, 197), (327, 177), (348, 206), (317, 226)],\n    'clear table': [(181, 194), (259, 172), (276, 242), (206, 265)],\n    'orange upper face': [(339, 303), (389, 281), (410, 319), (359, 342)]\n}\nmeasurements = {}\nfor label, vertices in faces.items():\n    vertices = np.array(vertices)\n    mask = np.ones(xx.shape, dtype=bool)\n    for a, b in zip(vertices, np.roll(vertices, -1, axis=0)):\n        mask &= (b[0]-a[0])*(yy-a[1])-(b[1]-a[1])*(xx-a[0]) >= 0\n    measurements[label] = bot.localize_object(label, mask, camera='left', arm='left')\n    print(label, measurements[label])\nprint('geometry', bot.status()['tool_geometry_reference'])\n```",
+      "receipt": "purple broad face {'label': 'purple broad face', 'camera': 'left', 'captured_at': 1793466284.7502499, 'calibration_id': '9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958', 'pixel_count': 1322, 'valid_depth_count': 1318, 'mask_sha256': '1133151eab817b313dab694652d092b5b3b86dc8ecbf1ac5616ec703edc0a1e2', 'surfaces_in_arm_bases': {'left': {'center_m': [0.49345414064053517, -0.22803109347118938, 0.02517642802882049], 'lower_m': [0.48624643697493136, -0.2353145358027765, 0.024712743477300028], 'upper_m': [0.5008799088645584, -0.2200526324512808, 0.025924246761339573], 'plane_fit': {'available': True, 'sample_count': 256, 'scope': 'Best-fit plane of sampled visible depth, not proof of a planar face, physical top, contact clearance or calibration accuracy. Normal sign is arbitrary: compare abs(dot(unit normals)) within the SAME camera and state, checking residuals and principal spans; mixed surfaces can have no meaningful single normal.', 'center_m': [0.49346148814817165, -0.22773553698806198, 0.025152617172358713], 'normal_base': [0.01459415177220285, -0.007386298574878825, 0.9998662177148564], 'rms_residual_m': 0.0007325454555116289, 'abs_residual_95_m': 0.0008538945817874398, 'principal_rms_m': [0.004982257340863693, 0.00476513377539237, 0.0007325454555116287], 'dominant_plane': {'available': True, 'distance_threshold_m': 0.002, 'minimum_inlier_fraction': 0.75, 'sample_count': 256, 'scope': 'Dominant sampled depth surface, not semantic top, contact clearance or calibration accuracy. The 2mm segmentation threshold is not a motion tolerance. Inspect excluded pixels and original raw fit; normal sign is arbitrary.', 'inlier_count': 254, 'outlier_count': 2, 'inlier_fraction': 0.9921875, 'center_m': [0.4933897388895847, -0.22775012837598174, 0.025207749899613992], 'normal_base': [-0.008312251046602534, -0.010430484182361865, 0.9999110517852374], 'principal_rms_m': [0.004991006481357055, 0.00472197206022252, 0.00035416461936149847], 'rms_residual_m': 0.000354164\n...[clipped]...\n'], 'limitations': ['Same capture session used for fitting and consistency comparison.', 'No surveyed reference, measured tool contact or independent depth validation.', 'Parallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'warning': 'Agent-selected mask, measured visible surface only; not a full object pose, grasp target, object height or proof of grasp. Calibration remains experimental.', 'full_quality': 'result[\"quality\"] or bot.rgbd(camera)[\"quality\"]'}\ngeometry {'available': True, 'model': 'linear_4310', 'station': 'yam-1', 'frame': 'same tool frame as move_to rotation', 'jaw_opening_axis': 'Y', 'approach_axis': 'Z', 'physical_contact_calibration_measured': False, 'source_xml_sha256': '1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652', 'tip_mesh_sha256': ['03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7', '8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f'], 'closed_nominal_gap_m': -0.001, 'opening_travel_m': 0.095, 'per_jaw_travel_m': 0.0475, 'pad_opening_signs': [1, -1], 'pad_center_z_m': 0.0016706879354441567, 'pad_opening_axes_tool': [[-3.999999999948489e-06, 0.9999999999920002, 7.99987853739026e-12], [0.0, -0.9999999999910001, -4.242642374197025e-06]], 'max_tip_z_m': 0.010020504348689839, 'closed_pad_bounds_tool_m': [[[-0.012440560852250203, -0.0005197222644821231, -0.006358460493411655], [0.012629385470384388, -0.0005038660947302822, 0.009498190908815318]], [[-0.01263007267358724, 0.0005164451832254027, -0.005955405143516168], [0.012450771308468573, 0.0005194518015411266, 0.009498426469889132]]], 'scope': 'Nominal installed-reference CAD, not measured current gap/contact/force or a collision certificate. Fixed native grasp origin is retained; distal tip extends about10mm along tool+Z. max_tip_z includes the reference1micrometre arithmetic guard. Do not substitute upstream changed attachment/TCP or infer geometry from visual proxies.'}\n[status] {'instruction': 'Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\\n\\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.', 'step': 57, 'nominal_pad_midpoints_base_m': {'left': [0.4584540908577214, -0.2110603144908841, 0.07338483945364177], 'right': [0.3010310169121966, 0.0005318692108913733, 0.1823436130799957]}, 'coordinates': {'left_x': 0.45758883722618665, 'left_y': -0.21067837833715392, 'left_z': 0.07476191505828678, 'left_yaw': 0.004979566368296896, 'left_pitch': -0.004068354379766885, 'left_roll': 0.009611704610407421, 'left_gripper': 0.9997113580603262, 'right_x': 0.29960421345072985, 'right_y': 0.0005258533713745628, 'right_z': 0.18321256229584837, 'right_yaw': 9.284615981043133e-07, 'right_pitch': -0.009153053378361623, 'right_roll': 0.00020785761147752534, 'right_gripper': 0.9974734714502274}, 'attitude_references': {'left': 'base_rotation', 'right': 'observed'}, 'approach_axes_base': {'left': [0.5181898337270837, -0.23077262105420362, -0.823543134021328], 'right': [0.8547842566450353, 0.0017567866778755354, -0.5189805278547197]}, 'opening_axes_base': {'left': [0.41608892325009095, 0.9092969161988156, 0.00700900420206918], 'right': [-0.0006329945011325512, 0.9999970560200948, 0.002342492071610427]}, 'inspection_reference': {'source': {'pixel': [310, 83], 'optical_z_m': 0.94808685779\n...[clipped]...\nrallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'surface_references': [{'source_camera': 'top', 'source_pixel': [310, 83], 'source_step_id': 0, 'source_captured_at': 1793466255.3065124, 'points_base_m': {'left': [0.49763417310595776, -0.2306900112741871, 0.010336120612976174], 'right': [0.49763417310595776, 0.26930998872581297, 0.010336120612976174]}, 'projections': {'top': {'projection_available': True, 'pixel': [310.0, 82.99999999999997], 'nearest_pixel': [310, 83], 'inside_image': True, 'expected_optical_z_m': 0.9480868577957152, 'measured_minus_expected_optical_z_m': -0.1801762580871581, 'captured_at': 1793466286.194017, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.7679105997085571, 'valid_samples': 25, 'patch_spread_m': 0.011002063751220703}}, 'left': {'projection_available': True, 'pixel': [323.7363470117161, 195.29034366417565], 'nearest_pixel': [324, 195], 'inside_image': True, 'expected_optical_z_m': 0.1652437938164041, 'measured_minus_expected_optical_z_m': -0.014938165039853818, 'captured_at': 1793466284.7502499, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.1503056287765503, 'valid_samples': 25, 'patch_spread_m': 0.00029969215393066406}}, 'right': {'projection_available': True, 'pixel': [79.2416661905348, 166.99364440954292], 'nearest_pixel': [79, 167], 'inside_image': True, 'expected_optical_z_m': 0.35287700697571156, 'measured_minus_expected_optical_z_m': -0.004183606354297376, 'captured_at': 1793466285.4812987, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.3486934006214142, 'valid_samples': 25, 'patch_spread_m': 0.011610478162765503}}}}], 'reference_scope': 'Last four distinct historical pixel queries, NOT tracked objects or current poses. Source pixel/step/time are retained. Projections and nearest-ray depth patches use the current captured views; inspect RGB correspondence/occlusion and calibration uncertainty.'}}\n"
+    },
+    {
+      "turn": 2,
+      "llm_s": 7.1,
+      "program": "```python\nfor label, result in measurements.items():\n    surface = result['surfaces_in_arm_bases']['left']\n    fit = surface['plane_fit']\n    print(label, {k: surface[k] for k in ('center_m', 'lower_m', 'upper_m')})\n    print('plane', {k: fit.get(k) for k in ('normal_base', 'principal_rms_m', 'rms_residual_m', 'abs_residual_95_m')})\n    dominant = fit.get('dominant_plane', {})\n    print('consensus', {k: dominant.get(k) for k in ('available', 'normal_base', 'inlier_fraction', 'outlier_pixels')})\n```\n",
+      "receipt": "purple broad face {'center_m': [0.49345414064053517, -0.22803109347118938, 0.02517642802882049], 'lower_m': [0.48624643697493136, -0.2353145358027765, 0.024712743477300028], 'upper_m': [0.5008799088645584, -0.2200526324512808, 0.025924246761339573]}\nplane {'normal_base': [0.01459415177220285, -0.007386298574878825, 0.9998662177148564], 'principal_rms_m': [0.004982257340863693, 0.00476513377539237, 0.0007325454555116287], 'rms_residual_m': 0.0007325454555116289, 'abs_residual_95_m': 0.0008538945817874398}\nconsensus {'available': True, 'normal_base': [-0.008312251046602534, -0.010430484182361865, 0.9999110517852374], 'inlier_fraction': 0.9921875, 'outlier_pixels': [[312, 187], [309, 189]]}\nclear table {'center_m': [0.5085928828829946, -0.18136797275864985, 0.0015481562981664587], 'lower_m': [0.4909547007007915, -0.19999235021357997, -0.0021799199728541885], 'upper_m': [0.5274092432985633, -0.16256946367094172, 0.005236723744852637]}\nplane {'normal_base': [0.11135980508567798, 0.03648787940757703, 0.9931100787262297], 'principal_rms_m': [0.012847319434737485, 0.01122486933138217, 0.0015287736424525523], 'rms_residual_m': 0.001528773642452552, 'abs_residual_95_m': 0.0029769040295946816}\nconsensus {'available': True, 'normal_base': [0.07054213326483684, 0.04491939226095737, 0.9964968919336137], 'inlier_fraction': 0.8046875, 'outlier_pixels': [[232, 180], [235, 182], [238, 183], [236, 184], [234, 185], [224, 186], [220, 187], [202, 189], [245, 193], [247, 194], [250, 195], [235, 197], [238, 198], [241, 199], [263, 199], [245, 200], [231, 202], [234, 203], [238, 204], [229, 207], [233, 208], [264, 210], [225, 211], [268, 211], [208, 212], [213, 213], [262, 214], [267, 215], [207, 216], [213, 217], [262, 218], [267, 219], [209, 220], [243, 231], [243, 234], [250, 235], [243, 237], [242, 238], [241, 239], [245, 240], [250, 241], [249, 243], [245, 244], [243, 245], [240, 246], [241, 247], [245, 248], [245, 250], [238, 251], [234, 252]]}\norange upper face {'center_m': [0.4426453538342956, -0.22773676701094464, 0.03484791488125297], 'lower_m': [0.43486708802102697, -0.23792918534897295, 0.03397197738528028], 'upper_m': [0.45024143011646406, -0.21751089662132567, 0.03582360100795678]}\nplane {'normal_base': [-0.039732827299469406, 0.04144453194968711, 0.9983504661221237], 'principal_rms_m': [0.006467460102950309, 0.004897761930842994, 0.0004730677378584964], 'rms_residual_m': 0.0004730677378584963, 'abs_residual_95_m': 0.0008994657849552992}\nconsensus {'available': True, 'normal_base': [-0.039732827299469406, 0.04144453194968711, 0.9983504661221237], 'inlier_fraction': 1.0, 'outlier_pixels': []}\n[status] {'instruction': 'Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\\n\\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.', 'step': 57, 'nominal_pad_midpoints_base_m': {'left': [0.4584540908577214, -0.2110603144908841, 0.07338483945364177], 'right': [0.3010310169121966, 0.0005318692108913733, 0.1823436130799957]}, 'coordinates': {'left_x': 0.45758883722618665, 'left_y': -0.21067837833715392, 'left_z': 0.07476191505828678, 'left_yaw': 0.004979566368296896, 'left_pitch': -0.004068354379766885, 'left_roll': 0.009611704610407421, 'left_gripper': 0.9997113580603262, 'right_x': 0.29960421345072985, 'right_y': 0.0005258533713745628, 'right_z': 0.18321256229584837, 'right_yaw': 9.284615981043133e-07, 'right_pitch': -0.009153053378361623, 'right_roll': 0.00020785761147752534, 'right_gripper': 0.9974734714502274}, 'attitude_references': {'left': 'base_rotation', 'right': 'observed'}, 'approach_axes_base': {'left': [0.5181898337270837, -0.23077262105420362, -0.823543134021328], 'right': [0.8547842566450353, 0.0017567866778755354, -0.5189805278547197]}, 'opening_axes_base': {'left': [0.41608892325009095, 0.9092969161988156, 0.00700900420206918], 'right': [-0.0006329945011325512, 0.9999970560200948, 0.002342492071610427]}, 'inspection_reference': {'source': {'pixel': [310, 83], 'optical_z_m': 0.94808685779\n...[clipped]...\nrallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'surface_references': [{'source_camera': 'top', 'source_pixel': [310, 83], 'source_step_id': 0, 'source_captured_at': 1793466255.3065124, 'points_base_m': {'left': [0.49763417310595776, -0.2306900112741871, 0.010336120612976174], 'right': [0.49763417310595776, 0.26930998872581297, 0.010336120612976174]}, 'projections': {'top': {'projection_available': True, 'pixel': [310.0, 82.99999999999997], 'nearest_pixel': [310, 83], 'inside_image': True, 'expected_optical_z_m': 0.9480868577957152, 'measured_minus_expected_optical_z_m': -0.1801762580871581, 'captured_at': 1793466286.194017, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.7679105997085571, 'valid_samples': 25, 'patch_spread_m': 0.011002063751220703}}, 'left': {'projection_available': True, 'pixel': [323.7363470117161, 195.29034366417565], 'nearest_pixel': [324, 195], 'inside_image': True, 'expected_optical_z_m': 0.1652437938164041, 'measured_minus_expected_optical_z_m': -0.014938165039853818, 'captured_at': 1793466284.7502499, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.1503056287765503, 'valid_samples': 25, 'patch_spread_m': 0.00029969215393066406}}, 'right': {'projection_available': True, 'pixel': [79.2416661905348, 166.99364440954292], 'nearest_pixel': [79, 167], 'inside_image': True, 'expected_optical_z_m': 0.35287700697571156, 'measured_minus_expected_optical_z_m': -0.004183606354297376, 'captured_at': 1793466285.4812987, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.3486934006214142, 'valid_samples': 25, 'patch_spread_m': 0.011610478162765503}}}}], 'reference_scope': 'Last four distinct historical pixel queries, NOT tracked objects or current poses. Source pixel/step/time are retained. Projections and nearest-ray depth patches use the current captured views; inspect RGB correspondence/occlusion and calibration uncertainty.'}}\n"
+    },
+    {
+      "turn": 3,
+      "llm_s": 7.3,
+      "program": "```python\nshow(bot.retreat_for_view(0.04))\n```",
+      "receipt": "[status] {'instruction': 'Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\\n\\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.', 'step': 66, 'nominal_pad_midpoints_base_m': {'left': [0.4356581543785249, -0.2004857713046378, 0.10298147614734726], 'right': [0.30098170726978485, 0.0005329887693873951, 0.18226258481115803]}, 'coordinates': {'left_x': 0.43481797839281294, 'left_y': -0.2001163754489634, 'left_z': 0.10437737274386227, 'left_yaw': 0.007592628917444529, 'left_pitch': -0.022787755297102107, 'left_roll': 0.017230338801582607, 'left_gripper': 0.9997113580603262, 'right_x': 0.2995552353068489, 'right_y': 0.0005269654032247773, 'right_z': 0.1831320780716617, 'right_yaw': 1.0085891392574627e-06, 'right_pitch': -0.009534430600038644, 'right_roll': 0.000216518709133052, 'right_gripper': 0.9974012849202339}, 'attitude_references': {'left': 'base_rotation', 'right': 'observed'}, 'approach_axes_base': {'left': [0.5031980838027015, -0.22327107782920586, -0.8348303505876363], 'right': [0.854586267134389, 0.0017612819601312986, -0.5193064701225737]}, 'opening_axes_base': {'left': [0.41392714001280206, 0.9102899481851622, 0.006044252962808069], 'right': [-0.0006320986322149015, 0.999997035695252, 0.002351393635248405]}, 'inspection_reference': None, 'last_move': {'targets': {'left_x': 0.4366270498817772, \n...[clipped]...\nndent depth validation.', 'Parallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'surface_references': [{'source_camera': 'top', 'source_pixel': [310, 83], 'source_step_id': 0, 'source_captured_at': 1793466255.3065124, 'points_base_m': {'left': [0.49763417310595776, -0.2306900112741871, 0.010336120612976174], 'right': [0.49763417310595776, 0.26930998872581297, 0.010336120612976174]}, 'projections': {'top': {'projection_available': True, 'pixel': [310.0, 82.99999999999997], 'nearest_pixel': [310, 83], 'inside_image': True, 'expected_optical_z_m': 0.9480868577957152, 'measured_minus_expected_optical_z_m': None, 'captured_at': 1793466328.759585, 'depth_sample': {'available': False, 'radius': 2, 'reason': 'Depth patch crosses surfaces or is noisy; choose an interior pixel'}}, 'left': {'projection_available': True, 'pixel': [323.4925281910547, 158.05998041013174], 'nearest_pixel': [323, 158], 'inside_image': True, 'expected_optical_z_m': 0.19802526952087332, 'measured_minus_expected_optical_z_m': -0.013636572373503936, 'captured_at': 1793466327.5932658, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.18438869714736938, 'valid_samples': 14, 'patch_spread_m': 0.0018046200275421143}}, 'right': {'projection_available': True, 'pixel': [79.19598648497397, 166.8253960347867], 'nearest_pixel': [79, 167], 'inside_image': True, 'expected_optical_z_m': 0.35281675286832265, 'measured_minus_expected_optical_z_m': -0.004724077659277237, 'captured_at': 1793466328.0932403, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.3480926752090454, 'valid_samples': 25, 'patch_spread_m': 0.009607762098312378}}}}], 'reference_scope': 'Last four distinct historical pixel queries, NOT tracked objects or current poses. Source pixel/step/time are retained. Projections and nearest-ray depth patches use the current captured views; inspect RGB correspondence/occlusion and calibration uncertainty.'}}\n"
+    },
+    {
+      "turn": 4,
+      "llm_s": 12.3,
+      "program": "```python\nrgb = bot.rgbd('left')['rgb']\nyy, xx = np.indices(rgb.shape[:2])\nfaces = {\n    'purple top': [(301, 153), (323, 140), (341, 162), (319, 177)],\n    'orange top': [(337, 245), (380, 228), (402, 276), (360, 295)],\n    'table support': [(188, 182), (262, 162), (280, 253), (207, 274)]\n}\nmeasurements = {}\nfor label, vertices in faces.items():\n    vertices = np.array(vertices)\n    mask = np.ones(xx.shape, dtype=bool)\n    for a, b in zip(vertices, np.roll(vertices, -1, axis=0)):\n        mask &= (b[0]-a[0])*(yy-a[1])-(b[1]-a[1])*(xx-a[0]) >= 0\n    result = bot.localize_object(label, mask, camera='left', arm='left')\n    measurements[label] = result\n    surface = result['surfaces_in_arm_bases']['left']\n    print(label, {k: surface[k] for k in ('center_m', 'lower_m', 'upper_m')})\n    fit = surface['plane_fit']\n    print('plane', {k: fit.get(k) for k in ('normal_base', 'principal_rms_m', 'rms_residual_m', 'abs_residual_95_m')})\n    dominant = fit.get('dominant_plane', {})\n    print('consensus', {k: dominant.get(k) for k in ('available', 'normal_base', 'inlier_fraction', 'outlier_pixels')})\n```",
+      "receipt": "purple top {'center_m': [0.4918146573755785, -0.2301093358955399, 0.024833812591893822], 'lower_m': [0.48716070201298367, -0.23527294320501987, 0.023327214848170977], 'upper_m': [0.5006594928712731, -0.2219638234893435, 0.026078753632004438]}\nplane {'normal_base': [0.17581132744697836, 0.025682950190373477, 0.9840887984378495], 'principal_rms_m': [0.0048252477528065735, 0.003749056619903087, 0.0004960360169674106], 'rms_residual_m': 0.0004960360169674106, 'abs_residual_95_m': 0.0010167907965320556}\nconsensus {'available': True, 'normal_base': [0.17581132744697836, 0.025682950190373477, 0.9840887984378495], 'inlier_fraction': 1.0, 'outlier_pixels': []}\norange top {'center_m': [0.43385362377926867, -0.22683202009385922, 0.033714745062811344], 'lower_m': [0.42190556722561406, -0.23781834144363728, 0.032921988557027826], 'upper_m': [0.4459654281338194, -0.21613300403691196, 0.03518913724509678]}\nplane {'normal_base': [-0.026812248233811058, 0.0061225711942598515, 0.9996217371919339], 'principal_rms_m': [0.007804370740347098, 0.006825896350508152, 0.0007364740537131163], 'rms_residual_m': 0.0007364740537131159, 'abs_residual_95_m': 0.0012900872644489633}\nconsensus {'available': True, 'normal_base': [-0.03371075553313725, 0.0011510159719942958, 0.999430968163193], 'inlier_fraction': 0.98828125, 'outlier_pixels': [[345, 242], [349, 243], [341, 244]]}\ntable support {'center_m': [0.4895927092693266, -0.16372806055814926, -9.787147064420354e-05], 'lower_m': [0.4633534759659804, -0.18708148197899338, -0.0036438533033961717], 'upper_m': [0.515406697850159, -0.14309114053505806, 0.00249586870395338]}\nplane {'normal_base': [-0.01716773158423135, -0.027577395794509213, 0.9994722388508069], 'principal_rms_m': [0.017125060816250058, 0.013683242815201639, 0.0018899451329224973], 'rms_residual_m': 0.0018899451329224969, 'abs_residual_95_m': 0.0036814024100105406}\nconsensus {'available': False, 'normal_base': None, 'inlier_fraction': 0.73828125, 'outlier_pixels': None}\n[status] {'instruction': 'Stack the purple block on the orange block. Verify a retained grasp, supported release and stable placement after withdrawal. If the close view lacks depth or clearance evidence, obtain another noncontact view by moving back up along a demonstrably clear approach path with the same tool orientation. Look again and remeasure before contact. Stop if a supported grasp still cannot be established; do not probe obstacles or retry failed or uncertain motion.\\n\\nMarked objects in the reference top image (640x360 pixels): SOURCE=(310,83), TARGET=(314,108). These are operator-selected reference pixels. Verify the objects against the fresh scene after admission, map the reference pixels if the image resolution differs, and measure depth before motion. Re-localize if the objects have moved.', 'step': 66, 'nominal_pad_midpoints_base_m': {'left': [0.4356581543785249, -0.2004857713046378, 0.10298147614734726], 'right': [0.30098170726978485, 0.0005329887693873951, 0.18226258481115803]}, 'coordinates': {'left_x': 0.43481797839281294, 'left_y': -0.2001163754489634, 'left_z': 0.10437737274386227, 'left_yaw': 0.007592628917444529, 'left_pitch': -0.022787755297102107, 'left_roll': 0.017230338801582607, 'left_gripper': 0.9997113580603262, 'right_x': 0.2995552353068489, 'right_y': 0.0005269654032247773, 'right_z': 0.1831320780716617, 'right_yaw': 1.0085891392574627e-06, 'right_pitch': -0.009534430600038644, 'right_roll': 0.000216518709133052, 'right_gripper': 0.9974012849202339}, 'attitude_references': {'left': 'base_rotation', 'right': 'observed'}, 'approach_axes_base': {'left': [0.5031980838027015, -0.22327107782920586, -0.8348303505876363], 'right': [0.854586267134389, 0.0017612819601312986, -0.5193064701225737]}, 'opening_axes_base': {'left': [0.41392714001280206, 0.9102899481851622, 0.006044252962808069], 'right': [-0.0006320986322149015, 0.999997035695252, 0.002351393635248405]}, 'inspection_reference': None, 'last_move': {'targets': {'left_x': 0.4366270498817772, \n...[clipped]...\nndent depth validation.', 'Parallel level bases and 0.50 m spacing assumed.', 'Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees.']}, 'surface_references': [{'source_camera': 'top', 'source_pixel': [310, 83], 'source_step_id': 0, 'source_captured_at': 1793466255.3065124, 'points_base_m': {'left': [0.49763417310595776, -0.2306900112741871, 0.010336120612976174], 'right': [0.49763417310595776, 0.26930998872581297, 0.010336120612976174]}, 'projections': {'top': {'projection_available': True, 'pixel': [310.0, 82.99999999999997], 'nearest_pixel': [310, 83], 'inside_image': True, 'expected_optical_z_m': 0.9480868577957152, 'measured_minus_expected_optical_z_m': None, 'captured_at': 1793466328.759585, 'depth_sample': {'available': False, 'radius': 2, 'reason': 'Depth patch crosses surfaces or is noisy; choose an interior pixel'}}, 'left': {'projection_available': True, 'pixel': [323.4925281910547, 158.05998041013174], 'nearest_pixel': [323, 158], 'inside_image': True, 'expected_optical_z_m': 0.19802526952087332, 'measured_minus_expected_optical_z_m': -0.013636572373503936, 'captured_at': 1793466327.5932658, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.18438869714736938, 'valid_samples': 14, 'patch_spread_m': 0.0018046200275421143}}, 'right': {'projection_available': True, 'pixel': [79.19598648497397, 166.8253960347867], 'nearest_pixel': [79, 167], 'inside_image': True, 'expected_optical_z_m': 0.35281675286832265, 'measured_minus_expected_optical_z_m': -0.004724077659277237, 'captured_at': 1793466328.0932403, 'depth_sample': {'available': True, 'radius': 2, 'optical_z_m': 0.3480926752090454, 'valid_samples': 25, 'patch_spread_m': 0.009607762098312378}}}}], 'reference_scope': 'Last four distinct historical pixel queries, NOT tracked objects or current poses. Source pixel/step/time are retained. Projections and nearest-ray depth patches use the current captured views; inspect RGB correspondence/occlusion and calibration uncertainty.'}}\n"
+    },
+    {
+      "turn": 5,
+      "llm_s": 20.2,
+      "program": "```python\nsource_top = np.array(measurements['purple top']['surfaces_in_arm_bases']['left']['center_m'])\ndestination_top = np.array(measurements['orange top']['surfaces_in_arm_bases']['left']['center_m'])\nsupport = measurements['table support']['surfaces_in_arm_bases']['left']\ny = np.array(bot.status()['opening_axes_base']['left'])\ny[2] = 0\ny /= np.linalg.norm(y)\nforward = np.array([y[1], -y[0], 0.0])\nview_candidates = []\nfor degrees in (0, 10, 15, 20, 25, 35):\n    angle = np.deg2rad(degrees)\n    z = np.sin(angle) * forward + np.array([0, 0, -np.cos(angle)])\n    R = np.column_stack((np.cross(y, z), y, z))\n    grasp = source_top - R @ np.array([0, 0, 0.004670687935444157])\n    placement = grasp + np.array([\n        destination_top[0] - source_top[0],\n        destination_top[1] - source_top[1],\n        destination_top[2] - support['center_m'][2]\n    ])\n    view = source_top - z * 0.05\n    checks = []\n    for point in (grasp, placement, view):\n        checks.append(bot.plan_move(left_x=point[0], left_y=point[1], left_z=point[2], rotation={'left': R}))\n    print('tilt', degrees, 'grasp/placement/view', checks)\n    if all(check['reachable'] for check in checks):\n        view_candidates.append((R, view))\nif view_candidates:\n    R, view = view_candidates[0]\n    bot.move_to(left_x=view[0], left_y=view[1], left_z=view[2], rotation={'left': R})\n    show(bot.observe())\nelse:\n    finish(reason='No tested frame supports both grasp, placement and a clear noncontact inspection target. No contact attempted.', task_success=False)\n```",
+      "receipt": "tilt 0 grasp/placement/view [{'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': False, 'reason': 'Cartesian target is unreachable; request a smaller move', 'code': 'unreachable_target'}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 54}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': False, 'reason': 'Cartesian target is unreachable; request a smaller move', 'code': 'unreachable_target'}]\ntilt 10 grasp/placement/view [{'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 44}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 24}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 54}]\ntilt 15 grasp/placement/view [{'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 32}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 22}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 36}]\ntilt 20 grasp/placement/view [{'from_step_id'\n...[clipped]...\nchable': True, 'waypoint_count': 12}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 24}]\ntilt 25 grasp/placement/view [{'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 16}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 6}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 14}]\ntilt 35 grasp/placement/view [{'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 12}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 6}, {'from_step_id': 66, 'dispatched': False, 'scope': 'local IK/pacing/canonical packet validity; scene clearance and physical completion unverified', 'reachable': True, 'waypoint_count': 6}]\nERROR:\n           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/andrew/.cache/blupe-roboskills/shared-runtime-4d5878d/codex-runner/src/remote_yam/roboskills_policy.py\", line 688, in _move_to\n    points=p._prepare_move(corrected,state,rotation=rotation)\n  File \"/Users/andrew/.cache/blupe-roboskills/shared-runtime-4d5878d/codex-runner/src/remote_yam/roboskills_policy.py\", line 851, in _prepare_move\n    raise ValueError(reason) from exc\nValueError: Local command rejected before dispatch: Cartesian target is unreachable; request a smaller move\n\n"
+    }
+  ],
+  "terminalOutcome": {
+    "status": "failed",
+    "success": null,
+    "reason": "Tracking correction was not safe to prepare: Local command rejected before dispatch: Cartesian target is unreachable; request a smaller move",
+    "turns": 6
+  },
+  "lastMove": {
+    "targets": {
+      "left_x": 0.4839110034696461,
+      "left_y": -0.22651538556855227,
+      "left_z": 0.07407420024250422
+    },
+    "position_error_m": {
+      "left": 0.0036323997074873423,
+      "right": 0.00019404918429339005
+    },
+    "orientation_error_deg": {
+      "left": 0.8120329540942914,
+      "right": 0.030910444837002997
+    },
+    "rotation_requested": {
+      "left": [
+        [
+          -0.8964769741052958,
+          0.4139347012188136,
+          0.15807307811864754
+        ],
+        [
+          0.4076461030010795,
+          0.9103065764493253,
+          -0.07187900653975227
+        ],
+        [
+          -0.1736481776669303,
+          0.0,
+          -0.984807753012208
+        ]
+      ]
+    },
+    "tracking_corrections": 0,
+    "pose_target_arms": [
+      "left"
+    ],
+    "goal": "exact_pose",
+    "position_tolerance_m": 0.003,
+    "measured_coordinates": {
+      "left_x": 0.48206315729893506,
+      "left_y": -0.2237245396969501,
+      "left_z": 0.07265891340705813,
+      "left_yaw": 0.0051342545113422,
+      "left_pitch": -0.007839774830826107,
+      "left_roll": 0.010652279875772606,
+      "left_gripper": 0.9997113580603262,
+      "right_x": 0.2995097746537304,
+      "right_y": 0.0005279973583124653,
+      "right_z": 0.18295545498223023,
+      "right_yaw": 1.0920202858588525e-06,
+      "right_pitch": -0.009915807821003842,
+      "right_roll": 0.00022517986947338415,
+      "right_gripper": 0.9974734714502274
+    }
+  },
+  "nativePark": {
+    "ok": true,
+    "command": "status",
+    "mode": "DISABLED",
+    "parked": true,
+    "torque_off_verified": true,
+    "feedback_available": true,
+    "auto_queue_enabled": true,
+    "event": "Both physical arms parked at joint zero and torque-disabled",
+    "disconnected": false,
+    "elapsed_s": 0.02
+  },
+  "startup": {
+    "click_host_ms": [
+      1793466239897,
+      1793466239915
+    ],
+    "home_robot_epoch": 1793466253.6123114,
+    "robotMinusHostBounds_s": [
+      0.04651308059692383,
+      0.053841352462768555
+    ],
+    "lastUnchangedNativeCameraEpoch": 1793466265.9,
+    "firstClearlyMovedNativeCameraEpoch": 1793466267.8,
+    "cameraPrecisionUpperAllowance_s": 0.1,
+    "nativeCameraUIFrameIndices": [
+      36,
+      40
+    ],
+    "postHomeInterval_s": [
+      12.287688732147217,
+      14.287688493728638
+    ],
+    "postHomeUpper_s": 14.287688493728638,
+    "firstPacketReadyHostEpoch": 1793466264.960446,
+    "postHomePacketReadyLower_s": 11.394647598266602,
+    "fullRunRawUpper_s": 27.956486701965332,
+    "queueObservedJoinedHostEpoch": 1793466242.1583009,
+    "queueObservedAdmittedHostEpoch": 1793466253.546731,
+    "queueObservedInterval_s": 11.388430118560791,
+    "queueScope": "Observed normal join/jetson_leased interval, not native DB timestamp. Full Run upper already under30s, no queue deduction applied. Never subtract from postHome.",
+    "queueSubtractionUsed_s": 0,
+    "fullRunAssessedUpper_s": 27.956486701965332,
+    "postHome15s": "PASS",
+    "fullRun30s": "PASS",
+    "scope": "Original native embedded camera clocks in guarded UI frames36unchanged/40moved. First method motion, not Home or a prepared packet;0.1s upper precision allowance. Playback time is not wall time."
+  },
+  "uiCapture": {
+    "retainedFrames": 168,
+    "attempts": 213,
+    "postSubmissionFrames": 166,
+    "timedExecutionUIFrames": 151,
+    "firstPostSubmissionHost_ms": 1793466240561,
+    "submissionCaptureGap_s": 0.6640000343322754,
+    "emailBlankConfirmedHost_ms": 1793466240199,
+    "scope": "Single normalUI Run; email cleared immediately afterward, first guarded post-submission image0.664s after click. No capture parsing error/resubmission. Every retained image checked exactSite/email blank before AND after; native clock onset captured. Actual cadence retained through the first recording stage; later terminal/replay proof is separate and all original captures remain in the manifest. Private identity-entry interval not filmed."
+  },
+  "replay": {
+    "url": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/29b59179f3d3433897dfe7b57aec88cb/assets/physical.mp4",
+    "playerDuration_s": 80.5,
+    "played": true,
+    "playedThrough_s": 80.5,
+    "seek_s": 70,
+    "visibleCameraTime": "10:06:12.8 PDT"
+  },
+  "physicalTaskSuccess": "UNVERIFIED",
+  "exclusions": "Noncontact10degree view completed outside3mm; proposed tracking correction locally unreachable before dispatch. No contact/grasp/lift/transfer/release/withdrawal/stable stack. No independent calibration/controller/contact accuracy certification or historical timing waiver. No failed/uncertain-motion replay."
+}
