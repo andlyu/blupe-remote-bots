@@ -311,6 +311,16 @@ It retreats20–50mm along negative measured tool-Z, never down/contact, then
 captures at the ACTUAL measured pose. Its predeclared6mm viewing region/2deg
 orientation check is not exact grasp alignment; ordinary move_to stays3mm.
 All later contact/grasp plans use fresh measurements and ordinary move_to.
+Wrist images rotate with the arm. A face that is uppermost in the IMAGE is not
+necessarily the physical top. A whole-object visible-surface median is not its
+top height either. For a block, separately mask each visible planar face and a
+nearby clear table patch with localize_object; inspect each plane_fit normal,
+principal_rms_m and residuals. Compare abs(dot(unit normals)) in the SAME camera
+and state: a supported top face should be approximately parallel to the local
+support plane, while a side face is closer to perpendicular. Do not take grasp
+height from a side-face pixel. Recheck the face's measured heights/coverage and
+table clearance before planning. A best-fit plane is not a calibration or
+collision certificate; mixed/curved surfaces and weak/noisy fits can be ambiguous.
 Do not use contact or tracking error to probe for the table.
 """
 
@@ -398,7 +408,7 @@ class RobotTools:
         return result
 
     def localize_object(self, label, mask, camera='top', arm=None):
-        """Ground an agent-selected boolean RGB mask in measured depth; visible surface centroid/extents only."""
+        """Ground an agent-selected boolean RGB mask in depth: visible centroid/extents and plane_fit(normal_base, principal_rms_m, residuals), not physical-top or grasp truth."""
         self.policy._check_cancelled()
         if not self.policy._perception:raise ValueError('Metric perception is not configured')
         result=self.policy._perception.localize(self.policy._state,label,mask,camera,arm)
