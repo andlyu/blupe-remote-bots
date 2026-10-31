@@ -1,20 +1,27 @@
 """RoboSkills provider installed in the shared BluPe remote-arms harness."""
 import argparse
+import json
 from pathlib import Path
 from playground import HostedRunner, RequestError
 from remote_yam.roboskills_policy import RoboSkillsPolicy, APPROACH
+from remote_yam.api_depth_set import ApiDepthSet
 
 
 class RoboSkillsPlayground(HostedRunner):
     def __init__(self, *, inference_model='gpt-6-sol', **kwargs):
         self.inference_model=inference_model
+        self.perception_origin=kwargs['session_api']
         super().__init__(extra_providers={'roboskills':self.roboskills},
                          default_provider='roboskills',**kwargs)
 
     def roboskills(self,model,directory):
         if model not in ('',APPROACH):raise RequestError(400,'Choose RoboSkills')
-        return RoboSkillsPolicy(camera_source=self.camera_source,recording_root=directory,
+        source=ApiDepthSet(self.perception_origin,self.perception_origin,robot_id=self.robot_id)
+        report=json.loads(source.apis['top'].read('/calibration',256_000))
+        policy=RoboSkillsPolicy(camera_source=source,recording_root=directory,
                                inference_model=self.inference_model)
+        policy.configure_perception(source,report)
+        return policy
 
     async def session_extension(self,cookies,visitor):
         return {'configured_providers':{'roboskills':dict(label='RoboSkills · Python agent',

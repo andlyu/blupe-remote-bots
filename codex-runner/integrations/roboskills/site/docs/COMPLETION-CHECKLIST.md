@@ -8,6 +8,27 @@ evidence. Report checklist status, evidence links, unmet items and explicit
 exceptions; leave unfinished requirements unchecked and do not describe the
 integration as complete.
 
+## Current task qualification reopened — October31,2026
+
+The prior v13 acceptance qualified a20mm lift/hold/return smoke test. User run `ec2ecd43555b4c20a5c7e359ddb369d7` requested purple-on-orange stacking and submitted zero packets: the Python agent had only RGB/status, not depth/localization. Its stdout explained the missing robot-frame object coordinates; the UI hid that explanation. This failure reopens physical manipulation, timing, task/result UX and final normal-UI acceptance. Earlier receipts and explicit archival exceptions remain history, not stacking proof. Current task qualification is **in progress**, not15/15.
+
+The fix connects all-camera ApiDepthSet to the genuine pinned RoboSkills REPL, pins the published calibration/base geometry, computes wrist poses from measured FK, supplies metric pixel queries and agent-mask visible-surface localization, invalidates views after moves, and publishes structured agent explanations separately from native scores. It also validates complete packets before bridge dispatch, preserves exact numeric endpoints and uninstructed arm joints, with real HTTP serializer/validator regression coverage. Calibration remains experimental; no exact metric accuracy claim is added. See `verification/2026-10-31-grounded-stacking.md`. The first depth-enabled v14 run completed an approach but stopped on an erroneous live-timestamp calibration comparison; it did not grasp/stack and missed timing. The comparison and receipt truncation are repaired; physical stacking and its timing remain unverified until a new final run.
+
+## Owner timing exception — October30,2026
+
+Historical reassessment context: the owner-specific result and receipt below
+were recorded before the shared queue-exclusion update. They are retained
+unchanged. The shared current requirement now excludes queue admission from the
+30-second Start budget normally, while preserving the 15-second post-Home rule.
+This older per-Run assessment does not qualify the new post-Home measure or
+other runs; a final current-contract review remains necessary.
+
+The owner explicitly clarified: “Then thats fine... if we're waiting for queue admission, that dones't count”. For this integration, exclude measured waiting in the normal BluPe admission queue from both timing measures. Keep full elapsed time visible and keep all nonqueue time, including submission, preparation after admission, inference and dispatch, in the15-second budget. This project-specific instruction overrides the queue-inclusive default below; it changes no global harness contract, queue priority or safety check.
+
+For verified run`2ea288ea830e471a86eb6d1d98971c50`, the measured queued interval is95.331s (joined→admitted). Keeping1.828s of submission time in the budget, existing camera footage shows actual arm movement by a conservative adjusted14.442s afterRun. This uses the frame's embedded21:23:20.6PDT clock plus0.1s precision allowance, not MP4 playback time. The first measured packet completed at adjusted14.844s, corroborating physical execution within15s. The run therefore passes the amended per-Run criterion. Raw total remains about109.673s to that visible-motion frame;107.557s was only packet preparation.
+
+[Timing receipt](verification/2026-10-30-queue-exclusion.json); [public replay before/through initial motion](https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/2ea288ea830e471a86eb6d1d98971c50/assets/physical.mp4#t=62,64). Site-entry timing and other development runs are not automatically certified by this reassessment. Their original receipts remain unchanged. The older failed-recording denial and final full UI qualification remain separate gaps. The startup-exception question is answered; do not ask it again or describe this queue wait as a performance failure under the amended criterion.
+
 ## Purpose and public visibility by default
 
 The playground exists for demos and for showing people how well approaches work.
@@ -151,7 +172,7 @@ Invocation evidence: user requested “please use the harness” and connection 
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
-- [x] A person can use the website to run the integrated paper's method on
+- [ ] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
 - [x] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
@@ -168,10 +189,10 @@ Invocation evidence: user requested “please use the harness” and connection 
   Clearly label simulation content to distinguish it from physical-arm footage.
   If nothing executes in simulation, record an explicit not-applicable
   explanation instead of claiming simulation review.
-- [x] The website is intuitive: a new visitor, without coaching, can find how to
+- [ ] The website is intuitive: a new visitor, without coaching, can find how to
   run the method. Record the visitor path and starting conditions; site entry
   has no separate 15-second pass/fail deadline.
-- [x] **Mandatory for every run:** first observed actual method-driven physical
+- [ ] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
   completes** and within **30 seconds after the Run/Start click excluding
   evidenced queue-admission waiting**, using the boundaries below (including a
@@ -180,12 +201,12 @@ Invocation evidence: user requested “please use the harness” and connection 
   excluded queue seconds and the queue-adjusted Run time for every run; a sampled
   demonstration is insufficient. Apply only the documented GPU-launch or
   research-grounded exceptions below.
-- [x] Every meaningful wait after a website action is immediately explained in
+- [ ] Every meaningful wait after a website action is immediately explained in
   a persistent inline status/progress area at that action (below Run in the run
   panel for launches). Show the current stage, a plain-language reason and real
   stage completion, with honest failure/stall status and available recovery.
   Verify the detailed wait-stage behavior below.
-- [x] Before marking the integration complete or reporting it done, open the
+- [ ] Before marking the integration complete or reporting it done, open the
   deployed website and perform a final end-to-end physical YAM run through its
   normal user interface. Verify every completion requirement against that
   deployment and record evidence; unmet or unverified requirements block
@@ -458,7 +479,9 @@ remain required, and no GPU/research exception is newly claimed. The recorded
 107.56-second Run-to-packet-preparation and approximately 97 seconds described
 as queue/readiness do not establish a queue-adjusted pass: exact queue admission,
 visual onset and matched Home/readiness evidence remain necessary. Both current
-timing measures remain unverified here; historical assessments are unchanged.
+timing measures are not newly certified by this contract edit. The owner-specific
+per-Run reassessment above is preserved; post-Home and other-run qualification
+remain separate. Historical assessments and their exact receipts are unchanged.
 
 ## RoboSkills evidence — October30,2026
 
@@ -595,6 +618,29 @@ with the frozen-task solver not run. This is not a complete research integration
   Timing and full completion remain unchecked.
 
 
+## Worker continuity recovery — October30,2026
+
+- Interruption reconciliation found both task workers absent and both public readiness endpoints offline, with no active/queued Site runs. No interrupted run was replayed.
+- Site version11/source `ca4ab9c843c49135e8845c87cbb00bf5cf6e42d8` deployed successfully at2026-10-31T04:41:14.680359Z, environment revision3. Separate `PHYSICAL_WORKER_TOKEN` and `SIMULATION_WORKER_TOKEN` isolate the two roles; existing operator-only control and public viewing remain. Secrets are not in source or output.
+- `worker-agent/launch.py` starts a detached loopback provider plus configured workers, using stdin for secrets and persistent local logs/PID metadata. It refuses duplicate live services and occupied ports; it never kills, automatically restarts or replays a job. It requires this runner machine to remain awake; it is not an always-on hosting/reboot service.
+- Provider/physical/simulation PIDs32026/32029/32030 remained alive after the launcher exited. Public Site `/api/config` returned online=true and `/api/physical/station` runnerOnline=true, queueCount0. This recovery verification initiates no Run/motion/recording.
+- Two process regression tests pass (0.105s), including actual child survival after parent exit and duplicate rejection. TypeScript and production build pass. CI now also runs these launcher regressions.
+- The final physical evidence remains run`2ea288ea830e471a86eb6d1d98971c50` against version9; version11's worker authentication/launch changes were verified without a duplicate motion test. Full checklist qualification remains incomplete: strict entry/per-Run15s timings, legacy backend caller-label consistency, original explicitly denied recording publication, and final all-requirements review. No startup waiver or visibility exception is inferred from “please proceed”.
+
+Role authentication verified after deployment: each dedicated credential reaches its own worker handler (nonmutating unknown action404); cross-role requests reject401. No readiness heartbeat was fabricated and no run was claimed by these probes.
+
+
+## Backend attribution correction — October30,2026
+
+- The Session API validated but discarded `runner_name`, then hardcoded `API caller` in the public conversation projection. The three-line correction retains the validated name and projects it only when a conversation is already shared. Missing-name fallback is unchanged; email and capabilities remain excluded. The appended model field preserves positional constructor compatibility.
+- The regression failed against the deployed image before the patch, then passed. Seven existing Session API/queue suites plus four new regressions pass51tests against both deployed-image and clean-main patch variants (7.628/7.676s). Source correction merged as20d9f95a5b104beabed5a426e509ca3a3d26b573. The unrelated private-repository MolmoAct2 CI job did not start because of account billing/spending limits; it ran no code. No required branch checks/reviews were configured or bypassed.
+- Minimal runtime image57 overlays only the two tested source files on active image56. Source hashes and inherited environment/command/user/ports were verified; no other source or runtime settings changed. Deployment55 requested only after empty queue, no active Site run, and connected YAM-1 DISABLED were verified. It was observed ACTIVE at2026-10-31T05:10:42Z (activation upper bound228.613s). The exact existing containers/endpoint configuration was verified unchanged except the image.
+- Both local task workers survived a chat turn and remained online. The managed source-worktree tool stalled with no Git process/worktree/artifact; its wait was cancelled. Supported GitHub tree/commit APIs published only the three source/test files without touching the user's dirty checkout/index. CLI JSON transport failures happened locally before any AWS deployment; the installed official AWS SDK validated parameters and submitted exactly one rollout.
+- No new physical policy test or recording was initiated for this presentation correction. Earlier physical method/replay evidence is retained. A new real run is still needed to observe the corrected live caller projection, alongside the strict startup and final UI qualification; historical missed timings remain missed. Explicit denial for publishing the original failed clip is unchanged. All four unfinished checklist requirements remain unchecked.
+
+Terminal verification: backend health200, both workers online, live top camera200 and retained successful replay206. Controller reconnect initially latched STOPPED/queue paused; the normal guarded native zero completed in3.925s, verified parked/torque-off, then documented auto_queue_on restored its prior setting. A final printing error after that queue action was reconciled read-only without resending it. Native status confirmed DISABLED, parked=true, torque_off_verified=true, auto_queue_enabled=true; public queue_ready=true/queue0. No research policy Run or new recording occurred. Fresh browser automation was unavailable in this turn (`browser.user is unavailable`); current UI end-to-end qualification stays unchecked.
+
+
 ## Final website recovery — October 30, 2026
 
 The user resumed with “lets finish”. The former temporary source checkouts were missing and all three recorded worker processes had exited. No physical run was active in public history. Restored the exact hosted source and official RoboSkills revision into persistent task directories, preserving the existing run history. Scoped application worker credentials were rotated because their former in-memory values were unavailable; owner identity and public audience remain unchanged. No authentication bypass or anonymous shared execution was added.
@@ -603,12 +649,7 @@ The release separates recoverable connection errors from action failures, adds R
 
 Browser sign-in returned to the platform-owned callback as HTTP404; the workspace remains anonymous. The final normal-UI physical run and post-deployment live runner-name qualification are not verified. No new test was submitted and no prior explicitly denied recording was published. The historical successful run and queue-exclusion evidence remain valid for their recorded scope. Current completion remains unchecked pending final UI qualification.
 
-
-## Owner clarification: physical queue needs no sign-in
-
-The user explicitly stated “you don't need operator sign in. Arms are live if something goes to the queue it will run”, followed by “yes, remove it”. This removes the website's operator-only gate for physical queue submission. Keep confirmed editable human name/email, same-origin requests, the existing single-active-run bound, worker-role authentication and all BluPe queue/lease/readiness/validation/Stop safeguards. A private Secure/HttpOnly/SameSite browser capability allows only the submitting browser to stop its run. The public projection exposes neither that capability nor email. No sign-in or authentication redirect is needed for this flow. The earlier platform auth restriction is avoided through the user-requested public physical flow; no auth token, forged header or privileged bypass is used. This specific clarification does not authorize publishing the separately denied older recording.
-
-Seven route-level tests pass for anonymous admission, required actual identity, cross-origin rejection, private Stop ownership, public redaction, one active run and protected worker APIs. Final production physical verification follows publication; keep its checkbox unchecked until measured.
+Website v12 source3226ea05cff35dfe8e80bb9e136011e614468776 deployed2026-10-31T05:56:34.743875Z, environment revision4. Final physical UI test remains unverified; operator browser is anonymous after callback404.
 
 
 ## Public physical flow verified — October 30, 2026
@@ -629,6 +670,13 @@ The owner explicitly rejected the operator sign-in requirement and confirmed “
 Final audit: website's current public physical flow is verified. Historical every-run timing is still not fully qualified and the explicitly denied older failed clip remains local; those acceptance items stay unchecked. The native simulation failure remains honestly reviewable rather than claimed as a solved benchmark.
 
 The public verification folder also includes a screenshot-sampled UI recording (`2026-10-30-no-signin-ui.mp4`) with original inter-capture wall times and a full-height redaction band over the contact-input column. Sparse UI captures are paired with the continuous retained physical camera samples and matched lifecycle/clock receipts (`2026-10-30-no-signin-lifecycle.json`); the unredacted UI file remains local. Camera onset is measured from original physical frames, not interpolated UI frames.
+
+
+## Every-run historical audit — October30,2026
+
+[Full six-run matrix](verification/2026-10-30-historical-timing.md) and [structured receipts](verification/2026-10-30-all-runs-audit.json) recover the original Run-click markers/brackets and matched queue requests/grants. Two archived runs provably missed both current limits even after deducting the maximum possible queue duration:453a9a nonqueue≥30.720s/post-Home≥29.380s;249450 nonqueue≥30.551s/post-Home≥28.160s. Other old missing Home/clock evidence is retained as unverified; the current v13 run remains a normal pass. No retrospective clock assumption, GPU/paper waiver, new arm test or denied old-recording upload was used. The every-run and all-demo-public requirements remain unchecked pending explicit scope/exception decisions.
+
+Owner acceptance decision: the user explicitly answered “Accept historical exceptions” for pre-version-13 timing failures and missing measurements. This is a release-specific owner instruction for the fixed five archived run IDs in the matrix; preserve their failed/unverified outcomes. Current v13 remains a normal verified pass and all future runs retain15s post-Home and30s queue-adjusted Run limits. The remaining original-recording publication question is unanswered; no upload is authorized by this timing exception.
 
 
 ## Final release acceptance — October30,2026

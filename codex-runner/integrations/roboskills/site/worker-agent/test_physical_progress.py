@@ -1,5 +1,5 @@
 import unittest
-from physical_progress import lifecycle_events,admission_event,current_stage
+from physical_progress import lifecycle_events,admission_event,current_stage,task_outcome
 
 class ProgressTests(unittest.TestCase):
     def test_preparing_is_not_assumed_admitted(self):
@@ -30,3 +30,20 @@ class ProgressTests(unittest.TestCase):
         self.assertEqual(current_stage({'status':'queued'},True)[0],'stopping')
 
 if __name__=='__main__':unittest.main()
+
+class OutcomeTests(unittest.TestCase):
+    def test_no_motion_is_not_presented_as_task_success(self):
+        value=task_outcome({'status':'finished','packets_submitted':0,'provider':{'outcome':{'status':'done','reason':'No depth available.'}}})
+        self.assertEqual(value['taskStatus'],'not_attempted')
+        self.assertEqual(value['reason'],'No depth available.')
+        self.assertFalse(value['nativeScore'])
+
+    def test_visual_success_is_labelled_agent_report(self):
+        value=task_outcome({'status':'finished','packets_submitted':8,'provider':{'outcome':{'status':'done','task_status':'reported_success','reason':'Stack remained stable after withdrawal.'}}})
+        self.assertEqual(value['label'],'Agent reports task completed')
+        self.assertEqual(value['assessmentSource'],'agent_report_unscored')
+
+    def test_failure_overrides_a_success_report(self):
+        value=task_outcome({'status':'safety_aborted','error':'Measured completion missing','provider':{'outcome':{'task_status':'reported_success'}}})
+        self.assertEqual(value['status'],'failed')
+        self.assertEqual(value['reason'],'Measured completion missing')

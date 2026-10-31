@@ -12,7 +12,7 @@ import urllib.request
 
 from remote_yam.runner_policy_client import RunnerPolicyClient
 from worker import Worker,read_config
-from physical_progress import lifecycle_events,admission_event,current_stage
+from physical_progress import lifecycle_events,admission_event,current_stage,task_outcome
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
@@ -65,7 +65,7 @@ class PhysicalWorker(Worker):
             client.connect()
             # Once only. A timeout is uncertain, never an automatic relaunch.
             client.start('roboskills',runner_name=run['runnerName'],email=run['runnerEmail'],
-                         prompt=run['instruction'],run_duration_s=60)
+                         prompt=run['instruction'],run_duration_s=120)
             client.save(folder/'runner-session.json')
             recorder=threading.Thread(target=self.record,args=(stop_record,folder),daemon=True);recorder.start()
             previous=None
@@ -110,16 +110,14 @@ class PhysicalWorker(Worker):
             path=folder/'physical.mp4'
             if path.is_file() and path.stat().st_size>1000:
                 self.request('upload',binary=path.read_bytes(),name='physical.mp4',run=run['id'])
-            (folder/'result.json').write_text(json.dumps(result,indent=2))
-            self.request('upload',binary=(folder/'result.json').read_bytes(),name='result.json',run=run['id'])
-            outcome=(state.get('provider') or {}).get('outcome') or {}
-            failed=state.get('error') or state['status'] in ('error','failed','safety_aborted','disconnected') or outcome.get('status') in ('failed','give_up')
             if progress:progress[-1]['completedAt']=time.time()*1000
             result['progress']=list(progress)
-            self.request('update',dict(id=run['id'],status='cancelled' if stopped else 'failed' if failed else 'finished',
-                stage='Stopped. Actual physical footage is available.' if stopped else
-                      'RoboSkills stopped: '+str(state.get('error') or outcome.get('reason') or state['status']) if failed else
-                      'Physical execution ended. Review the real recording; task success is unscored.',result=result))
+            result['taskOutcome']=task_outcome(state,stopped)
+            (folder/'result.json').write_text(json.dumps(result,indent=2))
+            self.request('upload',binary=(folder/'result.json').read_bytes(),name='result.json',run=run['id'])
+            final=result['taskOutcome']
+            self.request('update',dict(id=run['id'],status=final['status'],
+                                      stage=final['label']+'. '+final['reason'],result=result))
         except Exception as exc:
             # Reconcile the same visitor and attempt. Never create a second run
             # after a contact failure; best-effort Stop is this owned run only.

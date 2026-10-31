@@ -8,6 +8,12 @@ evidence. Report checklist status, evidence links, unmet items and explicit
 exceptions; leave unfinished requirements unchecked and do not describe the
 integration as complete.
 
+## Current task qualification reopened — October31,2026
+
+The prior v13 acceptance qualified a20mm lift/hold/return smoke test. User run `ec2ecd43555b4c20a5c7e359ddb369d7` requested purple-on-orange stacking and submitted zero packets: the Python agent had only RGB/status, not depth/localization. Its stdout explained the missing robot-frame object coordinates; the UI hid that explanation. This failure reopens physical manipulation, timing, task/result UX and final normal-UI acceptance. Earlier receipts and explicit archival exceptions remain history, not stacking proof. Current task qualification is **in progress**, not15/15.
+
+The fix connects all-camera ApiDepthSet to the genuine pinned RoboSkills REPL, pins the published calibration/base geometry, computes wrist poses from measured FK, supplies metric pixel queries and agent-mask visible-surface localization, invalidates views after moves, and publishes structured agent explanations separately from native scores. It also validates complete packets before bridge dispatch, preserves exact numeric endpoints and uninstructed arm joints, with real HTTP serializer/validator regression coverage. Calibration remains experimental; no exact metric accuracy claim is added. See `verification/2026-10-31-grounded-stacking.md`. The first depth-enabled v14 run completed an approach but stopped on an erroneous live-timestamp calibration comparison; it did not grasp/stack and missed timing. The comparison and receipt truncation are repaired; physical stacking and its timing remain unverified until a new final run.
+
 ## Owner timing exception — October30,2026
 
 Historical reassessment context: the owner-specific result and receipt below
@@ -166,7 +172,7 @@ Invocation evidence: user requested “please use the harness” and connection 
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
-- [x] A person can use the website to run the integrated paper's method on
+- [ ] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
 - [x] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
@@ -183,10 +189,10 @@ Invocation evidence: user requested “please use the harness” and connection 
   Clearly label simulation content to distinguish it from physical-arm footage.
   If nothing executes in simulation, record an explicit not-applicable
   explanation instead of claiming simulation review.
-- [x] The website is intuitive: a new visitor, without coaching, can find how to
+- [ ] The website is intuitive: a new visitor, without coaching, can find how to
   run the method. Record the visitor path and starting conditions; site entry
   has no separate 15-second pass/fail deadline.
-- [x] **Mandatory for every run:** first observed actual method-driven physical
+- [ ] **Mandatory for every run:** first observed actual method-driven physical
   YAM motion occurs both within **15 seconds after the startup move to Home
   completes** and within **30 seconds after the Run/Start click excluding
   evidenced queue-admission waiting**, using the boundaries below (including a
@@ -195,12 +201,12 @@ Invocation evidence: user requested “please use the harness” and connection 
   excluded queue seconds and the queue-adjusted Run time for every run; a sampled
   demonstration is insufficient. Apply only the documented GPU-launch or
   research-grounded exceptions below.
-- [x] Every meaningful wait after a website action is immediately explained in
+- [ ] Every meaningful wait after a website action is immediately explained in
   a persistent inline status/progress area at that action (below Run in the run
   panel for launches). Show the current stage, a plain-language reason and real
   stage completion, with honest failure/stall status and available recovery.
   Verify the detailed wait-stage behavior below.
-- [x] Before marking the integration complete or reporting it done, open the
+- [ ] Before marking the integration complete or reporting it done, open the
   deployed website and perform a final end-to-end physical YAM run through its
   normal user interface. Verify every completion requirement against that
   deployment and record evidence; unmet or unverified requirements block

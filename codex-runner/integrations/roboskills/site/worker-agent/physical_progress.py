@@ -31,7 +31,27 @@ def current_stage(state,stopped=False):
     if status=='running':
         if provider.get('pending_packet'):
             return 'moving','Moving the arms','BluPe is executing a checked packet and waiting for measured completion.'
+        if provider.get('local_rejection'):
+            return 'revising','Revising the command',str(provider['local_rejection'].get('reason') or 'The command was rejected locally before dispatch. RoboSkills can revise it.')
         if provider.get('vision',{}).get('state')=='requesting':
             return 'planning','Writing the Python skill','RoboSkills is waiting for its next Python decision from the model.'
         return 'observing','Checking the actual scene','RoboSkills is reading the actual cameras and measured arm state.'
     return 'recording','Saving the replay','BluPe execution ended. Saving the real camera recording.'
+
+
+def task_outcome(state, stopped=False):
+    """Separate runner termination, model assessment and physical qualification."""
+    outcome=(state.get('provider') or {}).get('outcome') or {}
+    failed=bool(state.get('error') or state.get('status') in ('error','failed','safety_aborted','disconnected')
+                or outcome.get('status') in ('failed','give_up'))
+    reason=str(state.get('error') or outcome.get('reason') or '').strip()[:1500]
+    task=outcome.get('task_status')
+    if stopped:return dict(status='cancelled',taskStatus='stopped',label='Stopped',reason='Stopped. Actual physical footage is available.',nativeScore=False)
+    if failed:return dict(status='failed',taskStatus='failed',label='Execution failed',reason=reason or 'Physical execution failed; no automatic retry.',nativeScore=False)
+    if task=='reported_success':label='Agent reports task completed'
+    elif task=='reported_failure':label='Task not completed'
+    elif task=='not_attempted' or not state.get('packets_submitted'):task='not_attempted';label='No task motion attempted'
+    else:task='unverified';label='Task result unverified'
+    return dict(status='finished',taskStatus=task,label=label,
+                reason=reason or ('The agent ended without submitting task motion.' if task=='not_attempted' else 'Review the recording; the task result was not verified.'),
+                nativeScore=False,assessmentSource='agent_report_unscored')

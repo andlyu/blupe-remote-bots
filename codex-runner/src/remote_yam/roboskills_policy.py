@@ -8,6 +8,7 @@ from copy import deepcopy
 import base64
 import hashlib
 import io
+import json
 from pathlib import Path
 from queue import Empty
 import threading
@@ -20,6 +21,8 @@ from .program_packet_bridge import ProgramPacketBridge
 from .providers import PolicyComplete, ResponsesAdapter
 from .robocurve_policy import CallRecorder, RoboCurveResponsesAdapter
 from .robocurve_trajectory import NAMES, RoboCurveTrajectory
+from .roboskills_perception import RoboSkillsPerception
+from .session import _trajectory_waypoints
 
 REVISION = '8a2860234768b4bec981994d1c14fa380a2c8c7f'
 APPROACH = 'RoboSkills'
@@ -55,6 +58,50 @@ of a grasp. Do not invent object locations or success. finish() ends the agent
 episode, without claiming a native physical success score. If the object or
 required capability is absent, explain it and finish. A failed/uncertain physical
 move is terminal; do not retry it. Respect Stop and the run duration.
+
+Metric perception is supplied when status.perception.available is true. Every
+camera RGB is paired pixel-for-pixel with measured optical-Z depth. Use
+bot.measure_depth(u,v,camera='top') for a visible object's interior pixel; it
+returns points_base_m for both arms in the SAME per-arm frames as move_to.
+Each point is a LIST [x,y,z], not a dict: use
+px,py,pz = measurement['points_base_m']['right'] (integer indexing also works).
+The points_base_m mapping ALWAYS exists, even with arm='right' or arm='left';
+then it contains just that arm. Missing/noisy depth raises a descriptive error,
+not None. A single-arm call also has point_base_m as a convenience alias.
+For the first approach, a measured interior pixel is sufficient; prefer the
+short pixel-query program over a separate segmentation/printing-only turn.
+Assign source/destination measurements to variables and use the returned
+coordinates for an above-object approach in the SAME first Python block. Keep
+that first program to about4–8 lines: measure source and destination, unpack the
+selected source point, move above it, then show a fresh observation. move_to
+already validates bounds/IK/packets; do not duplicate bounds checks, nested
+result checks or custom safety functions. Missing measurements/local rejection
+raise descriptive exceptions before dispatch for you to resolve. Do not spend
+turns printing raw tool dictionaries to learn their values; Python already has
+those values. If required measurements are unavailable,
+explain that result instead of inventing a point. For object extent/centroid use
+bot.rgbd(camera)['rgb'] to compute a boolean mask
+in Python and bot.localize_object(label,mask,camera). These are real depth
+measurements, not guessed positions or simulator ground truth. You may measure
+and approach in the same Python turn. status.bounds documents the validated envelope.
+Surface points are not grasp targets: account for visible object height, finger
+clearance, the grasp frame and surrounding objects. Do not close on a surface
+point. Calibration quality is experimental; use visual feedback and reobserve
+after movement. The cached view is invalidated by every move; query observe()
+again when measuring a new state. Wrist poses use measured settled FK and camera
+mounts. The left/right cameras MOVE WITH THEIR ARMS: perspective and pixel
+locations change after an arm move even when the block stays still. Normal
+occlusion or uncertain object position is a perception problem: use a fresh
+view, another camera and measured pixels to resolve it. It is not an uncertain
+motion outcome. Only a rejected/failed/unknown physical dispatch or completion
+is terminal without retry. Do not infer object displacement from moving-camera
+pixels alone. If a block is still visible in a wrist view, measure it there
+instead of ending just because the overhead view is occluded.
+Retain the stated calibration limitations, without claiming exact depth
+accuracy. Verify object retention after lifting, support before release and
+stable placement after withdrawing. Finish with finish(reason='what happened',
+task_success=True/False/None). task_success is your visual assessment, not a
+native score; use None if unverified. Explain missing objects or failed grasps.
 """
 
 
@@ -74,13 +121,19 @@ class RobotTools:
         return dict(instruction=self.instruction, step=p._state['step_id'],
                     coordinates=dict(zip(NAMES, state.tolist())),
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
-                            for i,n in enumerate(NAMES)}, ended=self.result is not None)
+                            for i,n in enumerate(NAMES)}, ended=self.result is not None,
+                    perception=p._perception.summary(concise=True) if p._perception else dict(available=False))
 
     def observe(self):
         """Current RGB camera images as {camera: uint8 RGB}; call show(result)."""
         from PIL import Image
         p = self.policy
         p._check_cancelled()
+        if p._perception:
+            p._vision_state='capturing'
+            images=p._perception.capture(p)
+            p._vision_state='observed'
+            return images
         content = p._observation_input(p._state)[0]['content']
         images, name = {}, 'camera'
         for item in content:
@@ -91,6 +144,28 @@ class RobotTools:
                 images[name]=np.asarray(Image.open(io.BytesIO(data)).convert('RGB'))
         return images
 
+    def rgbd(self, camera='top'):
+        """Cached paired rgb/depth_m arrays, calibration and measured camera poses. No new capture."""
+        self.policy._check_cancelled()
+        if not self.policy._perception:raise ValueError('Metric perception is not configured')
+        return self.policy._perception.rgbd(self.policy._state,camera)
+
+    def measure_depth(self, u, v, camera='top', radius=2, arm=None):
+        """Pixel -> points_base_m mapping arm names to [x,y,z] metre lists. ALWAYS that shape; arm optionally selects its only entry. Missing depth raises ValueError."""
+        self.policy._check_cancelled()
+        if not self.policy._perception:raise ValueError('Metric perception is not configured')
+        result=self.policy._perception.measure(self.policy._state,u,v,camera,radius,arm)
+        self.policy._record('depth_query',result=result)
+        return result
+
+    def localize_object(self, label, mask, camera='top', arm=None):
+        """Ground an agent-selected boolean RGB mask in measured depth; visible surface centroid/extents only."""
+        self.policy._check_cancelled()
+        if not self.policy._perception:raise ValueError('Metric perception is not configured')
+        result=self.policy._perception.localize(self.policy._state,label,mask,camera,arm)
+        self.policy._record('object_localization',result=result)
+        return result
+
     def move_to(self, **targets):
         """Checked coordinated Cartesian move; returns measured completion."""
         p=self.policy
@@ -98,14 +173,16 @@ class RobotTools:
         if self.motion_failure:
             raise RuntimeError(self.motion_failure)
         state=p._feedback()
-        points=p._geometry.build(targets,state,state['step_id'])
+        points=p._prepare_move(targets,state)
         _, expected, _ = p._geometry.observe({**state,**points[-1],'settled':True})
         offset=np.zeros_like(expected)
         for correction in range(3):
             p._interaction('packet_ready',f'RoboSkills prepared {len(points)} checked waypoints',
                            waypoint_count=len(points),targets=targets,tracking_correction=correction)
             try:
+                if p._perception:p._perception.invalidate()
                 measured=p._execute(points)
+                p._completed_moves+=1
             except Exception as exc:
                 # No second dispatch after any rejected, failed or uncertain
                 # packet. A correction requires matched measured completion.
@@ -128,13 +205,14 @@ class RobotTools:
             # still passes the existing IK/workspace/pacing checks.
             corrected=dict(targets)
             for i in (0,7):
+                if not any(n in targets for n in NAMES[i:i+6]):continue
                 for j in range(i,i+3):
                     offset[j]=np.clip(offset[j]+expected[j]-actual[j],-.008,.008)
                     corrected[NAMES[j]]=float(np.clip(expected[j]+offset[j],
                                                        p._geometry.low[j],p._geometry.high[j]))
             try:
                 state=p._feedback()
-                points=p._geometry.build(corrected,state,state['step_id'])
+                points=p._prepare_move(corrected,state)
             except Exception as exc:
                 self.motion_failure='Tracking correction was not safe to prepare: '+str(exc)
                 self.result=dict(status='failed',success=None,reason=self.motion_failure)
@@ -152,10 +230,21 @@ class RobotTools:
             raise ValueError('Wait must be between zero and five seconds')
         self.policy._wait(seconds)
 
-    def finish(self):
-        """End this agent episode; physical task success remains unscored."""
+    def finish(self, reason='', task_success=None):
+        """End with an explanation and optional visual task assessment; no native physical score."""
+        if not isinstance(reason,str) or len(reason)>1500:
+            raise ValueError('Finish reason must be text up to1500 characters')
+        if task_success is not None and type(task_success) is not bool:
+            raise ValueError('task_success must be True, False or None')
         if self.result is None:
-            self.result=dict(status='done',success=None,reason='Agent finished; no native physical score')
+            moved=self.policy._completed_moves>0
+            self.result=dict(status='done',success=None,
+                task_status=('reported_success' if task_success else 'reported_failure')
+                            if task_success is not None else 'unverified' if moved else 'not_attempted',
+                task_success_reported=task_success,assessment_source='agent_visual_report_unscored',
+                completed_moves=self.policy._completed_moves,
+                reason=reason.strip() or ('Agent ended; task result was not verified.' if moved
+                                         else 'Agent ended without submitting task motion.'))
         return self.result
 
 
@@ -172,7 +261,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         # policy's function-call lifecycle or speculative Home behavior.
         super().__init__('local-subscription',APPROACH,'https://api.openai.com/v1/responses',
                          camera_source=camera_source)
-        self._geometry=RoboCurveTrajectory()
+        self._geometry=RoboCurveTrajectory(preserve_uninstructed=True)
         self._workspace_profile=None
         self._recorder=CallRecorder(recording_root)
         self._calls=0
@@ -187,21 +276,51 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         self._finished=False
         self._last_move=None
         self.last_step_model_s=0.
+        self._perception=None
+        self._completed_moves=0
+        self._local_rejection=None
 
     def configure_robot_workspace(self,robot_id,*,report=None):
         from .controller_workspace import workspace_for_robot
         if self._thread is not None:raise ValueError('Bind the station before starting the agent')
         profile=workspace_for_robot(robot_id)
         if profile and report is not None:profile.validate_report(report)
-        self._geometry=RoboCurveTrajectory(**(profile.rgb_geometry_kwargs() if profile else {}))
+        if self._perception:
+            report=self._perception.report
+            if report['robot_id']!=robot_id:raise ValueError('Perception station mismatch')
+            if profile:profile.validate_report(report)
+        geometry=profile.rgb_geometry_kwargs() if profile else {}
+        if report is not None and self._perception:
+            geometry['base_spacing_m']=report['base_geometry']['spacing_m']
+        self._geometry=RoboCurveTrajectory(**geometry,preserve_uninstructed=True)
         if profile:profile.configure_geometry(self._geometry)
         self._workspace_profile=profile
+
+    def configure_perception(self, source, report):
+        """Pin validated station calibration before queue admission and the first model call."""
+        if self._thread is not None:raise ValueError('Bind perception before starting the agent')
+        self._perception=RoboSkillsPerception(source,report)
+        self.configure_robot_workspace(report['robot_id'],report=report)
 
     def _interaction(self,kind,message,**details):
         if self.interaction_sink:self.interaction_sink(kind,message,call=self._calls,**details)
 
     def _record(self,kind,**details):
         self._recorder.write(kind,**details)
+
+    def _prepare_move(self,targets,state):
+        try:
+            # Same complete canonical serializer/validator as HttpSessionAPI,
+            # before the bridge can hand anything to RunnerController.
+            points=_trajectory_waypoints(self._geometry.build(targets,state,state['step_id']))
+        except ValueError as exc:
+            reason='Local command rejected before dispatch: '+str(exc)
+            self._local_rejection=dict(reason=reason,dispatched=False)
+            self._interaction('local_packet_rejected',reason,dispatched=False)
+            self._record('local_packet_rejected',reason=reason,dispatched=False)
+            raise ValueError(reason) from exc
+        self._local_rejection=None
+        return points
 
     def measured_step_displacement(self,start,end):
         return RoboCurveResponsesAdapter.measured_step_displacement(self,start,end)
@@ -220,6 +339,8 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'policy':'roboskills_python_agent','model_calls':self._calls,
                 'outcome':self._outcome,'pending_packet':deepcopy(self._pending),
                 'last_move':deepcopy(self._last_move),
+                'local_rejection':deepcopy(self._local_rejection),
+                'perception':self._perception.summary() if self._perception else dict(available=False),
                 'system_prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest(),
                 'recording_path':str(self._recorder.path) if self._recorder else None,
                 **({'controller_workspace':self._workspace_profile.summary()} if self._workspace_profile else {}),
@@ -268,7 +389,9 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
             repl=agent.Repl(tools,tools)
             directory=self._recorder.path/'roboskills'
             done,turns=agent.run(repl,prompt,directory,self._call,max_turns=32,max_bad=3,
-                prompt=PROMPT,initial_code='print(bot.status()); show(bot.observe())',
+                prompt=PROMPT,initial_code='show(bot.observe()); print(bot.status())',
+                context=('Full published calibration quality (not an accuracy certificate): '+
+                         json.dumps(self._perception.report['quality'])) if self._perception else '',
                 status_code='print(bot.status())')
             self._outcome={**(tools.result or dict(status='give_up',success=None,
                             reason='Agent turn budget ended')), 'turns':turns}
