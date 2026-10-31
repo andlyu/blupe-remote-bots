@@ -1,0 +1,45 @@
+{
+  "date_utc": "2026-10-31",
+  "approach": "RoboSkills",
+  "change": "retain validated runner_name in existing public Session API conversation projection",
+  "source_merge": "20d9f95a5b104beabed5a426e509ca3a3d26b573",
+  "runtime_deployment": 55,
+  "runtime_image": ":yam-session-api.roboskills-attribution-20261030.57",
+  "state": "ACTIVE",
+  "new_physical_run": false,
+  "new_recording_published": false,
+  "tests": {
+    "deployed_image": {
+      "passed": 51,
+      "seconds": 7.628
+    },
+    "published_main": {
+      "passed": 51,
+      "seconds": 7.676
+    }
+  },
+  "privacy": "email and capabilities stay excluded; conversation sharing stays opt-in",
+  "existing_physical_evidence": "2ea288ea830e471a86eb6d1d98971c50",
+  "full_checklist": "incomplete; no startup waiver or older-recording publication approval inferred",
+  "active_observed_utc": "2026-10-31T05:10:42Z",
+  "activation_observation_upper_bound_s": 228.613,
+  "configuration_unchanged_except_image": true,
+  "post_deploy": {
+    "backend_health": 200,
+    "live_top_camera": 200,
+    "physical_replay": 206,
+    "physical_worker_online": true,
+    "simulation_worker_online": true,
+    "parked": true,
+    "torque_off_verified": true,
+    "auto_queue_enabled": true,
+    "queue_ready": true
+  },
+  "normal_parking": {
+    "reason": "session_api_disconnect after rollout",
+    "native_zero_elapsed_s": 3.925,
+    "max_command_budget_s": 90,
+    "no_automatic_retry": true
+  },
+  "new_named_run_live_verification": "not run"
+}
