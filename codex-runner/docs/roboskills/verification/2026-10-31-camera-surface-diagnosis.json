@@ -98,5 +98,57 @@
     0.010075364536568893,
     0.021573719097789233,
     0.025158772280879465
+  ],
+  "corresponding_ray_diagnostic": [
+    {
+      "from_camera": "top",
+      "from_pixel": [
+        310,
+        83
+      ],
+      "point_right_base_m": [
+        0.49764462953915867,
+        0.2693094424502967,
+        0.010316062017846295
+      ],
+      "to_camera": "right",
+      "projected_pixel": [
+        318.6812800446739,
+        231.26023722496032
+      ],
+      "expected_optical_z_m": 0.13713751984848116,
+      "nearest_pixel": [
+        319,
+        231
+      ],
+      "retained_patch_valid_count": 25,
+      "retained_patch_median_optical_z_m": 0.12120576202869415,
+      "scope": "Projection in existing experimental model; archived frame at same stationary pose, not exact query byte replay or independent accuracy."
+    },
+    {
+      "from_camera": "right",
+      "from_pixel": [
+        340,
+        250
+      ],
+      "point_right_base_m": [
+        0.48351718972635677,
+        0.2526952546084715,
+        0.025799698974624335
+      ],
+      "to_camera": "top",
+      "projected_pixel": [
+        318.4030448434831,
+        85.64216451253921
+      ],
+      "expected_optical_z_m": 0.9302933337259595,
+      "nearest_pixel": [
+        318,
+        86
+      ],
+      "retained_patch_valid_count": 25,
+      "retained_patch_median_optical_z_m": 0.9550745487213135,
+      "scope": "Projection in existing experimental model; archived frame at same stationary pose, not exact query byte replay or independent accuracy."
+    }
   ]
 }
