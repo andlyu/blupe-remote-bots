@@ -27,6 +27,26 @@ from .session import _trajectory_waypoints
 REVISION = '8a2860234768b4bec981994d1c14fa380a2c8c7f'
 APPROACH = 'RoboSkills'
 
+
+def _tracking_offset(history, axes):
+    """Bounded false-position step when completed feedback brackets an axis.
+
+    Full residual accumulation can oscillate across actuator deadband. Retain
+    the measured bracket rather than integrating through it again. This is
+    command planning after confirmed completion, never dispatch reconciliation.
+    """
+    current,error=history[-1]
+    result=current.copy()
+    for j in axes:
+        candidate=current[j]-error[j]
+        opposite=[(offset[j],residual[j]) for offset,residual in history[:-1]
+                  if residual[j]*error[j]<0 and abs(offset[j]-current[j])>1e-9]
+        if opposite:
+            old_offset,old_error=min(opposite,key=lambda value:abs(value[0]-current[j]))
+            candidate=(current[j]*old_error-old_offset*error[j])/(old_error-error[j])
+        result[j]=np.clip(candidate,-.008,.008)
+    return result
+
 PROMPT = """You control physical bimanual YAM arms through a BluPe adapter to
 RoboSkills' persistent Python agent loop. Return exactly one fenced python block
 per turn. The external REPL executes it with write access; your model transport
@@ -176,7 +196,10 @@ class RobotTools:
         points=p._prepare_move(targets,state)
         _, expected, _ = p._geometry.observe({**state,**points[-1],'settled':True})
         offset=np.zeros_like(expected)
-        for correction in range(3):
+        pose_arms=[arm for arm,i in (('left',0),('right',7)) if any(n in targets for n in NAMES[i:i+6])]
+        axes=[j for arm,i in (('left',0),('right',7)) if arm in pose_arms for j in range(i,i+3)]
+        history=[]
+        for correction in range(4):
             p._interaction('packet_ready',f'RoboSkills prepared {len(points)} checked waypoints',
                            waypoint_count=len(points),targets=targets,tracking_correction=correction)
             try:
@@ -195,21 +218,24 @@ class RobotTools:
                     for arm,i in (('left',0),('right',7))}
             p._last_move=dict(targets=targets,position_error_m=errors,
                               tracking_corrections=correction,
+                              pose_target_arms=pose_arms,
                               measured_coordinates=dict(zip(NAMES,actual.tolist())))
-            if max(errors.values()) <= .003:
+            if all(errors[arm] <= .003 for arm in pose_arms):
                 return self.status()
-            if correction==2:break
+            history.append((offset.copy(),actual-expected))
+            if correction==3:break
             # Outer position feedback compensates bounded static tracking
-            # residuals. Do not alter gains, limits, or gateway settle criteria.
+            # residuals. Do not alter motor gains, limits, or gateway settle criteria.
             # Each Cartesian axis stays within8mm of the original goal and
             # still passes the existing IK/workspace/pacing checks.
+            offset=_tracking_offset(history,axes)
             corrected=dict(targets)
             for i in (0,7):
                 if not any(n in targets for n in NAMES[i:i+6]):continue
                 for j in range(i,i+3):
-                    offset[j]=np.clip(offset[j]+expected[j]-actual[j],-.008,.008)
                     corrected[NAMES[j]]=float(np.clip(expected[j]+offset[j],
                                                        p._geometry.low[j],p._geometry.high[j]))
+                    offset[j]=corrected[NAMES[j]]-expected[j]
             try:
                 state=p._feedback()
                 points=p._prepare_move(corrected,state)
@@ -218,7 +244,9 @@ class RobotTools:
                 self.result=dict(status='failed',success=None,reason=self.motion_failure)
                 raise
             p._interaction('tracking_correction','Correcting a measured tracking residual after confirmed completion',
-                           correction=correction+1,position_error_m=errors,max_offset_m=.008)
+                           correction=correction+1,position_error_m=errors,max_offset_m=.008,
+                           command_offset_m={NAMES[j]:float(offset[j]) for j in axes},
+                           maximum_packets=4)
         self.motion_failure=('Measured move did not reach its target within3mm after bounded tracking correction: '+
             ', '.join(f'{arm} {error*1000:.2f}mm' for arm,error in errors.items()))
         self.result=dict(status='failed',success=None,reason=self.motion_failure)

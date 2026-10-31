@@ -1,0 +1,99 @@
+{
+  "run": "3e3c56a9d77d486086aa8e13b5d61d69",
+  "basis": "Matched completed command and actual joint feedback projected by pinned canonical FK. Axis-wise interpolated plant in tests is a regression model, not physical ground truth or physical qualification.",
+  "reference": {
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.57136578467282,
+      -25.203487268233662,
+      -2.8068940032253544,
+      -0.5136380630798161
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.840392088834975,
+      34.42301118759663,
+      -19.28607665708796,
+      -1.2124084437179226,
+      -0.6010658184978607
+    ],
+    "left_gripper": 0.9998557518932564,
+    "right_gripper": 0.9988475943532124,
+    "source": "hardware",
+    "episode_id": "ep_unit",
+    "lease_id": "lease_unit",
+    "step_id": 0,
+    "settled": true,
+    "homed": true
+  },
+  "start": {
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.57136578467282,
+      -25.203487268233662,
+      -2.8068940032253544,
+      -0.6447796962065776
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.79667821112606,
+      34.42301118759663,
+      -19.395361351360467,
+      -1.190551504863259,
+      -0.6010658184978607
+    ],
+    "left_gripper": 0.9997836278398846,
+    "right_gripper": 0.9988475943532124,
+    "source": "hardware",
+    "episode_id": "ep_unit",
+    "lease_id": "lease_unit",
+    "step_id": 0,
+    "settled": true,
+    "homed": true
+  },
+  "targets": {
+    "right_x": 0.2798459191736122,
+    "right_y": 0.02210901735273857,
+    "right_z": 0.11790764323454808
+  },
+  "samples": [
+    {
+      "command_offset_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "measured_error_m": [
+        -0.0015242336775639354,
+        0.001995138326374185,
+        -0.0039002428233707587
+      ]
+    },
+    {
+      "command_offset_m": [
+        0.0015241225414457382,
+        -0.0019940321360866486,
+        0.0039002547392016917
+      ],
+      "measured_error_m": [
+        -0.0013527631921638195,
+        -0.003733635426590748,
+        -0.0038873317069295227
+      ]
+    },
+    {
+      "command_offset_m": [
+        0.002877063855432127,
+        0.001737877759990597,
+        0.0077875697904026125
+      ],
+      "measured_error_m": [
+        0.0009134920020741344,
+        0.004316214737344948,
+        0.002339149110349714
+      ]
+    }
+  ]
+}
