@@ -18,7 +18,7 @@ def level_grasp(point,degrees=45):
     phi=np.arctan2(point[1],point[0]);a=np.deg2rad(degrees)
     x=np.array([-np.sin(phi),np.cos(phi),0.])
     z=np.sin(a)*np.array([np.cos(phi),np.sin(phi),0.])-np.array([0.,0.,np.cos(a)])
-    return np.column_stack((x,np.cross(z,x),z))
+    return np.column_stack((np.cross(x,z),x,z))
 
 @skipUnless(importlib.util.find_spec('roboskills'),'Install the pinned RoboSkills runtime; required roboskills CI does so')
 class OrientationContract(TestCase):
@@ -156,7 +156,7 @@ class OrientationContract(TestCase):
         self.assertGreater(result['candidates'][0]['tilt_deg'],0)
         self.assertEqual({row['arm'] for row in result['candidates']},{'left','right'})
         for row in result['candidates']:
-            rotation=np.asarray(row['rotation'][row['arm']]);self.assertEqual(rotation[2,0],0.)
+            rotation=np.asarray(row['rotation'][row['arm']]);self.assertEqual(rotation[2,1],0.)
             self.assertLess(rotation[2,2],0.)
             self.assertGreater(row['targets'][row['arm']+'_z'],FIXTURE['sourcePoints'][row['arm']][2])
         self.assertEqual(cursor,self.p._state['step_id'])

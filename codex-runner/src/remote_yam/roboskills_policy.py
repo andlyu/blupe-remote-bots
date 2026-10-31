@@ -37,6 +37,27 @@ ROTATION_TOLERANCE_DEG = 2.
 # It is smaller than the minimum20mm retreat and leaves at least14mm progress;
 # actual images/FK, not the nominal viewing target, ground all later grasp plans.
 VIEW_REGION_RADIUS_M = .006
+JAW_OPENING_AXIS = 1  # Physical linear_4310 jaw travel is tool-Y, not proxy-X.
+# Extracted from the hash-verified installed reference, not the simplified
+# canonical model's visual finger boxes. No runtime mesh/vision dependency.
+YAM1_TOOL_REFERENCE = dict(
+    available=True,model='linear_4310',station='yam-1',frame='same tool frame as move_to rotation',
+    jaw_opening_axis='Y',approach_axis='Z',physical_contact_calibration_measured=False,
+    source_xml_sha256='1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652',
+    tip_mesh_sha256=['03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7',
+                    '8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f'],
+    closed_nominal_gap_m=-.001,opening_travel_m=.095,per_jaw_travel_m=.0475,
+    pad_opening_signs=[1,-1],pad_center_z_m=.0016706879354441567,
+    max_tip_z_m=.010020504348689839,
+    closed_pad_bounds_tool_m=[
+        [[-.012440560852250203,-.0005197222644821231,-.006358460493411655],
+         [.012629385470384388,-.0005038660947302822,.009498190908815318]],
+        [[-.01263007267358724,.0005164451832254027,-.005955405143516168],
+         [.012450771308468573,.0005194518015411266,.009498426469889132]]],
+    scope='Nominal installed-reference CAD, not measured current gap/contact/force or a collision certificate. '
+          'Fixed native grasp origin is retained; distal tip extends about10mm along tool+Z. '
+          'max_tip_z includes the reference1micrometre arithmetic guard. '
+          'Do not substitute upstream changed attachment/TCP or infer geometry from visual proxies.')
 
 
 def _tracking_offset(history, axes):
@@ -99,22 +120,23 @@ initial measured Home attitude, which is tilted on YAM; they do NOT mean vertica
 For object manipulation, choose a reachable grasp frame BEFORE contact.
 attitude='base_vertical' is a useful option, not a requirement for every object.
 It changes only the named arm(s) to a base-Z-down reference: zero pitch/roll point tool Z down
-along base -Z, zero yaw points finger-opening X toward base -X. Later omitted
+along base -Z, zero yaw points jaw-opening tool-Y toward base +Y. Later omitted
 attitude retains that reference. bot.status() reports the reference and actual
 approach axis for each arm. Gripper-only moves preserve measured joints and
 cannot request alignment. Pure lift/hold/return keeps the existing reference.
 This is a base-frame convention, not a measured gravity sensor reading.
 For a different grasp frame, rotation={{arm: R}} accepts an absolute3x3 proper
 rotation matrix in that arm's base frame, together with explicit named xyz.
-The COLUMNS of R are tool-X (jaw-opening axis), tool-Y, and tool-Z (approach).
+The COLUMNS of R are tool-X(side), tool-Y(jaw-opening), and tool-Z(approach).
 Use precise np.sin/cos or orthonormal vectors; reflected, scaled, nonfinite or
 rounded non-orthonormal frames are rejected. Do not combine rotation with
 attitude or that arm's relative yaw/pitch/roll. Omit both to retain the frame.
 A tilted approach can reach beyond the vertical wrist's reach; keep its
 jaw-opening axis horizontal so one fingertip does not descend below the other.
-Do not merely use the tilted Home frame: its jaw-opening axis is tilted too.
-For a downward unit approach z and horizontal unit opening x perpendicular to z,
-R=np.column_stack((x,np.cross(z,x),z)). Plan the approach at source-z*clearance
+Inspect the measured opening axis; a tilted approach axis does not itself mean
+the jaws are tilted. Home can already have nearly level jaws.
+For a downward unit approach z and horizontal unit opening y perpendicular to z,
+R=np.column_stack((np.cross(y,z),y,z)). Plan the approach at source-z*clearance
 and verify positive vertical clearance over the object and all nearby obstacles.
 For the FIRST object inspection prefer ONE short program:
 show(bot.inspect_source(source_u, source_v))
@@ -166,7 +188,7 @@ of physical completion; move_to always checks fresh feedback again. Do not add
 planning-only turns before the first above-object approach.
 With a vertical wrist, raising Z can REDUCE horizontal reach. Rejection of a
 high transfer does not prove the lower supported placement is unreachable.
-Compute placement fingertip Z from the measured grasp/support heights. Compare
+Compute placement grasp-site Z from the measured grasp/support heights. Compare
 nearby transfer heights with the held block's bottom safely above the measured
 support and every visible obstacle, using fresh views and positive clearance.
 Do not assume a fixed10cm transfer height or lower through an obstacle merely
@@ -230,40 +252,8 @@ bot.rgbd(camera)['rgb'] to compute a boolean mask
 in Python and bot.localize_object(label,mask,camera). These are real depth
 measurements, not guessed positions or simulator ground truth. You may measure
 and approach in the same Python turn. status.bounds documents the validated envelope.
-The Cartesian target is the modeled grasp point BETWEEN THE FINGERTIP ENDS,
-not the wrist, palm or camera center. The finger pads extend back toward the
-wrist from those ends. An above-object approach is not a grasp height: closing
-while the fingertip ends are ABOVE the measured object top closes in free air.
-Before closing around a block, measure its top and nearby exposed table in the
-same arm frame, check the fresh wrist view, and lower the open fingertip ends
-BELOW the object top but safely ABOVE the table, so the pads overlap its sides.
-Use the measured heights and visible clearance; do not assume a fixed table
-height, block size, hidden contact or an exact physical finger dimension.
-For a box-like block, localize its visible surface mask to center the jaws;
-a wrist pixel on a near corner/side is not the object's center. Begin with
-shallow finger engagement, about5–8 mm below the measured top and no more than
-one quarter of the measured top-to-table height, with positive table clearance.
-For a tilted grasp, review actual opening/approach axes and fingertip/table
-clearance before descent; a reachable wrist pose alone does not certify a grasp.
-This is an initial planning heuristic, not a measured hardware dimension or
-contact certificate. Check the fresh view before closing. A completed target
-above the object top cannot grasp it; a failed descent remains terminal.
-After transfer and BEFORE release, align the held BLOCK center over the support
-BLOCK center, not the fingertip center. The held block can be offset within the
-grip, and absolute estimates from different cameras have calibration bias.
-Use one fresh camera view in which both blocks are visible, localize their
-visible surface masks (not two arbitrary corners), and compare XY centers in
-the SAME arm frame. Translate the current measured fingertip XY by
-(destination_center_xy - held_block_center_xy), then reobserve. This relative
-same-view correction avoids assuming the source grasp was perfectly centered
-or that wrist/overhead absolute coordinates coincide. If occluded, choose
-another fresh view; do not release an unaligned block and call it stacked.
-Remember the measured fingertip height at the successful grasp and its source
-support height. With retained grasp/orientation, the placement fingertip height
-is grasp_tip_z + (destination_support_z - source_support_z). A destination top
-point alone is not that placement target: account for the block hanging below
-the fingertips. Verify support before open, and stable object placement after
-withdrawal, using fresh images. Do not claim success from empty closure.
+The Cartesian position is the fixed native grasp_site, not exact distal tips.
+Detailed nominal pad/tip geometry and grasp guidance follow the first inspection.
 Keep fingers away from adjacent objects. Calibration quality is experimental;
 use visual feedback and reobserve
 after movement. The cached view is invalidated by every move; query observe()
@@ -294,6 +284,54 @@ missing objects or a grasp that could not be completed.
 """
 
 
+CONTACT_GUIDANCE = """The Cartesian target is the fixed native grasp_site, not the wrist, palm,
+camera center or exact distal fingertip ends. status.tool_geometry_reference,
+when available, describes nominal reference pads/tips in this SAME tool frame.
+For tool rotation R and current grasp position p, a local reference point v is
+p + R@v in that arm base. The reference distal tip extends about10mm along
+tool+Z beyond the grasp origin; do not shift the API/calibration origin.
+Use complete reference pad/tip extents and positive observed clearance when
+planning, not the simplified model's visual finger proxies. Reference geometry
+is not measured installed contact/force or a collision certificate. For an
+available linear_4310 reference, nominal gap = closed_nominal_gap_m +
+opening_travel_m * gripper_fraction. Above the object, a supported partially
+open pregrasp can reduce obstacle exposure while leaving positive clearance
+around the measured block width; use the inverse nominal relation, reobserve,
+and retain native0..1 validation. Do not assume normalized travel is force.
+An above-object approach is not a grasp height: closing
+while the fingertip ends are ABOVE the measured object top closes in free air.
+Before closing around a block, measure its top and nearby exposed table in the
+same arm frame, check the fresh wrist view, and lower the open fingertip ends
+BELOW the object top but safely ABOVE the table, so the pads overlap its sides.
+Use the measured heights and visible clearance; do not assume a fixed table
+height, block size, hidden contact or an exact physical finger dimension.
+For a box-like block, localize its visible surface mask to center the jaws;
+a wrist pixel on a near corner/side is not the object's center. Begin with
+shallow finger engagement, about5–8 mm below the measured top and no more than
+one quarter of the measured top-to-table height, with positive table clearance.
+For a tilted grasp, review actual opening/approach axes and fingertip/table
+clearance before descent; a reachable wrist pose alone does not certify a grasp.
+This is an initial planning heuristic, not a measured hardware dimension or
+contact certificate. Check the fresh view before closing. Fingertip ends
+above the object top cannot grasp it; a failed descent remains terminal.
+After transfer and BEFORE release, align the held BLOCK center over the support
+BLOCK center, not the fingertip center. The held block can be offset within the
+grip, and absolute estimates from different cameras have calibration bias.
+Use one fresh camera view in which both blocks are visible, localize their
+visible surface masks (not two arbitrary corners), and compare XY centers in
+the SAME arm frame. Translate the current measured fingertip XY by
+(destination_center_xy - held_block_center_xy), then reobserve. This relative
+same-view correction avoids assuming the source grasp was perfectly centered
+or that wrist/overhead absolute coordinates coincide. If occluded, choose
+another fresh view; do not release an unaligned block and call it stacked.
+Remember the measured grasp_site height at the successful grasp and its source
+support height. With retained grasp/orientation, the placement grasp_site height
+is grasp_site_z + (destination_support_z - source_support_z). A destination top
+point alone is not that placement target: account for the block hanging below
+the fingertips. Verify support before open, and stable object placement after
+withdrawal, using fresh images. Do not claim success from empty closure.
+"""
+
 POST_APPROACH_GUIDANCE = """A tilted plan_approach target includes horizontal as
 well as vertical clearance: input_point minus tool_Z times clearance. It is an
 approach position, not the grasp position. Changing only base-frame Z leaves
@@ -322,7 +360,7 @@ height from a side-face pixel. Recheck the face's measured heights/coverage and
 table clearance before planning. A best-fit plane is not a calibration or
 collision certificate; mixed/curved surfaces and weak/noisy fits can be ambiguous.
 Do not use contact or tracking error to probe for the table.
-"""
+""" + '\n' + CONTACT_GUIDANCE
 
 
 class RobotTools:
@@ -343,11 +381,12 @@ class RobotTools:
                     coordinates=dict(zip(NAMES, state.tolist())),
                     attitude_references=p._geometry.attitude_references.copy(),
                     approach_axes_base={arm:r[:,2].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
-                    opening_axes_base={arm:r[:,0].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
+                    opening_axes_base={arm:r[:,JAW_OPENING_AXIS].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
                     inspection_reference=deepcopy(self._inspection_reference),
                     last_move={k:deepcopy(p._last_move[k]) for k in ('targets','position_error_m','orientation_error_deg','rotation_requested','tracking_corrections','goal','position_tolerance_m','measured_coordinates')
                                if k in p._last_move} if p._last_move else None,
                     motion_failure=self.motion_failure,
+                    tool_geometry_reference=p._tool_geometry_reference(initial=p._completed_moves==0),
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
                             for i,n in enumerate(NAMES)}, ended=self.result is not None,
                     perception=p._perception.summary(concise=True) if p._perception else dict(available=False))
@@ -468,7 +507,7 @@ class RobotTools:
                 forward=np.array([np.cos(heading),np.sin(heading),0.])
                 opening=np.array([-np.sin(heading),np.cos(heading),0.])
                 approach=np.sin(angle)*forward-np.array([0.,0.,np.cos(angle)])
-                frame=np.column_stack((opening,np.cross(approach,opening),approach))
+                frame=np.column_stack((np.cross(opening,approach),opening,approach))
                 targets={arm+'_'+axis:float(value) for axis,value in zip('xyz',point-approach*clearance)}
                 rotation={arm:frame.tolist()}
                 result=self._plan_move(targets,state,rotation=rotation)
@@ -480,11 +519,14 @@ class RobotTools:
         return dict(candidates=candidates,rejected=rejected,
                     scope='Only local IK/pacing/canonical packet validity for these candidates; scene/finger clearance, grasp and physical completion unverified')
 
-    def inspect_source(self, u, v, camera='top', *, arm=None, clearance=.05):
-        """First noncontact source inspection: measured pixel -> plan_approach -> ordinary exact move -> fresh RGB. Inspect initial scene clearance before calling. Optional arm left/right; clearance[.01,.10]m. No grasp/close. Historical source/candidate in status.inspection_reference, not current object pose. Use show(result)."""
+    def inspect_source(self, u, v, camera='top', *, arm=None, clearance=.08):
+        """First noncontact source inspection: measured pixel -> plan_approach -> exact move -> fresh RGB. Inspect initial scene clearance first. Optional arm left/right; inspection standoff[.08,.10]m(default.08), not contact. No grasp/close. Source/candidate in status.inspection_reference, not tracked object pose. Use show(result)."""
         p=self.policy;p._check_cancelled()
         if self.motion_failure:raise RuntimeError(self.motion_failure)
         if arm is not None and arm not in ('left','right'):raise ValueError('Inspection arm must be left or right')
+        if (isinstance(clearance,(bool,np.bool_)) or not isinstance(clearance,(int,float,np.floating))
+                or not np.isfinite(clearance) or not .08<=clearance<=.10):
+            raise ValueError('Initial inspection standoff must be finite in[.08,.10]metres')
         self._inspection_reference=None
         source=self.measure_depth(u,v,camera=camera,arm=arm)
         options=self.plan_approach(source['points_base_m'],clearance=clearance)
@@ -510,7 +552,7 @@ class RobotTools:
         return self.observe()
 
     def move_to(self, *, attitude=None, rotation=None, **targets):
-        """Checked move. rotation={arm:3x3} sets absolute base-frame tool axes (columns opening/side/approach), plus named xyz. Or attitude='base_vertical'. Omit both to retain frame. Explicit rotation verifies measured orientation within2deg. Gripper-only holds joints."""
+        """Checked move. rotation={arm:3x3} sets absolute base-frame tool axes (columns side/jaw-opening/approach), plus named xyz. Or attitude='base_vertical'. Omit both to retain frame. Explicit rotation verifies measured orientation within2deg. Gripper-only holds joints."""
         return self._move_to(targets,attitude=attitude,rotation=rotation)
 
     def _move_to(self, targets, *, attitude=None, rotation=None, _view_reference=None, _view_distance=None):
@@ -700,6 +742,14 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
     def _record(self,kind,**details):
         self._recorder.write(kind,**details)
 
+    def _tool_geometry_reference(self,initial=False):
+        if self._workspace_profile and self._workspace_profile.robot_id=='yam-1':
+            reference=deepcopy(YAM1_TOOL_REFERENCE)
+            if initial:
+                return {k:reference[k] for k in ('available','model','jaw_opening_axis','approach_axis','physical_contact_calibration_measured')}
+            return reference
+        return dict(available=False,scope='No station-bound installed tool reference')
+
     def _prepare_move(self,targets,state,*,attitude=None,rotation=None):
         previous=self._geometry.start_rotations
         modes=self._geometry.attitude_references.copy()
@@ -736,6 +786,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'policy':'roboskills_python_agent','model_calls':self._calls,
                 'outcome':self._outcome,'pending_packet':deepcopy(self._pending),
                 'last_move':deepcopy(self._last_move),
+                'tool_geometry_reference':self._tool_geometry_reference(),
                 'local_rejection':deepcopy(self._local_rejection),
                 'startup_home_feedback':deepcopy(self._startup_home_feedback),
                 'perception':self._perception.summary() if self._perception else dict(available=False),
