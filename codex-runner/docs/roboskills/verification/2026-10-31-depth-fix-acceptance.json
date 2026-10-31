@@ -1,16 +1,16 @@
 {
-  "reviewedAt": "2026-10-31T14:55:55.612514+00:00",
+  "reviewedAt": "2026-10-31T15:23:20.257384+00:00",
   "website": "https://blupe-bimanual-skills.andlyu.chatgpt.site/#physical-yam",
   "siteVersion": 19,
   "siteSource": "4d76cfb3df3a4feceaef0ed07ce7e63458dc51df",
-  "runtimeSource": "73d944dbcbb04d7bb07a556a918e854ba7e3dfa4",
+  "runtimeSource": "19e91c05b01e24fd2120c8bbb27816e650890a2f",
   "sourceRepository": "https://github.com/andlyu/blupe-remote-bots",
   "requirements": [
     {
       "number": 1,
       "requirement": "Website and associated source",
       "status": "PASS",
-      "evidence": "Public Site19 source4d76cfb; live73d944d provider78857/physical78860 via merged PR201/5887975, all6 checks passed. Initialf9/subsequent634 prompt hashes and unchanged pinned agent verified."
+      "evidence": "Public Site19 source4d76cfb; live19e91c0 provider6259/physical6262 via merged PR203/ef143035, all6 checks passed. Genuine pinned agent hash unchanged; actual initial/later model and prompt hashes retained in current run receipt."
     },
     {
       "number": 2,
@@ -22,7 +22,7 @@
       "number": 3,
       "requirement": "Actual method clearly named",
       "status": "PASS",
-      "evidence": "Genuine RoboSkills8a286023 core.agent.run/Repl unchanged; actual request events confirm gpt-6-sol/none startup then gpt-6-astra/medium, separate from RoboSkills Model identity. Both phase configuration/hash fields and public worker model map retained."
+      "evidence": "Genuine RoboSkills8a286023 core.agent.run/Repl unchanged; actual source inspect_source and retreat_for_view called by Sol/none then Astra/medium, distinct from RoboSkills approach identity; actual per-request/configuration hashes retained."
     },
     {
       "number": 4,
@@ -46,7 +46,7 @@
       "number": 7,
       "requirement": "Method runs on physical YAMs",
       "status": "OPEN",
-      "evidence": "Currentc7468c5d completed left first approach, then attempted noncontact40mm retreat;79waypoints/10packets, failed5.227mm positional residual before new observation/grasp. Priorc77e42b3 used left-view depth after right-mask rejection then stopped before contact for box/finger-clearance uncertainty. Neither stacked."
+      "evidence": "Current8b9ab1fe completed exact first approach and one bounded noncontact retreat, then fresh actual-pose RGB-D/source localization/table query.62waypoints/2packets,65.864227s nativewindow; stopped before contact for unsupported grasp/table/box clearance. No grasp or stack."
     },
     {
       "number": 8,
@@ -58,7 +58,7 @@
       "number": 9,
       "requirement": "Immediate just-completed replay",
       "status": "PASS",
-      "evidence": "Currentc7468c5d matching46s replay actually played and sought34s, actual camera07:43:40.6PDT and measured failure/no-native-score label visible. Priorc77e42b3 matching59s replay played7s and sought40s, camera07:33:50.5PDT and task-not-completed/agent-assessment label retained."
+      "evidence": "Current8b9ab1fe actual45.5s replay played to end and sought30s, visible camera08:17:22.4PDT with task-not-completed/agent-assessment/no-native-score label."
     },
     {
       "number": 10,
@@ -81,20 +81,20 @@
     {
       "number": 13,
       "requirement": "Every-run startup timing",
-      "status": "OPEN: new historical miss outside accepted exceptions",
-      "evidence": "Twelve measured startup passes include c77e42b3 upper13.797700s postHome/28.520265s fullRun without queue deduction. Latestc7468c5d fails15s: camera upper18.291528s and packet-ready lower16.739395s; rawRun upper30.731225s, observedqueue10.200185s once gives20.531041s PASS30. It joins the exact later unresolved cases; no new exception inferred."
+      "status": "OPEN: seven later failed/unverified cases outside accepted exceptions",
+      "evidence": "Twelve measured startup passes retained. Current8b9ab1fe native camera unchanged14.855321s afterHome/clearlymoved by15.655321s straddles15s UNVERIFIED; fullRun upper29.521521s PASS30 with zero deduction. Joins six earlier unresolved timing cases; no waiver or normal pass inferred."
     },
     {
       "number": 14,
       "requirement": "Persistent honest progress and recovery",
       "status": "PASS",
-      "evidence": "Persistent inline lifecycle retains actual preparation/scene/model/motion/recording timings. c77 reported precontact task failure; c746 reported measured execution failure, with matching history/replay and unscored labels. Both nativepark/torqueoff/autoqueue verified; no failed/uncertain motion replay."
+      "evidence": "Persistent real lifecycle/owned Stop/history match8b9ab1fe; agent task failure shown with actual replay, not physical success. Both moves had matched completion, no failed/uncertain replay; nativepark/torqueoff/autoqueue verified."
     },
     {
       "number": 15,
       "requirement": "Final normal-UI physical verification",
       "status": "OPEN",
-      "evidence": "Current normal-UI c77/c746 tests verify released dual-model RoboSkills, actual human/task/marks/live first approach, honest terminal outcomes and matching playback/seeking/nativepark. Latest inspection failed before grasp and missed postHome timing. Full grasp/lift/transfer/release/withdrawal/stable stack remain unverified."
+      "evidence": "NormalUI8b9ab1fe verifies released model-invoked source inspection/retreat/reobservation and actual human/task/marks/live/replay/seeking/park. Stopped before grasp; postHome timing straddles limit. Full grasp/lift/transfer/release/withdrawal/stable stack unverified."
     }
   ],
   "checked": 12,
@@ -138,7 +138,8 @@
     "e15b4276205b41f082f0c0303e1a21fe: afterHome zero-packet vertical-only refusal; Run-click not measured",
     "63f7924023834731b5afce3e066a59a0: postHome21.737\u201322.737s FAIL; queue-adjusted24.512\u201325.559s PASS",
     "812bf9eba1c9461d8323c29a276b8639: afterHome zero-packet false agent refusal; no first method motion",
-    "c7468c5d44f84baab399bc45f19e736e: postHome18.291528s upper FAIL (packet-ready lower16.739395s); rawRun30.731225s, observedqueue-adjusted20.531041s PASS30"
+    "c7468c5d44f84baab399bc45f19e736e: postHome18.291528s upper FAIL (packet-ready lower16.739395s); rawRun30.731225s, observedqueue-adjusted20.531041s PASS30",
+    "8b9ab1fec23f4dd6acf8fe6b834c46a5: native camera onset postHome14.855321\u201315.655321s straddles15s UNVERIFIED; fullRun upper29.521521s PASS30 without queue subtraction"
   ],
   "notApplicableStartup": [
     "540a8e90829340d99038076309fd48ea: cancelled before admission, no Home/episode/model/packet"
@@ -158,5 +159,5 @@
     "c77e42b30927403e89e94ace21016e26"
   ],
   "candidateRuntimeSource": null,
-  "candidateEvidence": "2026-10-31-xyz-physical-results.md"
+  "candidateEvidence": "2026-10-31-view-region-physical-results.md"
 }

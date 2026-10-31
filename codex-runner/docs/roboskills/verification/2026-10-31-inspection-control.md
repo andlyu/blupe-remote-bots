@@ -1,6 +1,6 @@
 # Noncontact source inspection candidate
 
-This repairs the camera-inspection path, not a controller/contact/calibration diagnosis or a successful stack. Live runtime was still73d944d when these local checks ran. The old c7468c5d case remains a real exact-pose failure and a post-Home timing failure. Its first retreat packet completed5.207280mm from the nominal pose with0.772931deg orientation error; subsequent exact-pose corrections did not reach3mm and the following camera read never executed.
+This repairs the camera-inspection path, not a controller/contact/calibration diagnosis or a successful stack. Live runtime was still73d944d when these local checks ran; it is now released19e91c0 after all6 checks/merge and actual normalUI verification below. The old c7468c5d case remains a real exact-pose failure and a post-Home timing failure. Its first retreat packet completed5.207280mm from the nominal pose with0.772931deg orientation error; subsequent exact-pose corrections did not reach3mm and the following camera read never executed.
 
 The genuine pinned RoboSkills Python agent may now invoke `show(bot.inspect_source(u,v))`: measured source pixel, existing validated local level-jaw candidates, ordinary3mm/2deg movement, then fresh RGB-D. Initial images and scene-clearance judgment remain with the actual agent. No automatic startup wiggle or pre-model movement. Its historical measured source, chosen candidate and completion cursor appear in `status.inspection_reference`; this is not a tracked object pose.
 
@@ -27,3 +27,5 @@ PYTHONPATH=codex-runner/src python -m unittest discover -s codex-runner/integrat
 ```
 
 The required `Shared runner / roboskills` CI job discovers every `test_roboskills*.py`, including these new regressions; other required jobs retain the full suite, worker, website/type checks. `inspect_source` uses existing pixel/camera/arm/radius/depth/calibration validity; explicit arm selects only that arm. `retreat_for_view` accepts only one finite distance20–50mm, metres/per-arm-base coordinates, no gripper/orientation/target/tolerance overrides. Local bad targets remain zero actuator dispatch; all generated first/interior/final waypoints go through canonical `_trajectory_waypoints` and `HttpSessionAPI.submit_trajectory` in transport-spy tests. Existing tests retain gripper0/1/fractional start, native joint/workspace bounds and invalid neighbours. Native queue/lease/readiness/settled/Stop remain owned by RunnerController; no new bypass API.
+
+[Released physical result](2026-10-31-view-region-physical-results.md): actual model-invoked inspection and bounded view retreat/reobservation worked. Agent stopped before contact; startup native visual interval straddles15s. Full task remains unverified.
