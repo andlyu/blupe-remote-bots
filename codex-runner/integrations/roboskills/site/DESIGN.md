@@ -1,0 +1,2 @@
+# Inherited BluPe interface
+The operational workspace follows the existing shared playground: cream #f5f2e9, green-black #18251e, lime #d1f653, restrained borders, system UI typography, clear task controls and persistent inline status. The skill rail selects the demonstration; the main viewer contains playable evidence and criteria. The run form is adjacent to runner availability and preserves the instruction on errors. Responsive mobile layout moves task selection above the viewer. No new visual identity is introduced.

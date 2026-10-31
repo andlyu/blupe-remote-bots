@@ -1,0 +1,13 @@
+{
+  "reference": "native-lift-20261030",
+  "method": "RoboSkills agentic_sim",
+  "upstream": "8a2860234768b4bec981994d1c14fa380a2c8c7f",
+  "inference_model": "gpt-6-astra",
+  "execution": "simulation",
+  "runner": "Andrew Lyubovsky",
+  "execution_mode": "automated verification",
+  "build_passed": false,
+  "demo_seeds_solved": 8,
+  "solver_ran": false,
+  "elapsed_s": 615
+}
