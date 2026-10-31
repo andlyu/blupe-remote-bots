@@ -20,12 +20,18 @@ from .codex_policy import codex_environment
 from .program_packet_bridge import ProgramPacketBridge
 from .providers import PolicyComplete, ResponsesAdapter
 from .robocurve_policy import CallRecorder, RoboCurveResponsesAdapter
-from .robocurve_trajectory import NAMES, RoboCurveTrajectory
+from .robocurve_trajectory import NAMES
+from .roboskills_trajectory import RoboSkillsTrajectory, base_point, rotation_error_degrees
 from .roboskills_perception import RoboSkillsPerception
 from .session import _trajectory_waypoints
 
 REVISION = '8a2860234768b4bec981994d1c14fa380a2c8c7f'
 APPROACH = 'RoboSkills'
+INITIAL_EFFORT = 'none'
+SUBSEQUENT_EFFORT = 'low'
+# Provisional engineering completion tolerance for the new explicit rotation
+# primitive. Native joint/workspace/settling limits remain independently enforced.
+ROTATION_TOLERANCE_DEG = 2.
 
 
 def _tracking_offset(history, axes):
@@ -82,19 +88,45 @@ left_x/y/z/yaw/pitch/roll/gripper and right_x/y/z/yaw/pitch/roll/gripper.
 Use bot.move_to(left_z=..., right_z=..., ...) for coordinated changes. Omitted
 dimensions hold their current values. By default pitch/roll zero refer to the
 initial measured Home attitude, which is tilted on YAM; they do NOT mean vertical.
-For object manipulation, use attitude='base_vertical' on the FIRST above-object
-Cartesian approach (not at contact). This explicitly changes only the named
-arm(s) to a fixed base-Z-down grasp reference: zero pitch/roll point tool Z down
+For object manipulation, choose a reachable grasp frame BEFORE contact.
+attitude='base_vertical' is a useful option, not a requirement for every object.
+It changes only the named arm(s) to a base-Z-down reference: zero pitch/roll point tool Z down
 along base -Z, zero yaw points finger-opening X toward base -X. Later omitted
 attitude retains that reference. bot.status() reports the reference and actual
 approach axis for each arm. Gripper-only moves preserve measured joints and
 cannot request alignment. Pure lift/hold/return keeps the existing reference.
 This is a base-frame convention, not a measured gravity sensor reading.
+For a different grasp frame, rotation={{arm: R}} accepts an absolute3x3 proper
+rotation matrix in that arm's base frame, together with explicit named xyz.
+The COLUMNS of R are tool-X (jaw-opening axis), tool-Y, and tool-Z (approach).
+Use precise np.sin/cos or orthonormal vectors; reflected, scaled, nonfinite or
+rounded non-orthonormal frames are rejected. Do not combine rotation with
+attitude or that arm's relative yaw/pitch/roll. Omit both to retain the frame.
+A tilted approach can reach beyond the vertical wrist's reach; keep its
+jaw-opening axis horizontal so one fingertip does not descend below the other.
+Do not merely use the tilted Home frame: its jaw-opening axis is tilted too.
+For a downward unit approach z and horizontal unit opening x perpendicular to z,
+R=np.column_stack((x,np.cross(z,x),z)). Plan the approach at source-z*clearance
+and verify positive vertical clearance over the object and all nearby obstacles.
+For the FIRST object approach use bot.plan_approach(source['points_base_m'])
+in the same block as measurement. It returns locally reachable candidates for
+the supplied arms with level jaws and several downward tilt angles; it never
+moves. Select a candidate consistent with the fresh scene's visible clearance,
+then call bot.move_to(**candidate['targets'],rotation=candidate['rotation']).
+Do not discard that query and retry a vertical target that it rejected.
+If its list is empty, only those tested frames failed; you can compare other
+scene-grounded frames with plan_move. Do not infer global unreachability. Never conclude
+that the object is unreachable just because a vertical-wrist candidate failed.
+New rotation targets retain all native limits and verify measured orientation
+within2degrees after matched completion, as well as the3mm position check.
+opening_axes_base and approach_axes_base report actual measured tool axes,
+not assumed gravity or a guarantee of finger/obstacle clearance.
 Each move is resolved by the existing
 BluPe IK, workspace, pacing, gateway and measured completion checks. A rejected
 move sends nothing; correct the stated cause. Never replay simulation joints.
-After a retained grasp, use bot.plan_move(**targets) to compare transfer paths
-locally before moving. It runs the actual trajectory generator and canonical
+Use bot.plan_move(**targets) to compare approaches and transfer paths locally.
+Before closing, preflight the measured destination with the intended frame and
+supported placement height; avoid picking up an object with no reachable destination. It runs the actual trajectory generator and canonical
 packet validator on a copy, with no dispatch or reference change. Batch candidate
 checks in one Python turn. This is NOT measured collision clearance or a promise
 of physical completion; move_to always checks fresh feedback again. Do not add
@@ -130,8 +162,9 @@ For the first approach, a measured interior pixel is sufficient; prefer the
 short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
 coordinates for an above-object approach in the SAME first Python block. Keep
-that first program to about4–8 lines: measure source and destination, unpack the
-selected source point, move above it with attitude='base_vertical', then show a fresh observation.
+the ordinary first program short: measure source and destination, choose a
+reachable clear approach, move, then show a fresh observation. When a frame
+comparison is needed, batch it in that same block rather than another model turn.
 For object manipulation, leave grippers unchanged until that fresh above-object
 view; later turns handle contact/grasp after reviewing the view. move_to
 already validates bounds/IK/packets; do not duplicate bounds checks, nested
@@ -157,6 +190,8 @@ For a box-like block, localize its visible surface mask to center the jaws;
 a wrist pixel on a near corner/side is not the object's center. Begin with
 shallow finger engagement, about5–8 mm below the measured top and no more than
 one quarter of the measured top-to-table height, with positive table clearance.
+For a tilted grasp, review actual opening/approach axes and fingertip/table
+clearance before descent; a reachable wrist pose alone does not certify a grasp.
 This is an initial planning heuristic, not a measured hardware dimension or
 contact certificate. Check the fresh view before closing. A completed target
 above the object top cannot grasp it; a failed descent remains terminal.
@@ -223,7 +258,8 @@ class RobotTools:
                     coordinates=dict(zip(NAMES, state.tolist())),
                     attitude_references=p._geometry.attitude_references.copy(),
                     approach_axes_base={arm:r[:,2].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
-                    last_move={k:deepcopy(p._last_move[k]) for k in ('targets','position_error_m','tracking_corrections')
+                    opening_axes_base={arm:r[:,0].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
+                    last_move={k:deepcopy(p._last_move[k]) for k in ('targets','position_error_m','orientation_error_deg','rotation_requested','tracking_corrections')
                                if k in p._last_move} if p._last_move else None,
                     motion_failure=self.motion_failure,
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
@@ -283,8 +319,8 @@ class RobotTools:
         self.policy._record('object_localization',result=result)
         return result
 
-    def plan_move(self, *, attitude=None, **targets):
-        """Check a candidate from fresh settled feedback with no dispatch/reference change. Returns reachable, reason/code or waypoint_count. Local IK/packet validity only, NOT scene clearance or physical success; move_to rechecks."""
+    def plan_move(self, *, attitude=None, rotation=None, **targets):
+        """Check a candidate, optionally rotation={arm:3x3 absolute base-frame matrix}, on fresh settled feedback with no dispatch/reference change. Returns reachable and reason/code or waypoint_count. IK/packet validity only, NOT scene clearance or physical success; move_to rechecks."""
         p=self.policy
         p._check_cancelled()
         if self.motion_failure:raise RuntimeError(self.motion_failure)
@@ -297,22 +333,59 @@ class RobotTools:
                     scope='local IK/pacing/canonical packet validity; scene clearance and physical completion unverified')
         try:
             points=_trajectory_waypoints(geometry.build(targets,state,state['step_id'],
-                **({'attitude':attitude} if attitude is not None else {})))
+                **({'attitude':attitude} if attitude is not None else {}),**({'rotation':rotation} if rotation is not None else {})))
             result.update(reachable=True,waypoint_count=len(points))
         except ValueError as exc:
             result.update(reachable=False,reason=str(exc),code=getattr(exc,'code','local_validation'))
-        p._record('local_plan_checked',targets=targets,attitude=attitude,result=result)
+        p._record('local_plan_checked',targets=targets,attitude=attitude,rotation={arm:np.asarray(value).tolist() for arm,value in rotation.items()} if result['reachable'] and rotation is not None else None,result=result)
         return result
 
-    def move_to(self, *, attitude=None, **targets):
-        """Checked move. For above-object approach, attitude='base_vertical' aligns named Cartesian arms tool-Z-down. Omit to retain reference. Gripper-only holds measured joints."""
+    def plan_approach(self, points_base_m, clearance=.05):
+        """Read-only local approach options from measure_depth()['points_base_m']. clearance in[.01,.10]metres along negative tool-Z. Searches both supplied arms and0/35/45/55deg downward tilt with level jaw-opening axes; returns{candidates:[{targets,rotation,...}],rejected,scope}. No dispatch; only these candidates tested, not all poses. Reachability is NOT scene/finger clearance or grasp success. Inspect the fresh scene before choosing; move_to revalidates."""
+        p=self.policy;p._check_cancelled()
+        if self.motion_failure:raise RuntimeError(self.motion_failure)
+        if (isinstance(clearance,(bool,np.bool_)) or not isinstance(clearance,(int,float,np.floating))
+                or not np.isfinite(clearance) or not .01<=clearance<=.10):
+            raise ValueError('Approach clearance must be a finite number in[.01,.10]metres')
+        if not isinstance(points_base_m,dict) or not points_base_m or any(arm not in ('left','right') for arm in points_base_m):
+            raise ValueError('Use measure_depth points_base_m mapping left/right to measured metre lists')
+        points={arm:base_point(value) for arm,value in points_base_m.items()}
+        if len(points)==2:
+            world=[points[arm]+p._geometry.bases[i] for i,arm in enumerate(('left','right'))]
+            if not np.allclose(world[0],world[1],rtol=0,atol=1e-8):
+                raise ValueError('Left/right approach points must identify the same point in the configured base geometry')
+        candidates=[];rejected=[]
+        for degrees in (0,35,45,55):
+            angle=np.deg2rad(degrees)
+            for arm,point in points.items():
+                heading=np.arctan2(point[1],point[0])
+                forward=np.array([np.cos(heading),np.sin(heading),0.])
+                opening=np.array([-np.sin(heading),np.cos(heading),0.])
+                approach=np.sin(angle)*forward-np.array([0.,0.,np.cos(angle)])
+                frame=np.column_stack((opening,np.cross(approach,opening),approach))
+                targets={arm+'_'+axis:float(value) for axis,value in zip('xyz',point-approach*clearance)}
+                rotation={arm:frame.tolist()}
+                result=self.plan_move(**targets,rotation=rotation)
+                if result['reachable']:
+                    candidates.append(dict(arm=arm,tilt_deg=degrees,targets=targets,rotation=rotation,
+                                           waypoint_count=result['waypoint_count'],from_step_id=result['from_step_id']))
+                else:rejected.append(dict(arm=arm,tilt_deg=degrees,reason=result['reason'],code=result['code']))
+        candidates.sort(key=lambda row:(row['tilt_deg'],row['waypoint_count']))
+        return dict(candidates=candidates,rejected=rejected,
+                    scope='Only local IK/pacing/canonical packet validity for these candidates; scene/finger clearance, grasp and physical completion unverified')
+
+    def move_to(self, *, attitude=None, rotation=None, **targets):
+        """Checked move. rotation={arm:3x3} sets absolute base-frame tool axes (columns opening/side/approach), plus named xyz. Or attitude='base_vertical'. Omit both to retain frame. Explicit rotation verifies measured orientation within2deg. Gripper-only holds joints."""
         p=self.policy
         p._check_cancelled()
         if self.motion_failure:
             raise RuntimeError(self.motion_failure)
         state=p._feedback()
-        points=p._prepare_move(targets,state,attitude=attitude)
+        points=p._prepare_move(targets,state,attitude=attitude,rotation=rotation)
         _, expected, _ = p._geometry.observe({**state,**points[-1],'settled':True})
+        expected_rotations={arm:r.copy() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())}
+        for arm in rotation or {}:
+            expected_rotations[arm]=p._geometry.start_rotations[('left','right').index(arm)].copy()
         offset=np.zeros_like(expected)
         pose_arms=[arm for arm,i in (('left',0),('right',7)) if any(n in targets for n in NAMES[i:i+6])]
         axes=[j for arm,i in (('left',0),('right',7)) if arm in pose_arms for j in range(i,i+3)]
@@ -334,11 +407,15 @@ class RobotTools:
             _, actual, _ = p._geometry.observe(measured)
             errors={arm:float(np.linalg.norm(actual[i:i+3]-expected[i:i+3]))
                     for arm,i in (('left',0),('right',7))}
-            p._last_move=dict(targets=targets,position_error_m=errors,
+            angular_errors={arm:rotation_error_degrees(r,expected_rotations[arm])
+                            for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())}
+            p._last_move=dict(targets=targets,position_error_m=errors,orientation_error_deg=angular_errors,
+                              rotation_requested={arm:np.asarray(value).tolist() for arm,value in (rotation or {}).items()},
                               tracking_corrections=correction,
                               pose_target_arms=pose_arms,
                               measured_coordinates=dict(zip(NAMES,actual.tolist())))
-            if all(errors[arm] <= .003 for arm in pose_arms):
+            if (all(errors[arm] <= .003 for arm in pose_arms)
+                    and (rotation is None or all(angular_errors[arm] <= ROTATION_TOLERANCE_DEG for arm in rotation))):
                 return self.status()
             history.append((offset.copy(),actual-expected))
             if correction==5:break
@@ -356,17 +433,17 @@ class RobotTools:
                     offset[j]=corrected[NAMES[j]]-expected[j]
             try:
                 state=p._feedback()
-                points=p._prepare_move(corrected,state)
+                points=p._prepare_move(corrected,state,rotation=rotation)
             except Exception as exc:
                 self.motion_failure='Tracking correction was not safe to prepare: '+str(exc)
                 self.result=dict(status='failed',success=None,reason=self.motion_failure)
                 raise
             p._interaction('tracking_correction','Correcting a measured tracking residual after confirmed completion',
-                           correction=correction+1,position_error_m=errors,max_offset_m=.008,
+                           correction=correction+1,position_error_m=errors,orientation_error_deg=angular_errors,max_offset_m=.008,
                            command_offset_m={NAMES[j]:float(offset[j]) for j in axes},
                            maximum_packets=6)
-        self.motion_failure=('Measured move did not reach its target within3mm after bounded tracking correction: '+
-            ', '.join(f'{arm} {error*1000:.2f}mm' for arm,error in errors.items()))
+        self.motion_failure=('Measured move did not reach its target within3mm and, for an explicit rotation,2degrees after bounded tracking correction: '+
+            ', '.join(f'{arm} {error*1000:.2f}mm/{angular_errors[arm]:.2f}deg' for arm,error in errors.items()))
         self.result=dict(status='failed',success=None,reason=self.motion_failure)
         raise RuntimeError(self.motion_failure)
 
@@ -407,7 +484,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         # policy's function-call lifecycle or speculative Home behavior.
         super().__init__('local-subscription',APPROACH,'https://api.openai.com/v1/responses',
                          camera_source=camera_source)
-        self._geometry=RoboCurveTrajectory(preserve_uninstructed=True)
+        self._geometry=RoboSkillsTrajectory(preserve_uninstructed=True)
         self._workspace_profile=None
         self._recorder=CallRecorder(recording_root)
         self._calls=0
@@ -439,7 +516,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         geometry=profile.rgb_geometry_kwargs() if profile else {}
         if report is not None and self._perception:
             geometry['base_spacing_m']=report['base_geometry']['spacing_m']
-        self._geometry=RoboCurveTrajectory(**geometry,preserve_uninstructed=True)
+        self._geometry=RoboSkillsTrajectory(**geometry,preserve_uninstructed=True)
         if profile:
             profile.configure_geometry(self._geometry)
             # The same hash-pinned controller snapshot also owns calibrated
@@ -462,15 +539,15 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
     def _record(self,kind,**details):
         self._recorder.write(kind,**details)
 
-    def _prepare_move(self,targets,state,*,attitude=None):
+    def _prepare_move(self,targets,state,*,attitude=None,rotation=None):
         previous=self._geometry.start_rotations
         modes=self._geometry.attitude_references.copy()
         try:
             # Same complete canonical serializer/validator as HttpSessionAPI,
             # before the bridge can hand anything to RunnerController.
-            points=_trajectory_waypoints(self._geometry.build(targets,state,state['step_id'],**({'attitude':attitude} if attitude is not None else {})))
+            points=_trajectory_waypoints(self._geometry.build(targets,state,state['step_id'],**({'attitude':attitude} if attitude is not None else {}),**({'rotation':rotation} if rotation is not None else {})))
         except ValueError as exc:
-            if attitude is not None:
+            if attitude is not None or rotation is not None:
                 self._geometry.start_rotations=previous
                 self._geometry.attitude_references=modes
             reason='Local command rejected before dispatch: '+str(exc)
@@ -512,8 +589,10 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                    if self._workspace_profile else {}),
                 'display_name':'RoboSkills · Python agent',
                 'inference_model':self.inference_model, 'upstream_revision':REVISION,
-                'initial_reasoning_effort':'none','subsequent_reasoning_effort':'medium',
+                'initial_reasoning_effort':INITIAL_EFFORT,'subsequent_reasoning_effort':SUBSEQUENT_EFFORT,
+                'explicit_rotation_tolerance_deg':ROTATION_TOLERANCE_DEG,
                 'tool_attitude_references':self._geometry.attitude_references.copy(),
+                'tool_reference_rotations_base':({arm:r.tolist() for arm,r in zip(('left','right'),self._geometry.start_rotations)} if self._geometry.start_rotations is not None else {}),
                 'workflow':'core.agent.run with BluPe physical tools',
                 'execution':'physical', 'native_success_score':False}
 
@@ -540,7 +619,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                           model=APPROACH,inference_model=self.inference_model)
         started=time.monotonic()
         fn=self._llm or (lambda s,m:llm.codex(s,m,model=self.inference_model,
-                            effort='none' if self._calls==1 else 'medium',timeout=180,env=codex_environment()))
+                            effort=INITIAL_EFFORT if self._calls==1 else SUBSEQUENT_EFFORT,timeout=180,env=codex_environment()))
         reply=fn(system,messages)
         elapsed=time.monotonic()-started
         self.last_step_model_s+=elapsed
