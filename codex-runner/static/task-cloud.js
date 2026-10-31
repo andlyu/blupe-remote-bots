@@ -18,6 +18,47 @@
   const legacyOutcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
     ? run.assessment.label : 'Unscored';
   const outcome = run => window.yamRunLabels?.outcome(run, run.label_source || 'human') || legacyOutcome(run);
+  const regionRadius = .08;
+  const validPosition = run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite);
+  const distanceSquared = (a,b) => a.reduce((sum,value,i) => sum+(value-b[i])**2,0);
+  function regionsFor(runs) {
+    // Count in persisted 3D coordinates, before display jitter or rotation.
+    // Aggregate identical tasks and use a spatial hash to bound the search.
+    const groups = new Map(), buckets = new Map(), nearby = new Map();
+    for (const run of runs.filter(validPosition)) {
+      const key = run.xyz.join(','), state = outcome(run);
+      if (!groups.has(key)) groups.set(key,{xyz:run.xyz,Success:0,Failure:0,Uncertain:0,Unscored:0});
+      groups.get(key)[state]++;
+    }
+    const cell = xyz => xyz.map(value => Math.floor(value/regionRadius));
+    for (const group of groups.values()) {
+      const key = cell(group.xyz).join(',');
+      if (!buckets.has(key)) buckets.set(key,[]);
+      buckets.get(key).push(group);
+    }
+    const candidates = [];
+    for (const [key,group] of groups) {
+      const counts = {Success:0,Failure:0,Uncertain:0,Unscored:0}, base = cell(group.xyz);
+      for (let x=-1;x<=1;x++) for (let y=-1;y<=1;y++) for (let z=-1;z<=1;z++) {
+        for (const other of buckets.get([base[0]+x,base[1]+y,base[2]+z].join(',')) || []) {
+          if (distanceSquared(group.xyz,other.xyz)>regionRadius**2) continue;
+          for (const label of Object.keys(counts)) counts[label]+=other[label];
+        }
+      }
+      nearby.set(key,counts);
+      const total=counts.Success+counts.Failure, share=counts.Success/total;
+      if (!group.Success && !group.Failure || total<5 || (share>1/3 && share<2/3)) continue;
+      candidates.push({xyz:group.xyz,...counts,total,label:share>=2/3?'Success':'Failure',strength:Math.abs(counts.Success-counts.Failure)});
+    }
+    candidates.sort((a,b)=>b.strength-a.strength || b.total-a.total || a.xyz.join(',').localeCompare(b.xyz.join(',')));
+    const regions=[];
+    for (const candidate of candidates) {
+      if (regions.filter(r=>r.label===candidate.label).length>=12) continue;
+      if (regions.some(r=>r.label===candidate.label && distanceSquared(r.xyz,candidate.xyz)<(regionRadius*1.5)**2)) continue;
+      regions.push(candidate);
+    }
+    return {regions,nearby};
+  }
   // Three paused players at most: the active preview plus nearby/recent points.
   // Keep their buffers on pointer exit; explicit hide releases the entire cache.
   function createPreview(root, {loadRun, source, layout, canPlay = () => true, reducedMotion = () => false}) {
@@ -147,6 +188,14 @@
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
+    let highlight = 'none', regionData = null;
+    const regionAnalysis = () => regionData ||= regionsFor(rows);
+    const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
+    function highlightSummary() {
+      if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
+      const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
+      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts.`;
+    }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
     function description(run) {
@@ -156,6 +205,10 @@
     }
     function focus(run) {
       focusText.textContent = run ? description(run) : 'No runs match these filters. Choose another model or clear search.';
+      if (run && highlight !== 'none' && validPosition(run)) {
+        const counts=regionAnalysis().nearby.get(run.xyz.join(','));
+        if (counts) focusText.textContent+=` · Nearby: ${counts.Success} Success / ${counts.Failure} Failure; ${counts.Uncertain} Uncertain and ${counts.Unscored} unlabeled or excluded not counted.`;
+      }
     }
     function marker(point) {
       const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
@@ -178,6 +231,15 @@
       }
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
       ctx.fillStyle='#f8faf5';ctx.fillRect(0,0,width,height);
+      const regionPoints=visibleRegions().map(region=>({...region,...project(region.xyz,yaw,pitch,magnification,width,height)})).sort((a,b)=>b.depth-a.depth);
+      for (const region of regionPoints) {
+        const radius=Math.min(width,height)*2.6*magnification*regionRadius/Math.max(.8,3+region.depth);
+        if (region.x+radius<0 || region.x-radius>width || region.y+radius<0 || region.y-radius>height) continue;
+        const rgb=region.label==='Success'?'36,103,68':'178,53,44';
+        const field=ctx.createRadialGradient(region.x,region.y,0,region.x,region.y,radius*1.4);
+        field.addColorStop(0,`rgba(${rgb},.30)`);field.addColorStop(.55,`rgba(${rgb},.15)`);field.addColorStop(1,`rgba(${rgb},0)`);
+        ctx.fillStyle=field;ctx.beginPath();ctx.arc(region.x,region.y,radius*1.4,0,Math.PI*2);ctx.fill();
+      }
       // Rotation reference: three real perspective axes, with no outcome meaning.
       const origin=project([0,0,0],yaw,pitch,magnification,width,height);
       for (const [i,name] of ['x','y','z'].entries()) {
@@ -186,7 +248,7 @@
         ctx.beginPath();ctx.moveTo(origin.x,origin.y);ctx.lineTo(end.x,end.y);ctx.strokeStyle='#cbd5ca';ctx.lineWidth=1;ctx.stroke();
         ctx.fillStyle='#536155';ctx.font='12px system-ui';ctx.fillText(name,end.x+5,end.y);
       }
-      points = rows.filter(run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite)).map(run => {
+      points = rows.filter(validPosition).map(run => {
         const delta=offset(run.episode_id), xyz=run.xyz.map((value,i)=>value+delta[i]);
         return {...project(xyz,yaw,pitch,magnification,width,height),run};
       }).sort((a,b)=>b.depth-a.depth);
@@ -194,6 +256,21 @@
       const labels = points.filter(p=>p.run.episode_id===hover || p.run.episode_id===selected || p.run===rows[focused]);
       if (magnification>1.8) labels.push(...points.filter(p=>!labels.includes(p)).slice().reverse());
       const boxes=[];
+      ctx.font='600 12px system-ui';
+      const rankedRegions=regionPoints.slice().sort((a,b)=>b.strength-a.strength);
+      const successes=rankedRegions.filter(r=>r.label==='Success'), failures=rankedRegions.filter(r=>r.label==='Failure');
+      const labelRegions=highlight==='both'
+        ? Array.from({length:3},(_,i)=>[successes[i],failures[i]]).flat().filter(Boolean)
+        : rankedRegions.slice(0,6);
+      for (const region of labelRegions) {
+        if (region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
+        const text=`${region.label}: ${region[region.label]}/${region.total}`, w=ctx.measureText(text).width+14;
+        const x=Math.max(4,Math.min(width-w-4,region.x-w/2)), y=Math.max(4,Math.min(height-28,region.y-42));
+        if (boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+32 && y+32>b.y)) continue;
+        boxes.push({x,y,w});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,24);
+        ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.strokeRect(x,y,w,24);
+        ctx.fillStyle=ctx.strokeStyle;ctx.fillText(text,x+7,y+16);
+      }
       ctx.font='13px system-ui';
       for (const point of labels) {
         if (boxes.length>=14) break;
@@ -205,6 +282,8 @@
       }
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
+      canvas.dataset.highlightRegions=String(regionPoints.length);
+      canvas.dataset.regionMode=highlight;
     }
     function hit(event) {
       const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left,y=event.clientY-rect.top;
@@ -269,8 +348,9 @@
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();schedule();}).observe(canvas);
-    return {setRuns(next,id) {clearPreview();rows=next;selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+    return {setRuns(next,id) {clearPreview();rows=next;regionData=null;selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+      setHighlight(mode) {highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},clearPreview,reset,zoom,step,open};
   }
-  window.yamTaskCloud={create,createPreview,project,offset,outcome};
+  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor};
 })();

@@ -334,6 +334,9 @@ function createRunLaunchGuard() {
   let labelSource = 'auto';
   try { labelSource = localStorage.getItem('yam-run-label-source') === 'human' ? 'human' : 'auto'; } catch (_) {}
   if ($('pastRunsLabelSource')) $('pastRunsLabelSource').value = labelSource;
+  let regionHighlight = 'both';
+  try { const saved = localStorage.getItem('yam-cloud-highlight'); if (['both','success','failure','none'].includes(saved)) regionHighlight = saved; } catch (_) {}
+  if ($('taskCloudHighlight')) $('taskCloudHighlight').value = regionHighlight;
   let historyModels = [], historyView = 'table', catalogRows = [], cloud = null, cloudTimer = null;
   try { historyView = localStorage.getItem('yam-past-runs-view') === 'cloud' ? 'cloud' : 'table'; } catch (_) {}
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
@@ -586,6 +589,8 @@ function createRunLaunchGuard() {
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
         (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm(runs));
       cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
+      cloud?.setHighlight?.(regionHighlight);
+      if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
     }
   }
@@ -680,6 +685,12 @@ function createRunLaunchGuard() {
     try { localStorage.setItem('yam-run-label-source', labelSource); } catch (_) {}
     if (historyView === 'table') { clearBlocks(); renderBlocks(catalogRows); }
     renderView();
+  });
+  $('taskCloudHighlight')?.addEventListener('change', () => {
+    regionHighlight = $('taskCloudHighlight').value;
+    try { localStorage.setItem('yam-cloud-highlight', regionHighlight); } catch (_) {}
+    cloud?.setHighlight?.(regionHighlight);
+    if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
   });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
   $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));
