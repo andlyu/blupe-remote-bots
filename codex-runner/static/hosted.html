@@ -14,6 +14,7 @@
   <script src="/static/system-prompt.js" defer></script>
   <script src="/static/reactions.js" defer></script>
   <script src="/static/replay-email.js" defer></script>
+  <script src="/static/run-labels.js" defer></script>
   <script src="/static/task-cloud.js" defer></script>
   <script src="/static/run-assessments.js" defer></script>
   <script src="/static/hosted.js?v=endpoint-highlight-20261029" defer></script>
@@ -290,7 +291,7 @@
         <p id="myRunsStatus" class="help" role="status">Your runs will appear here.</p>
         <ol id="myRunsList" class="personalRunList"></ol>
         <button id="moreMyRuns" type="button" hidden>More of your runs</button>
-        <div class="statusHeader allRunsHeading"><h2>All runs</h2><div class="runViewSwitch" role="group" aria-label="All runs view"><button id="pastRunsTableView" type="button" aria-pressed="true">Table</button><button id="pastRunsCloudView" type="button" aria-pressed="false">Cloud</button></div></div>
+        <div class="statusHeader allRunsHeading"><h2>All runs</h2><label class="runLabelSource" for="pastRunsLabelSource">Labels <select id="pastRunsLabelSource"><option value="auto">Auto-labeled</option><option value="human">Human-labeled</option></select></label><div class="runViewSwitch" role="group" aria-label="All runs view"><button id="pastRunsTableView" type="button" aria-pressed="true">Table</button><button id="pastRunsCloudView" type="button" aria-pressed="false">Cloud</button></div></div>
         <details class="runModelFilter"><summary id="pastRunsModelSummary">Models: All models</summary>
           <label for="pastRunsModel">Choose one or more models</label>
           <select id="pastRunsModel" multiple size="5"><option value="" selected>All models</option></select>
@@ -302,7 +303,8 @@
           <p id="pastRunsSearchHelp" class="help">Find recordings by their task prompt, such as apple or put pens into a cup. Related objects and partial tasks may match. Watch a replay to see what happened.</p>
         </form>
         <div id="pastRunsScores" class="runScores" aria-label="Per-model success rates" aria-live="polite"></div>
-        <p class="help scoreCaveat">Observed rates on the selected user-labeled tasks. Different task mixes are not a controlled benchmark. Unlabeled and excluded runs stay visible.</p>
+        <p id="pastRunsScoreCaveat" class="help scoreCaveat">Observed rates on the selected user-labeled tasks. Different task mixes are not a controlled benchmark. Unlabeled and excluded runs stay visible.</p>
+        <p id="pastRunsLabelSummary" class="help" role="status"></p>
         <p id="pastRunsStatus" class="help" role="status">Loading past runs…</p>
         <div id="pastRunsTable" role="region" aria-label="All runs recording blocks">
           <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
@@ -310,7 +312,7 @@
         </div>
         <div id="pastRunsCloud" hidden>
           <p class="help">Nearby points have similar task descriptions; this does not establish identical starting conditions or physical difficulty. Small offsets separate repeated attempts.</p>
-          <div class="cloudToolbar"><button id="resetTaskCloud" type="button">Reset view</button><button id="zoomTaskCloudIn" type="button" aria-label="Zoom task cloud in">Zoom in</button><button id="zoomTaskCloudOut" type="button" aria-label="Zoom task cloud out">Zoom out</button><span class="cloudLegend"><span class="cloudKey"><i class="cloudDot success" aria-hidden="true"></i>Green: Success</span><span class="cloudKey"><i class="cloudDot failure" aria-hidden="true"></i>Red: Failure</span><span class="cloudKey"><i class="cloudDot unscored" aria-hidden="true"></i>Hollow: Unscored (unlabeled or excluded)</span></span></div>
+          <div class="cloudToolbar"><button id="resetTaskCloud" type="button">Reset view</button><button id="zoomTaskCloudIn" type="button" aria-label="Zoom task cloud in">Zoom in</button><button id="zoomTaskCloudOut" type="button" aria-label="Zoom task cloud out">Zoom out</button><span class="cloudLegend"><span class="cloudKey"><i class="cloudDot success" aria-hidden="true"></i>Green: Success</span><span class="cloudKey"><i class="cloudDot failure" aria-hidden="true"></i>Red: Failure</span><span class="cloudKey"><i class="cloudDot uncertain" aria-hidden="true"></i>Amber: Uncertain</span><span class="cloudKey"><i class="cloudDot unscored" aria-hidden="true"></i>Hollow: Unscored (unlabeled or excluded)</span></span></div>
           <div class="taskCloudStage">
             <canvas id="taskCloudCanvas" class="taskCloudCanvas" width="1000" height="540" tabindex="0" aria-label="3D task cloud" aria-describedby="taskCloudHelp taskCloudFocus"></canvas>
             <div id="taskCloudPreview" class="taskCloudPreview" hidden aria-hidden="true">

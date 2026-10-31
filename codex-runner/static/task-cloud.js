@@ -15,8 +15,9 @@
     const perspective = Math.min(width,height)*2.6*zoom/Math.max(.8,3+depth);
     return {x:width/2+x*perspective,y:height/2-y*perspective,depth};
   }
-  const outcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
+  const legacyOutcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
     ? run.assessment.label : 'Unscored';
+  const outcome = run => window.yamRunLabels?.outcome(run, run.label_source || 'human') || legacyOutcome(run);
   // Three paused players at most: the active preview plus nearby/recent points.
   // Keep their buffers on pointer exit; explicit hide releases the entire cache.
   function createPreview(root, {loadRun, source, layout, canPlay = () => true, reducedMotion = () => false}) {
@@ -150,6 +151,7 @@
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
     function description(run) {
       const a = run.assessment || {};
+      if (window.yamRunLabels) return `${run.prompt} · ${window.yamRunLabels.describe(run, run.label_source || 'human')} · ${run.episode_id}`;
       return `${run.prompt} · ${run.model || 'Model not recorded'} · ${run.model_version || 'version unknown'} · ${outcome(run)} · Runner label: ${a.label || 'Unlabeled'} · ${a.correct || 0} correct / ${a.incorrect || 0} incorrect · ${a.eligibility || 'unlabeled'} · ${run.episode_id}`;
     }
     function focus(run) {
@@ -157,7 +159,7 @@
     }
     function marker(point) {
       const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
-      const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : '#607064';
+      const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
       ctx.beginPath();
       ctx.arc(point.x,point.y,radius,0,Math.PI*2);
       ctx.fillStyle = state === 'Unscored' ? '#f8faf5' : color;
