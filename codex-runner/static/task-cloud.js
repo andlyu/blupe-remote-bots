@@ -57,6 +57,16 @@
       if (regions.some(r=>r.label===candidate.label && distanceSquared(r.xyz,candidate.xyz)<(regionRadius*1.5)**2)) continue;
       regions.push(candidate);
     }
+    for (const region of regions.filter(region=>region.label==='Failure')) {
+      const failed=runs.filter(run=>validPosition(run) && outcome(run)==='Failure' && distanceSquared(region.xyz,run.xyz)<=regionRadius**2);
+      const median=[0,1,2].map(axis=>{
+        const values=failed.map(run=>run.xyz[axis]).sort((a,b)=>a-b), middle=Math.floor(values.length/2);
+        return values.length%2 ? values[middle] : (values[middle-1]+values[middle])/2;
+      });
+      const representative=failed.filter(run=>typeof run.prompt==='string' && run.prompt.trim())
+        .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || String(a.episode_id || '').localeCompare(String(b.episode_id || '')) || a.prompt.localeCompare(b.prompt))[0];
+      region.representativePrompt=representative?.prompt.trim() || '';
+    }
     return {regions,nearby};
   }
   // Three paused players at most: the active preview plus nearby/recent points.
@@ -194,7 +204,7 @@
     function highlightSummary() {
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
-      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts.`;
+      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. Failure labels include a median task prompt.`;
     }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
@@ -208,6 +218,9 @@
       if (run && highlight !== 'none' && validPosition(run)) {
         const counts=regionAnalysis().nearby.get(run.xyz.join(','));
         if (counts) focusText.textContent+=` · Nearby: ${counts.Success} Success / ${counts.Failure} Failure; ${counts.Uncertain} Uncertain and ${counts.Unscored} unlabeled or excluded not counted.`;
+        const region=visibleRegions().filter(region=>region.representativePrompt && distanceSquared(region.xyz,run.xyz)<=regionRadius**2)
+          .sort((a,b)=>distanceSquared(a.xyz,run.xyz)-distanceSquared(b.xyz,run.xyz))[0];
+        if(region)focusText.textContent+=` · Median failure prompt: ${region.representativePrompt}`;
       }
     }
     function marker(point) {
@@ -264,12 +277,28 @@
         : rankedRegions.slice(0,6);
       for (const region of labelRegions) {
         if (region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
-        const text=`${region.label}: ${region[region.label]}/${region.total}`, w=ctx.measureText(text).width+14;
-        const x=Math.max(4,Math.min(width-w-4,region.x-w/2)), y=Math.max(4,Math.min(height-28,region.y-42));
-        if (boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+32 && y+32>b.y)) continue;
-        boxes.push({x,y,w});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,24);
-        ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.strokeRect(x,y,w,24);
+        ctx.font='600 12px system-ui';
+        const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
+        const lines=[], maxTextWidth=Math.min(210,width-30);
+        if (region.representativePrompt) {
+          ctx.font='12px system-ui';
+          for (const word of region.representativePrompt.split(/\s+/)) {
+            const index=Math.max(0,lines.length-1), next=lines[index] ? lines[index]+' '+word : word;
+            if (ctx.measureText(next).width<=maxTextWidth || !lines[index]) lines[index]=next;
+            else lines.push(word);
+          }
+          if(lines.length>2)lines.splice(1,lines.length-1,lines.slice(1).join(' '));
+          for(let i=0;i<lines.length;i++)if(ctx.measureText(lines[i]).width>maxTextWidth){while(lines[i].length && ctx.measureText(lines[i]+'…').width>maxTextWidth)lines[i]=lines[i].slice(0,-1);lines[i]+='…';}
+        }
+        const w=Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=24+lines.length*16;
+        const x=Math.max(4,Math.min(width-w-4,region.x-w/2)), y=Math.max(4,Math.min(height-h-4,region.y-42));
+        if (boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y)) continue;
+        boxes.push({x,y,w,h});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);
+        ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
+        ctx.font='600 12px system-ui';
         ctx.fillStyle=ctx.strokeStyle;ctx.fillText(text,x+7,y+16);
+        ctx.font='12px system-ui';ctx.fillStyle='#172c21';
+        lines.forEach((line,index)=>ctx.fillText(line,x+7,y+32+index*16));
       }
       ctx.font='13px system-ui';
       for (const point of labels) {
@@ -277,8 +306,8 @@
         const text=point.run.prompt.length>64?point.run.prompt.slice(0,61)+'…':point.run.prompt;
         const length=Math.min(ctx.measureText(text).width+12,width-12);
         const x=Math.max(4,Math.min(width-length-4,point.x+12)),y=Math.max(4,Math.min(height-27,point.y-25));
-        if(boxes.some(b=>x<b.x+b.w && x+length>b.x && y<b.y+25 && y+25>b.y)) continue;
-        boxes.push({x,y,w:length});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,length,24);ctx.fillStyle='#172c21';ctx.fillText(text,x+6,y+17,length-12);
+        if(boxes.some(b=>x<b.x+b.w && x+length>b.x && y<b.y+b.h && y+24>b.y)) continue;
+        boxes.push({x,y,w:length,h:24});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,length,24);ctx.fillStyle='#172c21';ctx.fillText(text,x+6,y+17,length-12);
       }
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');

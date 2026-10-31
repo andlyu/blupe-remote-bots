@@ -10,7 +10,9 @@ The overlay uses the existing green Success (`#246744`) and red Failure
 (`#b2352c`) colors as translucent tints behind the run markers. Selected areas
 may also show a count label such as `Success: 6/8`: six Success labels among
 eight nearby Success/Failure labels. These are local descriptive counts, not a
-confidence estimate, statistical test or new model score.
+confidence estimate, statistical test or new model score. Failure count labels
+also show a representative failed task prompt beneath the count when one is
+available.
 
 ## Neighborhood and selection rules
 
@@ -44,6 +46,31 @@ six strongest regions in a single-outcome mode, before skipping
 offscreen centers and colliding labels. The tint fades beyond the analysis radius to
 `1.4` times its projected size; its soft edge is not a membership boundary.
 
+## Median failure prompts
+
+Each selected Failure area receives a `representativePrompt` from failed runs
+inside the same inclusive `0.08` neighborhood in persisted 3D coordinates. For
+each coordinate axis, take the median across individual failed attempts;
+repeated attempts carry equal weight, and an even-sized set uses the average
+of its two middle values. Failed runs with blank prompts still contribute to
+this coordinatewise median.
+
+Choose the actual nonblank failed prompt whose run coordinates are nearest to
+that median by Euclidean distance. Ties are resolved by episode identifier and
+then prompt text using the implementation's string comparison. The displayed
+value is trimmed. If no failed run has a nonblank prompt, it is empty and the
+label remains count-only. This is an observed task prompt, not a generated
+summary or a median of words; Success, Uncertain and Unscored runs do not enter
+its selection.
+
+The canvas keeps the count above up to two prompt lines. Prompt text wraps at
+word boundaries and is ellipsized when needed, with a text-width limit of
+`210px` or the available canvas width minus `30px`, whichever is smaller. Label
+height grows by `16px` per prompt line from the existing `24px` count label.
+Collision checks use those variable heights for both area labels and individual
+run labels. The existing area ranking, label limits, offscreen checks, colors
+and interactions remain in effect.
+
 ## Label source, robot and filter scope
 
 The overlay analyzes the current Cloud catalog supplied by
@@ -68,16 +95,20 @@ resolver is absent, recognizes only included runner Success/Failure labels.
 
 The status text reports how many success-heavy and failure-heavy areas pass the
 current selection, explains the five-label/two-thirds rule, and explains when
-none qualify or highlights are off. It is a `role="status"` paragraph associated
-with the canvas through `aria-describedby`.
+none qualify or highlights are off. With highlights enabled, it also explains
+that failure labels include a median task prompt. It is a `role="status"`
+paragraph associated with the canvas through `aria-describedby`.
 
 With highlights enabled, hovering or focusing any mapped run adds its nearby
 Success, Failure, Uncertain and Unscored counts to the existing textual run
 description, even when its neighborhood does not qualify for a tint. Uncertain
 and Unscored counts are explicitly described as excluded from the binary
-denominator. This supports inspection without relying on tint color or the
-limited canvas labels. Table remains the accessible alternative for run
-browsing. Highlight choices do not change point selection, replay opening,
+denominator. When the run is within a Failure area visible under the current
+highlight selection and that area has a representative prompt, the description
+also includes the full **Median failure prompt**. If several such areas contain
+the run, it uses the nearest area center. This supports inspection without
+relying on tint color or the limited canvas labels. Table remains the accessible
+alternative for run browsing. Highlight choices do not change point selection, replay opening,
 preview behavior, rotation or zoom.
 
 ## Performance and interpretation limits
@@ -87,7 +118,9 @@ each neighborhood search to its own cell and the 26 adjacent cells. The analysis
 is cached until the supplied run set changes; camera movement only reprojects
 the selected areas. Switching highlight mode reuses the analysis. This avoids
 an unconditional pairwise search over all attempts, but a densely packed set of
-many distinct positions can still require quadratic work. No browser timing or
+many distinct positions can still require quadratic work. Selecting a median
+prompt additionally scans the supplied runs for each retained Failure area
+(at most 12) and sorts that area's failed attempts. No browser timing or
 large-catalog performance result is claimed by this documentation review.
 
 The map expresses similarity between task descriptions. Nearby points do not
@@ -99,18 +132,22 @@ individual run descriptions and replay evidence when interpreting an area.
 
 ## Design conformance evidence
 
-This is a narrow Operate extension of the incumbent playground. Source review
-covered `task-cloud.js`, `hosted.js`, `hosted.html` and `hosted.css`, together with
-the existing label-source documentation. The labeled native select extends the
-wrapping Cloud toolbar, inherits the existing form styling and focus treatment,
-and uses the existing help-text scale. The overlay preserves the paper canvas,
-individual green/red/amber/hollow markers and the established run controls.
-Written counts, the status paragraph and the focused-run description accompany
-color. No new visual system or design-system files are introduced.
+This is a narrow Operate extension of the incumbent playground's green/red
+canvas labels. This documentation pass inspected the uncommitted changes in
+`task-cloud.js` and `tests/test_task_cloud_ui.cjs` against the existing behavior
+described above. The count retains its stronger type treatment above the
+regular-weight prompt text, using the incumbent paper background, outcome border
+colors and body text color. Wrapping, ellipsis and variable-height collision
+bounds accommodate the added text. The existing focused-run description
+exposes the full prompt alongside the nearby counts. Label source resolution,
+filters, region selection and run interactions retain their existing rules.
+No new product or design-system files are needed for this extension.
 
-**Verdict: conforms at the inspected source scope.** This documentation pass did
-not run a browser, backend service, network request or hardware action. It makes
-no claim about rendered layout, responsive behavior, screen-reader output or
-measured interaction performance; those require the parent task's finish
-verification. No root `PRODUCT.md`, `DESIGN.md` or `.impeccable/design.json` was
-present. The nested RoboSkills site's design files describe another surface.
+**Verdict: conforms at the inspected source scope.** The test changes contain
+assertions for failed-attempt median selection, input-order stability, blank
+prompt fallback, count preservation, canvas prompt rendering, full focus text
+and bounded two-line rendering on a narrow canvas. This documentation pass did
+not execute those tests or run a browser, backend service, network request or
+hardware action. It makes no claim about rendered layout, responsive behavior,
+screen-reader output or measured interaction performance; those require the
+parent task's finish verification.
