@@ -1,13 +1,13 @@
 """Absolute RoboSkills tool rotations through the real serializer; never hardware."""
 from copy import deepcopy
 import importlib.util
-import json,math
+import json,math,re
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase,skipUnless
 from unittest.mock import patch
 import numpy as np
-from remote_yam.roboskills_policy import RoboSkillsPolicy,RobotTools
+from remote_yam.roboskills_policy import RoboSkillsPolicy,RobotTools,PROMPT
 from remote_yam.session import HttpSessionAPI
 from remote_yam.api_depth_set import ApiDepthSet
 from test_roboskills_policy import Cameras
@@ -153,6 +153,33 @@ class OrientationContract(TestCase):
                 self.bot.move_to(**chosen['targets'],rotation=chosen['rotation'])
             feedback.assert_called_once()
             execute.assert_not_called()
+
+    def test_documented_approach_example_executes_recorded_flat_target_schema(self):
+        fixture=json.loads((Path(__file__).parent/'fixtures/roboskills-candidate-selection.json').read_text())
+        self.p._state={**fixture['observation'],'episode_id':'offline','lease_id':'offline'}
+        source={'points_base_m':fixture['sourcePoints']}
+        # Reproduce the actual no-motion false refusal with real SDK candidates.
+        # The source/target reads return their retained measurements, not guesses.
+        old=re.search(r'```python\n(.*?)```',fixture['failedReply'],re.S).group(1)
+        with patch.object(self.bot,'measure_depth',side_effect=[fixture['sourceMeasurement'],fixture['destinationMeasurement']]),patch.object(self.p,'_execute') as execute,patch.object(self.bot,'observe') as observe,patch('builtins.print'):
+            stopped=[]
+            exec(old,{'bot':self.bot,'finish':lambda **kw:stopped.append(kw),'show':lambda value:None})
+            self.assertEqual(len(stopped),1)
+            self.assertFalse(stopped[0]['task_success'])
+            execute.assert_not_called();observe.assert_not_called()
+        self.assertEqual(sum(row['result']['reachable'] for row in fixture['localPlans']),6)
+        # Exercise the example actually sent to the model through the complete
+        # canonical HTTP packet serializer and ideal measured-feedback fixture.
+        # This verifies the documented API, not grasp success on physical arms.
+        match=re.search(r'```python\n(.*?)```',PROMPT,re.S)
+        self.assertIsNotNone(match,'Expose an executable candidate-selection example to the agent')
+        shown=[];stopped=[]
+        with patch.object(self.p,'_execute',side_effect=self.plant) as execute,patch.object(self.bot,'observe',return_value='offline observation') as observe:
+            exec(match.group(1),{'bot':self.bot,'source':source,'show':shown.append,'finish':lambda **kw:stopped.append(kw)})
+        execute.assert_called_once();observe.assert_called_once()
+        self.assertEqual(shown,['offline observation'])
+        self.assertFalse(stopped)
+        self.assertLessEqual(self.p._last_move['position_error_m']['left'],.003)
     def test_approach_clearance_endpoints_and_invalid_neighbours(self):
         for value in (.01,.10):
             result=self.bot.plan_approach(FIXTURE['sourcePoints'],clearance=value)

@@ -1,0 +1,529 @@
+{
+  "run": "812bf9eba1c9461d8323c29a276b8639",
+  "basis": "Actual first-turn program, matched startup Home, measured depth points and local plans. Zero method packets; agent incorrectly claimed no reachable approach. Offline ideal-feedback execution is a software example regression, not physical qualification.",
+  "observation": {
+    "source": "hardware",
+    "observed_at": 1793450813.698595,
+    "homed": true,
+    "settled": true,
+    "step_id": 0,
+    "episode_id": "ep_f19abf8d34934a24",
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.57136578467282,
+      -25.203487268233864,
+      -2.850607880934275,
+      -0.5136380630798161
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.79667821112606,
+      34.379297309887704,
+      -19.28607665708796,
+      -1.1905515048634623,
+      -0.6010658184976571
+    ],
+    "left_gripper": 0.9997835185452446,
+    "right_gripper": 0.9988435964151489
+  },
+  "sourcePoints": {
+    "left": [
+      0.4966946767131689,
+      -0.23064092915726356,
+      0.012138358279196515
+    ],
+    "right": [
+      0.4966946767131689,
+      0.2693590708427364,
+      0.012138358279196515
+    ]
+  },
+  "sourceMeasurement": {
+    "pixel": [
+      310,
+      83
+    ],
+    "optical_z_m": 0.9461053609848022,
+    "valid_samples": 25,
+    "intrinsics_source": "factory_aligned_color",
+    "patch_spread_m": 0.0040190815925598145,
+    "camera": "top",
+    "depth_quantization_m": 0,
+    "depth_max_error_m": 0,
+    "captured_at": 1793450815.5834942,
+    "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+    "quality": {
+      "status": "experimental_requires_fresh_validation",
+      "operator_selected": true,
+      "extrinsics_provisional": true,
+      "failures": [],
+      "unverified": [
+        "Fresh independent physical accuracy of this packaged calibration",
+        "RealSense depth accuracy at the grasp and placement"
+      ],
+      "hand_eye": {
+        "left": {
+          "view_count": 20,
+          "training": {
+            "max_translation_m": 0.005120617767036851,
+            "max_rotation_deg": 1.15031298129842
+          },
+          "held_out": {
+            "max_translation_m": 0.005467523129698427,
+            "max_rotation_deg": 0.7551587164673345
+          },
+          "top_board_stationarity": {
+            "max_translation_m": 0.002356723030138612,
+            "max_rotation_deg": 0.642329351191886
+          }
+        },
+        "right": {
+          "view_count": 20,
+          "training": {
+            "max_translation_m": 0.00608795726835932,
+            "max_rotation_deg": 0.6323420152141654
+          },
+          "held_out": {
+            "max_translation_m": 0.006443962106944776,
+            "max_rotation_deg": 0.5253037672663904
+          },
+          "top_board_stationarity": {
+            "max_translation_m": 0.0021306958616433913,
+            "max_rotation_deg": 0.7280257282180154
+          }
+        }
+      },
+      "validation_scope": "Same-session PnP and native robot FK consistency only; no independent physical or depth accuracy measurement.",
+      "limitations": [
+        "Same capture session used for fitting and consistency comparison.",
+        "No surveyed reference, measured tool contact or independent depth validation.",
+        "Parallel level bases and 0.50 m spacing assumed.",
+        "Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees."
+      ],
+      "mount_fit_status": "candidate_requires_physical_validation",
+      "mount_validation_scope": "Twenty measured stationary poses per wrist; within-session held-out validation, not independent physical ground truth.",
+      "unchanged_components": "Native joint corrections, robot models, safety/pose limits, base geometry, wrist mounts and lens profiles.",
+      "overhead_alignment": {
+        "independent_arm_position_disagreement_mm": 20.672532864626387,
+        "independent_arm_rotation_disagreement_deg": 1.0057959813496773,
+        "board_origin_alignment": {
+          "left": {
+            "previous": {
+              "board_origin_mean_xyz_mm": [
+                13.843504988754479,
+                49.845475490175545,
+                -2.418623356257941
+              ],
+              "board_origin_rms_mm": 51.893860147202915,
+              "board_origin_max_mm": 56.33961529485053
+            },
+            "candidate": {
+              "board_origin_mean_xyz_mm": [
+                -4.769583244093715,
+                1.984429922686631,
+                0.6590296327813621
+              ],
+              "board_origin_rms_mm": 6.167921922914188,
+              "board_origin_max_mm": 8.365672489979417
+            }
+          },
+          "right": {
+            "previous": {
+              "board_origin_mean_xyz_mm": [
+                23.4367593926761,
+                45.90771510581356,
+                -3.8315462513585707
+              ],
+              "board_origin_rms_mm": 51.85064302420428,
+              "board_origin_max_mm": 57.87187477288456
+            },
+            "candidate": {
+              "board_origin_mean_xyz_mm": [
+                4.828075697257644,
+                -1.9620898295923836,
+                -0.7686814338254425
+              ],
+              "board_origin_rms_mm": 6.691261803011515,
+              "board_origin_max_mm": 11.795775981998526
+            }
+          }
+        },
+        "scope": "Same-session PnP and native robot FK consistency only; no independent physical or depth accuracy measurement."
+      }
+    },
+    "warning": "Measured surface point, not a gripper target. Extrinsics quality still applies.",
+    "points_base_m": {
+      "left": [
+        0.4966946767131689,
+        -0.23064092915726356,
+        0.012138358279196515
+      ],
+      "right": [
+        0.4966946767131689,
+        0.2693590708427364,
+        0.012138358279196515
+      ]
+    }
+  },
+  "destinationMeasurement": {
+    "pixel": [
+      329,
+      111
+    ],
+    "optical_z_m": 0.9238709211349487,
+    "valid_samples": 25,
+    "intrinsics_source": "factory_aligned_color",
+    "patch_spread_m": 0.0030404329299926758,
+    "camera": "top",
+    "depth_quantization_m": 0,
+    "depth_max_error_m": 0,
+    "captured_at": 1793450815.5834942,
+    "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+    "quality": {
+      "status": "experimental_requires_fresh_validation",
+      "operator_selected": true,
+      "extrinsics_provisional": true,
+      "failures": [],
+      "unverified": [
+        "Fresh independent physical accuracy of this packaged calibration",
+        "RealSense depth accuracy at the grasp and placement"
+      ],
+      "hand_eye": {
+        "left": {
+          "view_count": 20,
+          "training": {
+            "max_translation_m": 0.005120617767036851,
+            "max_rotation_deg": 1.15031298129842
+          },
+          "held_out": {
+            "max_translation_m": 0.005467523129698427,
+            "max_rotation_deg": 0.7551587164673345
+          },
+          "top_board_stationarity": {
+            "max_translation_m": 0.002356723030138612,
+            "max_rotation_deg": 0.642329351191886
+          }
+        },
+        "right": {
+          "view_count": 20,
+          "training": {
+            "max_translation_m": 0.00608795726835932,
+            "max_rotation_deg": 0.6323420152141654
+          },
+          "held_out": {
+            "max_translation_m": 0.006443962106944776,
+            "max_rotation_deg": 0.5253037672663904
+          },
+          "top_board_stationarity": {
+            "max_translation_m": 0.0021306958616433913,
+            "max_rotation_deg": 0.7280257282180154
+          }
+        }
+      },
+      "validation_scope": "Same-session PnP and native robot FK consistency only; no independent physical or depth accuracy measurement.",
+      "limitations": [
+        "Same capture session used for fitting and consistency comparison.",
+        "No surveyed reference, measured tool contact or independent depth validation.",
+        "Parallel level bases and 0.50 m spacing assumed.",
+        "Independent arm overhead estimates differ by 20.67 mm / 1.01 degrees."
+      ],
+      "mount_fit_status": "candidate_requires_physical_validation",
+      "mount_validation_scope": "Twenty measured stationary poses per wrist; within-session held-out validation, not independent physical ground truth.",
+      "unchanged_components": "Native joint corrections, robot models, safety/pose limits, base geometry, wrist mounts and lens profiles.",
+      "overhead_alignment": {
+        "independent_arm_position_disagreement_mm": 20.672532864626387,
+        "independent_arm_rotation_disagreement_deg": 1.0057959813496773,
+        "board_origin_alignment": {
+          "left": {
+            "previous": {
+              "board_origin_mean_xyz_mm": [
+                13.843504988754479,
+                49.845475490175545,
+                -2.418623356257941
+              ],
+              "board_origin_rms_mm": 51.893860147202915,
+              "board_origin_max_mm": 56.33961529485053
+            },
+            "candidate": {
+              "board_origin_mean_xyz_mm": [
+                -4.769583244093715,
+                1.984429922686631,
+                0.6590296327813621
+              ],
+              "board_origin_rms_mm": 6.167921922914188,
+              "board_origin_max_mm": 8.365672489979417
+            }
+          },
+          "right": {
+            "previous": {
+              "board_origin_mean_xyz_mm": [
+                23.4367593926761,
+                45.90771510581356,
+                -3.8315462513585707
+              ],
+              "board_origin_rms_mm": 51.85064302420428,
+              "board_origin_max_mm": 57.87187477288456
+            },
+            "candidate": {
+              "board_origin_mean_xyz_mm": [
+                4.828075697257644,
+                -1.9620898295923836,
+                -0.7686814338254425
+              ],
+              "board_origin_rms_mm": 6.691261803011515,
+              "board_origin_max_mm": 11.795775981998526
+            }
+          }
+        },
+        "scope": "Same-session PnP and native robot FK consistency only; no independent physical or depth accuracy measurement."
+      }
+    },
+    "warning": "Measured surface point, not a gripper target. Extrinsics quality still applies.",
+    "points_base_m": {
+      "left": [
+        0.43019067436083425,
+        -0.2676527263488033,
+        0.019419030208257748
+      ],
+      "right": [
+        0.43019067436083425,
+        0.23234727365119667,
+        0.019419030208257748
+      ]
+    }
+  },
+  "failedReply": "```python\nsource = bot.measure_depth(310, 83, camera='top')\ndestination = bot.measure_depth(329, 111, camera='top')\napproach = bot.plan_approach(source['points_base_m'], clearance=0.05)\ncandidate = next((c for c in approach['candidates'] if 'left' in c['targets']), None)\nif candidate is None:\n    finish(reason='No locally reachable, level-jaw first approach to the measured purple block.', task_success=False)\nelse:\n    bot.move_to(**candidate['targets'], rotation=candidate['rotation'])\n    show(bot.observe())\n```",
+  "localPlans": [
+    {
+      "targets": {
+        "left_x": 0.4966946767131689,
+        "left_y": -0.23064092915726356,
+        "left_z": 0.06213835827919652
+      },
+      "rotation": null,
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "targets": {
+        "right_x": 0.4966946767131689,
+        "right_y": 0.2693590708427364,
+        "right_z": 0.06213835827919652
+      },
+      "rotation": null,
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": false,
+        "reason": "Cartesian target is unreachable; request a smaller move",
+        "code": "unreachable_target"
+      }
+    },
+    {
+      "targets": {
+        "left_x": 0.47068338198295906,
+        "left_y": -0.2185625448571566,
+        "left_z": 0.05309596049364611
+      },
+      "rotation": {
+        "left": [
+          [
+            0.42116040808603294,
+            0.742959574434618,
+            0.5202258946041974
+          ],
+          [
+            0.9069861689468072,
+            -0.34499440925725994,
+            -0.24156768600213904
+          ],
+          [
+            0.0,
+            0.573576436351046,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 60
+      }
+    },
+    {
+      "targets": {
+        "right_x": 0.471484341688816,
+        "right_y": 0.25568742760562707,
+        "right_z": 0.05309596049364611
+      },
+      "rotation": {
+        "right": [
+          [
+            -0.4767156518522625,
+            0.7200817942866115,
+            0.5042067004870588
+          ],
+          [
+            0.8790575562948495,
+            0.3905026007593401,
+            0.27343286474218664
+          ],
+          [
+            0.0,
+            0.573576436351046,
+            -0.8191520442889918
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 61
+      }
+    },
+    {
+      "targets": {
+        "left_x": 0.4646278731879342,
+        "left_y": -0.21575066013101718,
+        "left_z": 0.0474936973385239
+      },
+      "rotation": {
+        "left": [
+          [
+            0.42116040808603294,
+            0.6413360705046951,
+            0.641336070504695
+          ],
+          [
+            0.9069861689468072,
+            -0.29780538052492755,
+            -0.29780538052492755
+          ],
+          [
+            0.0,
+            0.7071067811865476,
+            -0.7071067811865476
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 56
+      }
+    },
+    {
+      "targets": {
+        "right_x": 0.46561529875770075,
+        "right_y": 0.2525046273366114,
+        "right_z": 0.0474936973385239
+      },
+      "rotation": {
+        "right": [
+          [
+            -0.4767156518522625,
+            0.6215875591093634,
+            0.6215875591093633
+          ],
+          [
+            0.8790575562948495,
+            0.33708887012250016,
+            0.3370888701225001
+          ],
+          [
+            0.0,
+            0.7071067811865475,
+            -0.7071067811865476
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 59
+      }
+    },
+    {
+      "targets": {
+        "left_x": 0.459546697991438,
+        "left_y": -0.21339120869440056,
+        "left_z": 0.04081718009674882
+      },
+      "rotation": {
+        "left": [
+          [
+            0.42116040808603294,
+            0.5202258946041974,
+            0.742959574434618
+          ],
+          [
+            0.9069861689468072,
+            -0.24156768600213904,
+            -0.34499440925725994
+          ],
+          [
+            0.0,
+            0.8191520442889919,
+            -0.573576436351046
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 56
+      }
+    },
+    {
+      "targets": {
+        "right_x": 0.46069058699883836,
+        "right_y": 0.2498339408047694,
+        "right_z": 0.04081718009674882
+      },
+      "rotation": {
+        "right": [
+          [
+            -0.4767156518522625,
+            0.5042067004870588,
+            0.7200817942866115
+          ],
+          [
+            0.8790575562948495,
+            0.27343286474218664,
+            0.3905026007593401
+          ],
+          [
+            0.0,
+            0.8191520442889919,
+            -0.573576436351046
+          ]
+        ]
+      },
+      "result": {
+        "from_step_id": 0,
+        "dispatched": false,
+        "scope": "local IK/pacing/canonical packet validity; scene clearance and physical completion unverified",
+        "reachable": true,
+        "waypoint_count": 58
+      }
+    }
+  ]
+}

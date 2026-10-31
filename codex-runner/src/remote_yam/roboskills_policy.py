@@ -116,6 +116,21 @@ in the same block as measurement. It returns locally reachable candidates for
 the supplied arms with level jaws and several downward tilt angles; it never
 moves. Select a candidate consistent with the fresh scene's visible clearance,
 then call bot.move_to(**candidate['targets'],rotation=candidate['rotation']).
+Every returned candidate already passed local validation. candidate['arm'] is
+'left' or 'right'; candidate['targets'] is a FLAT keyword dictionary with keys
+such as left_x/left_y/left_z, NEVER a nested dictionary keyed by 'left'. Do not
+filter with 'left' in candidate['targets']: that discards valid left candidates.
+Use candidate['arm']=='left' only if there is a scene-grounded need for that arm.
+After measuring source, the ordinary selection/movement pattern is:
+```python
+options = bot.plan_approach(source['points_base_m'])
+if options['candidates']:
+    candidate = options['candidates'][0]
+    bot.move_to(**candidate['targets'], rotation=candidate['rotation'])
+    show(bot.observe())
+else:
+    finish(reason='No candidate passed the tested local approaches.', task_success=False)
+```
 Do not discard that query and retry a vertical target that it rejected.
 If its list is empty, only those tested frames failed; you can compare other
 scene-grounded frames with plan_move. Do not infer global unreachability. Never conclude
@@ -350,7 +365,7 @@ class RobotTools:
         return result
 
     def plan_approach(self, points_base_m, clearance=.05):
-        """Read-only local approach options from measure_depth()['points_base_m']. clearance in[.01,.10]metres along negative tool-Z. Searches both supplied arms and0/35/45/55deg downward tilt with level jaw-opening axes; returns{candidates:[{targets,rotation,...}],rejected,scope}. No dispatch; only these candidates tested, not all poses. Reachability is NOT scene/finger clearance or grasp success. Inspect the fresh scene before choosing; move_to revalidates."""
+        """Read-only local approach options from measure_depth()['points_base_m']. clearance in[.01,.10]metres along negative tool-Z. Searches both supplied arms and0/35/45/55deg downward tilt with level jaw-opening axes. Returns{candidates:[{arm:'left'|'right',targets:FLAT kwargs e.g.left_x/left_y/left_z,rotation:{arm:3x3},tilt_deg,waypoint_count,from_step_id}],rejected,scope}. Every candidate is locally reachable; select candidates[0], or filter by c['arm'], never by 'left' in c['targets']. Pass move_to(**c['targets'],rotation=c['rotation']). No dispatch; only these candidates tested, not all poses. Reachability is NOT scene/finger clearance or grasp success. Inspect the fresh scene before choosing; move_to revalidates."""
         p=self.policy;p._check_cancelled()
         if self.motion_failure:raise RuntimeError(self.motion_failure)
         if (isinstance(clearance,(bool,np.bool_)) or not isinstance(clearance,(int,float,np.floating))
