@@ -10,7 +10,7 @@ integration as complete.
 
 ## Current task qualification reopened — October31,2026
 
-The prior v13 acceptance qualified a20mm lift/hold/return smoke test, not object stacking. Current full-task qualification remains **in progress:12/15 checked**, with items7,13,15 open. Current runtime19e91c0/Site19 is physically tested:8b9ab1fe completed source approach and view retreat/reobservation, then stopped before contact for unsupported grasp/table/box clearance. No grasp/stack. Twelve measured startup passes retained; latest native visual interval14.855–15.655s straddles15s, so every-run timing remains open with seven later failed/unverified cases. See [current physical result](verification/2026-10-31-view-region-physical-results.md).
+Priorv13 smoke test did not qualify stacking. Current **12/15 checked**, items7/13/15 open. Current runtime9d4f126/Site19 is physically tested through normalUI d68d592f: actual physicalYjaw nearlylevel and correctednominalgrasp reference; source approach/viewretreat completed, then agent stoppedbeforecontact for ambiguousdepthplanefit. No grasp/stack. Thirteen measured startup passes retained, including current12.910091s postHome/25.827893s fullRun without deduction. Seven later failed/unverified timing cases remain outside owner exceptions. See [current result](verification/2026-10-31-physical-jaw-results.md).
 
 ## Owner timing exception — October30,2026
 
