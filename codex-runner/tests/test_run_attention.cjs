@@ -62,8 +62,8 @@ for(let i=0;i<3;i++) {
   assert.equal($('liveConversationPanel').classes.has('yourTaskReview'),false,'idle polling must not alternate the review highlight');
 }
 
-// ASPIRE highlights review immediately; acceptance/queueing alone is not active execution.
-render({status:'preparing',aspire:true});
+// Prompt submission highlights review immediately; acceptance/queueing alone is not active execution.
+render({status:'preparing',new_submission:true});
 assert.equal($('viewerCue').hidden,false);
 assert.equal($('viewerCueTitle').textContent,'Reviewing your prompt…');
 assert.equal($('viewerCueDetail').textContent,'Working through your prompt and preparing the next steps.');
@@ -73,22 +73,22 @@ assert.equal($('yourQueue').classes.has('yourTurnWaiting'),false);
 assert.equal($('liveConversationPanel').classes.has('yourTaskReview'),true);
 assert.equal($('liveConversationPanel').focusCount,1);
 assert.equal($('liveViewer').classes.has('yourRunLive'),false);
-render({status:'queued',aspire:true,session_id:'aspire-session',queue_position:2});
+render({status:'queued',new_submission:true,session_id:'fixture-session',queue_position:2});
 assert.equal($('viewerCueTitle').textContent,'Waiting in the robot queue');
 assert.equal($('position').textContent,'#2');
 assert.equal($('yourQueue').classes.has('yourTurnWaiting'),true);
 assert.equal($('liveConversationPanel').classes.has('yourTaskReview'),false);
 assert.equal($('liveViewer').classes.has('yourRunLive'),false);
-render({status:'preparing',session_id:'aspire-session',provider:{task_progress:{task:'Fixture'}}});
+render({status:'preparing',session_id:'fixture-session',provider:{task_progress:{task:'Fixture'}}});
 assert.equal($('viewerCueTitle').textContent,'Your run is preparing');
 assert.equal($('yourQueue').classes.has('yourTurnWaiting'),false);
 assert.equal($('queuePlace').hidden,true);
 assert.equal($('liveViewer').classes.has('yourRunLive'),false);
-render({status:'running',session_id:'aspire-session',provider:{task_progress:{task:'Fixture'}}});
+render({status:'running',session_id:'fixture-session',provider:{task_progress:{task:'Fixture'}}});
 assert.equal($('viewerCueTitle').textContent,'Your run is active');
 assert.equal($('liveViewer').classes.has('yourRunLive'),true);
 assert.equal($('liveConversationPanel').classes.has('yourTaskReview'),false);
 const scrolls=$('liveViewer').scrolls.length;
-render({status:'running',session_id:'aspire-session',provider:{task_progress:{task:'Fixture'}}});
+render({status:'running',session_id:'fixture-session',provider:{task_progress:{task:'Fixture'}}});
 assert.equal($('liveViewer').scrolls.length,scrolls);
 console.log('Queue handoff checks passed');

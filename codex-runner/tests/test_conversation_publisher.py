@@ -37,7 +37,7 @@ def test_native_status_bootstraps_updates_and_flushes_terminal_evidence_without_
         'lineage': {'usage_recorded': True, 'authorship': {'generated_by_codex': True, 'mode': 'reuse'},
                     'source': 'PRIVATE CODE', 'used': [{'id': 'pick_place', 'source_refs': [{'source': '/private/secret'}]}]},
         'wire_payload': 'PRIVATE WIRE', 'stage': {'stage': 'capture', 'active': True}}
-    p = ConversationPublisher(api, 'native', 'ASPIRE', progress['task'],
+    p = ConversationPublisher(api, 'native', 'Fixture policy', progress['task'],
         task_progress=progress, progress_source=lambda: progress, interval=.01)
     wait_for(lambda: shared_progress(api).get('stage', {}).get('stage') == 'capture')
     progress['stage'] = {'stage': 'segmentation', 'active': True, 'started_at': 100}
@@ -60,7 +60,7 @@ def test_native_snapshot_is_valid_bounded_redacted_and_retained_with_long_model_
     progress = {'task': 'Task', 'updates': [dict(happened='x'*2000, changed='custom-secret '*400,
         next_action='x'*2000) for _ in range(90)],
         'outcome': {'status': 'UNVERIFIED', 'reason': 'custom-secret sk-secret Bearer token'}}
-    p = ConversationPublisher(api, 'native', 'ASPIRE', 'Task', secrets=('custom-secret',),
+    p = ConversationPublisher(api, 'native', 'Fixture policy', 'Task', secrets=('custom-secret',),
         task_progress=progress, interval=.01)
     for _ in range(90): p.add('model_response', 'x'*8000)
     p.close(); p._thread.join(2)
@@ -75,7 +75,7 @@ def test_native_snapshot_is_valid_bounded_redacted_and_retained_with_long_model_
 def test_final_retry_resolution_written_after_controller_exit_is_shared():
     api = PublishingAPI(); progress = {'task': 'Task', 'updates': [],
         'outcome': {'status': 'UNVERIFIED', 'success': False}}
-    p = ConversationPublisher(api, 'native', 'ASPIRE', 'Task',
+    p = ConversationPublisher(api, 'native', 'Fixture policy', 'Task',
         task_progress=progress, progress_source=lambda: progress, interval=.05)
     wait_for(lambda: bool(shared_progress(api)))
     p.close()

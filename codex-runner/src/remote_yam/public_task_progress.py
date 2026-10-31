@@ -1,4 +1,4 @@
-"""Small public ASPIRE status snapshots for the existing text-sharing API.
+"""Small public task status snapshots for the existing text-sharing API.
 
 This is activity and recorded evidence, not model reasoning. Source code,
 filesystem references, image data, wire payloads and arbitrary tool details
@@ -9,7 +9,7 @@ import math
 import re
 
 
-PREFIX = 'ASPIRE_TASK_PROGRESS_V1\n'
+PREFIX = 'PUBLIC_TASK_PROGRESS_V1\n'
 MODEL_PREFIX = 'PUBLIC_MODEL_EVENT_V1\n'
 
 

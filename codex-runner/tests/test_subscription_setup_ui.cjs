@@ -15,7 +15,7 @@ function fixture(ready) {
     prompt:'Place apple on plate', runnerName:'Tester', runDuration:'3'})) $(id).value = value;
   const setup = {provider:'claude', label:'Opus (Claude)', ready:false,
     state:'upgrade_required', message:'Update Claude Code', setup_prompt:'Set up or update Opus for this playground.'};
-  const context = vm.createContext({$, runVideoEmail:{validate:()=>true,enabled:()=>false}, aspireRunAvailable:false, requestAnimationFrame:fn=>queueMicrotask(fn), selectedModelName(){return 'Claude';},renderCurrentConversation(){},openAspireTaskPanel(){}, window:{}, navigator:{clipboard:{async writeText() {}}},
+  const context = vm.createContext({$, runVideoEmail:{validate:()=>true,enabled:()=>false}, requestAnimationFrame:fn=>queueMicrotask(fn), selectedModelName(){return 'Claude';},renderCurrentConversation(){},openConversationPanel(){}, window:{}, navigator:{clipboard:{async writeText() {}}},
     message() {}, buttons() {}, updateSavedKey() {}, guideRunAttention() {},
     async api(path) {
       requests.push(path);

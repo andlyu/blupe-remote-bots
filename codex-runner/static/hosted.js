@@ -299,16 +299,14 @@ function createRunLaunchGuard() {
       // A fresh owner status can precede its shared public_run. Never let the
       // previous run fill that gap, even when both prompts are identical.
       if(attemptId && run?.attempt_id === attemptId) {
-        const route = state.provider?.launch_route || run.launch_route || conversation.launch_route;
-        return {...conversation,...run,launch_route:route,
-          model_name:route?.actual_policy === 'astra' ? 'Astra' : run.model_name || conversation.model_name,
+        return {...conversation,...run,
+          model_name:run.model_name || conversation.model_name,
           reviewing_prompt:false};
       }
       if(!attemptId || state.attempt_id !== attemptId) return conversation;
-      const route = state.provider?.launch_route || conversation.launch_route;
       return {...conversation,attempt_id:attemptId,status:state.status,error:state.error,
         events:state.interactions?.events || [],task_progress:state.provider?.task_progress,
-        launch_route:route,model_name:route?.actual_policy === 'astra' ? 'Astra' : conversation.model_name,
+        model_name:conversation.model_name,
         reviewing_prompt:false};
     },
     allows(request, state) {
@@ -379,9 +377,6 @@ function createRunLaunchGuard() {
     stopPreview();
     $('pastRunTitle').textContent = `${run.runner_name || 'Name not recorded'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt;
-    document.getElementById('aspirePastLineage')?.remove?.();
-    const lineageBox = document.createElement('div'); lineageBox.id = 'aspirePastLineage';
-    window.yamAspireLineage?.history(lineageBox, run); $('pastRunPrompt').after(lineageBox);
     selectedRun = run;
     window.yamRunAssessment?.showReplay(run);
     cloud?.select(run.episode_id);
@@ -472,7 +467,7 @@ function createRunLaunchGuard() {
         reasonSummary.style.cursor = 'pointer';
         reasonDetails.append(reasonSummary, ending);
         if (run.errors) reasonDetails.append(errors);
-        button.append(title, prompt, video, watch); button.addEventListener('click', () => selectRun(run)); li.append(button); window.yamAspireLineage?.history(li, run);
+        button.append(title, prompt, video, watch); button.addEventListener('click', () => selectRun(run)); li.append(button);
         if (run.search_match) {
           const match = document.createElement('p'); match.className = 'pastRunMatch help';
           const reasons = [];
@@ -731,7 +726,6 @@ function createRunLaunchGuard() {
   let claudeModel = 'claude-opus-5-5';
   let configuredProviders = {};
   window.yamRunDuration = createProviderRunDuration($('runDuration'));
-  let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
   const resolveViewerStream = createViewerStreamResolver();
   let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'robot-ba8413962083809c', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
@@ -759,15 +753,6 @@ function createRunLaunchGuard() {
     return {$, api, message, buttons, updateSavedKey, providerChanged,
       setSubmitting(value) { submitting = value; }};
   }
-  window.yamRecoverTask = async run_id => {
-    if(active || submitting || ended || !csrf) throw new Error('Wait for the current task to finish.');
-    submitting=true;buttons();
-    try {
-      await api('/api/aspire-recover',{run_id,automatic_retry_limit:aspireRetryLimit($('automaticRetryLimit').value)});
-      runLaunchGuard.reset();window.yamAspireLineage?.reset();
-      render(await api('/api/status'));
-    } finally {submitting=false;buttons();}
-  };
   async function api(path, data) {
     const generation = robotGeneration;
     const launchVersion = runLaunchGuard.version;
@@ -818,7 +803,6 @@ function createRunLaunchGuard() {
     $('shareConversation').disabled = !conversationSharingAllowed || active || submitting || ended;
     $('useApiDepth').disabled = active || submitting || ended;
     runVideoEmail.busy(!csrf || active || submitting || ended);
-    $('automaticRetryLimit').disabled = active || submitting || ended;
     $('stop').disabled = !csrf || ended || !active;
     $('liveRunControls').hidden = !csrf || ended || !active || !ownRunLive;
     $('leaveQueue').disabled = !csrf || ended || !active;
@@ -861,9 +845,8 @@ function createRunLaunchGuard() {
   $('runGroot').onclick = () => runWithProvider('groot', 'Run GR00T');
   $('runAstra').onclick = () => runWithProvider('codex', 'Run with Astra');
   $('runClaude').onclick = () => runWithProvider('claude', 'Run with Opus');
-  function openAspireTaskPanel(preview = true) {
+  function openConversationPanel() {
     document.querySelector('[data-conversation-mode="reasoning"]')?.click();
-    if(preview) window.yamAspireLineage?.preview();
   }
   let setupProvider = null;
   let shownSubscriptionFailure = '';
@@ -931,17 +914,11 @@ function createRunLaunchGuard() {
     $('localRunDialog').close();
     $('localRunDialogBody').append($('runSettings'));
     $('runSettings').open = true;
-    updateAspireSetupGuidance();
     updateRunLabel();
-  }
-  function updateAspireSetupGuidance() {
-    const guidance = $('aspireSetupGuidance');
-    if (guidance) guidance.hidden = !['aspire', 'hosted_aspire'].includes($('provider').value);
   }
   $('openLocalRun').onclick = () => {
     if (active || submitting || ended || !csrf) return;
     $('runSettings').open = true;
-    updateAspireSetupGuidance();
     updateRunLabel();
     $('localRunMessage').textContent = '';
     $('localRunDialog').showModal();
@@ -1022,48 +999,13 @@ function createRunLaunchGuard() {
     if ($('provider').value !== 'local_raise_lower' && $('prompt').value === 'Raise and lower both arms.') {
       $('prompt').value = $('prompt').dataset?.defaultPrompt || '';
     }
-    const aspireChoice = $('provider').value === 'aspire';
-    $('aspireRetrySettings').hidden=!aspireChoice;
-    const retry=$('automaticRetryLimit');
-    if(retry.dataset.robot !== selectedRobot) {
-      let saved='1';try {saved=localStorage.getItem('yam-aspire-retry-limit:'+selectedRobot) || '1';} catch (_) {}
-      try {retry.value=String(aspireRetryLimit(saved));} catch (_) {retry.value='1';}
-      retry.dataset.robot=selectedRobot;
-    }
-    $('apiDepthSettings').hidden = !$('useApiDepth').dataset?.available || $('provider').value !== 'codex' || aspireRunAvailable;
-    if(aspireRunAvailable) $('useApiDepth').checked = aspireChoice;
-    // Keep other providers' choices separate from ASPIRE's fixed inference settings.
-    const inference = $('provider').dataset;
-    if (aspireChoice) {
-      if (inference.aspirePreviousEffort === undefined) {
-        inference.aspirePreviousEffort = $('reasoningEffort').value;
-        inference.aspirePreviousSpeed = $('responseSpeed').value;
-      }
-      $('reasoningEffort').value = 'high';
-      $('responseSpeed').value = 'standard';
-    } else if (inference?.aspirePreviousEffort !== undefined) {
-      $('reasoningEffort').value = inference.aspirePreviousEffort;
-      $('responseSpeed').value = inference.aspirePreviousSpeed;
-      delete inference.aspirePreviousEffort;
-      delete inference.aspirePreviousSpeed;
-    }
+    $('apiDepthSettings').hidden = !$('useApiDepth').dataset?.available || $('provider').value !== 'codex';
     $('speedField').hidden = !['openai', 'codex', 'anthropic', 'claude'].includes($('provider').value);
     $('effortField').hidden = !['codex', 'claude'].includes($('provider').value);
     $('geminiCallingModeField').hidden = $('provider').value !== 'gemini' || !configuredProviders.gemini;
-    $('conversationSharingSettings').hidden = aspireChoice || $('localRunDialog').dataset?.local !== 'true';
+    $('conversationSharingSettings').hidden = $('localRunDialog').dataset?.local !== 'true';
     $('subscriptionHelp').close();
     setupProvider = null;
-    if(aspireChoice) {
-      $('providerFields').hidden = true;$('apiKey').required = false;$('apiKey').value = '';
-      $('prompt').readOnly = false;$('model').value = 'gpt-6-astra';
-      $('codexSetup').hidden = true;$('claudeSetup').hidden = true;$('forget').hidden = true;
-      $('policyHelp').textContent = aspireRunAvailable
-        ? 'ASPIRE reuses compatible saved programs without a coding request. Otherwise it generates Python and validates a complete offline native plan before queue/Home. Every run captures fresh cameras and fully plans before task motion.'
-        : 'ASPIRE is unavailable for this robot. Choose a configured model or policy.';
-      if(aspireRunAvailable) openAspireTaskPanel(preview);
-      window.yamModelPicker?.providerChanged({fixed:true});
-      updateRunLabel();return;
-    }
     if (customEndpoint) {
       $('providerFields').hidden = true; $('apiKey').required = false; $('apiKey').value = '';
       $('model').value = 'custom-endpoint'; $('prompt').readOnly = false;
@@ -1137,11 +1079,7 @@ function createRunLaunchGuard() {
         applyModelName(lastLive); document.dispatchEvent(new Event('blupe-model-changed'));
       }});
   }
-  $('provider').addEventListener('change', () => { providerChanged(); updateAspireSetupGuidance(); applyModelName(lastLive); window.yamAnalytics?.selected($('provider').value, $('model').value.trim()); });
-  $('automaticRetryLimit').addEventListener('change',()=>{
-    try {const limit=aspireRetryLimit($('automaticRetryLimit').value);localStorage.setItem('yam-aspire-retry-limit:'+selectedRobot,String(limit));}
-    catch(error) {if(error instanceof RangeError) message(error.message,true);}
-  });
+  $('provider').addEventListener('change', () => { providerChanged(); applyModelName(lastLive); window.yamAnalytics?.selected($('provider').value, $('model').value.trim()); });
   $('codexCheck').addEventListener('click', async () => {
     $('codexCheck').disabled = true;
     try {
@@ -1169,10 +1107,7 @@ function createRunLaunchGuard() {
     if (active) return;
     if ($('provider').value === 'custom_endpoint' && !$('customEndpoint').reportValidity()) return;
     if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
-    if($('provider').value === 'aspire' && !aspireRunAvailable) {message('ASPIRE is unavailable for this robot.',true);return;}
     contactRequested = false;
-    window.yamPolicyRoute?.(null);
-    const aspireRequest = aspireRunAvailable && $('provider').value === 'aspire';
     let launchVersion = null, payload;
     try {
     const provisional = {task:$('prompt').value,runner_name:$('runnerName').value.trim(),
@@ -1183,57 +1118,46 @@ function createRunLaunchGuard() {
     // Every actual submit switches the complete view before hooks or I/O.
     $('localRunDialog').close();$('subscriptionHelp').close();
     $('publicRunError').hidden = true;$('publicRunError').textContent = '';
-    window.yamAspireLineage?.requested(provisional.task,launchVersion,aspireRequest);
     renderCurrentConversation(provisional,{});
-    openAspireTaskPanel(false);
-    guideRunAttention({status:'preparing',aspire:aspireRequest,new_submission:true});
+    openConversationPanel();
+    guideRunAttention({status:'preparing',new_submission:true});
     message('Reviewing your prompt…');
     // Give the browser its first paint before potentially expensive hooks.
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if(launchVersion !== runLaunchGuard.version) return;
     if (await window.yamApplication?.submit?.(applicationContext())) {
       if(launchVersion !== runLaunchGuard.version) return;
-      runLaunchGuard.reset();window.yamAspireLineage?.reset();guideRunAttention({status:'idle'});
+      runLaunchGuard.reset();guideRunAttention({status:'idle'});
       submitting=false;buttons();
       return;
     }
     if(launchVersion !== runLaunchGuard.version) return;
     window.yamAnalytics?.requested($('provider').value, $('model').value.trim());
-    payload = {runner_name: $('runnerName').value.trim(), provider: $('provider').value === 'aspire' ? 'codex' : $('provider').value, model: $('model').value.trim(),
+    payload = {runner_name: $('runnerName').value.trim(), provider: $('provider').value, model: $('model').value.trim(),
       email: $('email').value.trim(), email_run_video: runVideoEmail.enabled(), share_conversation: $('shareConversation').checked,
       prompt: $('prompt').value, run_duration_s:Number($('runDuration').value)*60, api_key: $('apiKey').value.trim(),
       ...window.yamSystemPrompt?.payload()};
     if (payload.provider === 'custom_endpoint') {payload.endpoint = $('customEndpoint').value.trim(); payload.api_key = $('customEndpointKey').value.trim();}
-    if ($('provider').value === 'aspire') {payload.use_api_depth = true;payload.automatic_retry_limit=aspireRetryLimit($('automaticRetryLimit').value);}
-    else if(aspireRunAvailable && payload.provider === 'codex') payload.use_api_depth = false;
-    else if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
-    if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('provider').value === 'aspire' ? 'high' : $('reasoningEffort').value;
+    if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
+    if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('reasoningEffort').value;
     if (['gemini', 'guest_gemini'].includes(payload.provider)) payload.gemini_calling_mode = $('geminiCallingMode').value;
-    if (['openai', 'codex', 'anthropic', 'claude'].includes(payload.provider)) payload.response_speed = $('provider').value === 'aspire' ? 'standard' : $('responseSpeed').value;
+    if (['openai', 'codex', 'anthropic', 'claude'].includes(payload.provider)) payload.response_speed = $('responseSpeed').value;
     $('subscriptionHelp').close();
-    submitting = true; buttons(); if(!aspireRequest) message(['codex', 'claude'].includes(payload.provider) ? 'Checking your subscription connection…' : 'Joining the robot queue…');
+    submitting = true; buttons(); message(['codex', 'claude'].includes(payload.provider) ? 'Checking your subscription connection…' : 'Joining the robot queue…');
     const state = await api('/api/run', payload);
     if(!runLaunchGuard.accept(launchVersion,state.attempt_id,{status:state.status || 'queued',
-      launch_route:state.launch_route,model_name:state.launch_route?.actual_policy === 'astra' ? 'Astra' : provisional.model_name})) return;
-    window.yamAspireLineage?.accepted(state.attempt_id,launchVersion,state.launch_route);
+      model_name:provisional.model_name})) return;
     renderCurrentConversation(runLaunchGuard.conversation(null),state);
-    window.yamPolicyRoute?.(state.launch_route);
-    if(state.launch_route?.actual_policy === 'astra') {
-      applyModelName({model_name:'Astra'});
-      for(const id of ['conversationState','sideConversationState']) $(id).textContent = (state.status || 'queued')+' · Astra';
-    }
     updateSavedKey(state.saved_key_providers);window.yamAnalytics?.observe(state);
     $('apiKey').value = '';$('runSettings').open = true;$('localRunDialog').close();
     active = ['queued','preparing','running'].includes(state.status || 'queued');
-    const actualAspire = aspireRequest && state.launch_route?.actual_policy !== 'astra';
-    guideRunAttention(actualAspire ? {status:state.status || 'preparing',aspire:true} : {status:state.status || 'queued'});
-    message(state.launch_route?.message || (aspireRequest ? 'ASPIRE request accepted. Follow task progress on the left.' : ['molmoact2','dreamzero'].includes(payload.provider) && !state.session_id ? 'Preparing the model GPU. The robot queue and run timer start after it is ready.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
+    guideRunAttention({status:state.status || 'queued'});
+    message((['molmoact2','dreamzero'].includes(payload.provider) && !state.session_id ? 'Preparing the model GPU. The robot queue and run timer start after it is ready.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
     }
     catch (error) {
       if (error.stale) return;
       if(launchVersion !== null && !runLaunchGuard.reject(launchVersion,error.message)) return;
-      window.yamAnalytics?.rejected(payload?.provider || (aspireRequest ? 'codex' : $('provider').value),payload?.model || $('model').value);
-      window.yamAspireLineage?.rejected(error.message,launchVersion);
+      window.yamAnalytics?.rejected(payload?.provider || $('provider').value,payload?.model || $('model').value);
       if(launchVersion !== null) renderCurrentConversation(runLaunchGuard.conversation(null),{});
       message(launchVersion === null ? error.message : '', launchVersion === null);
       if (error.subscriptionSetup) showSubscriptionSetup(error.subscriptionSetup);
@@ -1248,7 +1172,7 @@ function createRunLaunchGuard() {
     try {
       const result = await api('/api/runs/reset', {});
       await window.yamApplication?.runsReset?.(result, applicationContext());
-      runLaunchGuard.reset(); window.yamAspireLineage?.reset();
+      runLaunchGuard.reset();
       message('');
       status.textContent = 'Runs reset. History and settings kept. You can run again.';
     } catch (error) {
@@ -1326,49 +1250,40 @@ function createRunLaunchGuard() {
     const queued = phase === 'queued';
     const preparing = phase === 'preparing';
     const live = phase === 'running';
-    const aspire = state.aspire === true || !!state.provider?.task_progress;
-    const warmingUp = !aspire && live && state.first_call_wander_enabled === true && state.run_metrics?.model_calls === 0;
-    const vision = typeof aspireSam3Progress === 'function'
-      ? aspireSam3Progress({status:phase,task_progress:state.provider?.task_progress}) : null;
-    const warmingVision = vision?.state === 'starting';
-    const reviewing = !!((aspire || state.new_submission) && preparing && !state.session_id && !state.episode_id);
-    const attention = reviewing ? 'reviewing' : aspire && preparing ? 'initializing' : phase;
+    const taskProgress = !!state.provider?.task_progress;
+    const warmingUp = !taskProgress && live && state.first_call_wander_enabled === true && state.run_metrics?.model_calls === 0;
+    const reviewing = !!((taskProgress || state.new_submission) && preparing && !state.session_id && !state.episode_id);
+    const attention = reviewing ? 'reviewing' : taskProgress && preparing ? 'initializing' : phase;
     const changed = state.new_submission || session !== attentionSession || attention !== attentionPhase;
-    const waiting = queued || preparing && !aspire && !reviewing;
+    const waiting = queued || preparing && !taskProgress && !reviewing;
     $('yourQueue').classList.toggle('yourTurnWaiting', waiting);
     $('liveConversationPanel').classList.toggle('yourTaskReview', reviewing);
     $('position').closest('.queuePlace').hidden = !(waiting || live);
     $('liveViewer').classList.toggle('yourRunLive', live);
-    $('viewerCue').hidden = warmingVision || !(preparing || live || aspire && queued);
-    $('viewerCueTitle').textContent = warmingVision && !queued ? vision.title
-      : reviewing ? 'Reviewing your prompt…'
-      : aspire && queued ? 'Waiting in the robot queue'
-      : aspire && live ? 'Your run is active'
+    $('viewerCue').hidden = !(preparing || live || queued);
+    $('viewerCueTitle').textContent = reviewing ? 'Reviewing your prompt…'
+      : queued ? 'Waiting in the robot queue'
+      : taskProgress && live ? 'Your run is active'
       : preparing ? 'Your run is preparing' : warmingUp ? 'Your robot is warming up' : 'Your run is live';
-    $('viewerCueDetail').textContent = warmingVision
-      ? [vision.timer,queued ? 'The vision worker is waking up while you wait for your turn.'
-        : preparing && state.session_id ? 'The vision worker is waking up while the robot initializes.'
-        : vision.detail].filter(Boolean).join(' · ')
-      : reviewing
+    $('viewerCueDetail').textContent = reviewing
       ? 'Working through your prompt and preparing the next steps.'
-      : aspire && queued ? 'Your prompt is prepared. Waiting for your turn.'
+      : queued ? 'Your prompt is prepared. Waiting for your turn.'
       : preparing
       ? 'The robot is getting ready. You can stop your run here.'
       : warmingUp ? `The arms do a short dance while ${liveModelName} plans the first move. Your task begins after they return.`
       : 'Watch your robot here. The video may follow with a short delay.';
-    $('position').textContent = queued ? (state.queue_position ? `#${state.queue_position}` : 'Joining…') : preparing ? (aspire ? '—' : 'Up next') : live ? 'Your turn' : '—';
+    $('position').textContent = queued ? (state.queue_position ? `#${state.queue_position}` : 'Joining…') : preparing ? (reviewing || taskProgress ? '—' : 'Up next') : live ? 'Your turn' : '—';
     $('queueGuidance').textContent = queued
       ? (state.queue_position === 1 ? "You're next. We'll bring you to the viewer when your run starts." : "You're in the queue. We'll bring you to the viewer when it's your turn.")
-      : warmingVision ? [vision.title,vision.timer].filter(Boolean).join(' · ')
       : reviewing ? 'Reviewing your prompt and preparing the next steps.'
       : preparing ? 'The robot is getting ready for your run.'
       : warmingUp ? `Startup dance — waiting for ${liveModelName}’s first decision.`
-      : live ? (aspire ? 'Your run is active — watch the highlighted viewer.' : 'Your run is live — watch the highlighted viewer.')
+      : live ? (taskProgress ? 'Your run is active — watch the highlighted viewer.' : 'Your run is live — watch the highlighted viewer.')
       : 'Join the queue to reserve your turn.';
     if (changed && (reviewing || live)) {
       const target = $(reviewing ? 'liveConversationPanel' : 'liveViewer');
       // Guide once per transition; polling must never pull someone away from reading.
-      if (aspire || live || !['queued', 'preparing'].includes(attentionPhase)) {
+      if (taskProgress || state.new_submission || live || !['queued', 'preparing'].includes(attentionPhase)) {
         target.focus({preventScroll: true});
         target.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center'});
       }
@@ -1455,7 +1370,6 @@ function createRunLaunchGuard() {
     if (applicationName) return applicationName;
     const provider = $('provider').value;
     if (configuredProviders[provider]) return configuredProviders[provider].label;
-    if(provider === 'aspire') return 'ASPIRE · Codex/Astra';
     if (provider === 'claude' || provider === 'anthropic') {
       const m = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?/.exec($('model').value.trim());
       return m ? m[1][0].toUpperCase() + m[1].slice(1) + ' ' + m[2] + (m[3] ? '.' + m[3] : '') : 'Claude';
@@ -1484,11 +1398,10 @@ function createRunLaunchGuard() {
     if (!live) return;
     // Only use this attempt's recorded configuration, never the next-run picker.
     const own = live.attempt_id && live.attempt_id === state.attempt_id ? state.provider || {} : {};
-    const route = live.launch_route || own.launch_route || {};
     const request = (live.events || []).find(event => event.kind === 'model_request' && (event.request || event.details?.request_display));
     const wire = request?.request || request?.details?.request_display || {};
     const actual = recordedModel(live) || own.model;
-    const requested = live.requested_model || route.requested_model;
+    const requested = live.requested_model;
     const lines = [];
     if (requested) lines.push('Requested: ' + requested);
     if (live.reviewing_prompt) lines.push('Execution: waiting for the runner to accept this request.');
@@ -1496,16 +1409,13 @@ function createRunLaunchGuard() {
       lines.push(actual ? 'Recorded model: ' + modelLabel(actual) + ' · ' + actual
         : live.model_name ? 'Runner-reported model: ' + live.model_name : 'Model: not recorded for this run.');
       const providerNames = {codex:'Codex / ChatGPT subscription',claude:'Claude Code / Claude subscription',openai:'OpenAI API',anthropic:'Anthropic API',groot:'GR00T policy',local_raise_lower:'Built-in arm motion'};
-      if (route.requested_policy && route.actual_policy)
-        lines.push('Route: ' + route.requested_policy + ' → ' + route.actual_policy);
-      else if (own.funding === 'sponsored_claude_subscription')
+      if (own.funding === 'sponsored_claude_subscription')
         lines.push('Runner: Claude Code · BluPe’s Claude subscription');
       else if (own.funding === 'sponsored_codex_subscription')
         lines.push('Runner: Codex · BluPe’s ChatGPT subscription');
       else if (providerNames[own.provider]) lines.push('Runner: ' + providerNames[own.provider]);
       else lines.push('Runner route: not recorded in this public run.');
-      if (route.message) lines.push(route.message);
-      else if ((live.events || []).some(event => event.kind === 'model_request'))
+      if ((live.events || []).some(event => event.kind === 'model_request'))
         lines.push('Execution: model requests and robot feedback are recorded in this conversation.');
       const effort = own.reasoning_effort || wire.reasoning?.effort || wire.reasoning_effort;
       if (effort) lines.push('Thinking effort: ' + effort);
@@ -1525,7 +1435,7 @@ function createRunLaunchGuard() {
     // A run names its own model; with none showing, name the one this runner will use.
     liveModelName = recordedModel(live) ? modelLabel(recordedModel(live)) : live?.model_name || (live ? 'Model not recorded' : selectedModelName());
     const reasoningButton = document.querySelector('[data-conversation-mode="reasoning"]');
-    const label = $('aspireTaskPanel')?.dataset?.enabled === 'true' ? 'Chat' : liveModelName + ' decision notes';
+    const label = liveModelName + ' decision notes';
     if (reasoningButton && reasoningButton.textContent !== label) reasoningButton.textContent = label;
     if ($('liveConversationPanel').dataset.mode !== 'conversation' && $('conversationModeTitle').textContent !== label)
       $('conversationModeTitle').textContent = label;
@@ -1622,14 +1532,12 @@ function createRunLaunchGuard() {
     $('station').title = meaning;
   }
   function renderCurrentConversation(live, state) {
-    live = aspireSharedRun(live);
+    live = sharedTaskRun(live);
     const previous = renderCurrentConversation.lastRun;
     const identity = run => run?.attempt_id || run?.run_id || run?.task;
     if (live && !live.reviewing_prompt && identity(live) === identity(previous) && previous?.display_error)
       live = {...live, display_error:live.display_error || previous.display_error};
     renderCurrentConversation.lastState = state;
-    // Resolve the displayed ASPIRE view before the generic conversation renderer writes shared labels.
-    window.yamAspireLineage?.live(live, state);
     const failure = window.yamTaskFailure?.(live, state);
     if(live && failure) live={...live,error:failure.reason};
     renderCurrentConversation.lastRun = live;
@@ -1643,8 +1551,7 @@ function createRunLaunchGuard() {
       header.textContent = prompt ? ': ' + prompt : '';
       if (header.parentElement) header.parentElement.title = prompt;
     }
-    applyModelName(live || (state.provider?.launch_route ? {
-      model_name:state.provider.launch_route.actual_policy === 'astra' ? 'Astra' : 'ASPIRE · Codex/Astra'} : null));
+    applyModelName(live);
     const result = renderModelRunResult(live);
     text('conversationState',failure ? failure.label+' · '+failure.reason : live?.reviewing_prompt ? 'Reviewing your prompt…' :
       (result?.label || live?.status || 'Waiting for a run').replaceAll('_', ' ') + (live?.error ? ' · ' + live.error : ''));
@@ -1665,8 +1572,7 @@ function createRunLaunchGuard() {
     renderConversation(events, 'liveConversationMessages');
     renderAstraStream(live);
     text('sideRunner',$('currentRunner').textContent);
-    const aspirePrompt = $('aspireTaskPanel')?.dataset?.enabled === 'true' && !$('aspireTaskPanel').hidden;
-    if (!aspirePrompt && $('sidePrompt').textContent !== $('currentPrompt').textContent)
+    if ($('sidePrompt').textContent !== $('currentPrompt').textContent)
       $('sidePrompt').textContent = $('currentPrompt').textContent;
     text('sideConversationState',$('conversationState').textContent);
     renderConversation(events, 'sideConversationMessages');
@@ -1679,16 +1585,9 @@ function createRunLaunchGuard() {
   }
   function renderPublicRunNotice(state, taskFailure = null) {
     const run = state.public_run;
-    const chat = $('aspireTaskPanel');
-    const failureInChat = taskFailure && chat?.dataset.enabled === 'true' && !chat.hidden &&
-      chat.dataset.failureKey === JSON.stringify(taskFailure);
-    const sameAttempt = renderCurrentConversation.lastRun?.attempt_id &&
-      renderCurrentConversation.lastRun.attempt_id === run?.attempt_id;
     const generic = 'The run encountered a model or runner error.';
-    const publicErrorInChat = failureInChat && (run?.error === taskFailure.reason ||
-      (sameAttempt && run?.error === generic));
-    const taskError = failureInChat ? null : taskFailure?.reason;
-    const runError = publicErrorInChat ? null : run?.error;
+    const taskError = taskFailure?.reason;
+    const runError = run?.error;
     const error = state.robot_fault || (taskError === generic ? runError || taskError : taskError || runError);
     const warning = ['preparing', 'running'].includes(run?.status) ? run?.warning : null;
     const notice = error === generic ? 'Run failed without a recorded error detail.' : error || warning;
@@ -1716,15 +1615,9 @@ function createRunLaunchGuard() {
     $('whatsRunning').textContent = state.whats_running?.length
       ? state.whats_running.map(run => `${run.runner_name || 'Anonymous'} · ${run.task || 'Task unavailable'}${run.status === 'preparing' ? ' (preparing)' : ''}`).join('\n')
       : 'No policy is running.';
-    const live = runLaunchGuard.conversation(routedConversationRun(state.public_run,state),state);
-    const route = state.provider?.launch_route || live?.launch_route;
-    const routingActive = ['queued','preparing','running'].includes(state.status) || ['queued','preparing','running'].includes(live?.status);
-    window.yamPolicyRoute?.(routingActive ? route : null);
+    const live = runLaunchGuard.conversation(state.public_run,state);
     syncStopwatch(state.public_run, state.queue_snapshot?.generated_at);
     const taskFailure = renderCurrentConversation(live,state);
-    const chat=$('aspireTaskPanel');
-    const failureInChat=taskFailure && chat?.dataset.enabled === 'true' && !chat.hidden &&
-      chat.dataset.failureKey === JSON.stringify(taskFailure);
     active = ['queued', 'preparing', 'running'].includes(state.status);
     ownRunLive = ['preparing', 'running'].includes(state.status);
     $('status').textContent = state.status.replaceAll('_', ' ');
@@ -1732,7 +1625,7 @@ function createRunLaunchGuard() {
     if (contactRequested || (!contactDismissed && state.error?.startsWith('Operator request failed:'))) operatorContact();
     else if (contactDismissed && state.error?.startsWith('Operator request failed:')) { /* Keep dismissed contact information closed. */ }
     else if (state.error || state.execution_blocked_reason)
-      message(failureInChat && state.error === taskFailure.reason ? '' : state.error || state.execution_blocked_reason, true);
+      message(state.error || state.execution_blocked_reason, true);
     else if (state.feedback_warning) message(state.feedback_warning);
     else if ($('message').textContent.startsWith('Motion paused while refreshing robot status:')) message('Robot status confirmed. Continuing the run.');
     else if (['groot','molmoact2','dreamzero'].includes(state.provider?.provider) && state.provider.warmup === 'warming') message((state.session_id ? 'In the robot queue · warming ' : 'Preparing before the robot queue · warming ') + (configuredProviders[state.provider.provider]?.label || state.provider.model || 'GR00T') + ' GPU…' + (state.session_id ? '' : ' The run timer has not started.'));
@@ -1797,7 +1690,6 @@ function createRunLaunchGuard() {
         item.setAttribute('aria-pressed', String(item === button));
       });
       renderConversation(sideConversationEvents, 'sideConversationMessages');
-      window.yamAspireLineage?.refresh();
       document.dispatchEvent(new CustomEvent('yam:conversation-mode', {detail:{mode, source:button}}));
     });
   });
@@ -2555,7 +2447,6 @@ function createRunLaunchGuard() {
       $('shareConversation').disabled = !conversationSharingAllowed;
       $('useApiDepth').dataset.available = session.local_runner && session.api_depth?.available ? 'true' : '';
       $('useApiDepth').checked = session.api_depth?.enabled === true;
-      aspireRunAvailable = aspireConfiguredRun(session);
       $('apiDepthSettings').hidden = !$('useApiDepth').dataset.available;
       window.yamModelPicker?.reset();
       configureLocalRunDialog(!!session.local_runner);
@@ -2591,10 +2482,8 @@ function createRunLaunchGuard() {
         $('openCodexInstructions').hidden = true;
         $('runAstra').hidden = !session.codex;
         $('runClaude').hidden = !session.claude;
-        if(aspireRunAvailable) $('provider').prepend(Object.assign(document.createElement('option'), {value:'aspire',textContent:'ASPIRE · Codex/Astra'}));
-        $('provider').value = aspireRunAvailable && (!session.default_provider || session.default_provider === 'codex')
-          ? 'aspire' : session.default_provider || (session.codex ? 'codex' : 'claude');
-        $('runnerName').value ||= aspireRunAvailable ? 'Aspire Code integration Map' : 'Local runner';
+        $('provider').value = session.default_provider || (session.codex ? 'codex' : 'claude');
+        $('runnerName').value ||= 'Local runner';
         document.title = 'BluPe · Local runner';
         providerChanged();
       }
@@ -2770,10 +2659,6 @@ function createRunLaunchGuard() {
     .observe(footer, {attributes:true, attributeFilter:['class']});
 })();
 
-/* ASPIRE LOCAL SNAPSHOT START */
-window.yamAspireLineageSnapshot = null;
-/* ASPIRE LOCAL SNAPSHOT END */
-
 // Display archived four-view recordings in the same camera hierarchy as live.
 window.yamRecordingView = function(video, roles, layout) {
   // New exports already contain the observer-first composition. Only old 2×2
@@ -2889,7 +2774,6 @@ function bindQuickTaskDraft(prompt, quick) {
   for (const child of [...$('runSettings').children]) {
     if (!child.matches('summary, #runnerIdentity, label[for="email"], #email, #emailHelp, .runVideoEmailSetting, #setupRunActions, #chatgptSignInDialog')) options.append(child);
   }
-  if ($('aspireSetupGuidance')) options.append($('aspireSetupGuidance'));
   provider.hidden = true;
   document.querySelector('label[for="provider"]').hidden = true;
   $('localRunTitle').textContent = 'Run';
@@ -2921,7 +2805,7 @@ function bindQuickTaskDraft(prompt, quick) {
     if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
-      aspire:'gpt-6-astra',hosted_aspire:'gpt-6-astra',astra:'astra-default',groot:'groot-reviewed-step10000'};
+      astra:'astra-default',groot:'groot-reviewed-step10000'};
     if (!option || !defaults[option.value]) return null;
     const id = selectedId || (option.value === provider.value && $('model').value.trim()
       ? $('model').value.trim() : option.dataset.model || defaults[option.value]);
@@ -2930,7 +2814,6 @@ function bindQuickTaskDraft(prompt, quick) {
     let label = astra ? 'Astra ' + astra[1] : claude
       ? claude[1][0].toUpperCase() + claude[1].slice(1) + ' ' + claude[2] + (claude[3] ? '.' + claude[3] : '') : id;
     if (['codex','claude'].includes(option.value)) label += ' · subscription';
-    if (['aspire','hosted_aspire'].includes(option.value)) label = 'ASPIRE · ' + label;
     return {id,label};
   }
   function updateComposer() {
@@ -3152,42 +3035,6 @@ function bindQuickTaskDraft(prompt, quick) {
   updateComposer(); sizePrompt(); fitCameras();
 })();
 
-// Keep routing feedback visible alongside the actual provider's normal notes.
-window.yamPolicyRoute = function(route) {
-  const box = document.getElementById('policyRouteNotice');if(!box) return;
-  const message = route?.message || '';
-  const development = route?.development_url === 'https://github.com/andlyu/blupe-remote-yam' ? route.development_url : '';
-  const key = JSON.stringify([message,development]);
-  if(window.yamPolicyRoute.lastBox === box && window.yamPolicyRoute.lastKey === key) return;
-  window.yamPolicyRoute.lastBox=box;window.yamPolicyRoute.lastKey=key;
-  box.hidden = !message;box.replaceChildren();
-  if(!route?.message) return;
-  box.append(document.createTextNode(route.message));
-  if(route.development_url === 'https://github.com/andlyu/blupe-remote-yam') {
-    const link=document.createElement('a');link.href=route.development_url;
-    link.target='_blank';link.rel='noopener';link.textContent=' Open repository';box.append(link);
-  }
-};
-
-function routedConversationRun(run,state) {
-  const route=state?.provider?.launch_route;
-  if(!route || !['queued','preparing','running'].includes(state.status)) return run;
-  return {...(run?.attempt_id === state.attempt_id ? run : {}),
-    task:route.prompt,runner_name:state.runner_name,status:state.status,attempt_id:state.attempt_id,
-    model_name:route.actual_policy === 'astra' ? 'Astra' : state.provider.display_name || 'ASPIRE · Codex/Astra',
-    events:state.interactions?.events || [],launch_route:route};
-}
-
-function aspireConfiguredRun(session) {
-  // Only the configured ASPIRE station publishes this segmentation metadata.
-  return !!(session?.local_runner && session.codex && session.api_depth?.available && session.segmentation?.backend);
-}
-
-function aspireLineageGroups(trace = {}) {
-  const used = trace.used || [], created = (trace.new_skills || []).filter(item => item.creation === 'recorded_code');
-  return {used, retrievedOnly: (trace.retrieved || []).filter(item => !used.some(use => use.id === item.id && use.version === item.version)),
-    created, newTitle: 'New skills added', pending: created.length === 0, unknown: trace.usage_recorded !== true};
-}
 function publicModelRun(run) {
   if(!run || !Array.isArray(run.events)) return run;
   const prefix='PUBLIC_MODEL_EVENT_V1\n';
@@ -3205,10 +3052,10 @@ function publicModelRun(run) {
     } catch(_) {return [];}
   })};
 }
-function aspireSharedRun(run) {
+function sharedTaskRun(run) {
   run=publicModelRun(run);
   if(!run || run.task_progress || !Array.isArray(run.events)) return run;
-  const prefix='ASPIRE_TASK_PROGRESS_V1\n';
+  const prefix='PUBLIC_TASK_PROGRESS_V1\n';
   let progress=null;
   const events=run.events.filter(event => {
     // Only a publisher's tool-role message can carry native status. A model
@@ -3231,142 +3078,10 @@ function aspireSharedRun(run) {
   });
   return progress ? {...run,task_progress:progress,events} : run;
 }
-function aspireSam3Progress(run, now = Date.now()) {
-  if(!['queued','preparing','running'].includes(run?.status)) return null;
-  const vision = run.task_progress?.vision;
-  if(vision?.model !== 'facebook/sam3' || !['starting','ready','failed'].includes(vision.state)) return null;
-  const end = vision.state === 'starting' ? now/1000 : vision.state === 'ready' ? vision.ready_at : vision.ended_at;
-  const elapsed = Number.isFinite(vision.started_at) && Number.isFinite(end)
-    ? Math.max(0,Math.floor(end-vision.started_at)) : null;
-  if(vision.state === 'starting') return {state:'starting',title:'Starting SAM 3 vision',
-    timer:elapsed === null ? '' : `${elapsed}s elapsed`,
-    detail:'The vision worker is waking up. Task motion waits for vision and the complete plan.'};
-  if(vision.state === 'ready') return {state:'ready',title:'SAM 3 vision ready',
-    timer:elapsed === null ? '' : `Startup took ${elapsed}s`,detail:'Vision startup is complete.'};
-  return {state:'failed',title:'SAM 3 vision unavailable',
-    timer:elapsed === null ? '' : `Stopped after ${elapsed}s`,
-    detail:'The vision worker reported an error. See the task error for details.'};
-}
-function aspireStageProgress(run) {
-  const stage=run?.task_progress?.stage;
-  if(!stage || (!['queued','preparing','running'].includes(run.status) && !stage.active)) return null;
-  const elapsed=Number.isFinite(stage.elapsed_s) ? Math.floor(stage.elapsed_s) : 0;
-  return {title:stage.title,timer:`${elapsed}s in this stage`,
-    detail:stage.detail+(stage.last_failure ? ' Latest candidate rejection: '+stage.last_failure : '')};
-}
-function aspireAttemptUpdates(attempts = []) {
-  return attempts.map(attempt => ({happened:(attempt.mode === 'offline_rerun_diagnosis' ? 'Justified unchanged-code rerun' : attempt.mode === 'offline_code_repair' ? 'Astra repair' : attempt.policy === 'astra' ? 'Astra recovery' : attempt.policy === 'codex_local' ? 'Local Codex repair' : 'Saved program')+
-      ' · '+attempt.id+' · '+attempt.status,
-    changed:attempt.parent_attempt_id ? 'Follows '+attempt.parent_attempt_id+'. '+
-      ((attempt.reason || attempt.result?.reason) ?
-        (attempt.reason || attempt.result.reason)+(attempt.diagnosis && attempt.diagnosis !== (attempt.reason || attempt.result.reason) ? ' Astra diagnosis: '+attempt.diagnosis : '') :
-        attempt.diagnosis || attempt.outcome?.summary || attempt.outcome?.reason ||
-        (attempt.mode === 'offline_rerun_diagnosis' ? 'The unchanged effective program is a justified retry, not a new code fix.' : attempt.mode === 'offline_code_repair' ? 'Revised code is retained separately from the original outcome.' : 'Fresh observations; saved source is unchanged.')) :
-      (attempt.result?.reason || 'Source SHA256 '+(attempt.source_sha256 || 'unrecorded')),
-    next_action:attempt.policy === 'astra' ? 'Astra outcome is separate; physical success requires observed verification.' :
-      'This attempt and its exact source remain in history, including any later recovery.'}));
-}
-function aspireModelUpdates(events = []) {
-  return events.filter(event => event.kind === 'model_progress' &&
-    ['summary','status'].includes(event.progress_type || event.details?.progress_type) ||
-    event.kind === 'model_response' && typeof (event.details?.summary || event.message) === 'string' &&
-      !/^\w+:\s*\{/.test(event.details?.summary || event.message))
-    .map(event => ({timestamp:event.timestamp,
-      happened:event.kind === 'model_response' ? 'Model response summary.' :
-        (event.progress_type || event.details?.progress_type) === 'summary' ? 'Public model summary.' : 'Model status.',
-      changed:String(event.details?.summary || event.message || '').slice(0,4000),
-      next_action:'Native planning, execution and observed outcomes are recorded separately.'}));
-}
-function aspireAttemptTrace(attempt,events = []) {
-  if(Array.isArray(attempt.trace)) return attempt.trace.filter(e=>e.attempt_id === attempt.id);
-  if(!Number.isFinite(attempt.started_at)) return [];
-  // Compatibility with an already-running backend: only the existing public
-  // summary projection, bounded to this repair's own request window.
-  const rows=events.filter(e=>e.timestamp>=attempt.started_at && e.timestamp<=(attempt.ended_at || Infinity));
-  const requests=rows.filter(e=>e.kind === 'model_request');
-  if(!requests.length || requests.some(e=>e.message !== 'Generate/revise an ASPIRE program')) return [];
-  return rows.filter(e=>e.kind === 'model_progress' &&
-    ['summary','status'].includes(e.progress_type || e.details?.progress_type) &&
-    (!e.details?.attempt_id || e.details.attempt_id === attempt.id))
-    .map(e=>({id:e.id,timestamp:e.timestamp,kind:e.kind,message:String(e.message || '').slice(0,4000),
-      progress_type:e.progress_type || e.details.progress_type,attempt_id:attempt.id}));
-}
-function aspireTaskAnswer(run = {},item = {}) {
-  const progress=run.task_progress || {};
-  if(progress.resolution || item.resolution) return progress.resolution || item.resolution;
-  if(progress.outcome?.success === true || item.after_parking_success === true)
-    return {state:'verified',title:'Task success verified',detail:'Fresh after-parking checks confirmed the task.',next_action:'No action needed.'};
-  if(['preparing','queued','running'].includes(run.status) || progress.stage?.active)
-    return {state:'recovering',title:progress.stage?.stage === 'offline_repair' ? 'Diagnosing and repairing the task' : 'Task in progress',
-      detail:'Physical task success has not been verified.',next_action:'Current work and elapsed time appear below.'};
-  if(progress.outcome || item.review_status || item.native_status)
-    return {state:'unresolved',title:'Task remains unverified',detail:progress.outcome?.reason || 'Planning and repair status do not confirm physical success.',
-      next_action:'Review the failed or unknown checks. A scene reset requirement has not been established.'};
-  return null;
-}
-function aspireRetryLimit(value) {
-  if(!/^[0-3]$/.test(String(value))) throw new RangeError('Automatic retry limit must be a whole number from 0 to 3.');
-  return Number(value);
-}
-function aspirePromptRoute(prompt, catalog) {
-  const color = '(?:red|green|blue|black|white|yellow|orange|purple)';
-  const match = String(prompt).trim().toLowerCase().match(new RegExp('^(?:pick\\s+up|pick|move|place|put)\\s+(?:the\\s+|a\\s+)?('+color+')\\s+(?:(?:rectangular|cuboid)\\s+)?block\\s+(?:(?:and\\s+)?(?:place|put|move)\\s+it\\s+)?(?:onto|on|to)\\s+(?:a\\s+clear\\s+patch\\s+of\\s+)?(?:the\\s+|a\\s+)?('+color+')?\\s*((?:round\\s+)?(?:poker\\s+)?chip|towel)\\s*\\.?$'));
-  const exact=(catalog?.saved_program_tasks || []).find(p=>p.task.trim().toLowerCase() === String(prompt).trim().toLowerCase());
-  const compatible = !!exact || !!(match && catalog?.executable?.source_integrity &&
-    (match[3].includes('chip') ? match[2] : !match[2] || match[2] === 'green'));
-  const generate=catalog?.execution_environment === 'local' && !compatible;
-  return {compatible,generate,exact,title: compatible ? 'Saved program candidate' : generate ? 'Generate an ASPIRE program' : 'Run with Astra instead',
-    reason: exact ? 'An exact-task saved program matches the complete request. Fresh live capture and full planning follow Home.' : compatible ? 'The supported block-placement request can bind fresh source and destination inputs to '+catalog.executable.skill+'. The full live plan still checks scene compatibility.' : generate ?
-      'No usable saved program is identified. ASPIRE will generate Python and validate a complete native plan after Run, before joining the queue.' :
-      'No saved ASPIRE program is identified by this preview. The full prompt will run through normal Astra. Reusable ASPIRE code can be developed locally using your own Astra subscription.'};
-}
-function aspireProgramAttribution(trace = {}) {
-  const author = trace.authorship || {};
-  if (author.generated_by_codex === true) return author.mode === 'reuse' ? 'Reusing code generated by Codex' : 'Generated by Codex';
-  return 'Program authorship not recorded';
-}
-function aspireRecordedUpdates(item) {
-  if (item.task_updates?.length) {
-    if(item.verification_error && !item.task_updates.some(update => update.changed?.includes(item.verification_error)))
-      return [...item.task_updates,{happened:'Post-parking verification failed.',changed:item.verification_error,
-        next_action:'Review the recorded detection failure; it does not establish that placement failed or a reset is needed.'}];
-    return item.task_updates;
-  }
-  const updates = [];
-  for (const attempt of item.attempts || []) {
-    const trace = attempt.lineage || {}, used = trace.used || [];
-    const revision = used.find(skill => skill.core_revision)?.core_revision;
-    if(revision) updates.push({happened:'Saved executable repaired before this reuse.',
-      changed:(revision.reason || 'Reason unrecorded')+' Core '+revision.old_core_sha256?.slice(0,12)+' → '+revision.new_core_sha256?.slice(0,12)+'.',
-      next_action:'This run reused the repaired body; inspect the recorded repair for its planning evidence.'});
-    if (used.some(skill => skill.verification === 'exact_source_match')) updates.push({
-      happened:'Saved code reused for this task.', changed:used.map(skill => skill.changed).filter(Boolean).join(' ') || 'Exact saved source matched.',
-      next_action:'Recorded program SHA256 '+(attempt.source_sha256?.slice(0,12) || 'unknown')+'; exact code is available below.'});
-    else updates.push({happened:'Program '+attempt.attempt+' is recorded.',
-      changed:attempt.code_revision_reason?.reason || 'Earlier use and code changes were not explicitly recorded.',
-      next_action:'Inspect this attempt’s saved code and scoped evidence.'});
-    if (attempt.plan?.status || attempt.plan?.planning_success != null) updates.push({
-      happened:attempt.plan.planning_success === true ? 'Complete native plan passed.' : 'Native planning result: '+(attempt.plan.status || 'failed')+'.',
-      changed:attempt.plan.reason || 'No further explanation recorded in this result.',
-      next_action:attempt.plan.planning_success === true ? 'Planning establishes a plan; physical outcome is a separate record.' : 'Any later revision is shown in the next recorded attempt.'});
-    if (attempt.execution?.status) updates.push({happened:'Live harness: '+attempt.execution.status+'.',
-      changed:attempt.execution.reason || 'Recorded task-motion calls: '+(attempt.execution.physical_motion_calls ?? 'unknown')+'.',
-      next_action:'Inspect the after-parking evidence separately.'});
-  }
-  if (item.review_status) updates.push({happened:item.visual_review_success === true ? 'Visual placement retained after parking.' : 'After-parking review: '+item.review_status.replaceAll('_',' ')+'.',
-    changed:item.after_parking_success === true ? 'Automated after-parking checks passed for this episode.' : item.verification_error || 'Automated after-parking outcome remains unverified. The review and images are available below.',
-    next_action:item.postpark_checks && Object.values(item.postpark_checks).some(value => value === false) ?
-      'Failed automated checks remain unresolved: '+Object.entries(item.postpark_checks).filter(([,v]) => v === false).map(([k]) => k).join(', ')+'.' :
-      'This evidence applies to the recorded episode; future tasks need fresh measurements.'});
-  return updates;
-}
-function aspireLiveTask(run,state) {
-  run=aspireSharedRun(run);
-  const route = state?.provider?.launch_route;
+function currentTaskRun(run,state) {
+  run=sharedTaskRun(run);
   const publicError = run?.attempt_id && run.attempt_id === state?.attempt_id &&
     run.error !== 'The run encountered a model or runner error.' ? run.error : null;
-  if(route?.actual_policy === 'astra') return {...run,task:route.prompt,status:state.status,
-    attempt_id:state.attempt_id,error:publicError || (state.error ?? run?.error),launch_route:route,task_progress:null};
   const own = state?.provider?.task_progress;
   if(own) return {
     task:own.task || run?.task,status:state.status,task_progress:own,error:publicError || state.error,display_error:run?.display_error,
@@ -3409,771 +3124,25 @@ function taskRunFailure(run) {
 }
 
 
-function aspireElapsed(seconds) {
-  const value=Math.max(0,Math.floor(seconds));
-  return value < 60 ? value+'s' : Math.floor(value/60)+'m '+value%60+'s';
-}
-function aspireLocalSetupUrl(run = {}) {
-  const route = run.launch_route || {};
-  const aspire = ['aspire', 'hosted_aspire'].includes(run.provider) || /^ASPIRE\b/i.test(run.model_name || '') ||
-    route.requested_policy === 'aspire' || route.actual_policy === 'aspire' || !!run.task_progress?.lineage;
-  return aspire ? 'https://github.com/andlyu/blupe-remote-yam/blob/main/codex-runner/docs/aspire/README.md' : '';
-}
-function aspireActivityEntries(run = {}) {
-  const progress=run.task_progress || {},messages=[];
-  const attempts=progress.attempts || [];
-  const traces=new Map(attempts.map(attempt=>[attempt,aspireAttemptTrace(attempt,run.events)]));
-  const progressType=event=>event.progress_type || event.details?.progress_type;
-  const publicMessage=event=>String(event.details?.summary || event.message || '').slice(0,4000);
-  const add=(id,role,title,message,extra={})=>messages.push({id,role,title,message:message || '',...extra});
-  add('prompt','You','Task',progress.task || run.task || 'Preparing your task.');
-  for(const [index,update] of (progress.updates || []).entries())
-    add('update-'+index,'Runner',update.happened,update.changed,{timestamp:update.timestamp,next:update.next_action});
-  // Public summaries arrive before planning and during hosted worker execution.
-  const coding=run.launch_route?.code_generation_requested === true ||
-    (progress.updates || []).some(u=>/generating task code|writing.*code/i.test(u.happened || ''));
-  for(const [index,event] of (run.events || []).entries()) {
-    if(coding && event.kind !== 'model_progress') continue;
-    const update=aspireModelUpdates([event])[0];if(!update) continue;
-    // Hosted snapshots omit attempt traces. Keep their separately published
-    // public summaries even when they fall inside a recovery's time window.
-    // Local traces already include these messages, so suppress only an actual
-    // matching public row rather than every event during the attempt.
-    if(attempts.some(attempt=>traces.get(attempt).some(row=>row.kind === event.kind &&
-        progressType(row) === progressType(event) && publicMessage(row) === update.changed &&
-        Number.isFinite(row.timestamp) && Number.isFinite(event.timestamp) &&
-        Math.abs(row.timestamp-event.timestamp)<1))) continue;
-    const recovering=attempts.some(attempt=>attempt.parent_attempt_id &&
-      Number.isFinite(attempt.started_at) && event.timestamp>=attempt.started_at && event.timestamp<=(attempt.ended_at || Infinity));
-    add('model-'+(event.id ?? index),'Astra',recovering ? 'Recovery update' : coding ? 'Code-writing update' : update.happened,
-      update.changed.replace(/\*\*([^*]+)\*\*/g,'$1'),{timestamp:update.timestamp});
-  }
-  for(const attempt of attempts) {
-    const repair=attempt.mode === 'offline_code_repair' || attempt.policy === 'codex_local';
-    const rerun=attempt.mode === 'offline_rerun_diagnosis';
-    const actor=attempt.policy === 'codex_local' ? 'Codex' : attempt.policy === 'astra' ? 'Astra' : 'Runner';
-    const trace=traces.get(attempt);
-    if(attempt.parent_attempt_id) add(attempt.id+'-start',actor,rerun ? 'Checking whether to rerun' : repair ? 'Repair started' : 'Recovery started',
-      'Follows '+attempt.parent_attempt_id+'. '+(attempt.previous_result?.reason || attempt.code_revision_reason?.reason || ''),
-      {timestamp:attempt.started_at || trace[0]?.timestamp,attempt:attempt.id});
-    for(const event of trace) {
-      const category=progressType(event);
-      if(event.kind === 'model_progress' && !['summary','status'].includes(category)) continue;
-      if(!['activity','model_progress','model_request','model_response','model_error','tool_request','tool_result','tool_error'].includes(event.kind)) continue;
-      const model=event.kind.startsWith('model_'),error=['model_error','tool_error'].includes(event.kind);
-      const title=event.kind === 'model_progress' ? category === 'summary' ? 'Recovery update' : 'Model status' :
-        event.kind === 'model_response' ? 'Diagnosis and code response' : event.kind === 'model_request' ? 'Writing task code' :
-        error ? 'Reported failure' : 'Activity';
-      add(attempt.id+'-trace-'+event.id,model ? actor : 'Runner',title,
-        publicMessage(event).replace(/\*\*([^*]+)\*\*/g,'$1'),
-        {timestamp:event.timestamp,attempt:attempt.id,revision:event.revision,detail:event.changed,
-          lesson:event.lesson,next:event.next_action,tone:error ? 'error' : ''});
-    }
-    const result=attempt.result || attempt.execution || attempt.plan || {};
-    const status=attempt.status || result.status;
-    if(status && !['running','starting','preparing','queued'].includes(status)) {
-      const validated=['PLAN_VALIDATED','RERUN_VALIDATED'].includes(status),hash=attempt.source_sha256;
-      const title=status === 'RERUN_VALIDATED' ? 'Unchanged-code rerun validated' : status === 'PLAN_VALIDATED' ?
-        hash ? 'Revised code saved · plan passed' : 'Repair plan passed' : status === 'UNVERIFIED' ?
-        'Execution finished · placement unverified' : status.replaceAll('_',' ');
-      add(attempt.id+'-result',actor,title,attempt.reason || result.reason || attempt.diagnosis ||
-        (validated ? 'Planning passed. Physical success still needs observed verification.' : 'This outcome remains in the task history.'),
-        {timestamp:attempt.ended_at || trace.at(-1)?.timestamp,attempt:attempt.id,hash,
-          detail:attempt.diagnosis && attempt.diagnosis !== (attempt.reason || result.reason) ? attempt.diagnosis : '',
-          next:validated ? 'A fresh run and after-parking checks are still required.' : '',
-          tone:status === 'FAILED' || status === 'PROGRAM_ERROR' || status === 'PLAN_FAILED' ? 'error' : ''});
+// End of shared task helpers.
+window.yamTaskFailure = (run, state = {}) => {
+  const failure = taskRunFailure(currentTaskRun(run, state));
+  const box = document.getElementById('taskRunFailure');
+  if (!box) return failure;
+  box.hidden = !failure;
+  const key = JSON.stringify(failure);
+  if (box.dataset.failureKey === key) return failure;
+  box.dataset.failureKey = key;
+  box.replaceChildren();
+  if (failure) {
+    box.dataset.tone = failure.tone;
+    for (const [tag, text] of [['strong', failure.label], ['p', failure.task], ['p', failure.reason]]) {
+      if (!text) continue;
+      const node = document.createElement(tag); node.textContent = text; box.append(node);
     }
   }
-  const outcome=progress.outcome,failure=taskRunFailure(run);
-  if(outcome) add('parked-outcome','Runner',outcome.success === true ? 'Placement verified after parking' : 'After-parking result · '+outcome.status,
-    outcome.reason,{timestamp:outcome.checked_at,tone:outcome.success === true ? 'success' : 'warning',
-      localSetup:!failure && outcome.success !== true && !['queued','preparing','running'].includes(run.status) ? aspireLocalSetupUrl(run) : ''});
-  if(failure) add('task-failure','Runner',failure.label,failure.task || 'Submitted task',
-    {detail:failure.reason,next:failure.tone === 'neutral' ? '' : 'Review the error before starting another attempt.',
-      tone:failure.tone,timestamp:run.ended_at,localSetup:failure.tone === 'neutral' ? '' : aspireLocalSetupUrl(run)});
-  // Unknown timestamps retain source order; never invent a recorded time.
-  const prompt=messages.shift();
-  const sorted=messages.map((message,index)=>({...message,order:index}));
-  let previous=0;
-  for(const message of sorted) {if(Number.isFinite(message.timestamp)) previous=message.timestamp;message.sortAt=previous;}
-  sorted.sort((a,b)=>a.sortAt-b.sortAt || a.order-b.order);
-  return [prompt,...sorted];
-}
-function aspireRecordedActivity(item) {
-  return {task:item.task,status:'stopped',task_progress:{resolution:item.resolution,updates:aspireRecordedUpdates(item),
-    attempts:(item.attempts || []).map(attempt=>({...attempt,
-      status:attempt.status || attempt.execution?.status || attempt.plan?.status,
-      result:attempt.execution?.status ? attempt.execution : attempt.plan})),
-    outcome:item.after_parking_success == null ? null : {success:item.after_parking_success,
-      status:item.after_parking_success ? 'SUCCESS' : 'UNVERIFIED',reason:item.verification_error ||
-        (item.after_parking_success ? 'Recorded after-parking checks passed.' : 'Recorded after-parking checks did not confirm placement.')}}};
-}
-
-function aspireCurrentSource(run = {}) {
-  const progress=run.task_progress || {};
-  const source=[...(progress.attempts || [])].reverse().find(attempt=>attempt.source_sha256 || attempt.previous_source_sha256);
-  return source?.source_sha256 || source?.previous_source_sha256 || progress.lineage?.program?.source_sha256 || '';
-}
-function aspirePhasePath(run = {},active = false) {
-  const progress=run.task_progress || {},stage=progress.stage?.stage || '',attempts=progress.attempts || [];
-  const repair=attempts.some(a=>['offline_code_repair','offline_rerun_diagnosis'].includes(a.mode) || a.policy === 'codex_local') || stage === 'offline_repair';
-  const labels=repair ? ['Run','Verify','Repair','Plan','Next'] : ['Prepare','Plan','Run','Verify','Next'];
-  const trace=aspireAttemptTrace(attempts.at(-1) || {},run.events);
-  const planning=stage === 'native_planning' || stage === 'offline_repair' && trace.at(-1)?.kind === 'tool_request' && /plan/i.test(trace.at(-1).message || '');
-  let current=stage === 'execution' ? labels.indexOf('Run') : planning ? labels.indexOf('Plan') :
-    stage === 'offline_repair' ? labels.indexOf('Repair') : /review|verif|parking/.test(stage) ? labels.indexOf('Verify') :
-    run.status === 'running' ? labels.indexOf('Run') : repair ? labels.indexOf('Repair') : 0;
-  if(!active) current=progress.resolution?.state === 'action_needed' || progress.outcome?.success === true ? 4 :
-    ['PLAN_VALIDATED','RERUN_VALIDATED'].includes(attempts.at(-1)?.status) ? labels.indexOf('Plan') :
-    progress.outcome ? labels.indexOf('Verify') : current;
-  return labels.map((label,index)=>({label,state:index === current ? progress.resolution?.state === 'action_needed' ? 'hold' : active ? 'current' : 'stopped' : ''}));
-}
-
-function aspireWorkStatus(run = {},now = Date.now()/1000,lastPollAt = now) {
-  const progress=run.task_progress || {},stage=progress.stage,attempts=progress.attempts || [];
-  const current=attempts.at(-1),trace=current ? aspireAttemptTrace(current,run.events) : [];
-  const active=progress.resolution?.state !== 'cancelled' &&
-    (stage?.active === true || ['queued','preparing','running'].includes(run.status));
-  const stamps=[stage?.event_at,stage?.started_at,...aspireActivityEntries(run).map(message=>message.timestamp),
-    ...trace.map(e=>e.timestamp)].filter(Number.isFinite);
-  const age=stamps.length ? Math.max(0,now-Math.max(...stamps)) : null;
-  const disconnected=active && now-lastPollAt > 15;
-  const waiting=age === null || age > 45;
-  const verified=progress.outcome?.success === true || progress.resolution?.state === 'verified';
-  const needsInput=!active && progress.resolution?.state === 'action_needed';
-  const state=needsInput ? 'action' : disconnected ? 'connection' : active ? waiting ? 'waiting' : 'active' : verified ? 'verified' : 'stopped';
-  const status=needsInput ? 'Needs your input' : disconnected ? 'Connection delayed' : active ? waiting ? 'Waiting for update' : 'Working' :
-    verified ? 'Complete · verified' : 'Not working';
-  const writing=stage?.stage === 'offline_repair' && ['model_request','model_progress'].includes(trace.at(-1)?.kind);
-  const title=needsInput ? progress.resolution.title : active ? (writing ? 'Writing repair code' : stage?.title) || ({queued:'Waiting for the robot',preparing:'Preparing the task',running:'Running the task'}[run.status]) || 'Repairing the task' :
-    verified ? 'Task complete' : progress.outcome ? 'Placement remains unverified' : taskRunFailure(run)?.label || 'Task stopped';
-  const revision=[...trace].reverse().find(e=>e.revision)?.revision;
-  const timer=active && stage ? `${Math.floor((stage.elapsed_s || 0)+Math.max(0,now-lastPollAt))}s in this stage` : '';
-  const freshness=age === null ? 'No update time recorded' : 'Last update '+aspireElapsed(age)+' ago';
-  return {state,status,title,timer,path:aspirePhasePath(run,active),source:aspireCurrentSource(run),meta:[current?.id,revision ? 'revision '+revision : '',freshness].filter(Boolean).join(' · '),
-    detail:needsInput ? progress.resolution.detail : disconnected ? 'Live status has not refreshed for '+aspireElapsed(now-lastPollAt)+'. Current activity is unknown.' :
-      active && waiting ? 'The runner reports this phase is active; no new progress is confirmed. '+(stage?.detail || '') :
-      (stage?.detail || (verified ? 'Fresh after-parking checks passed.' : active ? 'No task work is currently reported.' : 'Physical success has not been verified.'))+
-        (stage?.last_failure ? ' Latest candidate rejection: '+stage.last_failure : '')};
-}
-
-function aspireTaskWorking(run) {
-  return ['queued','preparing','running'].includes(run?.status) || run?.task_progress?.stage?.active === true;
-}
-
-// ASPIRE task progress is shared; station library and recovery stay local.
-(() => {
-  const localAspire = ['127.0.0.1', 'localhost'].includes(location.hostname);
-  const $ = id => document.getElementById(id);
-  let lastPollAt=Date.now()/1000;
-  let catalog, robot, liveRun, liveState, pendingAttempt, signature = '', selected = 'preview', fetchGeneration = 0, draftPreview = false;
-  const node = (tag, text, className) => Object.assign(document.createElement(tag), {textContent:text || '', className:className || ''});
-  const details = title => {const box = node('details', '', 'aspireDisclosure');box.append(node('summary',title));return box;};
-  const setHidden = (element,value) => {if(element && element.hidden !== value) element.hidden=value;};
-  const builtFromState = new Map();
-  function builtFrom(key) {
-    const box = details('Built from');box.dataset.aspireBuiltFrom = JSON.stringify([robot,key]);
-    box.open = builtFromState.get(box.dataset.aspireBuiltFrom) === true;
-    box.addEventListener('toggle',() => {if(box.isConnected) builtFromState.set(box.dataset.aspireBuiltFrom,box.open);});
-    return box;
-  }
-  function rememberBuiltFrom(box) {
-    // Read native state before replacement, even if its toggle event is still queued.
-    for(const disclosure of box.querySelectorAll('details[data-aspire-built-from]'))
-      builtFromState.set(disclosure.dataset.aspireBuiltFrom,disclosure.open);
-  }
-  const paragraph = (box,text,cls='') => box.append(node('p',text,cls));
-  const code = (box,title,value) => {const d = details(title);d.append(node('pre',typeof value === 'string' ? value : JSON.stringify(value,null,2)));box.append(d);};
-  const visionViews = new WeakMap();
-  function renderVision(box,progress) {
-    setHidden(box,!progress);
-    const key=JSON.stringify(progress);
-    if(box.dataset.visionKey === key) return;
-    box.dataset.visionKey=key;
-    if(!progress) return;
-    let view=visionViews.get(box);
-    if(!view) {
-      const title=node('strong'),timer=node('p'),detail=node('p');
-      title.setAttribute('role','status');title.setAttribute('aria-live','polite');
-      timer.setAttribute('role','timer');timer.setAttribute('aria-live','off');
-      box.append(title,timer,detail);view={title,timer,detail};visionViews.set(box,view);
-    }
-    for(const field of ['title','timer','detail'])
-      if(view[field].textContent !== progress[field]) view[field].textContent=progress[field];
-  }
-  function renderFailure(box,failure,includeTask=false) {
-    if(!box) return;
-    setHidden(box,!failure);
-    const key=JSON.stringify(failure);
-    if(box.dataset.failureKey === key) return;
-    box.dataset.failureKey=key;box.replaceChildren();
-    if(!failure) return;
-    box.dataset.tone=failure.tone;
-    box.append(node('strong',failure.label));
-    if(includeTask && failure.task) paragraph(box,failure.task,'taskFailurePrompt');
-    paragraph(box,failure.reason.length > 300 ? failure.reason.slice(0,297)+'…' : failure.reason);
-    if(failure.reason.length > 300) code(box,'Exact error details',failure.reason);
-    if(failure.tone !== 'neutral') paragraph(box,'Review the error before starting another attempt.','help');
-  }
-  window.yamTaskFailure = (run,state={}) => {
-    const task=aspireLiveTask(run,state),failure=taskRunFailure(task);
-    const chat=$('aspireTaskPanel');
-    const failureInChat=chat?.dataset.enabled === 'true' && !chat.hidden &&
-      chat.dataset.failureKey === JSON.stringify(failure);
-    renderFailure($('taskRunFailure'),failureInChat ? null : failure,true);
-    // Routing describes the next live step only while a task is active.
-    if(task && !['queued','preparing','running'].includes(task.status) && $('policyRouteNotice'))
-      setHidden($('policyRouteNotice'),true);
-    return failure;
-  };
-  const badge = (box,text) => box.append(node('span',text,'aspireBadge'));
-  const url = value => value+(value.includes('?') ? '&' : '?')+'robot_id='+encodeURIComponent(robot);
-  const link = (box,label,item) => {
-    if (!localAspire || !item || !/^\/api\/aspire-lineage\/artifacts\/[a-f0-9]{64}$/.test(item.url)) return;
-    const a = node('a',label);a.href = url(item.url);a.target = '_blank';a.rel = 'noopener';box.append(a);
-  };
-  function snippets(box,refs = []) {
-    for (const ref of refs) {
-      const d = details((ref.source || 'Recorded source')+' · lines '+ref.start_line+'–'+ref.end_line);
-      paragraph(d,'Source SHA256: '+ref.source_sha256,'aspireSource');
-      link(d,'Immutable recorded program used in this episode',ref.recorded_program);
-      link(d,'Original source at the recorded hash',ref.original_artifact);
-      if(ref.original_source_state === 'changed_or_unavailable') paragraph(d,'The original source path has changed or is unavailable. The exact saved code is preserved in the immutable recorded program.','aspireCaveat');
-      if (ref.target_start_line) paragraph(d,'Program lines '+ref.target_start_line+'–'+ref.target_end_line+' · '+(ref.exact_match ? 'Exact text match' : 'Model-declared source linkage'));
-      if (ref.original_code) code(d,'Original source lines',ref.original_code);
-      if (ref.recipe_code || ref.code) code(d,'Generalized recipe / saved executable',ref.recipe_code || ref.code);
-      if (ref.generalization) code(d,'Recorded generalization',ref.generalization);
-      if (ref.derived_code) code(d,'Code used in this program',ref.derived_code);
-      box.append(d);
-    }
-  }
-  function episodeLink(box,id) {
-    const episode = catalog?.episodes?.find(item => item.id === id);if (!episode) return;
-    const a = node('a',episode.task || id);a.href = '#aspire-episode-'+id;
-    a.addEventListener('click',() => {let target = $('aspire-episode-'+id);while(target) {if(target.tagName === 'DETAILS') target.open = true;target = target.parentElement;}});
-    box.append(a);
-  }
-  function recipe(box,item) {
-    const d = details(item.title || item.id);
-    paragraph(d,item.id+' · version SHA256 '+item.version,'aspireSource');
-    paragraph(d,item.why || item.trigger || '');paragraph(d,item.scope || '');
-    if(item.statuses?.length) paragraph(d,'Evidence statuses: '+item.statuses.join(', '));
-    for(const limit of item.limits || []) paragraph(d,limit,'aspireCaveat');
-    snippets(d,item.snippets);paragraph(d,'Producing episodes');
-    for(const id of item.episodes || []) episodeLink(d,id);box.append(d);
-  }
-  function lineage(trace = {},snapshots = [],key) {
-    const root = builtFrom(key),groups = aspireLineageGroups(trace);
-    const fresh = node('section','','aspireGroup');fresh.append(node('h3','New skills added'));
-    if(trace.pending) {badge(fresh,'Matching saved programs');paragraph(fresh,catalog?.execution_environment === 'local' ? 'A saved match skips coding. Otherwise ASPIRE generates Python and validates a complete offline plan before queue/Home.' : 'Tasks without a compatible match use normal Astra.');}
-    else if(trace.stage === 'needed') {badge(fresh,'Pending · new skills needed');paragraph(fresh,'Missing behavior is being identified during program preparation.');}
-    else if(!groups.created.length) paragraph(fresh,groups.unknown ? 'Creation unknown; no new skill record is available.' : 'No new skill creation recorded.');
-    for(const item of groups.created) {
-      const d = details(item.title || item.id);paragraph(d,item.behavior);paragraph(d,item.reason);
-      badge(d,'New code recorded · validation is scoped');
-      badge(d,item.planning_success === true ? 'Plan passed' : item.planning_success === false ? 'Plan failed' : 'Planning unrecorded');
-      badge(d,item.physical_success === true ? 'Live harness success · parking review separate' : 'Physical success not demonstrated');
-      paragraph(d,'Code SHA256 '+item.code_sha256+' · lines '+item.start_line+'–'+item.end_line,'aspireSource');
-      code(d,'New behavior code',item.code);fresh.append(d);
-    }
-    root.append(fresh);
-    const existing = node('section','','aspireGroup');existing.append(node('h3','Skills reused'));
-    paragraph(existing,trace.executable || trace.pending ? 'Saved code reuse retains source provenance. Current geometry and paths are rebuilt live.' :
-      'Reuse to generate or refine code. Model weights remain unchanged.','aspireSource');
-    if(!groups.used.length) paragraph(existing,groups.unknown ? 'Use not recorded. Retrieval alone does not prove use.' : 'No existing skill use was declared.');
-    for(const use of groups.used) {
-      const d = details(use.id+' · '+use.usage);
-      badge(d,use.verification === 'exact_source_match' ? 'Exact source match' : use.verification === 'hash_mismatch' ? 'Hash mismatch' : 'Model-declared adaptation');
-      paragraph(d,'Version: '+use.version,'aspireSource');paragraph(d,use.changed);
-      if(use.validation_scope) paragraph(d,use.validation_scope,'aspireCaveat');
-      if(use.inputs) code(d,'Bound task inputs',use.inputs);
-      snippets(d,use.source_refs);
-      if(use.core_revision || trace.executable?.core_revision) code(d,'Recorded repair before this reuse',use.core_revision || trace.executable.core_revision);
-      for(const evidence of use.development_evidence || []) {
-        const e = details('Development source · '+(evidence.scope || 'Scoped evidence'));
-        paragraph(e,evidence.path+' · SHA256 '+evidence.sha256,'aspireSource');
-        paragraph(e,'Declared development reference; this reference alone does not establish exact code ancestry.');
-        for(const episode of catalog?.episodes?.filter(ep => ep.attempts.some(at => at.source?.source === evidence.path)) || []) episodeLink(e,episode.id);
-        d.append(e);
-      }
-      const item = snapshots.find(item => item.id === use.id && item.version === use.version) || catalog?.recipes?.find(item => item.id === use.id && item.version === use.version);
-      if(item) recipe(d,item);existing.append(d);
-    }
-    if(groups.retrievedOnly.length) {
-      const retrieved = details('Retrieved; use not recorded ('+groups.retrievedOnly.length+')');
-      for(const item of groups.retrievedOnly) {
-        const d = details(item.id+' · retrieved; use not recorded');paragraph(d,'Version: '+item.version,'aspireSource');
-        const original = snapshots.find(e => e.id === item.id && e.version === item.version);
-        if(original) {paragraph(d,original.scope || original.validation || '');snippets(d,original.snippets);for(const id of original.episodes || []) episodeLink(d,id);}
-        else paragraph(d,'Exact retrieval snapshot unavailable in this historical record.');retrieved.append(d);
-      }
-      existing.append(retrieved);
-    }
-    root.append(existing);
-    if(trace.program) {const d = details('Complete program code');paragraph(d,trace.program.source+' · SHA256 '+trace.program.source_sha256,'aspireSource');d.append(node('pre',trace.program.code));root.append(d);}
-    if(trace.authorship) code(root,'Program authorship record',trace.authorship);
-    paragraph(root,'Episodes → skills / recipes → derived code → new episodes','aspireFlow');return root;
-  }
-  const updateViews = new WeakMap();
-  const repairTraceViews = new WeakMap();
-  const answerViews = new WeakMap();
-  function renderTaskAnswer(box,answer,runId,visible=true) {
-    let view=answerViews.get(box);
-    if(!view) {
-      const title=node('strong'),detail=node('p'),next=node('p'),button=node('button','Check scene and recover');
-      button.type='button';box.append(title,detail,next,button);view={title,detail,next,button};answerViews.set(box,view);
-      box.classList.add('notice');box.setAttribute('role','status');
-      button.addEventListener('click',async()=>{
-        button.disabled=true;
-        try {await window.yamRecoverTask(view.runId);} catch(error) {view.next.textContent=error.message;button.disabled=false;}
-      });
-    }
-    setHidden(box,!answer || !visible);if(!answer)return;
-    for(const [field,value] of Object.entries({title:answer.title,detail:answer.detail,next:'Next: '+answer.next_action}))
-      if(view[field].textContent !== value) view[field].textContent=value;
-    view.runId=runId;setHidden(view.button,!localAspire || !runId || !answer.recovery_available);
-  }
-  function renderRecoveryTraces(box,attempts = [],events = []) {
-    let views=repairTraceViews.get(box);
-    if(!views) {views=new Map();repairTraceViews.set(box,views);}
-    const relevant=attempts.filter(a=>a.trace !== undefined || ['offline_code_repair','offline_rerun_diagnosis'].includes(a.mode) || a.id === 'astra-1');
-    for(const [id,view] of views) if(!relevant.some(a=>a.id === id)) {view.root.remove();views.delete(id);}
-    for(const attempt of relevant) {
-      let view=views.get(attempt.id);
-      const active=['running','starting'].includes(attempt.status);
-      const label=attempt.mode === 'offline_rerun_diagnosis' ? 'Justified unchanged-code rerun' : attempt.policy === 'codex_local' ? 'Local Codex repair' : attempt.mode === 'offline_code_repair' ? 'Astra repair' : 'Astra recovery';
-      if(!view) {
-        const root=details(label+' activity · '+attempt.id),status=node('p'),waiting=node('p'),ol=node('ol','','aspireTaskLog');
-        root.classList.add('aspireRepairTrace');root.open=active;
-        paragraph(root,'Public model summaries and repair activity. Follows '+attempt.parent_attempt_id+'.','aspireSource');
-        ol.setAttribute('aria-label','Recovery activity · '+attempt.id);
-        root.append(status,waiting,ol);box.append(root);view={root,status,waiting,ol,rows:new Map()};views.set(attempt.id,view);
-      }
-      const heading=label+' activity · '+attempt.id;
-      if(view.root.children[0].textContent !== heading) view.root.children[0].textContent=heading;
-      const rows=aspireAttemptTrace(attempt,events),ids=new Set(rows.map(e=>String(e.id)));
-      const follow=active && (!view.rendered || view.ol.scrollHeight-view.ol.scrollTop-view.ol.clientHeight<80);
-      const scroll=view.ol.scrollTop;
-      for(const [id,row] of view.rows) if(!ids.has(id)) {row.li.remove();view.rows.delete(id);}
-      for(const event of rows) {
-        const id=String(event.id),key=JSON.stringify(event);let row=view.rows.get(id);
-        if(!row) {
-          const li=node('li'),title=node('strong'),message=node('p'),changed=node('p'),lesson=node('p'),next=node('p');
-          li.append(title,message,changed,lesson,next);view.ol.append(li);row={li,title,message,changed,lesson,next};view.rows.set(id,row);
-        }
-        if(row.key === key) continue;row.key=key;
-        const label=event.kind === 'model_progress' ? event.progress_type === 'summary' ? 'Model summary' : 'Model status' :
-          event.kind === 'model_response' ? 'Diagnosis / response' : event.kind === 'model_request' ? 'Model request' :
-          ['model_error','tool_error'].includes(event.kind) ? 'Reported failure' : 'Repair activity';
-        for(const [field,value] of Object.entries({title:label+(event.revision ? ' · revision '+event.revision : ''),
-          message:event.message || '',changed:event.changed || '',lesson:event.lesson || '',next:event.next_action || ''})) {
-          if(row[field].textContent !== value) row[field].textContent=value;
-          setHidden(row[field],!value);
-        }
-      }
-      const status=attempt.status || attempt.execution?.status || 'Outcome unrecorded';
-      if(view.status.textContent !== status) view.status.textContent=status;
-      const hasSummary=rows.some(e=>e.kind === 'model_response' || e.kind === 'model_progress' && e.progress_type === 'summary');
-      const waiting=hasSummary ? '' : active ? 'Waiting for the model to publish a summary. Available tool activity appears as it arrives.' : 'No public model summary was recorded for this attempt.';
-      if(view.waiting.textContent !== waiting) view.waiting.textContent=waiting;
-      setHidden(view.waiting,!waiting);view.rendered=true;
-      view.ol.scrollTop=follow ? view.ol.scrollHeight : scroll;
-    }
-    setHidden(box,!relevant.length);
-  }
-
-  const activityViews=new WeakMap(),workStatusViews=new WeakMap();
-  function renderWorkStatus(box,status) {
-    let view=workStatusViews.get(box);
-    if(!view) {
-      const label=node('span','Current phase','aspirePhaseLabel'),title=node('strong'),state=node('span','','aspireWorkState'),
-        timer=node('span','','aspirePhaseTimer'),meta=node('p','','aspirePhaseMeta'),detail=node('p','','aspirePhaseDetail');
-      state.setAttribute('role','status');state.setAttribute('aria-live','polite');
-      timer.setAttribute('role','timer');timer.setAttribute('aria-live','off');
-      const path=node('div','','aspirePhasePath'),source=node('p','','aspireCurrentCode');
-      path.setAttribute('aria-label','Task phases');
-      const info=node('details','','aspirePhaseInfo');
-      info.append(node('summary','Details'),meta,detail,source);
-      box.append(path,label,title,state,timer,info);view={title,status:state,timer,meta,detail,path,source};workStatusViews.set(box,view);
-      box.classList.add('aspirePhaseCard');
-    }
-    box.dataset.state=status.state;setHidden(box,false);
-    const pathKey=JSON.stringify(status.path || []);
-    if(view.pathKey !== pathKey) {
-      view.path.replaceChildren();
-      for(const [index,step] of (status.path || []).entries()) {
-        if(index) view.path.append(node('span','›','aspirePhaseArrow'));
-        const label=node('span',step.label,'aspirePhaseStep');label.dataset.state=step.state;
-        if(step.state === 'current' || step.state === 'hold') label.setAttribute('aria-current','step');
-        view.path.append(label);
-      }
-      view.pathKey=pathKey;setHidden(view.path,!(status.path || []).length);
-    }
-    const sourceText=status.source ? 'Saved code · '+status.source.slice(0,12) : '';
-    if(view.source.textContent !== sourceText) view.source.textContent=sourceText;
-    view.source.title=status.source || '';setHidden(view.source,!sourceText);
-    for(const field of ['title','status','timer','meta','detail']) {
-      if(view[field].textContent !== status[field]) view[field].textContent=status[field];
-      setHidden(view[field],!status[field]);
-    }
-  }
-  const activityPreviewLimit=400;
-  let activityContentId=0;
-  function renderActivityContent(row) {
-    const parts=Object.entries(row.values).map(([field,value])=>[field,Array.from(value || '')]);
-    const truncated=parts.reduce((sum,[,chars])=>sum+chars.length,0)>activityPreviewLimit;
-    let remaining=activityPreviewLimit-1,lastVisible='';
-    const values={};
-    for(const [field,chars] of parts) {
-      const shown=truncated && !row.expanded ? chars.slice(0,Math.max(0,remaining)) : chars;
-      values[field]=shown.join('');
-      if(shown.length) lastVisible=field;
-      remaining-=shown.length;
-    }
-    if(truncated && !row.expanded && lastVisible) values[lastVisible]+='…';
-    for(const [field,value] of Object.entries(values)) {
-      if(row[field].textContent !== value) row[field].textContent=value;
-      setHidden(row[field],!value);
-    }
-    row.li.dataset.truncated=String(truncated);
-    const label=row.expanded ? 'Show less' : 'Show more';
-    if(row.more.textContent !== label) row.more.textContent=label;
-    row.more.setAttribute('aria-expanded',String(row.expanded));
-    setHidden(row.more,!truncated);
-  }
-  function renderActivity(box,messages,active) {
-    let view=activityViews.get(box);
-    if(!view || view.ol.parentElement !== box) {
-      const ol=node('ol','','aspireActivityLog');ol.setAttribute('role','log');ol.setAttribute('aria-live','polite');
-      ol.setAttribute('aria-relevant','additions text');ol.setAttribute('aria-label','Task conversation');ol.tabIndex=0;
-      box.append(ol);view={ol,rows:new Map()};activityViews.set(box,view);
-    }
-    const follow=active && (!view.rendered || view.ol.scrollHeight-view.ol.scrollTop-view.ol.clientHeight<80),scroll=view.ol.scrollTop;
-    const ids=new Set(messages.map(message=>message.id));
-    for(const [id,row] of view.rows) if(!ids.has(id)) {row.li.remove();view.rows.delete(id);}
-    for(const [index,message] of messages.entries()) {
-      let row=view.rows.get(message.id);
-      if(!row) {
-        const li=node('li','','aspireActivityEntry'),heading=node('div','','aspireActivityHeading conversationHeading'),author=node('strong'),time=node('time'),
-          context=node('p','','aspireActivityContext'),title=node('strong','','aspireActivityTitle'),body=node('p'),detail=node('p'),lesson=node('p'),next=node('p','','aspireActivityNext'),hash=node('p','','aspireSource');
-        const content=node('div','','aspireMessageContent'),more=node('button','Show more','aspireMessageToggle');
-        content.id='aspire-message-content-'+(++activityContentId);
-        more.type='button';more.setAttribute('aria-controls',content.id);
-        const localSetup=node('p','','aspireLocalSetup help');
-        heading.append(author,time);content.append(context,title,body,detail,lesson,next,hash);li.append(heading,content,more,localSetup);
-        row={li,author,time,context,title,body,detail,lesson,next,hash,content,more,localSetup,expanded:false};
-        const messageRow=row;
-        more.addEventListener('click',()=>{messageRow.expanded=!messageRow.expanded;renderActivityContent(messageRow);});
-        view.rows.set(message.id,row);
-      }
-      if(view.ol.children[index] !== row.li) view.ol.insertBefore(row.li,view.ol.children[index] || null);
-      const key=JSON.stringify(message);if(row.key === key) continue;row.key=key;
-      setHidden(row.localSetup,!message.localSetup);
-      if(message.localSetup) {
-        if(!row.readme) {
-          row.readme=node('a','You can run ASPIRE locally (README)');
-          row.readme.target='_blank';row.readme.rel='noopener noreferrer';row.localSetup.append(row.readme);
-        }
-        row.readme.href=message.localSetup;
-      }
-      row.li.dataset.role=message.role;row.li.dataset.tone=message.tone || '';row.li.dataset.messageId=message.id;
-      row.li.className='aspireActivityEntry conversationTurn '+(message.role === 'You' ? 'conversationOutgoing' : 'conversationIncoming');
-      const timestamp=Number.isFinite(message.timestamp) ? new Date(message.timestamp*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}) : '';
-      for(const [field,value] of Object.entries({author:message.role,time:timestamp})) {
-        if(row[field].textContent !== value) row[field].textContent=value;
-        setHidden(row[field],!value);
-      }
-      row.values={title:message.role === 'You' || ['Activity','Code-writing update','Model status'].includes(message.title) ? '' : message.title,
-        body:message.message,detail:message.detail || '',lesson:message.lesson ? 'Lesson: '+message.lesson : '',
-        next:message.next || '',hash:message.hash ? 'Saved code · '+message.hash.slice(0,12) : '',
-        context:[message.attempt,message.revision ? 'Revision '+message.revision : ''].filter(Boolean).join(' · ')};
-      renderActivityContent(row);
-    }
-    view.rendered=true;view.ol.scrollTop=follow ? view.ol.scrollHeight : scroll;
-  }
-
-  function renderUpdates(box,updates,followLatest=false) {
-    let view = updateViews.get(box);
-    if(!view || view.ol.parentElement !== box) {
-      const ol = node('ol','','aspireTaskLog');ol.setAttribute('aria-label','Task work log');
-      const empty = node('p','No task updates have been recorded yet.');box.append(ol,empty);
-      view = {ol,empty,rows:[],keys:[]};updateViews.set(box,view);
-    }
-    const keys = updates.map(update => JSON.stringify([update.happened,update.changed,update.next_action]));
-    if(JSON.stringify(keys) === JSON.stringify(view.keys) && view.rendered) return;
-    const follow = followLatest && (!view.rendered || view.ol.scrollHeight-view.ol.scrollTop-view.ol.clientHeight < 80);
-    const scroll = view.ol.scrollTop;
-    for(let i=0;i<updates.length;i++) {
-      if(keys[i] === view.keys[i]) continue;
-      const update=updates[i], li=view.rows[i] || node('li');
-      li.replaceChildren(node('strong',update.happened),node('p','Change: '+(update.changed.length > 220 ? update.changed.slice(0,217)+'…' : update.changed)),node('p','Next: '+update.next_action));
-      if(update.changed.length > 220) code(li,'Exact update details',update.changed);
-      if(!view.rows[i]) view.ol.append(li);view.rows[i]=li;
-    }
-    for(const row of view.rows.splice(updates.length)) row.remove();
-    view.keys=keys;view.rendered=true;view.ol.hidden=!updates.length;view.empty.hidden=!!updates.length;
-    view.ol.scrollTop = follow ? view.ol.scrollHeight : scroll;
-  }
-  function renderEpisode(item) {
-    const box = details((item.task || item.id)+' · '+(item.review_status || item.native_status || 'Outcome unknown'));box.id = 'aspire-episode-'+item.id;
-    paragraph(box,item.id+(item.episode_id ? ' · '+item.episode_id : ''),'aspireSource');
-    paragraph(box,item.scope || 'Validation scope unrecorded');
-    const answer=node('div');renderTaskAnswer(answer,aspireTaskAnswer({},item),item.recovery_run_id);box.append(answer);
-    badge(box,'Original harness: '+(item.native_status || 'unknown'));
-    badge(box,'After parking: '+(item.after_parking_success === true ? 'automatically confirmed for this episode' : item.after_parking_success === false ? 'automated result unverified' : 'automatic result unrecorded'));
-    if(item.visual_review_success != null) badge(box,'Visual review: '+(item.visual_review_success ? 'retained placement confirmed for this episode' : 'not confirmed'));
-    if(item.postpark_checks) code(box,'After-parking checks',item.postpark_checks);
-    for(const attempt of item.attempts) {
-      const d = details((attempt.policy === 'aspire_retry' ? 'Automatic live retry '+attempt.id : attempt.mode === 'offline_rerun_diagnosis' ? 'Justified unchanged-code rerun '+attempt.id : attempt.mode === 'offline_code_repair' ? 'Astra code repair '+attempt.id : attempt.policy === 'astra' ? 'Astra repair revision '+attempt.id : attempt.policy === 'codex_local' ? 'Local Codex repair '+attempt.id : 'Robot program '+attempt.attempt)+' · '+(attempt.execution.status || attempt.plan.status || 'Result unrecorded'));
-      if(attempt.parent_attempt_id) paragraph(d,'Follows failed attempt '+attempt.parent_attempt_id+'.');
-      if(attempt.trace) {const trace=node('div');d.append(trace);renderRecoveryTraces(trace,[attempt]);}
-      paragraph(d,aspireProgramAttribution(attempt.lineage),'aspireAuthorship');paragraph(d,attempt.summary || 'Recorded program');
-      paragraph(d,'Program SHA256: '+(attempt.source_sha256 || 'unknown'),'aspireSource');
-      code(d,'Planning evidence',attempt.plan);code(d,'Physical harness evidence',attempt.execution);
-      link(d,'Immutable recorded program source',attempt.source);
-      link(d,'Native candidate plans and rejections',attempt.candidate_evidence);
-      link(d,'Raw recovery preflight log',attempt.preflight_log);
-      link(d,'Recovery launcher arguments and exit status',attempt.preflight_process);
-      link(d,'Source changes',attempt.diff);
-      d.append(lineage(attempt.lineage,attempt.retrieval_snapshot,['episode',item.id,attempt.attempt]));if(attempt.code) code(d,'Original program code',attempt.code);box.append(d);
-    }
-    if(!item.attempts.length) paragraph(box,'Program usage not recorded; ancestry unknown.');
-    if(item.images.length) {
-      const d = details('Recorded review images'),gallery = node('div','','aspireImages');
-      for(const image of item.images) {const figure = node('figure'),img = document.createElement('img');img.src = url(image.url);img.alt = item.task+' · '+image.phase+' · '+image.name;img.loading = 'lazy';figure.append(img,node('figcaption',image.name+' · '+image.phase));gallery.append(figure);}
-      d.append(gallery);box.append(d);
-    }
-    if(item.replays.length) {
-      const d = details('Replay through parking · failures retained');
-      for(const replay of item.replays) {const video = document.createElement('video');video.controls = true;video.preload = 'none';video.src = url(replay.url);d.append(video);}box.append(d);
-    }
-    link(box,'Recorded receipt',item.receipt);link(box,'Independent review',item.review);return box;
-  }
-  const panel = node('div','','aspireTaskPanel');panel.id = 'aspireTaskPanel';
-  const selectorLabel = node('label','View task');selectorLabel.htmlFor = 'aspireTaskSelector';
-  const selector = node('select');selector.id = 'aspireTaskSelector';
-  selector.append(Object.assign(node('option','Prompt preview · not submitted'),{value:'preview'}));
-  const selectorBox = node('div','','aspireTaskPicker');selectorBox.append(selectorLabel,selector);
-  const work = node('div');work.id = 'aspireTaskWork';
-  let currentWork = null;
-  const library = details('Recorded tasks and source recipes');library.id = 'aspireRecordedTasks';
-  const support=$('aspireTaskDetails') || panel,evidence=$('aspireTaskEvidence') || work;
-  function placeEvidence(...items) {
-    if(evidence === work) work.append(...items);else evidence.replaceChildren(...items);
-  }
-  library.append(selectorBox);panel.append(work);support.append(library);$('liveConversationPanel')?.append(panel);
-  const promptBox = $('sidePrompt')?.closest('details');promptBox?.after(panel);
-  function renderPrompt() {
-    currentWork=null;
-    work.replaceChildren();if(evidence !== work) evidence.replaceChildren();const route = aspirePromptRoute($('prompt').value,catalog);
-    const prompt = $('prompt').value.trim() || 'Enter a task below.';
-    if($('sidePrompt').textContent !== prompt) $('sidePrompt').textContent = prompt;
-    const phase=node('div');renderWorkStatus(phase,{state:'draft',status:'Not submitted',title:'Task preview',timer:'',path:aspirePhasePath({}),meta:'No task work has started',detail:route.title});work.append(phase);
-    renderActivity(work,aspireActivityEntries({task:prompt,task_progress:{updates:[{happened:route.title+'.',changed:route.reason,next_action:'Run checks the full prompt against saved programs before any scene capture.'}]}}),false);
-    const pending = builtFrom('preview');
-    const fresh = node('section','','aspireGroup');fresh.append(node('h3','New skills added'));badge(fresh,route.generate ? 'ASPIRE code generation after Run' : 'No coding request for saved reuse');
-    paragraph(fresh,route.compatible ? 'Saved code still needs fresh live planning.' : route.generate ? 'New code must pass complete offline planning before queue/Home.' : 'This launch defaults to normal Astra. Adding reusable ASPIRE code is optional local development.');pending.append(fresh);
-    const used = node('section','','aspireGroup');used.append(node('h3','Skills reused'));paragraph(used,'Preview only; retrieval and actual use are recorded during preparation.');
-    if(route.exact) {
-      const d=details('Exact-task saved program · compatible candidate');paragraph(d,'SHA256 '+route.exact.source_sha256,'aspireSource');used.append(d);
-    } else if(route.compatible) {
-      const d = details(catalog.executable.skill+' · compatible candidate');paragraph(d,'Version '+catalog.executable.version+' · SHA256 '+catalog.executable.source_sha256,'aspireSource');
-      paragraph(d,catalog.executable.validation_scope);code(d,'Saved executable code',catalog.executable.source_code);
-      if(catalog.executable.latest_core_revision) code(d,'Recorded core repair',catalog.executable.latest_core_revision);used.append(d);
-    }
-    pending.append(used);placeEvidence(pending);
-  }
-  function refresh() {
-    rememberBuiltFrom(work);if(evidence !== work) rememberBuiltFrom(evidence);
-    robot = $('robotSelector')?.value || robot;
-    const failure = taskRunFailure(liveRun);
-    const currentFailure = !!(!draftPreview && selected === 'preview' && failure &&
-      (!localAspire || liveRun.task_progress || pendingAttempt ||
-        (liveState?.attempt_id && liveState.attempt_id === liveRun.attempt_id)));
-    const fallback = !draftPreview && (liveRun?.launch_route || liveState?.provider?.launch_route)?.actual_policy === 'astra';
-    const stationMatches = catalog ? robot === catalog.robot_id : !!liveRun?.task_progress;
-    // Errors belong to the run's existing conversation. Enabling ASPIRE solely
-    // for a failure hides normal model messages, including Astra fallback runs.
-    const enabled = !!(!fallback && stationMatches && ($('provider')?.value === 'aspire' || liveRun?.task_progress || selected !== 'preview'));
-    const reasoning = $('liveConversationPanel')?.dataset.mode === 'reasoning';
-    if(panel.dataset.enabled !== String(enabled)) panel.dataset.enabled = String(enabled);
-    setHidden(panel,!enabled || !reasoning);setHidden(selectorBox,!enabled || !reasoning);
-    if(support !== panel) setHidden(support,!enabled || !reasoning);
-    setHidden(library,!catalog);
-    const stream = document.querySelector('.astraStream');
-    setHidden(stream,!!enabled && reasoning);
-    if(!enabled) {
-      setHidden(promptBox,false);
-      if(work.children.length) {currentWork=null;work.replaceChildren();signature='';}
-      for(const id of ['sideConversationTitle','sideConversationState','sideConversationMessages']) setHidden($(id),false);
-      return;
-    }
-    if($('openLocalRun')) {if($('openLocalRun').textContent !== 'Run') $('openLocalRun').textContent = 'Run';$('openLocalRun').classList.add('primary');}
-    for(const id of ['sideConversationTitle','sideConversationState','sideConversationMessages']) setHidden($(id),reasoning);
-    const title = reasoning ? 'Chat' : 'Convo mode';
-    if($('conversationModeTitle').textContent !== title) $('conversationModeTitle').textContent = title;
-    const modeButton = document.querySelector('[data-conversation-mode="reasoning"]');
-    if(modeButton && modeButton.textContent !== 'Chat') modeButton.textContent = 'Chat';
-    setHidden(promptBox,reasoning);
-    if(!reasoning) return;
-    const ownProgress = liveState?.provider?.task_progress;
-    const progress = liveRun?.task_progress || (ownProgress && liveState?.attempt_id === liveRun?.attempt_id ? ownProgress : null);
-    const live = aspireTaskWorking({...liveRun,task_progress:progress});
-    const vision = aspireSam3Progress({...liveRun,task_progress:progress});
-    const stage = aspireStageProgress({...liveRun,task_progress:progress});
-    const workStatus=aspireWorkStatus({...liveRun,task_progress:progress},Date.now()/1000,lastPollAt);
-    const showCurrent = live || currentFailure || (!draftPreview && progress && selected === 'preview');
-    const failureKey=JSON.stringify(showCurrent ? failure : null);
-    if(panel.dataset.failureKey !== failureKey) panel.dataset.failureKey=failureKey;
-    if(selector.disabled !== !!live) selector.disabled=!!live;
-    const selection = live ? 'preview' : selected;
-    if(selector.value !== selection) selector.value=selection;
-    const currentOption = selector.options?.[0] || selector.children?.[0];
-    const optionLabel = showCurrent ? 'Submitted task · '+(failure ? (failure.tone === 'neutral' ? 'stopped' : 'failed') : liveRun.status) : 'Prompt preview · not submitted';
-    if(currentOption && currentOption.textContent !== optionLabel) currentOption.textContent = optionLabel;
-    const anchor = showCurrent ? (liveRun?.task || progress?.task) : selected === 'preview' ? $('prompt').value.trim() || 'Enter a task below.' : catalog?.episodes?.find(item => item.id === selected)?.task;
-    if(anchor && $('sidePrompt').textContent !== anchor) $('sidePrompt').textContent = anchor;
-    // A previous/public run changing must not invalidate an idle draft or recorded task.
-    const traceKey=(progress?.attempts || []).map(a=>aspireAttemptTrace(a,liveRun?.events));
-    const modelUpdates=aspireModelUpdates(liveRun?.events);
-    const key = JSON.stringify(showCurrent ? ['current',robot,selected,liveRun?.attempt_id,liveRun?.run_id,liveRun?.status,liveRun?.error,liveRun?.display_error,progress,vision,traceKey,modelUpdates,workStatus]
-      : selected === 'preview' ? ['preview',robot,$('prompt').value.trim()] : ['recorded',robot,selected]);
-    if(key === signature) return;signature = key;
-    if(showCurrent) {
-      const identity = JSON.stringify([robot,pendingAttempt?.version ?? liveRun.attempt_id ?? liveRun.run_id ?? liveRun.task]);
-      if(currentWork?.identity !== identity) {
-        const heading=node('p','','aspireAuthorship'),answer=node('div'),visionBox=node('div','','notice'),stageBox=node('div'),log=node('div'),provenance=node('div','','aspireChatEvidence'),outcome=details('Parked-scene images and evidence'),error=node('div');
-        answer.id='aspireTaskAnswer';
-        visionBox.id='aspireVisionStatus';
-        stageBox.id='aspireStageStatus';log.id='aspireTaskActivity';
-        work.replaceChildren(stageBox,log,answer,heading,visionBox,error);
-        placeEvidence(provenance,outcome);
-        currentWork={identity,answer,heading,visionBox,stageBox,log,provenance,outcome,error};
-      }
-      const attribution=failure ? '' : progress?.stage?.active && progress?.attempts?.some(a=>a.mode === 'offline_code_repair' && a.status === 'running') ? 'Astra is repairing the unverified outcome' :
-        !live ? (liveRun.status === 'completed' ? 'Task completed' : 'Task stopped') :
-        progress?.recovery ? 'Astra recovery in progress' :
-        progress?.lineage ? aspireProgramAttribution(progress.lineage) :
-          liveRun.status === 'running' ? 'Task running' : liveRun.status === 'queued' ? 'Task queued' : 'Preparing this task';
-      const authorship=progress?.lineage?.authorship?.generated_by_codex === true ? aspireProgramAttribution(progress.lineage) : '';
-      const heading=[attribution,authorship && authorship !== attribution ? authorship : ''].filter(Boolean).join(' · ');
-      if(currentWork.heading.textContent !== heading) currentWork.heading.textContent=heading;
-      currentWork.heading.hidden=true;
-      renderVision(currentWork.visionBox,vision && (!stage || vision.state === 'starting') ? vision : null);
-      renderTaskAnswer(currentWork.answer,aspireTaskAnswer({...liveRun,task_progress:progress}),undefined,!live);
-      renderWorkStatus(currentWork.stageBox,workStatus);
-      renderActivity(currentWork.log,aspireActivityEntries({...liveRun,task_progress:progress}),['active','waiting'].includes(workStatus.state));
-      const lineageKey=JSON.stringify(progress?.lineage ?? null);
-      if(currentWork.lineageKey !== lineageKey) {
-        currentWork.provenance.replaceChildren(...(progress?.lineage ? [lineage(progress.lineage,[],
-          ['current',pendingAttempt?.version ?? liveRun.attempt_id ?? liveRun.run_id ?? liveRun.task])] : []));
-        currentWork.lineageKey=lineageKey;
-      }
-      const outcomeKey=JSON.stringify(progress?.outcome ?? null);
-      if(currentWork.outcomeKey !== outcomeKey) {
-        currentWork.outcome.replaceChildren(node('summary','Parked-scene images and evidence'));currentWork.outcomeKey=outcomeKey;
-        setHidden(currentWork.outcome,!progress?.outcome);
-        if(progress?.outcome) {
-          const outcome=progress.outcome, box=node('div','','aspireOutcome');
-          paragraph(box,'After-parking result: '+outcome.status+'.');
-          paragraph(box,outcome.reason || 'Placement evidence is unavailable.');
-          for(const item of localAspire ? outcome.images || [] : []) {
-            if(!/^\/api\/aspire-lineage\/artifacts\/[a-f0-9]{64}$/.test(item.url)) continue;
-            const image=node('img');image.src=url(item.url);image.alt=item.camera+' camera after parking';
-            image.style.maxWidth='100%';box.append(image);
-            if(item.captured_at) paragraph(box,item.camera+' capture: '+new Date(item.captured_at*1000).toISOString(),'aspireSource');
-            link(box,'Open '+item.camera+' parked-scene image',item);
-          }
-          currentWork.outcome.append(box);
-        }
-      }
-      const errors = [];
-      if(liveRun.display_error) errors.push({happened:'Playground error.',changed:liveRun.display_error,next_action:'Review this display error; it does not change the robot run result.'});
-      renderUpdates(currentWork.error,errors);
-      currentWork.error.hidden=!errors.length;
-    } else if(selected === 'preview') renderPrompt();
-    else {
-      const item = catalog?.episodes?.find(item => item.id === selected);if(!item) {selected = 'preview';renderPrompt();return;}
-      currentWork=null;const attempt = item.attempts.at(-1);$('sidePrompt').textContent = item.task;work.replaceChildren();
-      const answer=node('div');answer.id='aspireTaskAnswer';renderTaskAnswer(answer,aspireTaskAnswer({},item),item.recovery_run_id);work.append(answer);
-      paragraph(work,aspireProgramAttribution(attempt?.lineage),'aspireAuthorship');badge(work,item.evidence_role === 'saved_program' ? 'Saved program · no episode review' : 'Recorded task');
-      const recorded=aspireRecordedActivity(item),phase=node('div');
-      renderWorkStatus(phase,{...aspireWorkStatus(recorded),status:'Recorded task · not running',meta:'History view',detail:'Recorded code revisions and outcomes; viewing this task does not start work.'});work.insertBefore(phase,work.children[0] || null);
-      renderActivity(work,aspireActivityEntries(recorded),false);placeEvidence(lineage(attempt?.lineage || {},attempt?.retrieval_snapshot || [],['selected',item.id]),
-        renderEpisode({...item,id:item.id+'-selected'}));
-    }
-  }
-  function renderCatalog() {
-    rememberBuiltFrom(library);
-    selector.replaceChildren(Object.assign(node('option','Prompt preview · not submitted'),{value:'preview'}));
-    for(const item of catalog?.episodes || []) selector.append(Object.assign(node('option',item.task+' · '+(item.review_status || item.native_status || 'unknown')),{value:item.id}));
-    if(!catalog?.episodes?.some(item => item.id === selected)) selected = 'preview';selector.value = selected;
-    library.replaceChildren(node('summary','Recorded tasks and source recipes'),selectorBox);
-    paragraph(library,catalog.semantics,'aspireSource');
-    for(const item of catalog?.episodes || []) library.append(renderEpisode(item));
-    const recipes = details('Recipes in library · availability does not establish use');for(const item of catalog.recipes) recipe(recipes,item);library.append(recipes);
-    signature = '';refresh();
-  }
-  async function loadCatalog() {
-    if(!localAspire) return;
-    robot = $('robotSelector')?.value || new URLSearchParams(location.search).get('robot_id');if(!robot) return;
-    const generation = ++fetchGeneration;catalog = null;signature = '';panel.hidden = selectorBox.hidden = true;
-    try {
-      const response = await fetch('/api/aspire-lineage?robot_id='+encodeURIComponent(robot),{cache:'no-store',headers:{'X-Blupe-Robot':robot}});if(!response.ok) return;
-      const data = await response.json();if(generation !== fetchGeneration) return;
-      if(!data || !Array.isArray(data.episodes) || !Array.isArray(data.recipes)) throw new Error('Invalid recorded task catalog');
-      catalog = data;renderCatalog();
-    } catch {if(generation === fetchGeneration) paragraph(work,'Recorded skill evidence is unavailable.');}
-  }
-  window.yamAspireLineage = {
-    reset() {draftPreview=true;pendingAttempt=null;liveRun=liveState=null;selected='preview';signature='';refresh();},
-    preview() {if(!aspireTaskWorking(liveRun)) {draftPreview=true;pendingAttempt=null;liveRun=liveState=null;selected='preview';refresh();}},
-    requested(task,version,aspire = true) {
-      draftPreview=false;pendingAttempt={version,phase:'pending',id:null};liveState=null;selected='preview';signature='';
-      liveRun={task,status:'preparing',task_progress:aspire ? {task,lineage:{pending:true,usage_recorded:false},updates:[{
-        happened:'Reviewing your prompt…',changed:'Working through your prompt and preparing the next steps.',
-        next_action:'Preparation updates and recorded skill evidence will appear here.'}]} : null};
-      refresh();
-    },
-    accepted(id,version,route) {
-      if(pendingAttempt?.version !== version) return;
-      pendingAttempt={version,phase:'accepted',id};liveRun={...liveRun,attempt_id:id,launch_route:route};
-      if(route?.actual_policy === 'astra') liveRun.task_progress=null;
-      signature='';refresh();
-    },
-    rejected(reason,version) {
-      if(pendingAttempt?.version !== version) return;
-      pendingAttempt.phase='rejected';
-      const progress=liveRun.task_progress;
-      liveRun={...liveRun,status:'failed',error:reason,task_progress:progress ? {...progress,updates:[
-        ...(progress.updates || []),{happened:'Preparation failed.',changed:reason,
-          next_action:'Resolve this error before starting another attempt.'}]} : null};
-      signature='';refresh();
-    },
-    live(run,state) {
-      lastPollAt=Date.now()/1000;
-      const candidate=aspireLiveTask(run,state);
-      if(pendingAttempt && (pendingAttempt.phase !== 'accepted' ||
-          (pendingAttempt.id && candidate?.attempt_id !== pendingAttempt.id))) return;
-      if(aspireTaskWorking(candidate)) draftPreview=false;
-      liveRun=candidate && !candidate.task_progress && candidate.launch_route?.actual_policy !== 'astra' &&
-        candidate.attempt_id && candidate.attempt_id === liveRun?.attempt_id
-        ? {...candidate,task_progress:liveRun.task_progress} : candidate;
-      liveState=state;refresh();
-    },refresh,
-    history(box,run) {if(!catalog || robot !== catalog.robot_id) return;
-      const item = catalog?.episodes?.find(item => item.episode_id && item.episode_id === run.episode_id);
-      if(item) box.append(renderEpisode({...item,id:item.id+'-history'}));else box.append(lineage(run.lineage || {usage_recorded:false},[],
-        ['history',run.episode_id || run.id || run.run_id || run.prompt]));}
-  };
-  window.setInterval?.(() => {
-    if(currentWork && !panel.hidden && liveRun) renderWorkStatus(currentWork.stageBox,aspireWorkStatus(liveRun,Date.now()/1000,lastPollAt));
-  },1000);
-  selector.addEventListener('change',() => {selected = selector.value;draftPreview=selected === 'preview';signature = '';refresh();});
-  $('prompt')?.addEventListener('input',() => {if(!aspireTaskWorking(liveRun)) {draftPreview=true;selected = 'preview';selector.value = selected;refresh();}});
-  window.addEventListener('blupe-robot-selected',() => {draftPreview=localAspire;liveRun = liveState = pendingAttempt = null;selected = 'preview';renderFailure($('taskRunFailure'),null);loadCatalog();});
-  panel.hidden = selectorBox.hidden = true;loadCatalog();
-})();
+  return failure;
+};
 
 // BEGIN observer enhancement preview v1
 // This viewing-only experiment uses the already decoded observer frame.

@@ -2,7 +2,7 @@
 set -eu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-# ASPIRE setup provides a complete native environment for the UI too.
+# Use an explicitly selected Python environment when supplied.
 if [ -n "${YAM_RUNNER_PYTHON:-}" ]; then
   exec "$YAM_RUNNER_PYTHON" "$PROJECT_ROOT/run.py" "$@"
 fi

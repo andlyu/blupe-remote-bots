@@ -11,14 +11,14 @@ const entry = (query, options, session) => JSON.parse(JSON.stringify(select(quer
 
 test('public entry prefers Dream beta where available, with Astra for other stations', () => {
   for (const query of ['', '?model=unknown', '?model=__proto__']) {
-    assert.deepEqual(entry(query, choices('hosted_aspire', 'guest_astra', 'dream_flash', 'dream')),
+    assert.deepEqual(entry(query, choices('guest_claude', 'guest_astra', 'dream_flash', 'dream')),
       {provider:'dream', model:'dreamlabs/dream-1-beta'});
   }
   for (const dream of [{value:'dream', hidden:true}, {value:'dream', disabled:true}]) {
     assert.deepEqual(entry('', choices('guest_astra', dream)),
       {provider:'guest_astra', model:'gpt-6-astra'});
   }
-  assert.deepEqual(entry('', choices('hosted_aspire', 'guest_gemini', 'guest_astra')),
+  assert.deepEqual(entry('', choices('guest_claude', 'guest_gemini', 'guest_astra')),
     {provider:'guest_astra', model:'gpt-6-astra'});
   assert.deepEqual(entry('', choices('guest_gemini', 'openai')),
     {provider:'openai', model:'gpt-6-astra'});
@@ -84,7 +84,7 @@ test('local launchers retain their default unless the link explicitly selects an
 test('startup sets provider and model together, overriding an old saved model without launching', () => {
   const start = source.indexOf('      const entryModel = playgroundEntryModel(');
   const block = source.slice(start, source.indexOf('      buttons();', start));
-  const nodes = {provider:{value:'hosted_aspire', options:choices('hosted_aspire','guest_gemini','openai')}, model:{value:'gpt-6.1-sol'}};
+  const nodes = {provider:{value:'guest_claude', options:choices('guest_claude','guest_gemini','openai')}, model:{value:'gpt-6.1-sol'}};
   const events = [], selections = [];
   const context = {
     playgroundEntryModel:select, location:{search:''}, $:id=>nodes[id], session:{}, lastLive:null,

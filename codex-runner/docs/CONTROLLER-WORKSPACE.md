@@ -53,6 +53,5 @@ to tool providers, and invalidates [Dream's stale action and frame history](drea
 replacement passes all guards, a verified measured hold releases the packet's
 reserved step span and requests a fresh decision; rejected actions are not replayed.
 Hardware, feedback and unverified-hold faults remain terminal. Cached raise/lower
-test policies stop rather than regenerate their fixed path, and ASPIRE saved
-programs retain their existing failure fencing. Recovery requires a compatible
+test policies stop rather than regenerate their fixed path. Recovery requires a compatible
 controller deployment; installing this runner alone does not add controller IK.
