@@ -8,6 +8,16 @@ evidence. Report checklist status, evidence links, unmet items and explicit
 exceptions; leave unfinished requirements unchecked and do not describe the
 integration as complete.
 
+For execution requests, first follow the [persistent integration goal workflow](GOALS.md).
+This checklist is the goal's acceptance contract. Keep its requirement text and
+verification rules in the integration's copy; add an indented
+`Evidence: [description](artifact-or-URL) — observed result` line beneath each
+checked item. Audit that copy with
+`python3 codex-runner/integration-harness/audit_completion.py <checklist-copy>`
+from the BluPe Remote Bots checkout, then inspect the actual evidence. Passing
+this structural audit is necessary but does not establish site or physical
+success. Keep the native goal active while authorized useful work remains.
+
 ## Purpose and public visibility by default
 
 The playground exists for demos and for showing people how well approaches work.
@@ -224,6 +234,11 @@ before any completion claim.
 
 ## Integration and evidence
 
+- Native integration goal (identifier if exposed, objective, checklist-copy path,
+  authorized scope/constraints and user-specified budget):
+- Follow-up amendments (latest requested outcome/scope; retain earlier evidence):
+- Latest goal audit (date, verified/open requirements, evidence, next useful
+  action; pending work or blocker and exact unblock if applicable):
 - Paper / method (link and version):
 - Final verification (reviewer/date, tested website URL and deployed revision,
   physical run reference):
