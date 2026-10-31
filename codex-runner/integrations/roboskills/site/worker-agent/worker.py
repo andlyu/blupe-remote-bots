@@ -1,4 +1,4 @@
-"""Poll a private Site; retain genuine upstream simulation outputs, never synthetic progress.
+"""Poll the Site's authenticated worker API; retain genuine upstream simulation outputs.
 
 Configuration is a single JSON object on stdin. Secrets remain in process memory.
 No robot control is present in this worker.
@@ -15,6 +15,16 @@ from urllib.parse import urlencode, urlsplit
 import urllib.request
 
 REVISION='8a2860234768b4bec981994d1c14fa380a2c8c7f'
+
+def read_config():
+    if not sys.stdin.isatty():
+        return json.loads(sys.stdin.readline())
+    import termios
+    flags=termios.tcgetattr(sys.stdin.fileno());hidden=flags.copy();hidden[3]&=~termios.ECHO
+    termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,hidden)
+    print('Ready for worker configuration on stdin (input hidden).',flush=True)
+    try:return json.loads(sys.stdin.readline())
+    finally:termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,flags)
 
 class Worker:
     def __init__(self, config):
@@ -138,14 +148,7 @@ class Worker:
         finally:self.terminate()
 
 if __name__=='__main__':
-    if sys.stdin.isatty():
-        import termios
-        flags=termios.tcgetattr(sys.stdin.fileno());hidden=flags.copy();hidden[3]&=~termios.ECHO
-        termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,hidden)
-        print('Ready for worker configuration on stdin (input hidden).',flush=True)
-        try:config=json.loads(sys.stdin.readline())
-        finally:termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,flags)
-    else:config=json.loads(sys.stdin.readline())
+    config=read_config()
     # Keep model assets and new generated outputs within the requested workspace.
     os.environ['HF_HOME']=str(Path(config['runs']).resolve().parent/'hf-cache')
     Worker(config).serve()

@@ -2,7 +2,7 @@ import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '../../../chatgpt-auth';
 export const dynamic='force-dynamic';
 const ORIGIN='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com';
-type B={DB:D1Database;BUCKET:R2Bucket;WORKER_TOKEN?:string;RUNNER_OWNER_EMAIL?:string};
+type B={DB:D1Database;BUCKET:R2Bucket;WORKER_TOKEN?:string;PHYSICAL_WORKER_TOKEN?:string;RUNNER_OWNER_EMAIL?:string};
 type Row={id:string;owner:string;instruction:string;runner_name:string;runner_email:string;status:string;stage:string;created_at:number;updated_at:number;worker:string|null;cancel_requested:number;result:string|null;assets:string};
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const fail=(error:string,status=400)=>json({error},status);
@@ -20,7 +20,8 @@ async function route(req:Request,{params}:{params:Promise<{path:string[]}>}){
   return new Response(r.body,{status:r.status,headers:{'Content-Type':'image/jpeg','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
  }
  if(path[0]==='worker'){
-  if(!b.WORKER_TOKEN||req.headers.get('authorization')!=='Bearer '+b.WORKER_TOKEN)return fail('Worker authentication required',401);
+  const token=b.PHYSICAL_WORKER_TOKEN||b.WORKER_TOKEN;
+  if(!token||req.headers.get('authorization')!=='Bearer '+token)return fail('Worker authentication required',401);
   if(req.method!=='POST')return fail('Use POST',405);
   const worker=req.headers.get('x-worker-id')||'';if(!/^[a-f0-9]{32}$/.test(worker))return fail('Invalid worker');
   if(path[1]==='upload'){

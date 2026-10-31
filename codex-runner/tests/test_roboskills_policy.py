@@ -1,5 +1,6 @@
 """Offline protocol tests: no session creation or physical hardware calls."""
 import io
+from unittest.mock import patch
 import importlib.util
 import tempfile
 import threading
@@ -26,10 +27,19 @@ class Cameras:
 
 @unittest.skipUnless(importlib.util.find_spec('roboskills'),'Install the optional pinned RoboSkills runtime')
 class Tests(unittest.TestCase):
-    def setUp(self):self.root=tempfile.TemporaryDirectory()
-    def tearDown(self):self.root.cleanup()
+    def setUp(self):self.root=tempfile.TemporaryDirectory();self.policies=[]
+    def tearDown(self):
+        # Stop/join the upstream writer before deleting its temporary log root.
+        for p in self.policies:
+            p.request_stop()
+            if p._thread:
+                p._thread.join(3)
+                self.assertFalse(p._thread.is_alive())
+        self.root.cleanup()
     def policy(self,llm):
-        return RoboSkillsPolicy(camera_source=Cameras(),recording_root=self.root.name,llm=llm)
+        p=RoboSkillsPolicy(camera_source=Cameras(),recording_root=self.root.name,llm=llm)
+        self.policies.append(p)
+        return p
 
     def test_upstream_agent_yields_checked_packet_and_requires_measured_completion(self):
         replies=iter(['```python\ns=bot.status()["coordinates"]\nprint(bot.move_to(left_z=s["left_z"]+.02,right_z=s["right_z"]+.02))\n```',
@@ -50,6 +60,77 @@ class Tests(unittest.TestCase):
         with self.assertRaises(PolicyComplete):p.build_trajectory('Raise both arms by20mm',end,end['step_id'])
         self.assertEqual(p.public_config()['model'],'RoboSkills')
         self.assertIsNone(p._outcome['success'])
+
+    def test_short_measured_move_latches_failure_and_finish_cannot_report_done(self):
+        from remote_yam.roboskills_policy import RobotTools
+        p=self.policy(lambda s,m:'');obs=observation()
+        p._state=obs;p._identity=('ep_unit','lease_unit')
+        bot=RobotTools(p,'Lift20mm')
+        start=bot.status()['coordinates']
+        # Use the verified IK target with a measured endpoint that stays at
+        # the start. Protocol completion alone must not mark it reached.
+        with patch.object(p,'_execute',return_value=obs):
+            with self.assertRaisesRegex(RuntimeError,'target'):
+                bot.move_to(left_z=start['left_z']+.02,right_z=start['right_z']+.02)
+        self.assertEqual(bot.finish()['status'],'failed')
+        with self.assertRaises(RuntimeError):bot.move_to(left_z=start['left_z'])
+
+    def test_measured_tracking_correction_converges_without_changing_limits(self):
+        from remote_yam.roboskills_policy import RobotTools
+        p=self.policy(lambda s,m:'');obs=observation()
+        p._state=obs;p._identity=('ep_unit','lease_unit')
+        bot=RobotTools(p,'Lift20mm');start=bot.status()['coordinates'];packets=[]
+        def plant(points):
+            packets.append(points)
+            end={**obs,**points[-1],'step_id':points[-1]['step_id']+1}
+            # Static residual observed on the real joint3 drives; this is an
+            # offline plant model, not a claim of physical qualification.
+            end['left_joints_deg']=list(end['left_joints_deg'])
+            end['right_joints_deg']=list(end['right_joints_deg'])
+            end['left_joints_deg'][2]-=.75
+            end['right_joints_deg'][2]-=.57
+            return end
+        with patch.object(p,'_execute',side_effect=plant):
+            end=bot.move_to(left_z=start['left_z']+.02,right_z=start['right_z']+.02)
+        self.assertGreater(len(packets),1)
+        self.assertLessEqual(len(packets),3)
+        self.assertLess(abs(end['coordinates']['left_z']-start['left_z']-.02),.003)
+        self.assertLess(max(p._last_move['position_error_m'].values()),.003)
+        for before,after in zip(packets,packets[1:]):
+            self.assertEqual(after[0]['step_id'],before[-1]['step_id']+1)
+
+    def test_tracking_offset_accumulates_persistent_measured_residual(self):
+        from remote_yam.roboskills_policy import RobotTools
+        p=self.policy(lambda s,m:'');obs=observation();p._state=obs;p._identity=('ep_unit','lease_unit')
+        bot=RobotTools(p,'Lift20mm');start=bot.status()['coordinates'];goal=start['left_z']+.02
+        # Replay known, completed endpoint shortfalls:4mm then3.5mm. Dropping
+        # the previous offset leaves a permanent error on a compliant drive.
+        endpoints=[]
+        for shortfall in (.004,.0035,0):
+            pts=p._geometry.build({'left_z':goal-shortfall},obs,0)
+            endpoints.append({**obs,**pts[-1]})
+        results=iter(endpoints)
+        def complete(points):
+            return {**next(results),'step_id':points[-1]['step_id']+1}
+        with patch.object(p._geometry,'build',wraps=p._geometry.build) as build,patch.object(p,'_execute',side_effect=complete):
+            bot.move_to(left_z=goal)
+        self.assertAlmostEqual(build.call_args_list[2].args[0]['left_z']-goal,.0075,places=4)
+
+    def test_uncertain_packet_is_never_retried_or_cleared_by_finish(self):
+        from remote_yam.roboskills_policy import RobotTools
+        p=self.policy(lambda s,m:'');p._state=observation();p._identity=('ep_unit','lease_unit')
+        bot=RobotTools(p,'Test');s=bot.status()['coordinates']
+        with patch.object(p,'_execute',side_effect=TimeoutError('uncertain')) as dispatch:
+            with self.assertRaises(TimeoutError):bot.move_to(left_z=s['left_z']+.02)
+        dispatch.assert_called_once()
+        self.assertEqual(bot.finish()['status'],'failed')
+
+    def test_status_uses_installed_measured_feedback_without_duplicate_fetch(self):
+        from remote_yam.roboskills_policy import RobotTools
+        p=self.policy(lambda s,m:'');p._state=observation()
+        p._identity=('ep_unit','lease_unit')
+        p.refresh_observation=lambda: (_ for _ in ()).throw(AssertionError('duplicate network read'))
+        self.assertIn('left_z',RobotTools(p,'Test').status()['coordinates'])
 
     def test_simulated_feedback_and_changed_lease_are_rejected(self):
         p=self.policy(lambda s,m:'```python\nfinish()\n```')

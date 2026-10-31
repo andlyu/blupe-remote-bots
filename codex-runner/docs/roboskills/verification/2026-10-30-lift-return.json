@@ -1,0 +1,34 @@
+{
+  "run_id": "2ea288ea830e471a86eb6d1d98971c50",
+  "approach": "RoboSkills",
+  "inference_model": "gpt-6-sol",
+  "runner": "Andrew Lyubovsky",
+  "execution_mode": "automated verification",
+  "requested_lift_mm": 20,
+  "measured_lift_mm": {
+    "left": 17.797311604428685,
+    "right": 20.97332802187865
+  },
+  "lift_position_error_mm": {
+    "left": 2.2112920541124517,
+    "right": 0.9833144526765342
+  },
+  "return_position_error_mm": {
+    "left": 2.144570774271038,
+    "right": 0.08433240337980295
+  },
+  "hold_before_return_packet_s": 1.7437880039215088,
+  "gripper_delta": {
+    "left": 0.0,
+    "right": 7.228044813878398e-05
+  },
+  "packet_count": 4,
+  "native_success_score": null,
+  "parked": true,
+  "torque_off_verified": true,
+  "run_click_utc": "2026-10-31T04:21:30.927Z",
+  "first_packet_prepared_utc_epoch": 1793420598.4840572,
+  "click_to_first_packet_prepared_s": 107.55705714225769,
+  "timing_target": "missed",
+  "physical_task_within_3mm": true
+}

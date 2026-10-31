@@ -32,13 +32,18 @@ The parent host already maintains the required three-step timing record for
 this task. This nested source-generation call is part of that measured task,
 not a new task: do not create another timing file. Use bot, np, show and finish.
 The initial receipt already contains fresh measured status and camera images.
-Use those observations. Chain dependent actions in one Python turn when their
-measured checks allow it, including a simple lift, hold, return and finish.
+Use those observations without capturing them again before the first move.
+Return a short Python program, without prose or custom verification functions.
+Chain dependent actions in one turn when their measured checks allow it.
+move_to already checks measured Cartesian accuracy (3 mm), latches any failed
+move, using bounded measured-feedback tracking corrections after confirmed completion.
+For a lift/hold/return, save the starting coordinates, move, wait, move back,
+then finish. Do not duplicate the tool's verification code.
 
 {api}
 
-Look at the actual camera images with show(bot.observe()) before manipulating
-objects. bot.status() gives measured per-arm base-frame Cartesian coordinates
+The initial receipt includes the actual camera images; inspect them before
+manipulating objects. bot.status() gives the latest measured per-arm coordinates
 in metres and rotations in radians, grippers 0 closed to 1 open. Dimensions are
 left_x/y/z/yaw/pitch/roll/gripper and right_x/y/z/yaw/pitch/roll/gripper.
 Use bot.move_to(left_z=..., right_z=..., ...) for coordinated changes. Omitted
@@ -57,12 +62,15 @@ class RobotTools:
     def __init__(self, policy, instruction):
         self.policy, self.instruction = policy, instruction
         self.result = None
+        self.motion_failure = None
 
     def status(self):
         """Measured state, current step, task, allowed target bounds and Stop."""
         p = self.policy
         p._check_cancelled()
-        _, state, _ = p._geometry.observe(p._feedback())
+        # The controller installs correlated measured feedback. Reading status
+        # must not perform another network fetch on every print in a Python turn.
+        _, state, _ = p._geometry.observe(p._state)
         return dict(instruction=self.instruction, step=p._state['step_id'],
                     coordinates=dict(zip(NAMES, state.tolist())),
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
@@ -73,7 +81,7 @@ class RobotTools:
         from PIL import Image
         p = self.policy
         p._check_cancelled()
-        content = p._observation_input(p._feedback())[0]['content']
+        content = p._observation_input(p._state)[0]['content']
         images, name = {}, 'camera'
         for item in content:
             if item['type']=='input_text' and item['text'].startswith('Camera view:'):
@@ -87,13 +95,56 @@ class RobotTools:
         """Checked coordinated Cartesian move; returns measured completion."""
         p=self.policy
         p._check_cancelled()
+        if self.motion_failure:
+            raise RuntimeError(self.motion_failure)
         state=p._feedback()
         points=p._geometry.build(targets,state,state['step_id'])
-        p._interaction('packet_ready',f'RoboSkills prepared {len(points)} checked waypoints',
-                       waypoint_count=len(points),targets=targets)
-        measured=p._execute(points)
-        p._state=deepcopy(measured)
-        return self.status()
+        _, expected, _ = p._geometry.observe({**state,**points[-1],'settled':True})
+        offset=np.zeros_like(expected)
+        for correction in range(3):
+            p._interaction('packet_ready',f'RoboSkills prepared {len(points)} checked waypoints',
+                           waypoint_count=len(points),targets=targets,tracking_correction=correction)
+            try:
+                measured=p._execute(points)
+            except Exception as exc:
+                # No second dispatch after any rejected, failed or uncertain
+                # packet. A correction requires matched measured completion.
+                self.motion_failure='Physical move failed or became uncertain: '+str(exc)
+                self.result=dict(status='failed',success=None,reason=self.motion_failure)
+                raise
+            p._state=deepcopy(measured)
+            _, actual, _ = p._geometry.observe(measured)
+            errors={arm:float(np.linalg.norm(actual[i:i+3]-expected[i:i+3]))
+                    for arm,i in (('left',0),('right',7))}
+            p._last_move=dict(targets=targets,position_error_m=errors,
+                              tracking_corrections=correction,
+                              measured_coordinates=dict(zip(NAMES,actual.tolist())))
+            if max(errors.values()) <= .003:
+                return self.status()
+            if correction==2:break
+            # Outer position feedback compensates bounded static tracking
+            # residuals. Do not alter gains, limits, or gateway settle criteria.
+            # Each Cartesian axis stays within8mm of the original goal and
+            # still passes the existing IK/workspace/pacing checks.
+            corrected=dict(targets)
+            for i in (0,7):
+                for j in range(i,i+3):
+                    offset[j]=np.clip(offset[j]+expected[j]-actual[j],-.008,.008)
+                    corrected[NAMES[j]]=float(np.clip(expected[j]+offset[j],
+                                                       p._geometry.low[j],p._geometry.high[j]))
+            try:
+                state=p._feedback()
+                points=p._geometry.build(corrected,state,state['step_id'])
+            except Exception as exc:
+                self.motion_failure='Tracking correction was not safe to prepare: '+str(exc)
+                self.result=dict(status='failed',success=None,reason=self.motion_failure)
+                raise
+            p._interaction('tracking_correction','Correcting a measured tracking residual after confirmed completion',
+                           correction=correction+1,position_error_m=errors,max_offset_m=.008)
+        self.motion_failure=('Measured move did not reach its target within3mm after bounded tracking correction: '+
+            ', '.join(f'{arm} {error*1000:.2f}mm' for arm,error in errors.items()))
+        self.result=dict(status='failed',success=None,reason=self.motion_failure)
+        raise RuntimeError(self.motion_failure)
 
     def wait(self, seconds):
         """Wait up to five seconds, while retaining Stop responsiveness."""
@@ -103,7 +154,8 @@ class RobotTools:
 
     def finish(self):
         """End this agent episode; physical task success remains unscored."""
-        self.result=dict(status='done',success=None,reason='Agent finished; no native physical score')
+        if self.result is None:
+            self.result=dict(status='done',success=None,reason='Agent finished; no native physical score')
         return self.result
 
 
@@ -111,7 +163,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
     provider_name='roboskills'
     supports_runtime_steering=False
 
-    def __init__(self, *, camera_source, recording_root, inference_model='gpt-6-astra', llm=None):
+    def __init__(self, *, camera_source, recording_root, inference_model='gpt-6-sol', llm=None):
         try:
             import roboskills.core.agent
         except ImportError as exc:
@@ -133,6 +185,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         self._state=None
         self._identity=None
         self._finished=False
+        self._last_move=None
         self.last_step_model_s=0.
 
     def configure_robot_workspace(self,robot_id,*,report=None):
@@ -166,6 +219,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'api_key_configured':False,'authentication':'local ChatGPT subscription',
                 'policy':'roboskills_python_agent','model_calls':self._calls,
                 'outcome':self._outcome,'pending_packet':deepcopy(self._pending),
+                'last_move':deepcopy(self._last_move),
                 'system_prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest(),
                 'recording_path':str(self._recorder.path) if self._recorder else None,
                 **({'controller_workspace':self._workspace_profile.summary()} if self._workspace_profile else {}),
@@ -199,7 +253,9 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         fn=self._llm or (lambda s,m:llm.codex(s,m,model=self.inference_model,
                             effort='low',timeout=180,env=codex_environment()))
         reply=fn(system,messages)
-        self.last_step_model_s+=time.monotonic()-started
+        elapsed=time.monotonic()-started
+        self.last_step_model_s+=elapsed
+        self._interaction('model_timing','RoboSkills Python decision received',elapsed_s=elapsed)
         self._check_cancelled()
         self._vision_state='response_received'
         self._interaction('model_response',reply[:8000],model=APPROACH)
@@ -214,11 +270,12 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
             done,turns=agent.run(repl,prompt,directory,self._call,max_turns=32,max_bad=3,
                 prompt=PROMPT,initial_code='print(bot.status()); show(bot.observe())',
                 status_code='print(bot.status())')
-            self._outcome=dict(status='done' if done else 'give_up',turns=turns,
-                               success=None,reason='Agent finished' if done else 'Agent turn budget ended')
+            self._outcome={**(tools.result or dict(status='give_up',success=None,
+                            reason='Agent turn budget ended')), 'turns':turns}
         except Exception as exc:
             self._outcome=dict(status='give_up',success=None,reason=type(exc).__name__+': '+str(exc))
         finally:
+            self._vision_state='finished'
             self._record('roboskills_finished',outcome=self._outcome,upstream_revision=REVISION)
             self._finished=True
 
@@ -230,6 +287,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
             raise RuntimeError('RoboSkills needs the same measured hardware lease')
         if observation.get('step_id')!=first_step_id or self._pending is not None:
             raise RuntimeError('Wait for matched measured completion')
+        self.last_step_model_s=0.
         self._state=deepcopy(observation)
         if self._completed is not None:
             if observation['step_id']!=self._completed['step_id']:
