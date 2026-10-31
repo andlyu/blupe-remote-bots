@@ -2381,6 +2381,12 @@ function createRunLaunchGuard() {
       };
     } catch { $('robotSelectorStatus').textContent = 'Robot list unavailable'; }
   }
+  function finishInitialization(error) {
+    if (error && !error.stale) { message(error.message, true); return; }
+    // A visitor may press Run while the initial status read is in flight.
+    // Its stale response must not prevent polling that same accepted run.
+    if (!pollingStarted) { pollingStarted = true; poll(); }
+  }
   async function start() {
     if (!robotCatalog) await loadRobotSelector();
     try {
@@ -2476,8 +2482,8 @@ function createRunLaunchGuard() {
       render(await api('/api/status'));
       try { await refreshChat(); } catch (error) { $('chatStatus').textContent = 'Chat unavailable'; }
       $('robotSelectorStatus').textContent = '';
-      if (!pollingStarted) { pollingStarted = true; poll(); }
-    } catch (error) { message(error.message, true); }
+      finishInitialization();
+    } catch (error) { finishInitialization(error); }
   }
   let chatSending = false, lastChatSnapshot = '', chatScope = 'Shared in this playground';
   window.yamReactions?.configure(emoji => api('/api/reactions', {emoji}));

@@ -25,6 +25,7 @@
   const download = document.createElement('a'); download.textContent = 'Save video';
   dialog.append(title, details, player, download, close); document.body.append(dialog);
   close.addEventListener('click', () => dialog.close());
+  player.addEventListener('loadeddata',()=>{player.dataset.playableAt=String(Date.now());});
   dialog.addEventListener('close', () => {
     player.pause(); player.removeAttribute('src'); player.load();
     if (objectURL) URL.revokeObjectURL(objectURL); objectURL = null;
@@ -58,7 +59,7 @@
     objectURL=URL.createObjectURL(clip.blob);
     title.textContent=`${clip.runner_name} · ${clip.approach}`;
     details.textContent=`${clip.prompt} · Actual live camera recording${clip.partial?' (first part only)':''} · 1×, pauses retained · Saved in this browser${clip.storage_error?' (browser storage unavailable; use Save video)':''}. This viewing copy includes the live stream’s delay; the source recording is retained separately.`;
-    player.src=objectURL;player.defaultPlaybackRate=player.playbackRate=1;
+    player.dataset.episodeId=clip.episode_id;player.src=objectURL;player.defaultPlaybackRate=player.playbackRate=1;
     download.href=objectURL;download.download=clip.episode_id+(clip.blob.type.includes('mp4')?'.mp4':'.webm');
     if(!dialog.open) dialog.showModal();player.play().catch(()=>{});
     return true;
@@ -70,6 +71,7 @@
     const run=active;if(!run || run.stopping) return;
     run.stopping=true;run.finished_at=Date.now();run.partial=reason!=='run_finished';clearInterval(run.paint);
     status(run.partial?'Saving the first part of the live view; the source recording continues.':'Run finished · saving the live-view recording…');
+    $('cagReplayStatus').dataset.finishedAt=String(run.finished_at);
     run.recorder.stop();
   }
   function start(state) {
@@ -86,7 +88,7 @@
     let last=null, changed=0, changedAt=0;
     const run={episode_id:state.episode_id,session_id:state.session_id,runner_name:state.runner_name || $('runnerName').value,
       approach:state.provider?.approach || state.run_configuration?.approach || window.yamApplication.modelDisplayName(),
-      prompt:state.task || $('prompt').value,started_at:Date.now(),chunks:[],bytes:0,stopping:false};
+      prompt:state.task || state.prompt || state.run_configuration?.task_prompt || $('prompt').value,started_at:Date.now(),chunks:[],bytes:0,stopping:false};
     const paint=()=>{
       if(active!==run) return;
       const frame=source.dataset.presentedFrame;

@@ -20,7 +20,7 @@ BUILD_HISTORY = build_history()
 def snapshot(provider, prompt, duration):
     config = provider.public_config()
     return {'model': config.get('model'), 'provider': config.get('provider'),
-            **({k:config[k] for k in ('revision','variant','mode','guidance_strength','seed','num_steps','dtype','enable_cuda_graph','robot_id','approach','run_context','trajectory_pacing') if k in config}),
+            **({k:config[k] for k in ('revision','variant','mode','guidance_strength','seed','num_steps','dtype','enable_cuda_graph','robot_id','approach','run_context','trajectory_pacing','gpu_startup') if k in config}),
             **({'automatic_retry_limit':config['automatic_retry_limit']} if 'automatic_retry_limit' in config else {}),
             **({k:config[k] for k in ('execution_environment','code_revision_limit') if config.get(k) is not None}),
             **({'launch_route':config['launch_route']} if config.get('launch_route') else {}),

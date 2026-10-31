@@ -46,6 +46,7 @@ class MolmoActAdapter:
         self._ready, self._thread = threading.Event(), None
         self._warm_state, self._failure = 'idle', None
         self._warm_started_at = None
+        self._warm_started_epoch = self._warm_ready_epoch = None
         self._connection = None
         self._http_lock = threading.Lock()
         self._prefetch = None
@@ -55,6 +56,8 @@ class MolmoActAdapter:
             variant=VARIANT, mode=self.mode, guidance_strength=self.strength, seed=0,
             num_steps=10, dtype='bfloat16', enable_cuda_graph=False, robot_id='yam-1',
             trajectory_pacing=dict(cadence_hz=10,max_joint_step_rad=GATEWAY_JOINT_STEP_RAD,preserve_targets=True),
+            gpu_startup=dict(requested_at=self._warm_started_epoch,ready_at=self._warm_ready_epoch,
+                elapsed_s=(self._warm_ready_epoch-self._warm_started_epoch) if self._warm_ready_epoch and self._warm_started_epoch else None),
             warmup=self._warm_state,
             warmup_elapsed_s=round(time.monotonic()-self._warm_started_at, 1) if self._warm_started_at else 0,
             display_name=('MolmoAct2 baseline' if self.mode == 'baseline'
@@ -122,6 +125,7 @@ class MolmoActAdapter:
     def start_preparation(self, cancelled):
         if self._thread is None:
             self._warm_started_at=time.monotonic()
+            self._warm_started_epoch=time.time()
             self._warm_state='warming'
             self._thread=threading.Thread(target=self._keep_ready,args=(cancelled,),daemon=True)
             self._thread.start()
@@ -134,6 +138,7 @@ class MolmoActAdapter:
                 verification=h.get('verification') or {}
                 if h.get('variant') != VARIANT or not all(verification.get(k) is True for k in ('pristine_baseline_equal','zero_strength_exact_equal','nonzero_text_kv_changed','non_goal_kv_unchanged')):
                     raise ValueError('Comparison self-checks are missing')
+                self._warm_ready_epoch=self._warm_ready_epoch or time.time()
                 self._ready.set(); self._warm_state='ready'; deadline=time.monotonic()+600
                 delay=30
             except (RuntimeError,ValueError):
