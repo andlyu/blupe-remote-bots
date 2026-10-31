@@ -49,7 +49,10 @@ Before integrating a paper or method, read the
 Verify actual user attribution for policy/model tests, editable name/email with
 known defaults prefilled and real-name confirmation if missing. Keep execution
 mode and actual approach separate from human identity; unattended system activity
-must not invent a person. Verify persistent inline explanations for meaningful
+must not invent a person. Set the harness's Model field to the actual approach
+being tested, consistently across the website, run records, notifications and
+replay/history; keep underlying model IDs/checkpoints as separate configuration.
+Verify persistent inline explanations for meaningful
 waits, including honest GPU startup/readiness and failure/recovery transitions.
 Keep a copy with the integration's documentation. Before claiming completion,
 review and update every checklist item with evidence. In the final handoff, link
