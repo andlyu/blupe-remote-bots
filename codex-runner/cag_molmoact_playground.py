@@ -54,7 +54,9 @@ class CAGPlayground(LocalPlayground):
     def decorate_history(self, value):
         # The media catalog is shared with BluPe, while this runner owns its
         # confirmed names and frozen method configuration. Keep both together.
+        from remote_yam.past_runs import merge_run_result
         names=self.run_names.names()
+        results=self.run_names.results()
         configurations={}
         if self.run_names.path.exists():
             with sqlite3.connect(self.run_names.path.resolve().as_uri()+'?mode=ro',uri=True,timeout=2) as db:
@@ -63,6 +65,7 @@ class CAGPlayground(LocalPlayground):
         for row in value.get('runs',[]):
             eid=row.get('episode_id')
             if eid in names:row['runner_name']=names[eid]
+            if eid in results:merge_run_result(row,results[eid])
             config=configurations.get(eid,{})
             if config.get('provider') in ('molmoact_baseline','molmoact_guided'):
                 row['model']=config['model']

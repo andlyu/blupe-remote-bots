@@ -191,9 +191,11 @@ def test_shared_replay_keeps_local_confirmed_name_and_actual_approach(app):
     config=dict(provider='molmoact_guided',model='allenai/MolmoAct2-BimanualYAM',approach='MolmoAct2 + CAG-inspired guidance',run_context={'runner':{'name':'Andrew','kind':'human','email_confirmed':True}})
     runner.run_names.remember('ep_history','Andrew')
     runner.run_names.remember_metadata('ep_history','yam-1','Put box in bin',1,config)
+    runner.run_names.results=Mock(return_value={'ep_history':{'result':'Failure','result_reason':'Robot rejected the action packet before motion','errors':'adjacent_delta_limit'}})
     result=runner.decorate_history({'runs':[{'episode_id':'ep_history','runner_name':'Name not recorded','model':None,'video_url':'/api/quick-replays/unchanged.mp4'}]})
     row=result['runs'][0]
     assert row['runner_name']=='Andrew'
+    assert row['result']=='Failure' and 'rejected' in row['result_reason']
     assert row['model_version']=='MolmoAct2 + CAG-inspired guidance'
     assert row['model']=='allenai/MolmoAct2-BimanualYAM'
     assert row['video_url']=='/api/quick-replays/unchanged.mp4'
