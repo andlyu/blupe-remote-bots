@@ -42,11 +42,12 @@ def relative_rotation(yaw, pitch, roll):
 
 class RoboCurveTrajectory:
     speed_multiplier = TRAJECTORY_SPEED
-    def __init__(self, *, base_spacing_m=None, joint_offsets_rad=None):
+    def __init__(self, *, base_spacing_m=None, joint_offsets_rad=None, preserve_uninstructed=False):
         self.ik = BimanualRelativeIK(base_spacing_m=base_spacing_m, joint_offsets_rad=joint_offsets_rad)
         self.bases = tuple(np.array([0., sign*self.ik.base_spacing_m/2, 0.]) for sign in (1, -1))
         self.low, self.high = LOW.copy(), HIGH.copy()
         self.start_rotations = None
+        self.preserve_uninstructed = preserve_uninstructed
 
     def observe(self, observation):
         if observation.get('settled') is not True:
@@ -91,6 +92,10 @@ class RoboCurveTrajectory:
         # error on a fixed pitch/roll axis must converge gradually; clipping each
         # sample makes an instantaneous correction that subdivision cannot shrink.
         goal = np.clip(goal, self.low, self.high)
+        cartesian_arms = {i for i,arm in enumerate(ARMS)
+                          if any(n.startswith(arm+'_') and n != arm+'_gripper' for n in targets)}
+        if not self.preserve_uninstructed:
+            cartesian_arms={0,1}  # Preserve the established other-policy drift correction contract.
         ratio = max((abs(goal[i]-start[i])/STEP[i] for i in named if STEP[i] > 0), default=0)
         ratio /= 1 - 1e-6  # RoboCurve's numerical headroom
         remaining = max(0, MAX_COMMANDS-first_step_id)
@@ -117,7 +122,9 @@ class RoboCurveTrajectory:
             raise InvalidMove('Session waypoint budget exhausted', 'session_waypoint_budget')
 
         def state_at(alpha):
-            return start + alpha*(goal-start)
+            # Keep validated numeric endpoints exact, especially close=0 from
+            # measured fractional starts (subtraction can produce -1.11e-16).
+            return goal.copy() if alpha == 1.0 else start + alpha*(goal-start)
 
         def extend(a, b, previous, depth=0):
             state = state_at(b)
@@ -125,7 +132,10 @@ class RoboCurveTrajectory:
                            relative_rotation(*state[i*7+3:i*7+6]) @ self.start_rotations[i])
                           for i in range(2))
             try:
-                solved = self.ik._solve(previous, poses)
+                solved = self.ik._solve(previous, poses) if cartesian_arms else previous.copy()
+                for index in range(2):
+                    if index not in cartesian_arms:
+                        solved[index*6:index*6+6] = measured_start[index*6:index*6+6]
             except IKConvergenceError as exc:
                 raise InvalidMove('Cartesian target is unreachable; request a smaller move', 'unreachable_target') from exc
             previous_command = previous if points else measured_start
@@ -137,9 +147,13 @@ class RoboCurveTrajectory:
             if len(points) >= limit:
                 raise budget_error()
             degrees = np.rad2deg(solved).reshape(2, 6)
+            # An uninstructed arm retains the measured joint values verbatim,
+            # avoiding an unnecessary IK or degrees/radians round trip.
+            joint_values = [degrees[i].tolist() if i in cartesian_arms else
+                            list(observation[arm+'_joints_deg']) for i,arm in enumerate(ARMS)]
             points.append({'step_id': first_step_id+len(points),
-                           'left_joints_deg': degrees[0].tolist(),
-                           'right_joints_deg': degrees[1].tolist(),
+                           'left_joints_deg': joint_values[0],
+                           'right_joints_deg': joint_values[1],
                            'left_gripper': float(state[6]), 'right_gripper': float(state[13])})
             return solved
 

@@ -923,7 +923,7 @@ def _trajectory_waypoints(
             if key in raw and raw[key] is not None:
                 value = float(raw[key])
                 if not math.isfinite(value) or not 0.0 <= value <= 1.0:
-                    raise ValueError(f"{key} must be finite and between 0 and 1")
+                    raise ValueError(f"waypoint {index} {key}={value!r} must be finite and between 0 and 1")
                 item[key] = value
         if not all(math.isfinite(value) for name in ("left_joints_deg", "right_joints_deg") for value in item[name]):
             raise ValueError("trajectory joint values must be finite")
