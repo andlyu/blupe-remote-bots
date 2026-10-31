@@ -40,5 +40,5 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci
-      - run: node --test tests/physical-route.test.cjs
+      - run: node --experimental-strip-types --test tests/*.test.cjs
       - run: npx tsc --noEmit
