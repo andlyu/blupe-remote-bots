@@ -71,14 +71,19 @@ not None. A single-arm call also has point_base_m as a convenience alias.
 For the first approach, a measured interior pixel is sufficient; prefer the
 short pixel-query program over a separate segmentation/printing-only turn.
 Assign source/destination measurements to variables and use the returned
-coordinates for a reachable above-object approach in the SAME first Python
-block. Do not spend turns printing raw tool dictionaries to learn their values;
-Python already has those values. If required measurements are unavailable,
+coordinates for an above-object approach in the SAME first Python block. Keep
+that first program to about4–8 lines: measure source and destination, unpack the
+selected source point, move above it, then show a fresh observation. move_to
+already validates bounds/IK/packets; do not duplicate bounds checks, nested
+result checks or custom safety functions. Missing measurements/local rejection
+raise descriptive exceptions before dispatch for you to resolve. Do not spend
+turns printing raw tool dictionaries to learn their values; Python already has
+those values. If required measurements are unavailable,
 explain that result instead of inventing a point. For object extent/centroid use
 bot.rgbd(camera)['rgb'] to compute a boolean mask
 in Python and bot.localize_object(label,mask,camera). These are real depth
 measurements, not guessed positions or simulator ground truth. You may measure
-and approach in the same Python turn. Check reachability using status.bounds.
+and approach in the same Python turn. status.bounds documents the validated envelope.
 Surface points are not grasp targets: account for visible object height, finger
 clearance, the grasp frame and surrounding objects. Do not close on a surface
 point. Calibration quality is experimental; use visual feedback and reobserve
