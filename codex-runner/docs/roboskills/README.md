@@ -10,7 +10,7 @@ This adapter does not expose the complete RoboKit/SAM API or replay simulation
 joint targets. Its physical success score is explicitly unscored.
 
 The harness Model is **RoboSkills**; the underlying inference model is separate
-configuration (`gpt-6-astra`). Real name/email remain editable before joining.
+configuration (now `gpt-6-sol`; earlier tests used `gpt-6-astra`). Real name/email remain editable before joining.
 The public website connects using RunnerPolicyClient's normal visitor, CSRF,
 Run/status/Stop protocol. Cameras, progress and retained history are in the site.
 The website's separate agentic_sim workflow retains native task checks, generated
@@ -61,3 +61,31 @@ run. The public site retains its native receipt, code and simulated replay.
 
 See [the completion checklist](COMPLETION-CHECKLIST.md). Unchecked requirements
 remain blockers; no complete research-integration claim is made.
+
+
+## Latest physical verification
+
+Run `2ea288ea830e471a86eb6d1d98971c50` completed the paired20mm lift,
+one-second hold and return through the website. Measured rises were17.80mm
+left and20.97mm right, within the unchanged3mm Cartesian tolerance. Lift
+position errors were2.21/0.98mm; return errors2.14/0.08mm. Gripper changes
+were below0.0001. Normal Stop/parking completed; native status verified torque off.
+
+The adapter now accumulates a bounded measured tracking offset only after
+matched, settled packet completion (max2 corrections,8mm per Cartesian axis
+relative to the original goal). It never retries rejected, failed, timed-out or
+uncertain packets. Existing IK/workspace/pacing/gateway checks stay intact;
+no motor gains or hardware safety limits changed. A latched failure cannot be
+cleared by the model calling finish. Sol is separately identified as the planner.
+
+[Physical replay](https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/2ea288ea830e471a86eb6d1d98971c50/assets/physical.mp4)
+and [measured verification](verification/2026-10-30-lift-return.json). The new
+replay was played and seeked in the website; anonymous byte-range access206.
+Persistent progress retains actual completed stages and failed accuracy checks.
+
+The15-second requirement remains unmet: this run spent about97seconds in
+queue/readiness before admission; its first packet was prepared107.56seconds
+after Run. Exact visual onset was not separately measured. Readiness flags
+alone do not prove a handoff bug; an external active run can also make the
+station unavailable. The cause of the long wait remains unverified. No queue
+or readiness rule was bypassed.

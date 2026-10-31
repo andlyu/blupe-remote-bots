@@ -6,7 +6,7 @@ from remote_yam.roboskills_policy import RoboSkillsPolicy, APPROACH
 
 
 class RoboSkillsPlayground(HostedRunner):
-    def __init__(self, *, inference_model='gpt-6-astra', **kwargs):
+    def __init__(self, *, inference_model='gpt-6-sol', **kwargs):
         self.inference_model=inference_model
         super().__init__(extra_providers={'roboskills':self.roboskills},
                          default_provider='roboskills',**kwargs)
@@ -29,13 +29,14 @@ class RoboSkillsPlayground(HostedRunner):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--port',type=int,default=8797)
+    p.add_argument('--inference-model',default='gpt-6-sol')
     p.add_argument('--robot-id',default='yam-1')
     p.add_argument('--api',default='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com')
     p.add_argument('--recording-root',type=Path,required=True)
     a=p.parse_args()
     import uvicorn
     origin=f'http://127.0.0.1:{a.port}'
-    app=RoboSkillsPlayground(public_origin=origin,session_api=a.api,camera_origin=a.api,
+    app=RoboSkillsPlayground(inference_model=a.inference_model,public_origin=origin,session_api=a.api,camera_origin=a.api,
             robot_id=a.robot_id,recording_root=a.recording_root,hardware_control=True,
             development=True,share_conversation=True)
     print('RoboSkills BluPe harness: '+origin,flush=True)

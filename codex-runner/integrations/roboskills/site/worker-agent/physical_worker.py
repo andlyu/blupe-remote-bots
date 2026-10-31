@@ -53,6 +53,12 @@ class PhysicalWorker(Worker):
         folder=self.root/run['id'];folder.mkdir(exist_ok=False)
         client=RunnerPolicyClient(self.config['harness'],robot_id='yam-1',timeout=20)
         stop_record=threading.Event();recorder=None;state=None;stopped=False
+        progress=[]
+        def advance(key,label,detail):
+            if progress and progress[-1]['key']==key:return
+            now=time.time()*1000
+            if progress:progress[-1]['completedAt']=now
+            progress.append(dict(key=key,label=label,detail=detail,startedAt=now))
         try:
             client.connect()
             # Once only. A timeout is uncertain, never an automatic relaunch.
@@ -65,7 +71,7 @@ class PhysicalWorker(Worker):
                 beat=self.request('heartbeat',dict(id=run['id'],detail='RoboSkills is connected through the BluPe remote-arms harness.'))
                 state=client.status()
                 result={key:state.get(key) for key in ('status','attempt_id','session_id','episode_id','error','commands_submitted','packets_submitted','run_started_at','run_ended_at','provider','step_timings','run_metrics','safety_error','run_summary')}
-                result.update(approach='RoboSkills',execution='physical',robot_id='yam-1',inference_model='gpt-6-astra')
+                result.update(approach='RoboSkills',execution='physical',robot_id='yam-1',inference_model=(state.get('provider') or {}).get('inference_model'))
                 if isinstance(result.get('provider'),dict):
                     result['provider']=dict(result['provider'])
                     result['provider'].pop('recording_path',None)
@@ -75,17 +81,25 @@ class PhysicalWorker(Worker):
                     client.stop();stopped=True
                 status=state['status']
                 provider=state.get('provider') or {}
-                running_stage=('RoboSkills is waiting for its next Python decision from the model.' if provider.get('vision',{}).get('state')=='requesting' else
-                               'BluPe is executing a checked packet and waiting for measured completion.' if provider.get('pending_packet') else
+                running_stage=('BluPe is executing a checked packet and waiting for measured completion.' if provider.get('pending_packet') else
+                               'RoboSkills is waiting for its next Python decision from the model.' if provider.get('vision',{}).get('state')=='requesting' else
                                'RoboSkills is reading the actual cameras and measured arm state.')
                 stage=('Stopping this BluPe run.' if stopped else
                        running_stage if status=='running' else
                        'Waiting for BluPe queue admission and the station’s readiness checks.' if status in ('queued','preparing') else
                        'BluPe execution ended. Saving the real camera recording.')
                 phase='running' if status=='running' else 'preparing'
+                key=('stopping' if stopped else 'moving' if provider.get('pending_packet') else
+                     'planning' if status=='running' and provider.get('vision',{}).get('state')=='requesting' else
+                     'observing' if status=='running' else 'queue')
+                if status in ('queued','preparing','running'):advance(key,{'stopping':'Stopping','moving':'Moving the arms','planning':'Writing the Python skill',
+                             'observing':'Checking the actual scene','queue':'Queue and readiness'}[key],stage)
+                result['progress']=list(progress)
                 self.request('update',dict(id=run['id'],status=phase,stage=stage,result=result));previous=(status,stage)
                 if status not in ('queued','preparing','running'):break
                 time.sleep(1)
+            advance('recording','Saving the replay','Physical run ended. Retaining actual YAM camera footage.')
+            result['progress']=list(progress)
             self.request('update',dict(id=run['id'],status='recording',stage='Physical run ended. Saving actual YAM camera footage.',result=result))
             stop_record.set()
             if recorder:recorder.join(timeout=5)
@@ -94,10 +108,13 @@ class PhysicalWorker(Worker):
                 self.request('upload',binary=path.read_bytes(),name='physical.mp4',run=run['id'])
             (folder/'result.json').write_text(json.dumps(result,indent=2))
             self.request('upload',binary=(folder/'result.json').read_bytes(),name='result.json',run=run['id'])
-            failed=state.get('error') or state['status'] in ('error','failed','safety_aborted','disconnected')
+            outcome=(state.get('provider') or {}).get('outcome') or {}
+            failed=state.get('error') or state['status'] in ('error','failed','safety_aborted','disconnected') or outcome.get('status') in ('failed','give_up')
+            if progress:progress[-1]['completedAt']=time.time()*1000
+            result['progress']=list(progress)
             self.request('update',dict(id=run['id'],status='cancelled' if stopped else 'failed' if failed else 'finished',
                 stage='Stopped. Actual physical footage is available.' if stopped else
-                      'BluPe ended the run: '+str(state.get('error') or state['status']) if failed else
+                      'RoboSkills stopped: '+str(state.get('error') or outcome.get('reason') or state['status']) if failed else
                       'Physical execution ended. Review the real recording; task success is unscored.',result=result))
         except Exception as exc:
             # Reconcile the same visitor and attempt. Never create a second run
