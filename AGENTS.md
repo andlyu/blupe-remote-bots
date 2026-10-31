@@ -27,3 +27,20 @@ BluPe-only hosted billing, analytics, moderation and deployment belong in
 blupe-evals/apps/blupe_web. Do not reintroduce an editable bundled copy there.
 See docs/REPOSITORY-OWNERSHIP.md. Claude users launch ./run-claude.sh and complete
 their own account login; never request an API key for subscription use.
+
+# Research integrations
+
+Before integrating a paper or method, read the
+[integration completion checklist](codex-runner/integration-harness/COMPLETION-CHECKLIST.md).
+Verify actual user attribution for policy/model tests, editable name/email with
+known defaults prefilled and real-name confirmation if missing. Keep execution
+mode and actual approach separate from human identity; unattended system activity
+must not invent a person. Verify persistent inline explanations for meaningful
+waits, including honest GPU startup/readiness and failure/recovery transitions.
+Keep a copy with the integration's documentation. Before claiming completion,
+review and update every checklist item with evidence. In the final handoff, link
+that copy and report checklist status, evidence/links, unmet items and explicit
+exceptions. Leave unfinished requirements unchecked and do not describe the
+integration as complete while any remain unmet.
+Merge shared harness changes into the default branch immediately after required
+validation and review, keeping unrelated working-tree changes out of the merge.
