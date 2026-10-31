@@ -36,7 +36,7 @@ def test_web_identity_reaches_http_creation_and_resets_between_submissions(tmp_p
     api.create_session('Stack blocks', 60)
     transport._request.assert_called_once_with('POST', '/v1/sessions', {
         'schema_version': 1, 'robot_id': 'yam-1', 'prompt': 'Stack blocks', 'run_duration_s': 60,
-        'runner_name': 'Alex Example', 'email': 'alex@example.com'})
+        'runner_name': 'Alex Example', 'email': 'alex@example.com', 'model': 'private-model'})
     # An absent identity on a later submission must not reuse earlier contact details.
     api.setup({'prompt': 'Next task'})
     api.create_session('Next task')
@@ -47,8 +47,9 @@ def test_web_identity_reaches_http_creation_and_resets_between_submissions(tmp_p
 def test_mock_creation_keeps_contact_fields_out_of_public_state():
     from remote_yam.session import MockSessionAPI
     api = MockSessionAPI(auto_activate=False)
-    created = api.create_session('Stack blocks', runner_name='Alex', email='alex@example.com')
+    created = api.create_session('Stack blocks', runner_name='Alex', email='alex@example.com', model='gpt-6-astra')
     assert api.create_requests[0]['email'] == 'alex@example.com'
+    assert api.create_requests[0]['model'] == 'gpt-6-astra'
     assert 'alex@example.com' not in str([created, api.get_queue_snapshot(), api.get_session(created['session_id'])])
 
 
