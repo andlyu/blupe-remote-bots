@@ -1,0 +1,73 @@
+{
+  "site_version": 13,
+  "deployed_source": "01bac7438e6284716b0f85fd2ce158f2f20ca744",
+  "run_id": "b1d79ff0fe8944e8ab47342bdcffbad2",
+  "episode_id": "ep_a41fd6cf5ebd402e",
+  "session_id": "sess_b0e6374a10c54309",
+  "approach": "RoboSkills",
+  "inference_model": "gpt-6-sol",
+  "runner": "Andrew Lyubovsky",
+  "execution_mode": "automated verification",
+  "sign_in_required": false,
+  "status": "finished",
+  "requested_lift_mm": 20,
+  "measured_lift_mm": {
+    "left": 18.06410789602711,
+    "right": 22.062741982513845
+  },
+  "lift_position_error_mm": {
+    "left": 1.9358821524825183,
+    "right": 2.140930460125386
+  },
+  "return_position_error_mm": {
+    "left": 2.788508865451823,
+    "right": 0.9736829152375198
+  },
+  "hold_before_return_packet_s": 2.0273258686065674,
+  "gripper_delta": {
+    "left": 7.215527815862544e-05,
+    "right": 0.00014456089627756796
+  },
+  "packet_count": 4,
+  "native_success_score": null,
+  "park_status": {
+    "ok": true,
+    "command": "status",
+    "mode": "DISABLED",
+    "parked": true,
+    "torque_off_verified": true,
+    "feedback_available": true,
+    "auto_queue_enabled": true,
+    "event": "Both physical arms parked at joint zero and torque-disabled",
+    "disconnected": false,
+    "elapsed_s": 0.014
+  },
+  "timing": {
+    "run_click_before": 1793426547.07,
+    "run_click_after": 1793426547.33,
+    "queue_entry_confirmed_local": 1793426547.921281,
+    "queue_entry_note": "Matched queued response proves entry no later than this receipt. Only the guaranteed queue interval is deducted; submission/handshake time stays counted.",
+    "first_admission_backend": 1793426574.2256248,
+    "first_admission_local_lower_bound": 1793426573.8697937,
+    "excluded_queue_seconds_lower_bound": 25.9485125541687,
+    "startup_home_measured_ready_robot_clock": 1793426574.2808077,
+    "home_evidence": "First episode-matched step0 observation: homed=true, settled=true, both measured arm joints; matched initial observation event and retained physical footage.",
+    "home_local_lower_bound": 1793426573.7491875,
+    "first_clear_method_motion_camera_clock": 1793426586.8,
+    "camera_precision_seconds": 0.1,
+    "visual_frames": {
+      "before": "motion-01.png (original frame41,23:03:06.0 PDT)",
+      "moving": "motion-02.png (original frame42,23:03:06.8 PDT)"
+    },
+    "motion_local_upper_bound": 1793426586.8825586,
+    "full_run_to_visible_motion_seconds_upper_bound": 39.81255865097046,
+    "queue_adjusted_run_seconds_upper_bound": 13.864046096801758,
+    "post_home_seconds_upper_bound": 13.133371114730835,
+    "run_target_seconds": 30,
+    "post_home_target_seconds": 15,
+    "owner_queue_excluded_15_second_rule_pass": true,
+    "clock_note": "Robot and backend wall-clock offsets independently bracketed by read-only request/response receipts; no zero-offset assumption. Bounds use latest possible camera frame and earliest possible Run/Home/admission, deducting only guaranteed queued seconds.",
+    "gpu_launch_exception": "none",
+    "outcome": "PASS for this run; historical runs not reclassified"
+  }
+}

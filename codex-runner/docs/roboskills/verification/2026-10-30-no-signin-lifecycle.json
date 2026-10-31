@@ -1,0 +1,332 @@
+{
+  "run": "b1d79ff0fe8944e8ab47342bdcffbad2",
+  "session": "sess_b0e6374a10c54309",
+  "episode": "ep_a41fd6cf5ebd402e",
+  "queueLifecycleReceipts": [
+    {
+      "receiptAt": 1793426547.921281,
+      "event": "queued",
+      "details": {
+        "status": "queued",
+        "position": 1
+      }
+    },
+    {
+      "receiptAt": 1793426548.4572,
+      "event": "queue_update",
+      "details": {
+        "position": 1
+      }
+    },
+    {
+      "receiptAt": 1793426574.197942,
+      "event": "lifecycle",
+      "details": {
+        "state": "preparing",
+        "reason": "jetson_leased",
+        "episode_id": "ep_a41fd6cf5ebd402e"
+      }
+    },
+    {
+      "receiptAt": 1793426574.1990259,
+      "event": "lifecycle",
+      "details": {
+        "state": "preparing",
+        "episode_id": "ep_a41fd6cf5ebd402e"
+      }
+    },
+    {
+      "receiptAt": 1793426574.46562,
+      "event": "lifecycle",
+      "details": {
+        "state": "running",
+        "reason": "first_observation",
+        "episode_id": "ep_a41fd6cf5ebd402e"
+      }
+    },
+    {
+      "receiptAt": 1793426599.2953038,
+      "event": "stop_requested",
+      "details": {
+        "reason": "policy_complete"
+      }
+    },
+    {
+      "receiptAt": 1793426599.66976,
+      "event": "stop_accepted",
+      "details": {
+        "status": "stopped",
+        "episode_id": "ep_a41fd6cf5ebd402e"
+      }
+    }
+  ],
+  "firstMatchedSettledHomeObservation": {
+    "jetson_id": null,
+    "episode_id": "ep_a41fd6cf5ebd402e",
+    "step_id": 0,
+    "observed_at": 1793426574.2808077,
+    "source": null,
+    "mode": null,
+    "homed": true,
+    "settled": true,
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.54950884581836,
+      -25.203487268233864,
+      -2.8287509420800183,
+      -0.6010658184978607
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.840392088834975,
+      34.33558343217879,
+      -19.373504412506005,
+      -1.1905515048634623,
+      -0.5354950019340727
+    ],
+    "left_gripper": 0.9998556894436829,
+    "right_gripper": 0.9988435128297796,
+    "safety": null
+  },
+  "observedAt": 1793426575.139838,
+  "backendEvents": [
+    {
+      "type": "snapshot",
+      "timestamp": 1793426548.2890053
+    },
+    {
+      "type": "queue_update",
+      "timestamp": 1793426548.4476926
+    },
+    {
+      "type": "lifecycle",
+      "timestamp": 1793426574.225702
+    },
+    {
+      "type": "lifecycle",
+      "timestamp": 1793426574.2260535
+    },
+    {
+      "type": "lifecycle",
+      "timestamp": 1793426574.4603102
+    },
+    {
+      "type": "observation",
+      "timestamp": 1793426574.462899,
+      "step_id": 0
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426574.477804
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426575.5207326
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426576.5538359
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426577.592907
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426578.6163468
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426579.664586
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426580.702219
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426581.754681
+    },
+    {
+      "type": "event_stream_disconnect",
+      "timestamp": 1793426586.113525,
+      "cause_type": "ConnectionError",
+      "errno": null,
+      "previous_event_type": "heartbeat"
+    },
+    {
+      "type": "snapshot",
+      "timestamp": 1793426586.9420042
+    },
+    {
+      "type": "observation",
+      "timestamp": 1793426586.9420419,
+      "step_id": 0,
+      "replayed": true
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426586.9420605,
+      "replayed": true
+    },
+    {
+      "type": "observation",
+      "timestamp": 1793426587.163574,
+      "step_id": 4
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426587.164594
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426587.8918152
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426588.9630034
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426590.0290852
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426590.029299
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426590.0829287,
+      "step_id": 4
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426590.2255409,
+      "step_id": 5
+    },
+    {
+      "type": "observation",
+      "timestamp": 1793426590.6804934,
+      "step_id": 6
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426590.6806273
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426591.074995
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426592.1628768
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426593.1570697
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426593.1840463
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426593.2287683,
+      "step_id": 6
+    },
+    {
+      "type": "observation",
+      "timestamp": 1793426593.772267,
+      "step_id": 7
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426593.7724059
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426594.194531
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426595.2121603
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426596.2332196
+    },
+    {
+      "type": "heartbeat",
+      "timestamp": 1793426597.2663538
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426597.4249296
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426597.4781148,
+      "step_id": 7
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426597.5716047,
+      "step_id": 8
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426597.6794689,
+      "step_id": 9
+    },
+    {
+      "type": "trajectory_progress",
+      "timestamp": 1793426597.788598,
+      "step_id": 10
+    },
+    {
+      "type": "observation",
+      "timestamp": 1793426598.3006732,
+      "step_id": 11
+    },
+    {
+      "type": "trajectory_result",
+      "timestamp": 1793426598.3008199
+    }
+  ],
+  "robotClockCorrelation": {
+    "clientRequestAt": 1793426724.687444,
+    "clientResponseAt": 1793426725.201623,
+    "robotClockAt": 1793426725.2190642,
+    "offsetLowerSeconds": 0.017441272735595703,
+    "offsetUpperSeconds": 0.5316202640533447,
+    "roundTripSeconds": 0.514178991317749
+  },
+  "backendClockCorrelation": {
+    "samples": [
+      {
+        "clientRequestAt": 1793426764.291063,
+        "clientResponseAt": 1793426764.669114,
+        "backendGeneratedAt": 1793426764.6997647,
+        "offsetLowerSeconds": 0.030650615692138672,
+        "offsetUpperSeconds": 0.40870165824890137
+      },
+      {
+        "clientRequestAt": 1793426764.6691258,
+        "clientResponseAt": 1793426764.9934468,
+        "backendGeneratedAt": 1793426765.0262797,
+        "offsetLowerSeconds": 0.03283286094665527,
+        "offsetUpperSeconds": 0.35715389251708984
+      },
+      {
+        "clientRequestAt": 1793426764.993448,
+        "clientResponseAt": 1793426765.320149,
+        "backendGeneratedAt": 1793426765.3492792,
+        "offsetLowerSeconds": 0.029130220413208008,
+        "offsetUpperSeconds": 0.3558311462402344
+      }
+    ],
+    "offsetLowerSeconds": 0.03283286094665527,
+    "offsetUpperSeconds": 0.3558311462402344
+  }
+}
