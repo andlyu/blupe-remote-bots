@@ -319,6 +319,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
         self._perception=None
         self._completed_moves=0
         self._local_rejection=None
+        self._startup_home_feedback=None
 
     def configure_robot_workspace(self,robot_id,*,report=None):
         from .controller_workspace import workspace_for_robot
@@ -380,6 +381,7 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 'outcome':self._outcome,'pending_packet':deepcopy(self._pending),
                 'last_move':deepcopy(self._last_move),
                 'local_rejection':deepcopy(self._local_rejection),
+                'startup_home_feedback':deepcopy(self._startup_home_feedback),
                 'perception':self._perception.summary() if self._perception else dict(available=False),
                 'system_prompt_sha256':hashlib.sha256(PROMPT.encode()).hexdigest(),
                 'recording_path':str(self._recorder.path) if self._recorder else None,
@@ -458,6 +460,15 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 raise RuntimeError('Measured completion cursor changed')
             self._replies.put_nowait(deepcopy(observation));self._completed=None
         if self._thread is None:
+            # Preserve the first correlated settled startup sample; later
+            # stationary refreshes must not shift the first-motion boundary.
+            fields=('source','observed_at','homed','settled','step_id','episode_id',
+                    'left_joints_deg','right_joints_deg','left_gripper','right_gripper')
+            self._startup_home_feedback={k:deepcopy(observation[k]) for k in fields if k in observation}
+            self._record('startup_home_feedback',observation=self._startup_home_feedback)
+            self._interaction('policy_timing','RoboSkills received measured startup Home feedback',
+                stage='home_feedback_confirmed',homed=observation.get('homed'),
+                settled=observation.get('settled'),observation_reported_at=observation.get('observed_at'))
             self._thread=threading.Thread(target=self._run_agent,args=(prompt,),daemon=True)
             self._thread.start()
         while True:

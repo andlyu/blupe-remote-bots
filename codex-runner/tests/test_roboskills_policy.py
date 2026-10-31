@@ -44,21 +44,23 @@ class Tests(unittest.TestCase):
     def test_upstream_agent_yields_checked_packet_and_requires_measured_completion(self):
         replies=iter(['```python\ns=bot.status()["coordinates"]\nprint(bot.move_to(left_z=s["left_z"]+.02,right_z=s["right_z"]+.02))\n```',
                       '```python\nfinish()\n```'])
-        p=self.policy(lambda s,m:next(replies));obs=observation()
+        p=self.policy(lambda s,m:next(replies));obs={**observation(),'observed_at':100.}
         points=p.build_trajectory('Raise both arms by20mm',obs,0)
         self.assertGreater(len(points),0)
         # RunnerController calls this after AWS dispatch, while a packet is
         # pending. It must not assume Responses function-call identity.
         self.assertEqual(p.public_config()['pending_packet']['waypoint_count'],len(points))
         self.assertEqual(p.public_config()['policy'],'roboskills_python_agent')
+        self.assertEqual(p.public_config()['startup_home_feedback']['observed_at'],100.)
         with self.assertRaisesRegex(RuntimeError,'completion'):
             p.build_trajectory('Raise both arms by20mm',obs,0)
-        end={**obs,**points[-1], 'step_id':points[-1]['step_id']+1}
+        end={**obs,**points[-1], 'step_id':points[-1]['step_id']+1,'observed_at':110.}
         with self.assertRaisesRegex(RuntimeError,'match'):
             p.trajectory_completed(end,len(points)+1)
         p.trajectory_completed(end,len(points))
         with self.assertRaises(PolicyComplete):p.build_trajectory('Raise both arms by20mm',end,end['step_id'])
         self.assertEqual(p.public_config()['model'],'RoboSkills')
+        self.assertEqual(p.public_config()['startup_home_feedback']['observed_at'],100.)
         self.assertIsNone(p._outcome['success'])
 
     def test_short_measured_move_latches_failure_and_finish_cannot_report_done(self):
