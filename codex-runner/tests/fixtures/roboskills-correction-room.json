@@ -1,0 +1,1450 @@
+{
+  "run": "29b59179f3d3433897dfe7b57aec88cb",
+  "runtime": "4d5878d4455b6e3c1c785a452f94bee3c597a26c",
+  "before": {
+    "step_id": 66,
+    "observed_at": 1793466378.2627058,
+    "left_joints_deg": [
+      -25.474262234873635,
+      106.85334551864156,
+      80.62935513832595,
+      -30.383581776740744,
+      -0.8397695063241348,
+      -0.6666366350610379
+    ],
+    "right_joints_deg": [
+      -1.3004878618403852,
+      45.94967678310728,
+      34.313726493324324,
+      -19.65764461761399,
+      -1.190551504863259,
+      -0.5792088796429933
+    ],
+    "left_gripper": 0.9997113580603262,
+    "right_gripper": 0.9974012849202339,
+    "timing": {
+      "session_read_s": 0.3729401250020601,
+      "robot_observation_read_s": 0.35629825000069104,
+      "total_s": 0.7292867080032011
+    },
+    "episode_id": "offline",
+    "lease_id": "offline",
+    "source": "hardware",
+    "settled": true
+  },
+  "after": {
+    "step_id": 120,
+    "left_joints_deg": [
+      -25.47426223487343,
+      151.1573605766326,
+      155.0740888766178,
+      -84.5887901358026,
+      -0.5774862400706118,
+      -1.2349170452770046
+    ],
+    "right_joints_deg": [
+      -1.3004878618403852,
+      45.94967678310728,
+      34.29186955446987,
+      -19.657644617613787,
+      -1.2124084437179226,
+      -0.5792088796429933
+    ],
+    "left_gripper": 0.9997113580603262,
+    "right_gripper": 0.9974734714502274,
+    "episode_id": "offline",
+    "lease_id": "offline",
+    "source": "hardware",
+    "settled": true
+  },
+  "target": {
+    "left_x": 0.4839110034696461,
+    "left_y": -0.22651538556855227,
+    "left_z": 0.07407420024250422
+  },
+  "rotation": [
+    [
+      -0.8964769741052958,
+      0.41393470121881365,
+      0.15807307811864754
+    ],
+    [
+      0.4076461030010795,
+      0.9103065764493254,
+      -0.07187900653975227
+    ],
+    [
+      -0.1736481776669303,
+      0.0,
+      -0.984807753012208
+    ]
+  ],
+  "after_feedback": {
+    "step_id": 120,
+    "observed_at": 1793466387.2618945,
+    "left_joints_deg": [
+      -25.45240529601897,
+      151.1573605766326,
+      155.0740888766178,
+      -84.58879013580238,
+      -0.5774862400706118,
+      -1.2130601064227478
+    ],
+    "right_joints_deg": [
+      -1.3004878618403852,
+      45.94967678310728,
+      34.29186955446987,
+      -19.65764461761399,
+      -1.2124084437179226,
+      -0.5792088796429933
+    ],
+    "left_gripper": 0.9997113580603262,
+    "right_gripper": 0.9974734714502274,
+    "timing": {
+      "session_read_s": 0.3742973339976743,
+      "robot_observation_read_s": 0.36042299999826355,
+      "total_s": 0.7347740000041085
+    },
+    "episode_id": "offline",
+    "lease_id": "offline",
+    "source": "hardware",
+    "settled": true
+  },
+  "actual_first_packet_waypoints": 54,
+  "position_error_m": 0.0036323997074873423,
+  "actual_correction_offset_m": [
+    0.001846274306280038,
+    -0.002790107819186094,
+    0.0014145307272169505
+  ],
+  "actual_corrected_target": {
+    "left_x": 0.48575570591149514,
+    "left_y": -0.2293047553353223,
+    "left_z": 0.07548797486149203
+  },
+  "actual_rejection": "Cartesian target is unreachable; request a smaller move",
+  "candidates": [
+    {
+      "tilt_deg": 10,
+      "reachable": true,
+      "target": {
+        "left_x": 0.4839110034696461,
+        "left_y": -0.22651538556855227,
+        "left_z": 0.07407420024250422
+      },
+      "rotation": [
+        [
+          -0.8964769741052959,
+          0.41393470121881365,
+          0.15807307811864757
+        ],
+        [
+          0.40764610300107956,
+          0.9103065764493254,
+          -0.07187900653975228
+        ],
+        [
+          -0.17364817766693036,
+          0.0,
+          -0.984807753012208
+        ]
+      ],
+      "all_26_pass": false,
+      "passes": 15,
+      "tests": [
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 8
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 10
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 8
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 12
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 10
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 8
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.0
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 8
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": false,
+          "reason": "Cartesian target is unreachable; request a smaller move"
+        }
+      ]
+    },
+    {
+      "tilt_deg": 15,
+      "reachable": true,
+      "target": {
+        "left_x": 0.4800344234322205,
+        "left_y": -0.22475262669032736,
+        "left_z": 0.07313010390634725
+      },
+      "rotation": [
+        [
+          -0.8792886320331876,
+          0.41393470121881365,
+          0.23560467886715922
+        ],
+        [
+          0.39983021830450116,
+          0.9103065764493254,
+          -0.10713418410425057
+        ],
+        [
+          -0.2588190451025208,
+          0.0,
+          -0.9659258262890683
+        ]
+      ],
+      "all_26_pass": true,
+      "passes": 26,
+      "tests": [
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 6
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 3
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 3
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 5
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 8
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 5
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        }
+      ]
+    },
+    {
+      "tilt_deg": 20,
+      "reachable": true,
+      "target": {
+        "left_x": 0.47624749808820366,
+        "left_y": -0.22303063560362357,
+        "left_z": 0.07181844363118925
+      },
+      "rotation": [
+        [
+          -0.8554083725423145,
+          0.41393470121881365,
+          0.3113431857474971
+        ],
+        [
+          0.38897138422253896,
+          0.9103065764493254,
+          -0.1415740058383265
+        ],
+        [
+          -0.3420201433256687,
+          0.0,
+          -0.9396926207859084
+        ]
+      ],
+      "all_26_pass": true,
+      "passes": 26,
+      "tests": [
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        }
+      ]
+    },
+    {
+      "tilt_deg": 25,
+      "reachable": true,
+      "target": {
+        "left_x": 0.47257904822607144,
+        "left_y": -0.22136251770037735,
+        "left_z": 0.07014920194372631
+      },
+      "rotation": [
+        [
+          -0.8250179388266972,
+          0.41393470121881365,
+          0.38471218299014104
+        ],
+        [
+          0.3751522430392999,
+          0.9103065764493254,
+          -0.17493636390325082
+        ],
+        [
+          -0.4226182617406995,
+          0.0,
+          -0.9063077870366499
+        ]
+      ],
+      "all_26_pass": true,
+      "passes": 26,
+      "tests": [
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 3
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        }
+      ]
+    },
+    {
+      "tilt_deg": 35,
+      "reachable": true,
+      "target": {
+        "left_x": 0.46570813727024224,
+        "left_y": -0.21823817635518378,
+        "left_z": 0.06579141480634342
+      },
+      "rotation": [
+        [
+          -0.7456794930281784,
+          0.41393470121881365,
+          0.5221304021067251
+        ],
+        [
+          0.33907545670554423,
+          0.9103065764493254,
+          -0.23742319080712213
+        ],
+        [
+          -0.573576436351046,
+          0.0,
+          -0.8191520442889918
+        ]
+      ],
+      "all_26_pass": true,
+      "passes": 26,
+      "tests": [
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            -0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.0,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            -0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 4
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.0,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            -0.008
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.0
+          ],
+          "reachable": true,
+          "waypoints": 1
+        },
+        {
+          "offset_m": [
+            0.008,
+            0.008,
+            0.008
+          ],
+          "reachable": true,
+          "waypoints": 2
+        }
+      ]
+    }
+  ],
+  "wall_s": 1.2537172920056037,
+  "scope": "Exact actual first packet reproduced1e-9, known matched-feedback correction through unchanged canonical path rejects before dispatch. Offline26unclipped8mmoffset samples around hypothetical generated endpoint, not hardware observations or continuous-region/collision guarantee. No queue or actuation. Before/after states are actual retained measurements with offline identity fields; candidate endpoints remain hypothetical."
+}

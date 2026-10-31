@@ -5,6 +5,7 @@ simulator tools with BluPe cameras and checked Cartesian packet generation.
 RunnerController alone owns queue admission, leases, dispatch and Stop.
 """
 from copy import deepcopy
+from itertools import product
 import base64
 import hashlib
 import io
@@ -37,6 +38,7 @@ ROTATION_TOLERANCE_DEG = 2.
 # It is smaller than the minimum20mm retreat and leaves at least14mm progress;
 # actual images/FK, not the nominal viewing target, ground all later grasp plans.
 VIEW_REGION_RADIUS_M = .006
+MAX_TRACKING_OFFSET_M = .008  # Existing per-axis matched-feedback correction cap.
 JAW_OPENING_AXIS = 1  # Physical linear_4310 jaw travel is tool-Y, not proxy-X.
 # Extracted from the hash-verified installed reference, not the simplified
 # canonical model's visual finger boxes. No runtime mesh/vision dependency.
@@ -91,7 +93,7 @@ def _tracking_offset(history, axes):
         if opposite:
             old_offset,old_error=min(opposite,key=lambda value:abs(value[0]-current[j]))
             candidate=(current[j]*old_error-old_offset*error[j])/(old_error-error[j])
-        result[j]=np.clip(candidate,-.008,.008)
+        result[j]=np.clip(candidate,-MAX_TRACKING_OFFSET_M,MAX_TRACKING_OFFSET_M)
     return result
 
 PROMPT = """You control physical bimanual YAM arms through a BluPe adapter to
@@ -364,8 +366,18 @@ well as vertical clearance: input_point minus tool_Z times clearance. It is an
 approach position, not the grasp position. Changing only base-frame Z leaves
 the horizontal offset in place. After the above-object observation, choose
 supported grasp X/Y from the actual object surfaces and a supported grasp Z
-with table clearance, then preflight the full XYZ grasp and placement. Account
-for the complete open-finger and wrist path around all objects in the fresh
+with table clearance, then preflight the full XYZ grasp and placement.
+Check correction room as well as nominal reachability. After the first completed
+move, public plan_move results include tracking_reserve. For ordinary Cartesian
+view/grasp/lift/transfer/placement candidates, require reachable AND
+tracking_reserve['passed']; choose another supported frame/pose if it fails.
+This checks26unclipped offsets at +/-8mm per Cartesian axis, independently for
+each requested arm, around the generated endpoint through the actual packet
+validator. It is finite sampled planning room, not a continuous-region, scene
+clearance or physical-completion guarantee. The actual correction remains
+bounded and revalidated only after matched completion; failed/unknown motion
+is never replayed. Initial source inspection keeps its unchanged planning path.
+Account for the complete open-finger and wrist path around all objects in the fresh
 scene, including boxes and mats if present. Neither local reachability nor a
 single surface pixel proves a clear grasp. Stop if the path or contact geometry
 cannot be established after supported noncontact inspection. If the first close
@@ -512,9 +524,10 @@ class RobotTools:
         p._check_cancelled()
         if self.motion_failure:raise RuntimeError(self.motion_failure)
         state=p._feedback()
-        return self._plan_move(targets,state,attitude=attitude,rotation=rotation)
+        return self._plan_move(targets,state,attitude=attitude,rotation=rotation,
+                               include_tracking_reserve=bool(p._completed_moves))
 
-    def _plan_move(self, targets, state, *, attitude=None, rotation=None):
+    def _plan_move(self, targets, state, *, attitude=None, rotation=None,include_tracking_reserve=False):
         """Validate one candidate against a supplied read-only batch snapshot."""
         p=self.policy;p._check_cancelled()
         if self.motion_failure:raise RuntimeError(self.motion_failure)
@@ -528,10 +541,42 @@ class RobotTools:
             points=_trajectory_waypoints(geometry.build(targets,state,state['step_id'],
                 **({'attitude':attitude} if attitude is not None else {}),**({'rotation':rotation} if rotation is not None else {})))
             result.update(reachable=True,waypoint_count=len(points))
+            if include_tracking_reserve:
+                result['tracking_reserve']=self._sampled_tracking_reserve(geometry,targets,state,points,rotation)
         except ValueError as exc:
             result.update(reachable=False,reason=str(exc),code=getattr(exc,'code','local_validation'))
         p._record('local_plan_checked',targets=targets,attitude=attitude,rotation={arm:np.asarray(value).tolist() for arm,value in rotation.items()} if result['reachable'] and rotation is not None else None,result=result)
         return result
+
+    def _sampled_tracking_reserve(self,geometry,targets,state,points,rotation):
+        """Check hypothetical correction packets on copies; never dispatch."""
+        arms=[(arm,i) for arm,i in (('left',0),('right',7))
+              if any(n in targets for n in NAMES[i:i+6])]
+        result=dict(applicable=bool(arms),passed=None if not arms else False,
+            max_axis_offset_m=MAX_TRACKING_OFFSET_M,checked_samples=0,total_samples=26*len(arms),
+            scope='Independent-arm finite samples around generated endpoint FK, '
+                  'not a continuous-region, collision, contact or physical-tracking guarantee. '
+                  'No clipping, dispatch, feedback read, cursor/reference adoption or budget consumption.')
+        if not arms:return result
+        # A hypothetical generated endpoint is not measured hardware feedback.
+        seed={**deepcopy(state),**deepcopy(points[-1]),'step_id':points[-1]['step_id']+1,
+              'source':'hypothetical_kinematic_endpoint'}
+        _,endpoint,_=geometry.observe(seed)
+        for arm,i in arms:
+            for offset in product((-MAX_TRACKING_OFFSET_M,0.,MAX_TRACKING_OFFSET_M),repeat=3):
+                if not any(offset):continue
+                self.policy._check_cancelled()
+                corrected=dict(targets)
+                for j in range(3):corrected[NAMES[i+j]]=float(endpoint[i+j]+offset[j])
+                result['checked_samples']+=1
+                try:
+                    probe=deepcopy(geometry)
+                    _trajectory_waypoints(probe.build(corrected,seed,seed['step_id'],
+                        **({'rotation':rotation} if rotation is not None else {})))
+                except ValueError as exc:
+                    return dict(result,failed_arm=arm,failed_offset_m=list(offset),
+                                reason=str(exc),code=getattr(exc,'code','local_validation'))
+        return dict(result,passed=True)
 
     def plan_approach(self, points_base_m, clearance=.05):
         """Read-only local approach options from measure_depth()['points_base_m']. clearance in[.01,.10]metres along negative tool-Z. Searches both supplied arms and0/35/45/55deg downward tilt with level jaw-opening axes. Returns{candidates:[{arm:'left'|'right',targets:FLAT kwargs e.g.left_x/left_y/left_z,rotation:{arm:3x3},tilt_deg,waypoint_count,from_step_id}],rejected,scope}. Every candidate is locally reachable; select candidates[0], or filter by c['arm'], never by 'left' in c['targets']. Pass move_to(**c['targets'],rotation=c['rotation']). No dispatch; only these candidates tested, not all poses. Reachability is NOT scene/finger clearance or grasp success. Inspect the fresh scene before choosing; move_to revalidates."""
@@ -691,7 +736,7 @@ class RobotTools:
                 self.result=dict(status='failed',success=None,reason=self.motion_failure)
                 raise
             p._interaction('tracking_correction','Correcting a measured tracking residual after confirmed completion',
-                           correction=correction+1,position_error_m=errors,orientation_error_deg=angular_errors,max_offset_m=.008,
+                           correction=correction+1,position_error_m=errors,orientation_error_deg=angular_errors,max_offset_m=MAX_TRACKING_OFFSET_M,
                            command_offset_m={NAMES[j]:float(offset[j]) for j in axes},
                            maximum_packets=6)
         self.motion_failure=(f'Measured move did not reach its target within{tolerance*1000:g}mm and, for an explicit rotation or view retreat,2degrees after bounded tracking correction: '+
