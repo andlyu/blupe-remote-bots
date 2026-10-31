@@ -31,16 +31,22 @@ their own account login; never request an API key for subscription use.
 # Playground physical-test authorization
 
 The repository owner authorizes physical playground tests needed for research
-integrations, playground fixes and harness verification, including bounded robot
-motion and camera recording/replay through the normal UI or supported run API.
-Proceed without asking for separate permission for each test, movement or
-recording. Follow the checklist's
-[standing authorization and test scope](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#standing-authorization-for-physical-playground-tests),
-including a concrete test notice and authorization in any escalation justification.
+integrations, playground fixes and harness verification, including normal queue
+entry with confirmed runner identity, bounded robot motion, and camera
+recording/replay through the normal UI or supported run API. Proceed without
+separate permission for each test, movement or recording within that scope.
+For any name/email submission, cite existing consent for the fields and exact
+destinations; this summary grants no additional identity-sharing permission.
+Read the checklist's
+[standing authorization and approval-context instructions](codex-runner/integration-harness/COMPLETION-CHECKLIST.md#standing-authorization-for-physical-playground-tests)
+at task start, including when the chat starts outside this repository. Before
+the first approval request, surface the concrete site/backend origins, station,
+method, duration, motion, recording destination and identity scope, and repeat
+the applicable owner authorization in the tool's justification/context.
 Preserve queue/lease, readiness, validation, hardware limits and Stop; never
 automatically retry a timed-out movement. Enforced tool/managed permissions still
-apply; report an explicit denial and seek the specific unblock without routing
-around it.
+apply. An explicit denial requires the exact blocker to be reported; neither
+another execution route nor a documentation update authorizes retrying it.
 
 # Research integrations
 
