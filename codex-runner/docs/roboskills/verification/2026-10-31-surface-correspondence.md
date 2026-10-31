@@ -63,3 +63,5 @@ push/PR CI, immutable runtime deployment and a fresh normal-UI physical task are
 still pending. No source change bypasses native queue/readiness/validation,
 motion bounds or uncertain-motion non-replay. The specifically excluded old
 recording is not used.
+
+Deployment update: all6 required CI checks passed, PR199 mergedf642e9a, and clean immutable runtime5c7b3af launched as provider57421/physical57424 with unchanged pinned agent. The [fresh physical receipt](2026-10-31-correspondence-run-timing.json) verifies actual measured depth use, successful first approach and both startup limits. Descent tracking failed before grasp; recording/replay/normalpark verified. This supersedes the pending-release paragraph above, not its offline limitations. Full stacking remains unverified.
