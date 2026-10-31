@@ -8,6 +8,14 @@ evidence. Report checklist status, evidence links, unmet items and explicit
 exceptions; leave unfinished requirements unchecked and do not describe the
 integration as complete.
 
+## Owner timing exception — October30,2026
+
+The owner explicitly clarified: “Then thats fine... if we're waiting for queue admission, that dones't count”. For this integration, exclude measured waiting in the normal BluPe admission queue from both timing measures. Keep full elapsed time visible and keep all nonqueue time, including submission, preparation after admission, inference and dispatch, in the15-second budget. This project-specific instruction overrides the queue-inclusive default below; it changes no global harness contract, queue priority or safety check.
+
+For verified run`2ea288ea830e471a86eb6d1d98971c50`, the measured queued interval is95.331s (joined→admitted). Keeping1.828s of submission time in the budget, existing camera footage shows actual arm movement by a conservative adjusted14.442s afterRun. This uses the frame's embedded21:23:20.6PDT clock plus0.1s precision allowance, not MP4 playback time. The first measured packet completed at adjusted14.844s, corroborating physical execution within15s. The run therefore passes the amended per-Run criterion. Raw total remains about109.673s to that visible-motion frame;107.557s was only packet preparation.
+
+[Timing receipt](verification/2026-10-30-queue-exclusion.json); [public replay before/through initial motion](https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/2ea288ea830e471a86eb6d1d98971c50/assets/physical.mp4#t=62,64). Site-entry timing and other development runs are not automatically certified by this reassessment. Their original receipts remain unchanged. The older failed-recording denial and final full UI qualification remain separate gaps. The startup-exception question is answered; do not ask it again or describe this queue wait as a performance failure under the amended criterion.
+
 ## Purpose and public visibility by default
 
 The playground exists for demos and for showing people how well approaches work.
