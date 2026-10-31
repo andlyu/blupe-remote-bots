@@ -1,0 +1,30 @@
+{
+  "run_id": "2ea288ea830e471a86eb6d1d98971c50",
+  "owner_instruction": "Then thats fine... if we're waiting for queue admission, that dones't count",
+  "scope": "This integration; exclude measured queue waiting only; retain all raw elapsed times and all nonqueue work",
+  "run_click_utc": "2026-10-31T04:21:30.927Z",
+  "queue_joined_utc": "2026-10-31T04:21:32.755094+00:00",
+  "admitted_utc": "2026-10-31T04:23:08.086206+00:00",
+  "excluded_queue_wait_s": 95.33111214637756,
+  "submission_before_queue_s": 1.8280940055847168,
+  "first_prepared_packet_after_admission_s": 10.39785099029541,
+  "camera_evidence": {
+    "public_replay": "https://blupe-bimanual-skills.andlyu.chatgpt.site/api/physical/runs/2ea288ea830e471a86eb6d1d98971c50/assets/physical.mp4",
+    "before_video_second": 62,
+    "before_camera_clock": "21:23:18.8 PDT",
+    "visible_motion_video_second": 63,
+    "visible_motion_camera_clock": "21:23:20.6 PDT",
+    "camera_clock_precision_s": 0.1,
+    "interpretation": "Actual arm change visible by this frame, not an exact first-onset timestamp; use embedded wall clock, not MP4 playback seconds"
+  },
+  "admission_to_visible_motion_by_s": 12.513793706893921,
+  "raw_click_to_visible_motion_by_s": 109.6729998588562,
+  "adjusted_click_to_visible_motion_upper_bound_s": 14.441887617111206,
+  "adjusted_click_to_first_measured_completed_packet_s": 14.84364366531372,
+  "criterion_s": 15,
+  "run_assessment": "passes owner-amended Run timing; visual upper bound below15s",
+  "site_entry_timing": "unverified; pre-Run visitor path not timed",
+  "other_runs": "original receipts/outcomes retained; not automatically reclassified",
+  "new_physical_run": false,
+  "older_failed_clip_publication": "explicit denial unchanged; no upload"
+}
