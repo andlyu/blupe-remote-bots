@@ -44,6 +44,8 @@ class LocalPlayground(HostedRunner):
 
 
     def launch(self,visitor,payload,**kwargs):
+        if self.use_public_run_catalog and not self.hardware_control:
+            raise RequestError(403, 'Read-only local preview. Relaunch without --read-only to run tasks.')
         with self._managed_launch_lock:
             if self._managed_owner is not None and self._managed_owner.controller.busy():
                 raise RequestError(409, 'A configured policy is active. Wait for its completion or Stop acknowledgement.')
@@ -119,6 +121,8 @@ class LocalPlayground(HostedRunner):
 
     async def session_extension(self, cookies, visitor):
         setup, headers = await super().session_extension(cookies, visitor)
+        if self.use_public_run_catalog:
+            setup = dict(setup, read_only=not self.hardware_control)
         if self.managed_policies:
             setup = dict(setup, configured_providers={**setup.get('configured_providers', {}),
                 **{name: {**{key: spec[key] for key in ('label','model','help','task') if key in spec},

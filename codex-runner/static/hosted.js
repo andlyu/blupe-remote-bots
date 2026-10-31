@@ -822,11 +822,12 @@ function createRunLaunchGuard() {
   window.yamRunVideoEmail = runVideoEmail;
   window.yamReplayEmail = createReplayEmailControl({$, send: api});
   function buttons() {
+    const readOnly = $('runForm').dataset?.readOnly === 'true';
     window.yamReactions?.setAvailable(!!csrf && !ended);
-    $('run').disabled = !csrf || ended || active || submitting;
-    $('openLocalRun').disabled = !csrf || ended || active || submitting;
-    $('runGroot').disabled = !csrf || ended || active || submitting;
-    $('runAstra').disabled = $('runClaude').disabled = !csrf || ended || active || submitting;
+    $('run').disabled = readOnly || !csrf || ended || active || submitting;
+    $('openLocalRun').disabled = readOnly || !csrf || ended || active || submitting;
+    $('runGroot').disabled = readOnly || !csrf || ended || active || submitting;
+    $('runAstra').disabled = $('runClaude').disabled = readOnly || !csrf || ended || active || submitting;
     ['runDuration', 'runnerName', 'email', 'provider', 'model', 'apiKey', 'geminiCallingMode'].forEach(id => { $(id).disabled = active || submitting || ended; });
     ['customEndpoint', 'customEndpointKey'].forEach(id => { $(id).disabled = active || submitting || ended || $('provider').value !== 'custom_endpoint'; });
     $('prompt').disabled = !csrf || ended || submitting || (active && !window.yamRuntimeSteering?.available);
@@ -2493,7 +2494,11 @@ function createRunLaunchGuard() {
         $('provider').append(option);
       }
       window.yamAnalytics?.init(session.simulation, session.paid_runs);
-      $('simulationNotice').hidden = !session.simulation;
+      $('runForm').dataset.readOnly = String(session.read_only === true);
+      $('simulationNotice').hidden = !session.simulation && !session.read_only;
+      $('simulationNotice').textContent = session.read_only
+        ? 'Read-only local preview. Relaunch without --read-only to run tasks.'
+        : 'Local simulation · no physical robot connected';
       const astra = $('provider').querySelector('[value="astra"]');
       astra.hidden = astra.disabled = !session.astra_enabled;
       if (session.local_runner) {
