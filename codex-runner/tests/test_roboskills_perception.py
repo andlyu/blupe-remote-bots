@@ -80,6 +80,26 @@ class Tests(TestCase):
         with self.assertRaisesRegex(ValueError,'changed'):self.capture(changed)
         with self.assertRaisesRegex(ValueError,'observe'):self.bot.measure_depth(4,3)
 
+    def test_live_depth_delivery_metadata_is_not_a_calibration_change(self):
+        for camera in self.report['cameras'].values():
+            camera['depth']=dict(captured_at=None,available=False,units='meters')
+        self.policy.configure_perception(self.source,self.report)
+        changed=deepcopy(self.report)
+        for camera in changed['cameras'].values():
+            camera['depth'].update(captured_at=time.time(),available=True)
+        self.capture(changed)
+        self.assertEqual(self.bot.measure_depth(4,3)['calibration_id'],'test')
+        changed['cameras']['top']['T_base_camera']['left'][0][3]+=.001
+        with self.assertRaisesRegex(ValueError,'changed'):self.capture(changed)
+
+    def test_full_quality_remains_available_without_flooding_receipts(self):
+        self.report['quality']['large_validation_detail']='x'*9000
+        self.policy.configure_perception(self.source,self.report);self.capture()
+        result=self.bot.measure_depth(4,3)
+        self.assertEqual(len(result['quality']['large_validation_detail']),9000)
+        self.assertLess(len(repr(result)),2500)
+        self.assertNotIn('large_validation_detail',self.bot.status()['perception']['quality'])
+
     def test_terminal_explanation_and_visual_assessment_are_not_native_score(self):
         result=self.bot.finish('No stable grasp was observed.',False)
         self.assertEqual(result['reason'],'No stable grasp was observed.')

@@ -8,6 +8,7 @@ from copy import deepcopy
 import base64
 import hashlib
 import io
+import json
 from pathlib import Path
 from queue import Empty
 import threading
@@ -62,7 +63,14 @@ Metric perception is supplied when status.perception.available is true. Every
 camera RGB is paired pixel-for-pixel with measured optical-Z depth. Use
 bot.measure_depth(u,v,camera='top') for a visible object's interior pixel; it
 returns points_base_m for both arms in the SAME per-arm frames as move_to.
-For object extent/centroid use bot.rgbd(camera)['rgb'] to compute a boolean mask
+For the first approach, a measured interior pixel is sufficient; prefer the
+short pixel-query program over a separate segmentation/printing-only turn.
+Assign source/destination measurements to variables and use the returned
+coordinates for a reachable above-object approach in the SAME first Python
+block. Do not spend turns printing raw tool dictionaries to learn their values;
+Python already has those values. If required measurements are unavailable,
+explain that result instead of inventing a point. For object extent/centroid use
+bot.rgbd(camera)['rgb'] to compute a boolean mask
 in Python and bot.localize_object(label,mask,camera). These are real depth
 measurements, not guessed positions or simulator ground truth. You may measure
 and approach in the same Python turn. Check reachability using status.bounds.
@@ -96,7 +104,7 @@ class RobotTools:
                     coordinates=dict(zip(NAMES, state.tolist())),
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
                             for i,n in enumerate(NAMES)}, ended=self.result is not None,
-                    perception=p._perception.summary() if p._perception else dict(available=False))
+                    perception=p._perception.summary(concise=True) if p._perception else dict(available=False))
 
     def observe(self):
         """Current RGB camera images as {camera: uint8 RGB}; call show(result)."""
@@ -364,6 +372,8 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
             directory=self._recorder.path/'roboskills'
             done,turns=agent.run(repl,prompt,directory,self._call,max_turns=32,max_bad=3,
                 prompt=PROMPT,initial_code='show(bot.observe()); print(bot.status())',
+                context=('Full published calibration quality (not an accuracy certificate): '+
+                         json.dumps(self._perception.report['quality'])) if self._perception else '',
                 status_code='print(bot.status())')
             self._outcome={**(tools.result or dict(status='give_up',success=None,
                             reason='Agent turn budget ended')), 'turns':turns}

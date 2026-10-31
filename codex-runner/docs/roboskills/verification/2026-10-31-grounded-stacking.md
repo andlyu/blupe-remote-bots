@@ -26,3 +26,11 @@ Runnable release gate: `PYTHONPATH=codex-runner/src:codex-runner/tests python -m
 - [ ] Live/current replay/history, structured task result, Stop and native parked/lease-release verified on this deployment.
 
 No new timing or success exception is inferred. Preserve the earlier owner's fixed historical exceptions and specific original-recording denial.
+
+## First normal-UI depth test (v14) — not task-qualified
+
+Run `f7b751b7a15240a8a71e5d88206104ea`, session `sess_2f38b0586460446c`, episode `ep_1e5353fabe6347ec`, actual Andrew Lyubovsky, exact user stacking instruction. One17-waypoint approach packet completed; right fingertip `[.318825,.021695,.119741]m`, position error1.724mm. No grasp/stack. Agent reported failure; public result/replay retain the explanation. Native status independently verified parked=true,torque_off_verified=true,auto_queue_enabled=true. No uncertain motion or automatic replay.
+
+Failure: comparing whole `/calibration` JSON treated live `cameras.*.depth.captured_at`/`available` as changed calibration. The identity and geometry had not changed. A regression runs against the exact7a6bb6b perception source and fails on this live-metadata change; fixed code excludes only those two live delivery fields, retaining identity/geometry/quality/transport checks. Full quality stays in measured results and initial agent context; concise printed representations prevent the4000-character upstream REPL limit from hiding object coordinates. The first run spent two turns printing/localizing before approach and missed the current timing limits; no historical timing exception applies. It remains failed qualification.
+
+The first-move prompt now uses measured pixel queries and begins a reachable above-object approach in the first Python block when observations permit. Multi-step physical manipulation gets a120-second execution window, within the existing runner's native60–600s limits; the15s post-Home and30s queue-adjusted first-motion requirements are unchanged. Final task verification remains open.

@@ -12,6 +12,34 @@ from .api_depth_set import ApiDepthSet
 from .camera_calibration import rigid
 
 
+def calibration_geometry(report):
+    """Pin calibration semantics, excluding explicitly live delivery status."""
+    value=deepcopy(report)
+    for camera in value['cameras'].values():
+        depth=camera.get('depth')
+        if isinstance(depth,dict):
+            # Public /calibration includes the current bundle's capture time
+            # and availability. These change every frame, not the extrinsics.
+            depth.pop('captured_at',None)
+            depth.pop('available',None)
+    return value
+
+
+def quality_summary(quality):
+    return {k:deepcopy(quality[k]) for k in ('status','operator_selected','extrinsics_provisional',
+            'failures','unverified','limitations') if k in quality}
+
+
+class MeasuredResult(dict):
+    """Full quality data retained, with a concise REPL representation."""
+    def __repr__(self):
+        value=dict(self)
+        if 'quality' in value:
+            value['quality']=quality_summary(value['quality'])
+            value['full_quality']='result["quality"] or bot.rgbd(camera)["quality"]'
+        return repr(value)
+
+
 class RoboSkillsPerception:
     def __init__(self, source, report):
         if not isinstance(source, ApiDepthSet):
@@ -35,7 +63,7 @@ class RoboSkillsPerception:
                                                 on_event=policy._camera_event)
         snapshots = self.source.snapshots
         for snapshot in snapshots.values():
-            if snapshot.calibration != self.report:
+            if calibration_geometry(snapshot.calibration) != calibration_geometry(self.report):
                 raise ValueError('RGB-D calibration changed after station binding')
         policy._geometry.observe(state)
         poses = policy._geometry.ik._poses()
@@ -83,7 +111,7 @@ class RoboSkillsPerception:
         if arm is None:
             result['points_base_m'] = {a:v['point_base_m'] for a,v in values.items()}
             del result['arm'], result['point_base_m']
-        return result
+        return MeasuredResult(result)
 
     def localize(self, state, label, mask, camera='top', arm=None):
         snapshot = self.require(state, camera)
@@ -106,16 +134,16 @@ class RoboSkillsPerception:
             surfaces[a] = dict(center_m=np.median(points,axis=0).tolist(),
                 lower_m=np.quantile(points,.05,axis=0).tolist(),
                 upper_m=np.quantile(points,.95,axis=0).tolist())
-        return dict(label=label, camera=camera, captured_at=snapshot.metadata['captured_at'],
+        return MeasuredResult(label=label, camera=camera, captured_at=snapshot.metadata['captured_at'],
                     calibration_id=self.report['calibration_id'], pixel_count=selected,
                     valid_depth_count=len(xs), mask_sha256=hashlib.sha256(mask.tobytes()).hexdigest(),
                     surfaces_in_arm_bases=surfaces, quality=deepcopy(self.report['quality']),
                     warning='Agent-selected mask, measured visible surface only; not a full object pose, '
                             'grasp target, object height or proof of grasp. Calibration remains experimental.')
 
-    def summary(self):
+    def summary(self, concise=False):
         return dict(available=bool(self.snapshots), calibration_id=self.report['calibration_id'],
                     coordinate_frame='per_arm_base', units='metres',
                     captures={r:dict(captured_at=s.metadata['captured_at'],shape=list(s.rgb.shape),
                         rgb_sha256=hashlib.sha256(s.rgb.tobytes()).hexdigest()) for r,s in self.snapshots.items()},
-                    quality=deepcopy(self.report['quality']))
+                    quality=quality_summary(self.report['quality']) if concise else deepcopy(self.report['quality']))
