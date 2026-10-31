@@ -211,6 +211,8 @@ startup Home completion (or no-Home readiness) and live physical arms beginning
 the integrated method, linked to the matching run. Correlate recorded UI/physical
 events with lifecycle logs on a common timeline; document any clock offset or
 measurement uncertainty. Backend timing alone cannot verify physical onset.
+Visual timing evidence may use retained accessible recording/verification links;
+a local download is not required.
 
 ## Verify every Run and startup Home
 
@@ -356,6 +358,22 @@ percentages, ETA or completion, or expose irrelevant infrastructure internals.
 UI transparency alone grants no exemption; only the documented GPU-launch
 blocking interval qualifies under the exception above, with neither clock reset.
 
+## Verify retained replays
+
+Open the retained recording through the website, confirm actual playback and
+appropriate seeking, and match it to the just-completed or selected historical
+physical run. Record the matching run reference/link and observed verification
+result. A link alone is insufficient.
+
+This does not require pressing **Save video**, downloading/exporting video to the
+agent's filesystem, making duplicate local copies or bundling videos in outputs.
+Omit optional local downloads from routine acceptance work; they are not a
+completion requirement and must not create an approval or needs-input blocker.
+Download locally only when explicitly requested or concretely necessary for the
+task. Required tool/platform permissions still apply; do not bypass or retry a
+denial through another route. Website/backend recording capture and retention
+remain required.
+
 ## Final verification before completion
 
 Open the deployed website and its associated source repository. Use the normal
@@ -419,8 +437,10 @@ before any completion claim.
   review decision/rationale if required; redact private email from public evidence):
 - Physical execution (date, method/configuration, YAM station/arm IDs, run ID):
 - Live physical arm footage (website location and evidence link):
-- Just-completed replay URL / immediate availability evidence (same physical run):
-- Previous-run browser URL / selected prior run and replay evidence:
+- Just-completed replay URL / matching run reference / immediate availability
+  and observed playback/seeking result:
+- Previous-run browser URL / selected prior run reference / replay link and
+  observed playback/seeking result:
 - Simulation review (corresponding run reference, website review link, what ran
   and its results, suitable replay/visualization/outputs, clear simulation label;
   or explicit not-applicable explanation if nothing executes in simulation):
