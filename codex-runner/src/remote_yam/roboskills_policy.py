@@ -32,6 +32,11 @@ SUBSEQUENT_EFFORT = 'medium'
 # Provisional engineering completion tolerance for the new explicit rotation
 # primitive. Native joint/workspace/settling limits remain independently enforced.
 ROTATION_TOLERANCE_DEG = 2.
+# A viewing region is NOT a grasp-pose tolerance. This fixed6mm radius applies
+# only to a bounded, open-gripper, upward precontact retreat after inspect_source.
+# It is smaller than the minimum20mm retreat and leaves at least14mm progress;
+# actual images/FK, not the nominal viewing target, ground all later grasp plans.
+VIEW_REGION_RADIUS_M = .006
 
 
 def _tracking_offset(history, axes):
@@ -111,7 +116,17 @@ Do not merely use the tilted Home frame: its jaw-opening axis is tilted too.
 For a downward unit approach z and horizontal unit opening x perpendicular to z,
 R=np.column_stack((x,np.cross(z,x),z)). Plan the approach at source-z*clearance
 and verify positive vertical clearance over the object and all nearby obstacles.
-For the FIRST object approach use bot.plan_approach(source['points_base_m'])
+For the FIRST object inspection prefer ONE short program:
+show(bot.inspect_source(source_u, source_v))
+Choose the source's actual interior pixel from the initial image/user marks.
+This measures that pixel, selects a locally reachable level-jaw approach,
+executes the ordinary checked3mm/2deg move, then captures fresh images. It does
+not close, grasp or claim scene clearance. You must inspect the initial scene
+before invoking it; optionally select arm='left'/'right' when scene-grounded.
+The historical source and selected candidate are in status.inspection_reference;
+use that status rather than assuming variables source/candidate were assigned.
+Measure the destination after this first inspection to keep startup short.
+For custom FIRST object approaches use bot.plan_approach(source['points_base_m'])
 in the same block as measurement. It returns locally reachable candidates for
 the supplied arms with level jaws and several downward tilt angles; it never
 moves. Select a candidate consistent with the fresh scene's visible clearance,
@@ -197,7 +212,8 @@ visible interior pixel on the actual requested object, not its shadow or a
 similarly colored object elsewhere. Cross-check identity across cameras.
 For the first approach, a measured interior pixel is sufficient; prefer the
 short pixel-query program over a separate segmentation/printing-only turn.
-Assign source/destination measurements to variables and use the returned
+With inspect_source, do not add a duplicate source query or planning block.
+For a custom approach assign source/destination measurements to variables and use the returned
 coordinates for an above-object approach in the SAME first Python block. Keep
 the ordinary first program short: measure source and destination, choose a
 reachable clear approach, move, then show a fresh observation. When a frame
@@ -287,7 +303,15 @@ with table clearance, then preflight the full XYZ grasp and placement. Account
 for the complete open-finger and wrist path around all objects in the fresh
 scene, including boxes and mats if present. Neither local reachability nor a
 single surface pixel proves a clear grasp. Stop if the path or contact geometry
-cannot be established. Do not use contact or tracking error to probe for the table.
+cannot be established after supported noncontact inspection. If the first close
+view is occluded or lacks depth, and the visible up/back path is clear, call
+show(bot.retreat_for_view(.04)) before giving up. It is allowed only immediately
+after inspect_source, with an open gripper and measured positive source clearance.
+It retreats20–50mm along negative measured tool-Z, never down/contact, then
+captures at the ACTUAL measured pose. Its predeclared6mm viewing region/2deg
+orientation check is not exact grasp alignment; ordinary move_to stays3mm.
+All later contact/grasp plans use fresh measurements and ordinary move_to.
+Do not use contact or tracking error to probe for the table.
 """
 
 
@@ -296,6 +320,7 @@ class RobotTools:
         self.policy, self.instruction = policy, instruction
         self.result = None
         self.motion_failure = None
+        self._inspection_reference = None
 
     def status(self):
         """Measured state, current step, task, allowed target bounds and Stop."""
@@ -309,7 +334,8 @@ class RobotTools:
                     attitude_references=p._geometry.attitude_references.copy(),
                     approach_axes_base={arm:r[:,2].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
                     opening_axes_base={arm:r[:,0].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
-                    last_move={k:deepcopy(p._last_move[k]) for k in ('targets','position_error_m','orientation_error_deg','rotation_requested','tracking_corrections')
+                    inspection_reference=deepcopy(self._inspection_reference),
+                    last_move={k:deepcopy(p._last_move[k]) for k in ('targets','position_error_m','orientation_error_deg','rotation_requested','tracking_corrections','goal','position_tolerance_m','measured_coordinates')
                                if k in p._last_move} if p._last_move else None,
                     motion_failure=self.motion_failure,
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
@@ -444,25 +470,74 @@ class RobotTools:
         return dict(candidates=candidates,rejected=rejected,
                     scope='Only local IK/pacing/canonical packet validity for these candidates; scene/finger clearance, grasp and physical completion unverified')
 
+    def inspect_source(self, u, v, camera='top', *, arm=None, clearance=.05):
+        """First noncontact source inspection: measured pixel -> plan_approach -> ordinary exact move -> fresh RGB. Inspect initial scene clearance before calling. Optional arm left/right; clearance[.01,.10]m. No grasp/close. Historical source/candidate in status.inspection_reference, not current object pose. Use show(result)."""
+        p=self.policy;p._check_cancelled()
+        if self.motion_failure:raise RuntimeError(self.motion_failure)
+        if arm is not None and arm not in ('left','right'):raise ValueError('Inspection arm must be left or right')
+        self._inspection_reference=None
+        source=self.measure_depth(u,v,camera=camera,arm=arm)
+        options=self.plan_approach(source['points_base_m'],clearance=clearance)
+        candidates=[c for c in options['candidates'] if arm is None or c['arm']==arm]
+        if not candidates:raise ValueError('No tested local source approach is reachable; no motion dispatched')
+        candidate=candidates[0];selected=candidate['arm']
+        if p._state[selected+'_gripper']<.99:raise ValueError('Source inspection requires an already open gripper')
+        self.move_to(**candidate['targets'],rotation=candidate['rotation'])
+        self._inspection_reference=dict(source=deepcopy(source),candidate=deepcopy(candidate),step_id=p._state['step_id'])
+        p._record('source_inspection',reference=self._inspection_reference)
+        return self.observe()
+
+    def retreat_for_view(self, distance=.04):
+        """Once after inspect_source only: open/unladen precontact up/back retreat20–50mm along negative measured tool-Z, if fresh scene shows path clear. Predeclared6mm view region/2deg orientation, NOT exact grasp pose. All native checks remain. Fresh images are captured at actual measured pose. Never use for contact, closed gripper, after another move or failed/uncertain motion. Use show(result)."""
+        p=self.policy;p._check_cancelled()
+        if self.motion_failure:raise RuntimeError(self.motion_failure)
+        if (isinstance(distance,(bool,np.bool_)) or not isinstance(distance,(int,float,np.floating))
+                or not np.isfinite(distance) or not .02<=distance<=.05):
+            raise ValueError('View retreat distance must be finite in[.02,.05]metres')
+        reference=deepcopy(self._inspection_reference)
+        if not reference:raise ValueError('View retreat requires the immediately preceding inspect_source')
+        self._move_to({},_view_reference=reference,_view_distance=float(distance))
+        return self.observe()
+
     def move_to(self, *, attitude=None, rotation=None, **targets):
         """Checked move. rotation={arm:3x3} sets absolute base-frame tool axes (columns opening/side/approach), plus named xyz. Or attitude='base_vertical'. Omit both to retain frame. Explicit rotation verifies measured orientation within2deg. Gripper-only holds joints."""
+        return self._move_to(targets,attitude=attitude,rotation=rotation)
+
+    def _move_to(self, targets, *, attitude=None, rotation=None, _view_reference=None, _view_distance=None):
         p=self.policy
         p._check_cancelled()
         if self.motion_failure:
             raise RuntimeError(self.motion_failure)
         state=p._feedback()
+        viewing=_view_reference is not None
+        tolerance=VIEW_REGION_RADIUS_M if viewing else .003
+        if viewing:
+            if _view_reference['step_id']!=state['step_id']:raise ValueError('Inspection feedback cursor changed')
+            arm=_view_reference['candidate']['arm'];index=('left','right').index(arm)
+            _,current,_=p._geometry.observe(state)
+            position=current[index*7:index*7+3].copy()
+            frame=p._geometry.ik._poses()[index][1].copy()
+            source=np.asarray(_view_reference['source']['points_base_m'][arm])
+            if state[arm+'_gripper']<.99 or position[2]-source[2]<.02:
+                raise ValueError('View retreat requires open gripper and at least20mm measured source clearance')
+            if frame[2,2]>-.5:raise ValueError('View retreat must point upward along a downward approach axis')
+            destination=position-frame[:,2]*_view_distance
+            targets={arm+'_'+axis:float(value) for axis,value in zip('xyz',destination)}
+        self._inspection_reference=None
         points=p._prepare_move(targets,state,attitude=attitude,rotation=rotation)
         _, expected, _ = p._geometry.observe({**state,**points[-1],'settled':True})
         expected_rotations={arm:r.copy() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())}
         for arm in rotation or {}:
             expected_rotations[arm]=p._geometry.start_rotations[('left','right').index(arm)].copy()
+        if viewing:expected_rotations[_view_reference['candidate']['arm']]=frame.copy()
         offset=np.zeros_like(expected)
         pose_arms=[arm for arm,i in (('left',0),('right',7)) if any(n in targets for n in NAMES[i:i+6])]
         axes=[j for arm,i in (('left',0),('right',7)) if arm in pose_arms for j in range(i,i+3)]
         history=[]
         for correction in range(6):
             p._interaction('packet_ready',f'RoboSkills prepared {len(points)} checked waypoints',
-                           waypoint_count=len(points),targets=targets,tracking_correction=correction)
+                           waypoint_count=len(points),targets=targets,tracking_correction=correction,
+                           goal='noncontact_view_region' if viewing else 'exact_pose',position_tolerance_m=tolerance)
             try:
                 if p._perception:p._perception.invalidate()
                 measured=p._execute(points)
@@ -483,9 +558,12 @@ class RobotTools:
                               rotation_requested={arm:np.asarray(value).tolist() for arm,value in (rotation or {}).items()},
                               tracking_corrections=correction,
                               pose_target_arms=pose_arms,
+                              goal='noncontact_view_region' if viewing else 'exact_pose',position_tolerance_m=tolerance,
                               measured_coordinates=dict(zip(NAMES,actual.tolist())))
-            if (all(errors[arm] <= .003 for arm in pose_arms)
-                    and (rotation is None or all(angular_errors[arm] <= ROTATION_TOLERANCE_DEG for arm in rotation))):
+            orientation_arms=pose_arms if viewing else (rotation or {})
+            if (all(errors[arm] <= tolerance for arm in pose_arms)
+                    and all(angular_errors[arm] <= ROTATION_TOLERANCE_DEG for arm in orientation_arms)
+                    and (not viewing or (actual[index*7+2]>position[2] and actual[index*7+6]>=.99))):
                 return self.status()
             history.append((offset.copy(),actual-expected))
             if correction==5:break
@@ -512,7 +590,7 @@ class RobotTools:
                            correction=correction+1,position_error_m=errors,orientation_error_deg=angular_errors,max_offset_m=.008,
                            command_offset_m={NAMES[j]:float(offset[j]) for j in axes},
                            maximum_packets=6)
-        self.motion_failure=('Measured move did not reach its target within3mm and, for an explicit rotation,2degrees after bounded tracking correction: '+
+        self.motion_failure=(f'Measured move did not reach its target within{tolerance*1000:g}mm and, for an explicit rotation or view retreat,2degrees after bounded tracking correction: '+
             ', '.join(f'{arm} {error*1000:.2f}mm/{angular_errors[arm]:.2f}deg' for arm,error in errors.items()))
         self.result=dict(status='failed',success=None,reason=self.motion_failure)
         raise RuntimeError(self.motion_failure)

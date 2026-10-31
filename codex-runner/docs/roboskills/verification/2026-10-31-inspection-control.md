@@ -1,0 +1,29 @@
+# Noncontact source inspection candidate
+
+This repairs the camera-inspection path, not a controller/contact/calibration diagnosis or a successful stack. Live runtime was still73d944d when these local checks ran. The old c7468c5d case remains a real exact-pose failure and a post-Home timing failure. Its first retreat packet completed5.207280mm from the nominal pose with0.772931deg orientation error; subsequent exact-pose corrections did not reach3mm and the following camera read never executed.
+
+The genuine pinned RoboSkills Python agent may now invoke `show(bot.inspect_source(u,v))`: measured source pixel, existing validated local level-jaw candidates, ordinary3mm/2deg movement, then fresh RGB-D. Initial images and scene-clearance judgment remain with the actual agent. No automatic startup wiggle or pre-model movement. Its historical measured source, chosen candidate and completion cursor appear in `status.inspection_reference`; this is not a tracked object pose.
+
+If another view is needed, `show(bot.retreat_for_view(.04))` is available only immediately after that inspection. It requires the same settled hardware lease/cursor, already-open gripper(normalized>=.99), source clearance>=20mm and a downward measured approach axis(toolZ vertical component<=-.5). It moves20–50mm in the opposite direction, upward/back, with native joint/workspace/pacing/packet/Stop protection. The agent must see a clear path; these numeric checks do not certify scene clearance. It is consumed once, including after a completed motion followed by a camera-read failure; no repeated motion to recover an image.
+
+The retreat has an explicit fixed **6mm position viewing region**, positive actual vertical progress and unchanged **2deg orientation** criterion, all evaluated only after matched native completion. Six millimetres is a provisional viewing-only engineering allowance: it is smaller than the minimum20mm retreat, leaving at least14mm net travel toward the nominal viewing region, and is never a contact, grasp or physical depth-accuracy allowance. It does not widen native hardware/workspace limits. The next images/depth bind to the actual measured camera pose. Every ordinary `move_to`, including descent/grasp/placement, retains3mm and explicit rotations retain2deg. Unknown/rejected/failed physical execution remains terminal, with no motion replay. Bounded corrections still require confirmed matched completion, max6packets/axis offsets8mm.
+
+Regression: exact sanitized c7468c5d pre-retreat and first-completed feedback in `tests/fixtures/roboskills-inspection-retreat.json`. New helper accepts that sample within its predeclared region and observes; the same measured residual still fails ordinary exact movement. Nine focused tests pass(2.972s) through actual native geometry, full canonical serializer/HTTP validator with mocked transport, both arms,20/35/50mm endpoints, preserved other arm/grippers, just-inside5.99mm/outside6.01mm region,2.1deg rejection, bad ranges/types, Stop/lease/cursor/closed gripper/missing provenance, unknown-execution single dispatch and camera-only failure recovery. Public exact moves cannot inject view-region options. Initial red two selected tests failed because the new methods did not exist. First draft exposed an arm/world-frame mixup and an arm-selection fixture discrepancy; corrected before green. Full offline suite passes1412tests,3skipped,457subtests (90.81s test/91.179092s command); worker16tests pass(0.094s test/0.213010s command). Initial sandbox attempt had24 denied loopback-listener PermissionErrors and one unavailable CoreGraphics connection; same unchanged suite passed with normal approved local test permissions. Required remote CI and fresh physical full task remain pending.
+
+One offline actual production callback, using reconstructed c7468c5d initial Home/status/threeRGB views and its exact task/marks, generated the one-line helper below. It took 10.024951s, not demonstrated faster than prior samples and **not a physical startup pass**. Same-step retained frame bytes may overwrite earlier captures, so this is not an exact historical transport replay. Generated program was not executed, no robot transport instantiated. Initial template SHA ad320622a33532ebf18244e2a0e41da5bc7111be439a66f31289983101e3216c, rendered SHA 55cc47b73616d7358b9da128b6c7041ceb511a8a4dd857c7066390b9d65a9f08.
+
+```python
+show(bot.inspect_source(310, 83, camera='top', arm='left', clearance=0.05))
+```
+
+Acceptance remains12/15, items7/13/15 open. Existing timing exceptions and excluded453a9a media remain unchanged.
+
+Runnable gates from repository root(Python3.13 with pinned requirements-roboskills.txt, MuJoCo3.17.0; test-only OpenCV4.10.0.84 isolated from live runtime):
+
+```sh
+PYTHONPATH=codex-runner/src:codex-runner/tests python -m unittest test_roboskills_inspection -v
+PYTHONPATH=codex-runner/src:codex-runner/tests:codex-runner python -m pytest codex-runner/tests -q
+PYTHONPATH=codex-runner/src python -m unittest discover -s codex-runner/integrations/roboskills/site/worker-agent -p 'test_*.py' -v
+```
+
+The required `Shared runner / roboskills` CI job discovers every `test_roboskills*.py`, including these new regressions; other required jobs retain the full suite, worker, website/type checks. `inspect_source` uses existing pixel/camera/arm/radius/depth/calibration validity; explicit arm selects only that arm. `retreat_for_view` accepts only one finite distance20–50mm, metres/per-arm-base coordinates, no gripper/orientation/target/tolerance overrides. Local bad targets remain zero actuator dispatch; all generated first/interior/final waypoints go through canonical `_trajectory_waypoints` and `HttpSessionAPI.submit_trajectory` in transport-spy tests. Existing tests retain gripper0/1/fractional start, native joint/workspace bounds and invalid neighbours. Native queue/lease/readiness/settled/Stop remain owned by RunnerController; no new bypass API.

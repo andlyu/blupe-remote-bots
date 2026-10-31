@@ -1,0 +1,72 @@
+{
+  "source_run": "c7468c5d44f84baab399bc45f19e736e",
+  "source_runtime": "73d944dbcbb04d7bb07a556a918e854ba7e3dfa4",
+  "scope": "Exact first completed noncontact retreat sample, not a model of later responses or successful grasp. Private contact and run capability removed.",
+  "start": {
+    "step_id": 66,
+    "left_joints_deg": [
+      -25.583546929145935,
+      118.0003843344163,
+      83.38332943398794,
+      -20.67910092536059,
+      -0.9053403228875156,
+      88.99052654593524
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.94967678310728,
+      34.313726493324324,
+      -19.635787678759325,
+      -1.2124084437179226,
+      -0.6010658184978607
+    ],
+    "left_gripper": 0.9993503681247293,
+    "right_gripper": 0.9986982933179057,
+    "source": "hardware",
+    "settled": true,
+    "episode_id": "offline",
+    "lease_id": "offline"
+  },
+  "first_completed": {
+    "step_id": 72,
+    "left_joints_deg": [
+      -25.583546929145935,
+      111.44330267807823,
+      80.7167828937438,
+      -24.9630609408346,
+      -1.1239097114321182,
+      88.7938140962451
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.94967678310728,
+      34.313726493324324,
+      -19.65764461761399,
+      -1.2124084437179226,
+      -0.6010658184978607
+    ],
+    "left_gripper": 0.9993503681247293,
+    "right_gripper": 0.9986982933179057,
+    "source": "hardware",
+    "settled": true,
+    "episode_id": "offline",
+    "lease_id": "offline"
+  },
+  "nominal_targets": {
+    "left_x": 0.451047571840933,
+    "left_y": -0.2096361638718502,
+    "left_z": 0.08549005890518531
+  },
+  "source_points": {
+    "left": [
+      0.4966938854155213,
+      -0.23064088781749478,
+      0.01213987622693613
+    ],
+    "right": [
+      0.4966938854155213,
+      0.2693591121825052,
+      0.01213987622693613
+    ]
+  }
+}
