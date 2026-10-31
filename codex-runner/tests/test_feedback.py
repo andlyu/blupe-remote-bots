@@ -22,6 +22,34 @@ def station(at, settled=True):
 
 
 class FeedbackTests(unittest.TestCase):
+    def test_instance_poll_interval_preserves_freshness_and_other_controllers(self):
+        now = time.time()
+        stale, fresh = station(now - 1, False), station(now)
+        api = Mock()
+        api.get_robot_observation.return_value = {"observation": fresh}
+        fast = RunnerController(api, feedback_poll_s=.1)
+        waits = []
+        original_wait = fast._stop_event.wait
+        def observed_wait(seconds):
+            waits.append(seconds)
+            return original_wait(min(seconds, .001))
+        with patch.object(fast._stop_event, 'wait', side_effect=observed_wait):
+            result = fast._reconcile_hardware_feedback(
+                dict(observed_at=now, settled=True), stale, require_home=False)
+        self.assertEqual(result['observed_at'], fresh['observed_at'])
+        self.assertTrue(result['settled'])
+        self.assertEqual(result['left_joints_deg'], fresh['left_joints_deg'])
+        self.assertEqual(waits[0], .1)
+        self.assertEqual([row['decision'] for row in fast.status()['feedback_checks']], ['wait', 'ready'])
+        self.assertIsNone(RunnerController(Mock())._feedback_poll_s)
+        api.submit_action.assert_not_called()
+        api.submit_trajectory.assert_not_called()
+
+    def test_invalid_instance_poll_interval_is_rejected(self):
+        for value in (0, -1, float('nan'), float('inf'), True):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                RunnerController(Mock(), feedback_poll_s=value)
+
     def test_old_moving_sample_is_wait_not_rejection(self):
         completion = dict(observed_at=100, settled=True, homed=True)
         old = station(99, False)

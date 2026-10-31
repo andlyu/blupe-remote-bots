@@ -35,7 +35,16 @@ class RunnerController(HomeSceneStartup):
         recording_root: Path | None = None,
         joint_counts=(6,6),
         share_conversation: bool = True,
+        feedback_poll_s: float | None = None,
     ) -> None:
+        if feedback_poll_s is not None and (
+            isinstance(feedback_poll_s, bool)
+            or not isinstance(feedback_poll_s, (int, float))
+            or not math.isfinite(feedback_poll_s)
+            or feedback_poll_s <= 0
+        ):
+            raise ValueError("feedback_poll_s must be a positive finite number")
+        self._feedback_poll_s = feedback_poll_s
         self._home_plan = None
         self._home_registered = False
         self._home_sample_recorded = False
@@ -1173,7 +1182,8 @@ class RunnerController(HomeSceneStartup):
                     raise RuntimeError(f"Hardware feedback blocked: {reason}")
                 if decision == "ready":
                     return station
-                if self._stop_event.wait(min(FEEDBACK_POLL_S, max(0, deadline-time.monotonic()))):
+                poll_s = FEEDBACK_POLL_S if self._feedback_poll_s is None else self._feedback_poll_s
+                if self._stop_event.wait(min(poll_s, max(0, deadline-time.monotonic()))):
                     raise RuntimeError("Feedback reconciliation interrupted by Stop")
                 if time.monotonic() >= deadline:
                     raise RuntimeError(f"Hardware feedback blocked: {reason}")
