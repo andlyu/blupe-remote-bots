@@ -10,7 +10,7 @@ integration as complete.
 
 ## Current task qualification reopened — October31,2026
 
-The prior v13 acceptance qualified a20mm lift/hold/return smoke test. User run `ec2ecd43555b4c20a5c7e359ddb369d7` requested purple-on-orange stacking and submitted zero packets: the Python agent had only RGB/status, not depth/localization. Its stdout explained the missing robot-frame object coordinates; the UI hid that explanation. This failure reopens physical manipulation, timing, task/result UX and final normal-UI acceptance. Earlier receipts and explicit archival exceptions remain history, not stacking proof. Current task qualification is **in progress:13/15 checked**. Every-run timing reconciliation and final acceptance remain open; full-sequence execution is verified with unsuccessful object placement explicitly retained; the current normal public visitor path and persistent result/progress explanations have been reverified.
+The prior v13 acceptance qualified a20mm lift/hold/return smoke test. User run `ec2ecd43555b4c20a5c7e359ddb369d7` requested purple-on-orange stacking and submitted zero packets: the Python agent had only RGB/status, not depth/localization. Its stdout explained the missing robot-frame object coordinates; the UI hid that explanation. This failure reopens physical manipulation, timing, task/result UX and final normal-UI acceptance. Earlier receipts and explicit archival exceptions remain history, not stacking proof. Current task qualification is **in progress:12/15 checked**. Every-run timing reconciliation and final acceptance remain open; full-sequence execution is verified with unsuccessful object placement explicitly retained; the current normal public visitor path and persistent result/progress explanations have been reverified.
 
 The fix connects all-camera ApiDepthSet to the genuine pinned RoboSkills REPL, pins the published calibration/base geometry, computes wrist poses from measured FK, supplies metric pixel queries and agent-mask visible-surface localization, invalidates views after moves, and publishes structured agent explanations separately from native scores. It also validates complete packets before bridge dispatch, preserves exact numeric endpoints and uninstructed arm joints, with real HTTP serializer/validator regression coverage. Calibration remains experimental; no exact metric accuracy claim is added. See `verification/2026-10-31-grounded-stacking.md`. The first depth-enabled v14 run completed an approach but stopped on an erroneous live-timestamp calibration comparison; it did not grasp/stack and missed timing. The comparison and receipt truncation are repaired. Real full-sequence execution is verified with unsuccessful placement; successful stacking remains unqualified. Five current startups pass, while seven post-v13 historical timing cases remain open; see the latest depth-fix audit.
 
@@ -172,7 +172,7 @@ Invocation evidence: user requested “please use the harness” and connection 
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
-- [x] A person can use the website to run the integrated paper's method on
+- [ ] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
 - [x] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
@@ -685,3 +685,16 @@ Owner acceptance decision: the user explicitly answered “Accept historical exc
 
 
 Current depth-fix audit: [2026-10-31-depth-fix-acceptance.md](verification/2026-10-31-depth-fix-acceptance.md),13/15 checked. Real full-sequence object execution is verified, not successful stacking; current task performance remains unqualified. Seven later historical timing cases require an explicit archive decision; no extension of the pre-v13 exception is inferred.
+
+
+## Explicit vertical-grasp capability — October31 continuation
+
+Current live v18/runtimef60495a remains the prior depth-enabled experiment. Its full sequence missed placement, and the final run timed out; no successful stack is claimed. This candidate changes command generation and reopens physical method qualification until matching normal-UI verification;12/15 currently checked. Existing archived evidence and pending seven-case timing decision remain unchanged.
+
+Retained Home joints from runf4346b reconstruct tool Z `[0.86047,0.00201,-0.50949]`,59.37deg from base-Z-down, while the old API reports pitch/roll0 relative to Home and accepts only0. It therefore cannot express a vertical pinch. Native cube-planner code uses an explicit base-Z-down attitude. This is an API capability/frame mismatch; it does not prove tilt alone caused the complete observed placement offset.
+
+RoboSkills now exposes `bot.move_to(..., attitude='base_vertical')` for an above-object Cartesian approach. Only named Cartesian arms adopt the declared base-Z-down reference; yaw0 has tool-X toward base-X-negative. Later moves retain that reference. Omitted attitude keeps the existing behavior, including ordinary lift/hold/return. Gripper-only alignment rejects locally. The status/configuration names each arm's reference and reports its actual measured-FK approach axis. No gravity-sensor or independently surveyed calibration claim is added.
+
+The same native IK, joint/workspace/pacing limits, full packet validator,3mm position criterion,8mm correction cap, queue/lease/readiness/Stop and uncertain-motion latch remain. Untargeted solver poses and serialized joints remain measured. Invalid target or canonical-packet rejection rolls the requested reference back before dispatch.
+
+Regression: actual sanitized Home fixture, both arms, constructor and station-binding paths through RobotTools→generator→canonical validator→HTTP JSON serializer. Original f60495a rejects the explicit request; earlier red pose checks retained59deg tilt. Final28dedicated tests pass2.792s;25broader IK/RoboCurve/workspace/model tests pass6.656s. Tests include post-alignment close preserving both measured joint sets, all<=0.035rad waypoint increments, invalid/gripper-only requests and canonical-rejection zero-dispatch/rollback. The earlier attempted implicit-all-moves change failed10existing cases and was replaced with this explicit API; no compatibility regression is hidden. CI and actual original-object scenario remain required before qualification.

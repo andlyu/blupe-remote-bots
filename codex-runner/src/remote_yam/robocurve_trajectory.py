@@ -47,6 +47,7 @@ class RoboCurveTrajectory:
         self.bases = tuple(np.array([0., sign*self.ik.base_spacing_m/2, 0.]) for sign in (1, -1))
         self.low, self.high = LOW.copy(), HIGH.copy()
         self.start_rotations = None
+        self.attitude_references = dict.fromkeys(ARMS,'observed')
         self.preserve_uninstructed = preserve_uninstructed
 
     def observe(self, observation):
@@ -71,10 +72,32 @@ class RoboCurveTrajectory:
             joints.extend([*measured[i*6:i*6+6], grip])
         return q, np.asarray(state), joints
 
-    def build(self, targets, observation, first_step_id):
+    def build(self, targets, observation, first_step_id, *, attitude=None):
+        if attitude is None:return self._build(targets,observation,first_step_id)
+        if attitude!='base_vertical':
+            raise InvalidMove('attitude must be base_vertical or omitted','invalid_attitude')
+        if not isinstance(targets,dict) or not targets:
+            raise InvalidMove('targets must be a nonempty map of named dimensions')
+        arms={arm for i,arm in enumerate(ARMS) if any(n in targets for n in NAMES[i*7:i*7+6])}
+        if not arms:
+            raise InvalidMove('Vertical alignment needs a named Cartesian arm target; gripper-only moves hold joints','invalid_attitude')
+        self.observe(observation)
+        previous=self.start_rotations
+        modes=self.attitude_references
+        # Explicit per-arm reference transition. Native joint/workspace/pacing
+        # guards still validate every generated waypoint; inactive arms hold.
+        self.start_rotations=tuple(np.diag([-1.,1.,-1.]) if arm in arms else previous[i] for i,arm in enumerate(ARMS))
+        self.attitude_references={arm:'base_vertical' if arm in arms else modes[arm] for arm in ARMS}
+        try:return self._build(targets,observation,first_step_id)
+        except Exception:
+            self.start_rotations,self.attitude_references=previous,modes
+            raise
+
+    def _build(self, targets, observation, first_step_id):
         if not isinstance(targets, dict) or not targets:
             raise InvalidMove('targets must be a nonempty map of named dimensions')
         seed, start, _ = self.observe(observation)
+        held_poses=tuple((p.copy(),r.copy()) for p,r in self.ik._poses())
         measured_start = np.deg2rad(np.concatenate([observation[f'{arm}_joints_deg'] for arm in ARMS]))
         goal = start.copy()
         named = []
@@ -128,9 +151,9 @@ class RoboCurveTrajectory:
 
         def extend(a, b, previous, depth=0):
             state = state_at(b)
-            poses = tuple((state[i*7:i*7+3] + self.bases[i],
-                           relative_rotation(*state[i*7+3:i*7+6]) @ self.start_rotations[i])
-                          for i in range(2))
+            poses = tuple(((state[i*7:i*7+3] + self.bases[i],
+                            relative_rotation(*state[i*7+3:i*7+6]) @ self.start_rotations[i])
+                           if i in cartesian_arms else held_poses[i]) for i in range(2))
             try:
                 solved = self.ik._solve(previous, poses) if cartesian_arms else previous.copy()
                 for index in range(2):

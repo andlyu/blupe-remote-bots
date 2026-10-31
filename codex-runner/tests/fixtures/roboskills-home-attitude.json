@@ -1,0 +1,32 @@
+{
+  "source_run": "f4346b709a134c4ba36ddc9e9f2ee8d6",
+  "source_revision": "a610b7b7db550ba6ec9529324a07b97db541b511",
+  "description": "Actual settled startup Home. IDs sanitized; no actuator command or capability. Tilted tool axis must not be mistaken for base-Z-down.",
+  "observation": {
+    "source": "hardware",
+    "observed_at": 1793438736.792027,
+    "homed": true,
+    "settled": true,
+    "step_id": 0,
+    "left_joints_deg": [
+      -1.1474892898591635,
+      46.63747897460335,
+      33.57136578467282,
+      -25.203487268233662,
+      -2.8287509420800183,
+      -0.49178112422515224
+    ],
+    "right_joints_deg": [
+      -1.3004878618405888,
+      45.774821272271595,
+      34.42301118759663,
+      -19.286076657088167,
+      -1.2342653825721794,
+      -0.6010658184976571
+    ],
+    "left_gripper": 0.9988468468468469,
+    "right_gripper": 0.9972726620254073,
+    "episode_id": "ep_unit",
+    "lease_id": "lease_unit"
+  }
+}
