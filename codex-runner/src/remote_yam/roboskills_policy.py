@@ -48,6 +48,8 @@ YAM1_TOOL_REFERENCE = dict(
                     '8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f'],
     closed_nominal_gap_m=-.001,opening_travel_m=.095,per_jaw_travel_m=.0475,
     pad_opening_signs=[1,-1],pad_center_z_m=.0016706879354441567,
+    pad_opening_axes_tool=[[-3.999999999948489e-6,.9999999999920002,7.99987853739026e-12],
+                           [0.,-.9999999999910001,-4.242642374197025e-6]],
     max_tip_z_m=.010020504348689839,
     closed_pad_bounds_tool_m=[
         [[-.012440560852250203,-.0005197222644821231,-.006358460493411655],
@@ -301,14 +303,39 @@ and retain native0..1 validation. Do not assume normalized travel is force.
 An above-object approach is not a grasp height: closing
 while the fingertip ends are ABOVE the measured object top closes in free air.
 Before closing around a block, measure its top and nearby exposed table in the
-same arm frame, check the fresh wrist view, and lower the open fingertip ends
-BELOW the object top but safely ABOVE the table, so the pads overlap its sides.
+same arm frame and check the fresh wrist view. The gripping PAD BAND must overlap
+the block's sides below its top, with all finger extents safely above the table.
+A tilted finger's lowest corner can be below the top while its pads remain
+above it: that gives an empty grasp. After the first move, status includes
+nominal_pad_midpoints_base_m early enough to survive long-output clipping.
+bot.status()['nominal_pad_pose'] reports centers/midpoint and bounding boxes at the matched measured
+pose/opening, in each arm base. These are reference geometry, not measured contact.
+For a chosen contact-band midpoint c and rotation R, let v be that arm's
+pad_midpoint_tool_m; plan the grasp_site at p = c - R@v. Center the pad band on
+the measured block XY and select useful side overlap with positive whole-tool
+clearance. A pad midpoint below the top is one option, not a necessary
+condition: a midpoint slightly above it can still put substantial pad area
+against the upper sides. For the linear_4310 reference, another trial is to place
+the measured top-face center at v = pad_midpoint_tool_m + [0,0,.003] in tool
+coordinates, then p = top_center - R@v. This places the top inside the pads,
+rather than almost at their distal ends. Verify meaningful pad-area/side overlap
+and XY coverage, not just a low corner. Transform the complete
+pad/tip extents at p and calculate clearance against the measured support upper
+extent, allowing for depth spread, the ordinary3mm pose tolerance and reference
+uncertainty. Print that budget; choose another supported tilt/engagement or
+stop if it does not fit. Recheck the ACTUAL pad-band height after descent before
+closing. A single minimum-Z corner or almost touching tip is not pad engagement.
+The inspection search tests only0/35/45/55degree tilt, not every grasp frame.
+If vertical is unreachable or a steep tilt loses table clearance, also preflight
+shallower10/15/20/25degree downward tilts with level jaw-opening axes. Evaluate
+the full pad-band clearance budget and approach/lift/placement reachability at
+each; an inspection orientation need not be the contact orientation. Change
+orientation in a supported noncontact view before descent, then remeasure.
 Use the measured heights and visible clearance; do not assume a fixed table
 height, block size, hidden contact or an exact physical finger dimension.
 For a box-like block, localize its visible surface mask to center the jaws;
 a wrist pixel on a near corner/side is not the object's center. Begin with
-shallow finger engagement, about5–8 mm below the measured top and no more than
-one quarter of the measured top-to-table height, with positive table clearance.
+shallow pad-band engagement with positive table clearance.
 For a tilted grasp, review actual opening/approach axes and fingertip/table
 clearance before descent; a reachable wrist pose alone does not certify a grasp.
 This is an initial planning heuristic, not a measured hardware dimension or
@@ -360,12 +387,26 @@ covering at least75% of samples within2mm, its residuals, and all excluded
 outlier_pixels. Inspect those pixels in RGB, coverage and original fit before
 using its normal; this segmentation criterion is not sensor accuracy or a
 contact/motion tolerance. Refine interior face masks or inspect another available
-camera when ambiguous. Compare abs(dot(unit normals)) in the SAME camera
+camera when ambiguous. An unavailable dominant_plane means its fixed2mm/75%
+consensus criterion failed, not that raw measured depth vanished. For a broad
+visibly planar support patch, inspect the raw fit's spans/residuals and use the
+observed upper extent to compute a conservative candidate clearance budget;
+retain those uncertainties. Do not turn a missing consensus normal alone into
+a contact decision. Compare abs(dot(unit normals)) in the SAME camera
 and state: a supported top face should be approximately parallel to the local
 support plane, while a side face is closer to perpendicular. Do not take grasp
 height from a side-face pixel. Recheck the face's measured heights/coverage and
 table clearance before planning. A best-fit plane is not a calibration or
 collision certificate; mixed/curved surfaces and weak/noisy fits can be ambiguous.
+Tiny table patches can have unstable normals when their principal spans are
+comparable to depth noise. If support patches disagree, inspect a larger visibly
+clear support mask, excluding objects, or obtain another supported noncontact
+view before deciding contact is impossible. A reachable centered-above-object
+view with positive whole-tool clearance can reveal a better support patch;
+preflight it, reduce jaw opening only with supported object-width clearance,
+then reobserve and batch fresh face/table measurements. This is inspection,
+not a grasp or permission to descend through an uncertain surface. Evaluate
+pad-band and complete fingertip/table geometry before any contact decision.
 Do not use contact or tracking error to probe for the table.
 """ + '\n' + CONTACT_GUIDANCE
 
@@ -384,7 +425,10 @@ class RobotTools:
         # The controller installs correlated measured feedback. Reading status
         # must not perform another network fetch on every print in a Python turn.
         _, state, _ = p._geometry.observe(p._state)
+        nominal=p._nominal_pad_pose() if p._completed_moves else None
         return dict(instruction=self.instruction, step=p._state['step_id'],
+                    **({'nominal_pad_midpoints_base_m':{arm:value['pad_midpoint_base_m']
+                        for arm,value in nominal['arms'].items()}} if nominal and nominal.get('available') else {}),
                     coordinates=dict(zip(NAMES, state.tolist())),
                     attitude_references=p._geometry.attitude_references.copy(),
                     approach_axes_base={arm:r[:,2].tolist() for arm,(_,r) in zip(('left','right'),p._geometry.ik._poses())},
@@ -394,6 +438,7 @@ class RobotTools:
                                if k in p._last_move} if p._last_move else None,
                     motion_failure=self.motion_failure,
                     tool_geometry_reference=p._tool_geometry_reference(initial=p._completed_moves==0),
+                    **({'nominal_pad_pose':nominal} if nominal is not None else {}),
                     bounds={n:[float(p._geometry.low[i]),float(p._geometry.high[i])]
                             for i,n in enumerate(NAMES)}, ended=self.result is not None,
                     perception=p._perception.summary(concise=True) if p._perception else dict(available=False))
@@ -756,6 +801,37 @@ class RoboSkillsPolicy(ProgramPacketBridge, ResponsesAdapter):
                 return {k:reference[k] for k in ('available','model','jaw_opening_axis','approach_axis','physical_contact_calibration_measured')}
             return reference
         return dict(available=False,scope='No station-bound installed tool reference')
+
+    def _nominal_pad_pose(self):
+        """Read-only reference geometry at already correlated measured feedback."""
+        reference=self._tool_geometry_reference()
+        if not reference.get('available') or self._state is None:
+            return dict(available=False,scope='No station-bound measured pad pose')
+        arms={}
+        for i,(arm,(position,R)) in enumerate(zip(('left','right'),self._geometry.ik._poses())):
+            position=position-self._geometry.bases[i]
+            fraction=float(self._state[arm+'_gripper'])
+            pads=[];centers=[]
+            for bounds,axis in zip(reference['closed_pad_bounds_tool_m'],reference['pad_opening_axes_tool']):
+                lo,hi=np.array(bounds,dtype=float)
+                shift=np.array(axis)*reference['opening_travel_m']*fraction/2
+                lo+=shift;hi+=shift
+                center=(lo+hi)/2;centers.append(center)
+                corners=np.array([[x,y,z] for x in (lo[0],hi[0])
+                    for y in (lo[1],hi[1]) for z in (lo[2],hi[2])])@R.T+position
+                pads.append(dict(center_base_m=(position+R@center).tolist(),
+                    bounding_box_base_m=[corners.min(0).tolist(),corners.max(0).tolist()]))
+            midpoint=np.mean(centers,axis=0)
+            arms[arm]=dict(pad_midpoint_tool_m=midpoint.tolist(),
+                pad_midpoint_base_m=(position+R@midpoint).tolist(),pads=pads,
+                measured_gripper_fraction=fraction)
+        return dict(available=True,measured_step_id=self._state['step_id'],
+            coordinate_frame='per_arm_base',units='metres',arms=arms,
+            scope='Nominal installed-reference pad geometry transformed using '
+                  'matched measured joints/opening, not measured contact/force, '
+                  'object engagement, collision clearance or calibration accuracy. '
+                  'Bounding boxes enclose the rotated reference pad corners; '
+                  'inspect full tool/tip extents and fresh RGB-D.')
 
     def _prepare_move(self,targets,state,*,attitude=None,rotation=None):
         previous=self._geometry.start_rotations
