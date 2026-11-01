@@ -106,3 +106,43 @@ class TaskCloudTests(unittest.TestCase):
             cloud = TaskCloud(Path(directory)/'map.sqlite3', lambda _: np.zeros((1,384)))
             with self.assertRaisesRegex(ValueError, 'norm'):
                 cloud.index([{'prompt':'invalid embedding'}])
+
+    def test_transform_does_not_hold_the_index_write_lock(self):
+        import sqlite3
+        import threading
+        with tempfile.TemporaryDirectory() as directory:
+            cloud=TaskCloud(Path(directory)/'map.sqlite3')
+            cloud.snapshot([])
+            cloud.encode=lambda _: np.asarray([[1]+[0]*383])
+            started,release=threading.Event(),threading.Event()
+            class SlowProjection:
+                def transform(self,vector):
+                    started.set()
+                    if not release.wait(5):
+                        raise RuntimeError('Test did not release transform')
+                    return np.zeros((1,3))
+            cloud.load_projector=lambda *args: SlowProjection()
+            errors=[]
+            def index():
+                try: cloud.index([{'prompt':'slow new arrival'}])
+                except Exception as exc: errors.append(exc)
+            worker=threading.Thread(target=index)
+            worker.start()
+            try:
+                self.assertTrue(started.wait(3))
+                # A separate producer can publish while CPU work is paused.
+                with sqlite3.connect(cloud.path,timeout=.1) as db:
+                    db.execute('INSERT INTO task_embeddings VALUES(?,?,?)',('other','independent','[1]'))
+                self.assertEqual(cloud.snapshot([])['status'],'ready')
+            finally:
+                release.set()
+                worker.join(5)
+            self.assertFalse(worker.is_alive())
+            self.assertEqual(errors,[])
+            self.assertEqual(cloud.snapshot([{'prompt':'slow new arrival'}])['status'],'ready')
+
+    def test_another_indexer_recovery_does_not_leave_ready_coordinates_in_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cloud=TaskCloud(Path(directory)/'map.sqlite3')
+            cloud.error=True
+            self.assertEqual(cloud.snapshot([{'prompt':'Put the pens into the cup'}])['status'],'ready')
