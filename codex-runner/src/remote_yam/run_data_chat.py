@@ -24,8 +24,11 @@ Library_context records the current robot/filters/box separately; opened_run is 
 opened or last-viewed replay (replay_open says whether its inspector is still open), not
 a restriction. Use them for explicit focused questions and comparisons, and name each
 denominator. Changing filters does not change the all-runs knowledge base or conversation.
-Scope and aggregates are computed by the server over every matching run, before evidence
-sampling. State sample sizes and denominators. Success rate means Success/(Success+Failure);
+The search section reports a full-text search over EVERY prompt and saved annotation in
+the scope, including text beyond the bounded excerpts. Search matches are ranked, not a
+random sample; describe the searched and matched counts. Do not say you cannot search the
+rest of the library: it has already been searched. A missing text match does not rule out
+an event visible only in video. Scope and aggregates cover every matching run. State sample sizes and denominators. Success rate means Success/(Success+Failure);
 Uncertain and Unscored are excluded, not failures. Automated labels and their saved reasons
 are predictions, not verified outcomes. Human labels may also be incomplete or disputed.
 You receive text metadata and saved annotations only, NO video or images. Never say you
@@ -37,7 +40,7 @@ or claim one approach is better without acknowledging task mix, missing labels a
 Cite only evidence IDs supplied in CURRENT_DATA, tying specific examples to the answer.
 If evidence cannot answer the question, say what is missing and suggest replays to inspect.
 Conversation history can refer to earlier scopes; only CURRENT_DATA supports current claims.
-Return at most eight citations. Keep answers concise, in plain text with paragraphs, and end with a useful follow-up question.
+Return at most eight citations. Keep answers concise, in plain text with paragraphs, Ask a follow-up only when needed; do not ask for the robot already recorded in library context.
 Return the required JSON: answer and citations (episode_id plus a short explanation).
 '''
 
@@ -131,14 +134,17 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
             raise ValueError('The selected runs no longer match this scope. Refresh or select them again.')
     selected_keys = {(r["robot_id"],r["episode_id"]) for r in rows}
     public = []
+    documents = {}
     task_keys = {}
     for r in all_rows:
         task_keys[(r['robot_id'],r['episode_id'])]=' '.join(str(r.get('prompt') or '').casefold().split())
         annotation = labels.get((r['robot_id'], r['episode_id']), {})
         a = annotation.get('auto_assessment') or {}
+        saved = a if scope['label_source'] == 'auto' else (annotation.get('human_review') or {})
+        documents[(r['robot_id'],r['episode_id'])] = (r['episode_id'],r['robot_id'],str(r.get('prompt') or ''),str(saved.get('reason') or ''))
         public.append(dict(episode_id=r['episode_id'], robot_id=r['robot_id'],
             prompt=str(r.get('prompt') or '')[:800], prompt_truncated=len(str(r.get('prompt') or ''))>800, model=str(r.get('model') or 'Unrecorded')[:128],
-            model_version=str(r.get('model_version') or 'unknown')[:128],
+            model_version=str(r.get('model_version') or 'unknown')[:128], started_at=r.get('started_at'),
             label=outcome(r, annotation, scope['label_source']),
             annotation=(dict(reason=str(a.get('reason') or '')[:1200], model=a.get('model'),
                 confidence=a.get('confidence'), limitations=a.get('limitations', [])[:4])
@@ -153,11 +159,11 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
         groups[(row['model'], row['model_version'])].append(row)
         robots[row['robot_id']].append(row)
         tasks[task_keys[(row['robot_id'],row['episode_id'])]].append(row)
-    # Rank textual examples, then balance outcomes so failure evidence is retained.
-    retrieval_query = ' '.join([question] + [m['content'] for m in history if m['role'] == 'user'][-2:])[:300]
-    ranked = rank_runs(public, retrieval_query) or public
-    ranked_ids = {r['episode_id'] for r in ranked}
-    ranked += [r for r in public if r['episode_id'] not in ranked_ids]
+    from .run_data_search import search_documents
+    search, hits = search_documents(tuple(documents[(r['robot_id'],r['episode_id'])] for r in public), question, history)
+    by_key = {(r['robot_id'],r['episode_id']):r for r in public}
+    matched = [dict(by_key[(h['robot_id'],h['episode_id'])], search_match=h['search_match']) for h in hits]
+    ranked = matched + [r for r in public if (r['robot_id'],r['episode_id']) not in {(h['robot_id'],h['episode_id']) for h in hits}]
     buckets = {label:[r for r in ranked if r['label'] == label] for label in LABELS}
     priority = ([opened] if opened and (opened['robot_id'],opened['episode_id']) in selected_keys else []) + [next((r for r in current if r['label'] == label and (r['robot_id'],r['episode_id']) in selected_keys), None) for label in LABELS]
     evidence = []
@@ -169,6 +175,8 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
         for label in LABELS:
             if buckets[label] and len(evidence) < MAX_EVIDENCE:
                 evidence.append(buckets[label].pop(0))
+    if matched:
+        evidence = matched
     result = dict(robot_id=robot_id, kind=scope['kind'], filters={k:scope[k] for k in ('models','query','label_source')},
         stale=bool(catalog.get('stale')), generated_at=time.time(), counts=counts(public), collection_counts=collection_counts,
         library_context={'robot_id':robot_id, 'kind':'box' if box_ids is not None else 'filtered',
@@ -179,7 +187,7 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
         by_model=[dict(model=k[0], version=k[1], **counts(v)) for k,v in sorted(groups.items())],
         repeated_tasks=[dict(prompt=v[0]['prompt'], prompt_truncated=v[0]['prompt_truncated'], **counts(v)) for v in sorted(tasks.values(), key=lambda v:-len(v))[:40]],
         repeated_task_groups_total=len(tasks), repeated_task_groups_shown=min(40,len(tasks)),
-        evidence=evidence, evidence_count=len(evidence), evidence_limit=MAX_EVIDENCE,
+        search=search, evidence=evidence, evidence_count=len(evidence), evidence_limit=MAX_EVIDENCE,
         visual_evidence_received=False)
     return result
 

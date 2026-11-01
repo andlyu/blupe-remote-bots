@@ -26,13 +26,18 @@ provenance. They remain predictions. The discussion receives **no images or
 video**. It cannot claim direct visual observation. Nearby cloud points encode
 similar task descriptions, not equivalent physical conditions or a causal test.
 
-The context includes complete aggregate counts and up to 32 examples balanced
-across outcomes and ranked by the question, plus the opened run and current
-library examples when within the requested scope. Repeated-task groups are
-bounded to 40, with total/shown counts; they are descriptive, not causal
-comparisons. Answers return up to eight validated evidence IDs. The server
-creates replay links; same-robot links open the existing replay inspector,
-while cross-robot links use the normal robot/run deep link.
+Full prompts and saved annotation reasons are indexed locally across every run in the
+requested scope, including text beyond model excerpt limits. Follow-up references reuse
+the latest user topic; camera/cam and unplugged/unpluged/detached normalize together.
+Each answer reports searched/matched/returned counts. Lookups return up to eight replay
+links immediately without a model call; they do not consume the analysis cooldown or
+provider budget. Matches describe requested tasks or saved predictions, never proof of
+physical causation. The index caches two immutable public-text snapshots and changes
+when prompt/annotation content changes. No media or private runner fields are indexed.
+
+Analytical questions still use the explicitly selected model with full aggregates and
+up to32 search-ranked examples (balanced outcome examples when there are no text matches).
+Repeated-task groups remain bounded to40. Replay navigation is unchanged.
 
 ## Model decision and configuration
 
