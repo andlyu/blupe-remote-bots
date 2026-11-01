@@ -317,19 +317,10 @@
             <div class="runViewSwitch" role="group" aria-label="All runs view"><button id="pastRunsTableView" type="button" aria-pressed="true">Table</button><button id="pastRunsCloudView" type="button" aria-pressed="false">Cloud</button></div>
           </div>
         </div>
-        <form id="pastRunsSearch" class="runHistorySearch" role="search" aria-label="Past attempts">
-          <label for="pastRunsQuery">Search videos by task</label>
-          <div><input id="pastRunsQuery" type="search" maxlength="300" placeholder="apple, stack blocks, put pens in a cup" aria-describedby="pastRunsSearchHelp"><button type="submit">Search</button><button id="clearPastRunsSearch" type="button" hidden>Clear search</button></div>
-          <p id="pastRunsSearchHelp" class="help">Find recordings by their task prompt, such as apple or put pens into a cup. Related objects and partial tasks may match. Watch a replay to see what happened.</p>
-        </form>
         <div id="pastRunsScores" class="runScores" aria-label="Per-model success rates" aria-live="polite"></div>
         <p id="pastRunsScoreCaveat" class="help scoreCaveat">Observed rates on the selected user-labeled tasks. Different task mixes are not a controlled benchmark. Unlabeled and excluded runs stay visible.</p>
         <p id="pastRunsLabelSummary" class="help" role="status"></p>
         <p id="pastRunsStatus" class="help" role="status">Loading past runs…</p>
-        <div id="pastRunsTable" role="region" aria-label="All runs recording blocks">
-          <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
-          <ol id="pastRunsList"></ol>
-        </div>
         <div id="pastRunsCloud" hidden>
           <p class="help">Nearby points have similar task descriptions; this does not establish identical starting conditions or physical difficulty. Small offsets separate repeated attempts.</p>
           <div class="cloudToolbar cloudControlBar">
@@ -373,6 +364,15 @@
           <p id="taskCloudHelp" class="help">Hover or focus a run for details below the cloud; click or press Enter for full replay. Drag to rotate; pinch or scroll to zoom. Arrow keys rotate, +/− zoom, Home resets. Use Previous/Next or [ and ] to focus each run; Escape closes the preview. Hollow runs stay visible and do not count toward scores. Table provides an accessible alternative.</p>
           <div class="cloudToolbar"><button id="taskCloudPrevious" type="button">Previous run</button><button id="taskCloudNext" type="button">Next run</button><button id="taskCloudOpen" type="button">Open focused run</button></div>
           <p id="taskCloudFocus" role="status" aria-live="polite">Select a point to inspect a run.</p><p id="taskCloudVersion" class="help"></p>
+        </div>
+        <form id="pastRunsSearch" class="runHistorySearch" role="search" aria-label="Past attempts">
+          <label for="pastRunsQuery">Search videos by task</label>
+          <div><input id="pastRunsQuery" type="search" maxlength="300" placeholder="apple, stack blocks, put pens in a cup" aria-describedby="pastRunsSearchHelp"><button type="submit">Search</button><button id="clearPastRunsSearch" type="button" hidden>Clear search</button></div>
+          <p id="pastRunsSearchHelp" class="help">Find recordings by their task prompt, such as apple or put pens into a cup. Related objects and partial tasks may match. Watch a replay to see what happened.</p>
+        </form>
+        <div id="pastRunsTable" role="region" aria-label="All runs recording blocks">
+          <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
+          <ol id="pastRunsList"></ol>
         </div>
         <button id="morePastRuns" type="button" hidden>Load more</button>
       </section>
