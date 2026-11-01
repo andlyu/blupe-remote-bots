@@ -269,7 +269,7 @@
           card=doc.createElement('section');card.className='cloudAreaCaption';
           const title=doc.createElement('strong'), prompt=doc.createElement('p'), close=doc.createElement('button'), view=doc.createElement('button');
           title.className='cloudAreaCaptionTitle';prompt.className='cloudAreaCaptionPrompt';
-          close.type=view.type='button';close.className='cloudAreaCaptionClose';view.className='cloudAreaCaptionView';view.textContent='View';
+          close.type=view.type='button';close.className='cloudAreaCaptionClose';view.className='cloudAreaCaptionView';view.textContent='View';close.title='Hide label';view.title='View median run';
           const current=()=>captionBoxes.find(item=>item.key===box.key);
           close.addEventListener('click',()=>{if(!current())return;dismissedCaptions.add(box.key);captionBoxes=captionBoxes.filter(item=>item.key!==box.key);card.hidden=true;if(card.contains(doc.activeElement))canvas.focus({preventScroll:true});clearPreview();schedule();});
           view.addEventListener('click',()=>{const active=current();if(!active)return;focused=rows.findIndex(run=>runKey(run)===runKey(active.run));if(focused>=0)open();});
@@ -460,7 +460,7 @@
           if(lines.length>2)lines.splice(1,lines.length-1,lines.slice(1).join(' '));
           for(let i=0;i<lines.length;i++)if(ctx.measureText(lines[i]).width>maxTextWidth){while(lines[i].length && ctx.measureText(lines[i]+'…').width>maxTextWidth)lines[i]=lines[i].slice(0,-1);lines[i]+='…';}
         }
-        const w=captionRoot ? Math.min(width-16,Math.max(190,countWidth+54,...lines.map(line=>ctx.measureText(line).width+20))) : Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=captionRoot ? 88+lines.length*16 : 24+lines.length*16;
+        const w=captionRoot ? Math.min(width-16,Math.max(174,countWidth+84,...lines.map(line=>ctx.measureText(line).width+16))) : Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=captionRoot ? 34+lines.length*16 : 24+lines.length*16;
         const centerX=Math.max(4,Math.min(width-w-4,region.x-w/2));
         const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,x:centerX,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
         if(captionRoot && width<600){positions.unshift({offset:1,x:centerX,y:height-h-4});if(layerBounds){const bounds=canvas.getBoundingClientRect();positions.push({offset:1,x:centerX,y:layerBounds.bottom-bounds.top+8});}}
