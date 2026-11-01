@@ -42,6 +42,6 @@ test('outside click and Escape dismiss the picker without changing selected mode
  const c=setup();c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[],null,0,false,['A']);await c.flush();c.choose('A');
  const filter=c.document.getElementById('pastRunsModelFilter'),inside=c.nodes.get('pastRunsModel').children[0].children[0];filter.open=true;filter.contains=target=>target===inside;
  const requests=c.requests.length;c.events.pointerdown({target:inside});assert.equal(filter.open,true);c.events.pointerdown({target:{}});assert.equal(filter.open,false);
- filter.open=true;let prevented=false;c.events.keydown({key:'Escape',preventDefault(){prevented=true}});assert.equal(filter.open,false);assert.equal(prevented,true);assert.equal(c.nodes.get('pastRunsModelSummary').focused,true);
+ filter.open=true;let prevented=false;filter.emit('keydown',{key:'Escape',preventDefault(){prevented=true},stopPropagation(){prevented=prevented && true}});assert.equal(filter.open,false);assert.equal(prevented,true);assert.equal(c.nodes.get('pastRunsModelSummary').focused,true);
  assert.equal(c.nodes.get('pastRunsModelValue').textContent,'A');assert.equal(c.requests.length,requests);
 });
