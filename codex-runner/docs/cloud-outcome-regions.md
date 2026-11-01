@@ -79,14 +79,17 @@ the existing offscreen checks, colors and interactions remain in effect.
 
 ## Select a 3D volume
 
-**Add 3D box** immediately creates a finite box in map space and opens an angled
-camera view. Its center is the coordinatewise median of mapped attempts; its
+**Add 3D box** immediately creates a finite box in map space and keeps the current
+camera view, zoom and page position. Its center is the coordinatewise median of mapped attempts; its
 half extents use half the20th–80th-percentile span of each coordinate, bounded
 to `0.08–0.3`. Initial axes match the saved map axes. This gives the same initial
 membership on desktop and phone, independently of the viewport. Adding a box
-focuses and scrolls to the canvas; **Reset 3D box** starts over from the current
-filtered catalog. **Redraw footprint** optionally replaces it using a drawn
-outline at the median candidate depth, as in the earlier selection flow.
+focuses the canvas without scrolling; adding again replaces the box from the
+current filtered catalog. **Draw box** optionally replaces it using a drawn
+outline at the median candidate depth. Creating or drawing never turns the
+camera or resets zoom; choose a camera preset explicitly when wanted. The
+transform toolbar stays in place, with tools disabled before selection, so
+selection does not shift the canvas.
 
 The toolbar adopts the familiar interaction patterns in
 [Three.js TransformControls](https://threejs.org/examples/misc_controls_transform.html),

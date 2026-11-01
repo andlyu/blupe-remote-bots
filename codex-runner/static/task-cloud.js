@@ -264,7 +264,7 @@
       const center=sorted.map(values=>(values[Math.floor(values.length/2)]+values[Math.floor((values.length-1)/2)])/2);
       const half=sorted.map(values=>Math.max(.08,Math.min(.3,(values[Math.floor((values.length-1)*.8)]-values[Math.floor((values.length-1)*.2)])/2)));
       volume={center,half,baseHalf:half.slice(),axes:[[1,0,0],[0,1,0],[0,0,1]],depthLimits:[Math.min(0,...sorted[2])-.1,Math.max(0,...sorted[2])+.1],view:{yaw:0,pitch:0}};
-      areaApplied=true;volumeTool='resize';setAreaSelection(false);refreshArea();setView('isometric');magnification=1;schedule();
+      areaApplied=true;volumeTool='resize';setAreaSelection(false);refreshArea();schedule();
     }
     function setView(name) {
       const view={isometric:[.7,.55],front:[0,0],top:[0,1.5],side:[Math.PI/2,0]}[name];
@@ -313,7 +313,7 @@
       let x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),right=Math.max(a[0],b[0]),bottom=Math.max(a[1],b[1]);
       if(right-x<4 && bottom-y<4){x=Math.max(0,x-6);y=Math.max(0,y-6);right=Math.min(width,right+6);bottom=Math.min(height,bottom+6);}
       volume=volumeFromBrush({x,y,w:right-x,h:bottom-y},rows,yaw,pitch,magnification,width,height);areaApplied=true;
-      brush=null;areaMode=false;volumeTool='resize';canvas.style.cursor='grab';refreshArea();volumeView();schedule();
+      brush=null;areaMode=false;volumeTool='resize';canvas.style.cursor='grab';refreshArea();schedule();
     }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
     const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
