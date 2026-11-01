@@ -347,6 +347,11 @@
               <div class="taskCloudPreviewMedia"></div><p class="taskCloudPreviewTitle"></p><p class="taskCloudPreviewState"></p>
             </div>
           </div>
+        <form id="pastRunsSearch" class="runHistorySearch" role="search" aria-label="Past attempts">
+          <label for="pastRunsQuery">Search videos by task</label>
+          <div><input id="pastRunsQuery" type="search" maxlength="300" placeholder="apple, stack blocks, put pens in a cup" aria-describedby="pastRunsSearchHelp"><button type="submit">Search</button><button id="clearPastRunsSearch" type="button" hidden>Clear search</button></div>
+          <p id="pastRunsSearchHelp" class="help">Find recordings by their task prompt, such as apple or put pens into a cup. Related objects and partial tasks may match. Watch a replay to see what happened.</p>
+        </form>
           <section id="taskCloudAreaSummary" class="cloudAreaSummary" aria-labelledby="taskCloudAreaTitle" data-clarity-mask="true" hidden>
             <h3 id="taskCloudAreaTitle">3D selection</h3>
             <p id="taskCloudAreaCounts" role="status" aria-live="polite"></p>
@@ -365,15 +370,9 @@
             </div>
             <div class="cloudToolbar"><span class="help">Size is relative to the original box. Depth position moves along its Z axis. W: move, R: resize, E: rotate when the cloud is focused. Draw box replaces the box from an outline. The camera stays where you leave it.</span></div>
           </section>
-          <p id="taskCloudHelp" class="help">Hover or focus a run for details below the cloud; click or press Enter for full replay. Drag to rotate; pinch or scroll to zoom. Arrow keys rotate, +/− zoom, Home resets. Use Previous/Next or [ and ] to focus each run; Escape closes the preview. Hollow runs stay visible and do not count toward scores. Table provides an accessible alternative.</p>
-          <div class="cloudToolbar"><button id="taskCloudPrevious" type="button">Previous run</button><button id="taskCloudNext" type="button">Next run</button><button id="taskCloudOpen" type="button">Open focused run</button></div>
+          <p id="taskCloudHelp" class="help">Hover or focus a run for details below the cloud; click or press Enter for full replay. Drag to rotate; pinch or scroll to zoom. Arrow keys rotate, +/− zoom, Home resets. Use [ and ] to focus each run; Escape closes the preview. Hollow runs stay visible and do not count toward scores. Table provides an accessible alternative.</p>
           <p id="taskCloudFocus" role="status" aria-live="polite">Select a point to inspect a run.</p><p id="taskCloudVersion" class="help"></p>
         </div>
-        <form id="pastRunsSearch" class="runHistorySearch" role="search" aria-label="Past attempts">
-          <label for="pastRunsQuery">Search videos by task</label>
-          <div><input id="pastRunsQuery" type="search" maxlength="300" placeholder="apple, stack blocks, put pens in a cup" aria-describedby="pastRunsSearchHelp"><button type="submit">Search</button><button id="clearPastRunsSearch" type="button" hidden>Clear search</button></div>
-          <p id="pastRunsSearchHelp" class="help">Find recordings by their task prompt, such as apple or put pens into a cup. Related objects and partial tasks may match. Watch a replay to see what happened.</p>
-        </form>
         <div id="pastRunsTable" role="region" aria-label="All runs recording blocks">
           <p class="help">Hover for a quick preview. Select a recording to watch the full run.</p>
           <ol id="pastRunsList"></ol>

@@ -403,3 +403,12 @@ test('Autolabels defaults on, remembers explicit off locally, and leaves human l
  c.nodes.get('pastRunsLabelSource').value='auto';c.nodes.get('pastRunsLabelSource').emit('change');assert.equal(colors.at(-1),false);
  c.nodes.get('taskCloudShowAutoLabels').checked=true;c.nodes.get('taskCloudShowAutoLabels').emit('change');assert.equal(colors.at(-1),true);assert.equal(c.nodes.get('taskCloudShowLabels').disabled,false);assert.equal(c.requests.length,requests);
 });
+
+test('phone captions for both outcomes fit beside the vertical control panel',()=>{
+ const c=setup(run=>run.testOutcome,true);c.canvas.clientWidth=354;c.canvas.clientHeight=370;
+ c.captionRoot.parentElement={querySelector:()=>({getBoundingClientRect:()=>({left:8,top:8,bottom:218,width:112,height:210})})};
+ const rows=['Success','Failure'].flatMap((testOutcome,index)=>Array.from({length:5},(_,i)=>({episode_id:`vertical_${index}_${i}`,prompt:index?'Place blue block on the tray':'Place green block on the towel',xyz:index?[.07,0,.1]:[-.07,0,-.1],testOutcome})));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
+ const cards=c.captionRoot.children.filter(card=>!card.hidden);assert.deepEqual(cards.map(card=>card.dataset.outcome).sort(),['Failure','Success']);
+ for(const card of cards){const x=parseFloat(card.style.left),y=parseFloat(card.style.top),w=parseFloat(card.style.width),h=parseFloat(card.style.height);assert.ok(x>=128 || y>=226);assert.ok(x+w<=354 && y+h<=370);}
+});
