@@ -745,7 +745,7 @@ function createRunLaunchGuard() {
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
-  window.yamReplayHistory = {openRun, selectRun, refresh: () => load(true), dataScope(requested) {
+  window.yamReplayHistory = {openRun, selectRun, setContextRun(run) {selectedRun=run;window.yamRunDataChat?.scopeChanged();}, refresh: () => load(true), dataScope(requested) {
     if (!historyRobot || requested === 'run' && (!selectedRun || selectedRun.robot_id !== historyRobot)) return null;
     const libraryKind = historyView === 'cloud' && dataChatBoxSelected ? 'box' : 'filtered';
     const kind = requested === 'all' ? 'all' : requested === 'run' ? 'run' : libraryKind;

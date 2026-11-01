@@ -492,7 +492,7 @@ class HostedRunner:
             # No raw exceptions: upstream errors can contain URLs or credentials.
             await self.json(send, 503, {"error": "The request could not be completed. Please try again."})
 
-    async def body(self, receive):
+    async def body(self, receive, *, max_bytes=24000):
         async def read():
             value = bytearray()
             while True:
@@ -500,7 +500,7 @@ class HostedRunner:
                 if event["type"] == "http.disconnect":
                     raise ConnectionError("Browser disconnected")
                 value.extend(event.get("body", b""))
-                if len(value) > 24000:
+                if len(value) > max_bytes:
                     raise RequestError(413, "Request is too large")
                 if not event.get("more_body"):
                     break
@@ -716,7 +716,7 @@ class HostedRunner:
         if method == "POST":
             if not secrets.compare_digest(headers.get("x-yam-runner-token", ""), visitor.csrf):
                 raise RequestError(403, "Invalid browser session token")
-            payload = await self.body(receive)
+            payload = await self.body(receive, max_bytes=600000 if path == '/api/run-data-chat' else 24000)
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
             if path == '/api/run-data-chat':
