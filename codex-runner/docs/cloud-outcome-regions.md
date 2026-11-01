@@ -12,9 +12,9 @@ may also show a count label such as `Success: 6/8`: six Success labels among
 eight nearby Success/Failure labels. These are local descriptive counts, not a
 confidence estimate, statistical test or new model score.
 
-The **Area labels** checkbox is off by default, leaving the tints and markers
-unobstructed. When enabled, Success and Failure count labels include an actual
-matching median prompt. The choice is remembered under `yam-cloud-area-labels`.
+The **Area labels** checkbox is on by default. Success and Failure count labels
+include an actual matching median prompt. The choice is remembered under
+`yam-cloud-area-labels`; an explicit off preference is honored on later visits.
 Hover/focus details remain in the text below the canvas; per-run canvas captions
 are not added when zooming, and hosted Cloud hover-video overlays are disabled.
 Click a run to open its video sidebar. Clicking or tapping an area caption opens
