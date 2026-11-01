@@ -44,4 +44,16 @@ const count=monitor.frameTimes.length;callback(now,{});
 assert.equal(monitor.frameTimes.length,count,'Canvas and frame callback must not double count the same decoded frame');
 now+=2100;video.currentTime+=10;monitor.presented(undefined,true);
 assert.equal(monitor.snapshot().state,'stalled','An advancing audio clock cannot certify frozen video');
+// A deliberate room-audio buffer has a larger delay budget, while actual freezes remain errors.
+monitor.close();
+const audioVideo={...video,dataset:{transport:'hls'},seekable:{length:1,end:()=>10},currentTime:7.5,
+ yamPlaybackDelay:()=>2500,yamCaptureAge:()=>null};
+const audioMonitor=new context.window.YamStreamHealth(audioVideo,{clock:()=>now,delayBudgetMs:4000});
+audioMonitor.presented(undefined,true);
+assert.equal(audioMonitor.snapshot().state,'delayed','A deliberate2.5s buffer must remain honestly labelled delayed');
+audioVideo.yamPlaybackDelay=()=>5000;
+assert.equal(audioMonitor.snapshot().state,'behind','An excessive delay still warns');
+audioVideo.yamPlaybackDelay=()=>2500;now+=2100;
+assert.equal(audioMonitor.snapshot().state,'stalled','The frame-stall threshold stays2s despite the audio buffer');
+audioMonitor.close();
 monitor.close();console.log('Stream startup failure, actual frames, freeze, recovery, lag, HLS, hidden-tab checks passed');
