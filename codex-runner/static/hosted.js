@@ -347,6 +347,9 @@ function createRunLaunchGuard() {
   let labelSource = 'auto';
   try { labelSource = localStorage.getItem('yam-run-label-source') === 'human' ? 'human' : 'auto'; } catch (_) {}
   if ($('pastRunsLabelSource')) $('pastRunsLabelSource').value = labelSource;
+  let showAutoLabels = true;
+  try { showAutoLabels = localStorage.getItem('yam-cloud-autolabels') !== 'false'; } catch (_) {}
+  if ($('taskCloudShowAutoLabels')) $('taskCloudShowAutoLabels').checked = showAutoLabels;
   let regionHighlight = 'both';
   try { const saved = localStorage.getItem('yam-cloud-highlight'); if (['both','success','failure','none'].includes(saved)) regionHighlight = saved; } catch (_) {}
   if ($('taskCloudSuccessAreas')) $('taskCloudSuccessAreas').checked = ['both','success'].includes(regionHighlight);
@@ -609,6 +612,12 @@ function createRunLaunchGuard() {
     }
   }
   function renderView() {
+    const showColors = labelSource !== 'auto' || showAutoLabels;
+    if ($('taskCloudShowAutoLabels')) {
+      $('taskCloudShowAutoLabels').disabled = labelSource !== 'auto';
+      $('taskCloudShowAutoLabels').title = labelSource === 'auto' ? 'Show AI outcome colors' : 'Choose Auto-labeled to show AI outcome colors';
+    }
+    for (const id of ['taskCloudSuccessAreas','taskCloudFailureAreas','taskCloudShowLabels']) if ($(id)) $(id).disabled = !showColors;
     if ($('pastRunsLabelSummary')) $('pastRunsLabelSummary').textContent = window.yamRunLabels?.summary(catalogRows, labelSource) || '';
     if ($('pastRunsScores')) $('pastRunsScores').hidden = labelSource === 'auto';
     const caveat = $('pastRunsScoreCaveat');
@@ -640,6 +649,7 @@ function createRunLaunchGuard() {
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
         (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm?.(runs), renderAreaSummary, $('taskCloudAreaCaptions'));
       cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
+      cloud?.setOutcomeColors?.(showColors);
       cloud?.setHighlight?.(regionHighlight);
       cloud?.setAreaLabels?.(showAreaLabels);
       if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
@@ -775,6 +785,11 @@ function createRunLaunchGuard() {
     try { localStorage.setItem('yam-run-label-source', labelSource); } catch (_) {}
     window.yamRunSidebar?.setSource(labelSource);
     if (historyView === 'table') { clearBlocks(); renderBlocks(catalogRows); }
+    renderView();
+  });
+  $('taskCloudShowAutoLabels')?.addEventListener('change', () => {
+    showAutoLabels = $('taskCloudShowAutoLabels').checked;
+    try { localStorage.setItem('yam-cloud-autolabels', String(showAutoLabels)); } catch (_) {}
     renderView();
   });
   for (const id of ['taskCloudSuccessAreas','taskCloudFailureAreas']) $(id)?.addEventListener('change', () => {

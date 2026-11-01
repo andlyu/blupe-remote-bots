@@ -251,7 +251,7 @@
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
-    let highlight = 'none', regionData = null, showAreaLabels=false;
+    let highlight = 'none', regionData = null, showAreaLabels=false, showOutcomeColors=true;
     let captionBoxes=[], pressedCaption=null, captionContext='';
     const captionNodes=new Map(), dismissedCaptions=new Set();
     const captionKey=region=>[region.label,...region.xyz,runKey(region.representativeRun || {})].join('|');
@@ -358,8 +358,9 @@
       brush=null;areaMode=false;volumeTool='resize';canvas.style.cursor='grab';refreshArea();schedule();
     }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
-    const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
+    const visibleRegions = () => !showOutcomeColors || highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
     function highlightSummary() {
+      if (!showOutcomeColors) return 'Autolabels hidden. Hover a point to preview its video.';
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
       return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Click an area label to open its median run. Labels hide when you zoom close.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
@@ -384,7 +385,7 @@
     function marker(point) {
       ctx.globalAlpha=areaApplied && boxVisible && !areaKeys.has(runKey(point.run)) ? .22 : 1;
       const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
-      const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
+      const state = showOutcomeColors ? outcome(point.run) : 'Unscored', color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
       ctx.beginPath();
       ctx.arc(point.x,point.y,radius,0,Math.PI*2);
       ctx.fillStyle = state === 'Unscored' ? '#f8faf5' : color;
@@ -484,6 +485,7 @@
       canvas.dataset.highlightRegions=String(regionPoints.length);
       canvas.dataset.regionMode=highlight;
       canvas.dataset.areaLabels=String(showAreaLabels);
+      canvas.dataset.outcomeColors=String(showOutcomeColors);
       canvas.dataset.areaCaptions=JSON.stringify(captionBoxes.map(({x,y,w,h,run})=>({x,y,w,h,episodeId:run.episode_id,robotId:run.robot_id || ''})));
       canvas.dataset.areaSelected=String(areaKeys.size);
       canvas.dataset.volumeBox=volume?JSON.stringify({center:volume.center,half:volume.half,axes:volume.axes}):'';
@@ -692,6 +694,7 @@
         if(context!==captionContext){captionContext=context;dismissedCaptions.clear();for(const card of captionNodes.values())card.remove();captionNodes.clear();}
         captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;boxVisible=true;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
       setBoxVisible,getSelectedRuns() {return areaApplied ? rows.filter(run=>areaKeys.has(runKey(run))) : [];},
+      setOutcomeColors(enabled) {showOutcomeColors=!!enabled;captionBoxes=[];schedule();},
       setAreaLabels(enabled) {captionBoxes=[];if(enabled && !showAreaLabels)dismissedCaptions.clear();showAreaLabels=!!enabled;schedule();},
       setHighlight(mode) {captionBoxes=[];highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};
