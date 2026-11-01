@@ -108,6 +108,17 @@ class DataChatHostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.providers,'Data chat must never create a robot policy')
         self.assertEqual((await self.call('/api/run-data-chat',method='POST',payload=payload,**session))[0],429)
 
+    async def test_public_receipts_match_library_collection_and_archive_rows_win(self):
+        session=await self.session()
+        self.app.data_chat=Mock(model=MODEL);self.app.data_chat.answer.return_value={'answer':'Answer','citations':[]}
+        self.app.past_runs=Mock();self.app.past_runs.page.return_value={'runs':[row('ep_a',prompt='Archive task')]}
+        self.app.run_names.catalog=Mock(return_value=[row('ep_a',prompt='Older receipt'),row('ep_pending')])
+        code,data,_=await self.call('/api/run-data-chat',method='POST',payload={'question':'q'},**session)
+        self.assertEqual(code,200);self.assertEqual(data['scope']['counts']['total'],2)
+        evidence=self.app.data_chat.answer.call_args.args[0]['evidence']
+        self.assertEqual(next(r['prompt'] for r in evidence if r['episode_id']=='ep_a'),'Archive task')
+        self.assertNotIn('private@example.com',json.dumps(data))
+
     async def test_data_chat_history_uses_its_own_bounded_body_limit(self):
         session=await self.session()
         self.app.data_chat=Mock(model=MODEL);self.app.data_chat.answer.return_value={'answer':'Answer','citations':[]}
