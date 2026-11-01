@@ -292,12 +292,23 @@
         <p id="myRunsStatus" class="help" role="status">Your runs will appear here.</p>
         <ol id="myRunsList" class="personalRunList"></ol>
         <button id="moreMyRuns" type="button" hidden>More of your runs</button>
-        <div class="statusHeader allRunsHeading"><h2>All runs</h2><label class="runLabelSource" for="pastRunsLabelSource">Labels <select id="pastRunsLabelSource"><option value="auto">Auto-labeled</option><option value="human">Human-labeled</option></select></label><div class="runViewSwitch" role="group" aria-label="All runs view"><button id="pastRunsTableView" type="button" aria-pressed="true">Table</button><button id="pastRunsCloudView" type="button" aria-pressed="false">Cloud</button></div></div>
-        <details class="runModelFilter"><summary id="pastRunsModelSummary">Models: All models</summary>
-          <label for="pastRunsModel">Choose one or more models</label>
-          <select id="pastRunsModel" multiple size="5"><option value="" selected>All models</option></select>
-          <p class="help">Select All models to clear the model filter. On desktop, hold Command or Ctrl to select several.</p>
-        </details>
+        <div class="statusHeader allRunsHeading">
+          <h2>All runs</h2>
+          <div class="runLibraryFilters">
+            <details id="pastRunsModelFilter" class="runModelFilter">
+              <summary id="pastRunsModelSummary"><span>Models</span><span id="pastRunsModelValue" class="runModelValue">All models</span><i aria-hidden="true"></i></summary>
+              <div class="runModelPanel">
+                <div class="runModelPanelHead"><strong>Filter by model</strong><button id="pastRunsModelReset" type="button" disabled>Show all</button></div>
+                <label class="visuallyHidden" for="pastRunsModelSearch">Search models</label>
+                <input id="pastRunsModelSearch" class="runModelSearch" type="search" placeholder="Search models…" autocomplete="off">
+                <div id="pastRunsModel" class="runModelOptions" role="group" aria-label="Models"></div>
+                <p id="pastRunsModelEmpty" class="help" role="status">Loading models…</p>
+              </div>
+            </details>
+            <label class="runLabelSource" for="pastRunsLabelSource">Labels <select id="pastRunsLabelSource"><option value="auto">Auto-labeled</option><option value="human">Human-labeled</option></select></label>
+            <div class="runViewSwitch" role="group" aria-label="All runs view"><button id="pastRunsTableView" type="button" aria-pressed="true">Table</button><button id="pastRunsCloudView" type="button" aria-pressed="false">Cloud</button></div>
+          </div>
+        </div>
         <form id="pastRunsSearch" class="runHistorySearch" role="search" aria-label="Past attempts">
           <label for="pastRunsQuery">Search videos by task</label>
           <div><input id="pastRunsQuery" type="search" maxlength="300" placeholder="apple, stack blocks, put pens in a cup" aria-describedby="pastRunsSearchHelp"><button type="submit">Search</button><button id="clearPastRunsSearch" type="button" hidden>Clear search</button></div>
