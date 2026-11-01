@@ -227,3 +227,5 @@ Rendered desktop/phone and deployed evidence are recorded in the task checklist.
 Hovering a dot plays its muted video preview even with Draw box armed or an existing selection. Hovering an area caption previews its median run; clicking still opens that run in the sidebar. Active drawing, orbiting and box manipulation hide the preview until the pointer returns to a point.
 
 The control bar groups Highlight and Area labels separately from selection actions. Draw box is primary, Reset view stays beside it, and the compact Clear action has the accessible name Clear selection. Control positions stay stable while drawing; the renderer and keyboard behavior are unchanged.
+
+The control icons use local CSS shapes and text glyphs, so they render under the hosted Content Security Policy without embedded image URLs. Reset and Clear retain explicit accessible names.
