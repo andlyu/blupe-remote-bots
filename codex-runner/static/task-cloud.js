@@ -25,6 +25,18 @@
     const z=-y*Math.sin(pitch)+depth*Math.cos(pitch);
     return [x*Math.cos(yaw)-z*Math.sin(yaw),y*Math.cos(pitch)+depth*Math.sin(pitch),x*Math.sin(yaw)+z*Math.cos(yaw)];
   }
+  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  function rotateVector(vector,axis,angle) {
+    const cosine=Math.cos(angle),sine=Math.sin(angle),perpendicular=cross(axis,vector),along=dot(axis,vector);
+    return vector.map((v,i)=>v*cosine+perpendicular[i]*sine+axis[i]*along*(1-cosine));
+  }
+  function rayPlanePoint(point,center,normal,yaw,pitch,zoom,width,height) {
+    const origin=worldCoordinates([0,0,-3],yaw,pitch),scale=Math.min(width,height)*2.6*zoom;
+    const direction=worldCoordinates([(point[0]-width/2)/scale,-(point[1]-height/2)/scale,1],yaw,pitch),denominator=dot(direction,normal);
+    if(Math.abs(denominator)<1e-7)return null;
+    const distance=dot(center.map((v,i)=>v-origin[i]),normal)/denominator;
+    return distance>0 ? origin.map((v,i)=>v+distance*direction[i]) : null;
+  }
   function volumeContains(volume,xyz) {
     return volume.axes.every((axis,i)=>Math.abs(dot(xyz.map((value,j)=>value-volume.center[j]),axis))<=volume.half[i]+1e-9);
   }
@@ -237,19 +249,48 @@
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null;
-    let areaMode=false, areaApplied=false, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], areaStats=summarizeArea([]), areaRobot;
+    let areaMode=false, areaApplied=false, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
     function volumeControls() {
       if(!volume)return null;
       const [min,max]=volume.depthLimits;
-      return {width:Math.round(volume.half[0]/volume.baseHalf[0]*100),height:Math.round(volume.half[1]/volume.baseHalf[1]*100),depth:Math.round(volume.half[2]/volume.baseHalf[2]*100),position:Math.round((dot(volume.center,volume.axes[2])-min)/(max-min)*100)};
+      return {width:Math.round(volume.half[0]/volume.baseHalf[0]*100),height:Math.round(volume.half[1]/volume.baseHalf[1]*100),depth:Math.round(volume.half[2]/volume.baseHalf[2]*100),position:Math.round(Math.max(0,Math.min(100,(dot(volume.center,volume.axes[2])-min)/(max-min)*100)))};
     }
-    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush,volume:volumeControls()});
+    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush,volume:volumeControls(),tool:volumeTool});
     const refreshArea = () => {areaKeys=new Set(rows.filter(run=>validPosition(run) && volume && volumeContains(volume,run.xyz)).map(runKey));areaStats=summarizeArea(rows.filter(run=>areaKeys.has(runKey(run))));notifyArea();};
+    function setVolumeTool(tool) {if(!['move','resize','rotate'].includes(tool))return;volumeTool=tool;setAreaSelection(false);notifyArea();schedule();}
+    function addVolume() {
+      const mapped=rows.filter(validPosition);if(!mapped.length)return;
+      const sorted=[0,1,2].map(i=>mapped.map(run=>run.xyz[i]).sort((a,b)=>a-b));
+      const center=sorted.map(values=>(values[Math.floor(values.length/2)]+values[Math.floor((values.length-1)/2)])/2);
+      const half=sorted.map(values=>Math.max(.08,Math.min(.3,(values[Math.floor((values.length-1)*.8)]-values[Math.floor((values.length-1)*.2)])/2)));
+      volume={center,half,baseHalf:half.slice(),axes:[[1,0,0],[0,1,0],[0,0,1]],depthLimits:[Math.min(0,...sorted[2])-.1,Math.max(0,...sorted[2])+.1],view:{yaw:0,pitch:0}};
+      areaApplied=true;volumeTool='resize';setAreaSelection(false);refreshArea();setView('isometric');magnification=1;schedule();
+    }
+    function setView(name) {
+      const view={isometric:[.7,.55],front:[0,0],top:[0,1.5],side:[Math.PI/2,0]}[name];
+      if(!view)return;[yaw,pitch]=view;clearPreview();schedule();
+    }
+    function rotateVolume(axis,angle) {
+      if(!volume || !Number.isInteger(axis) || axis<0 || axis>2 || !Number.isFinite(angle))return;
+      const normal=volume.axes[axis];volume.axes=volume.axes.map(vector=>rotateVector(vector,normal,angle));
+      updateDepthLimits();refreshArea();schedule();
+    }
+    function updateDepthLimits() {
+      if(!volume)return;const depths=rows.filter(validPosition).map(run=>dot(run.xyz,volume.axes[2]));
+      volume.depthLimits=[Math.min(0,dot(volume.center,volume.axes[2]),...depths)-.1,Math.max(0,dot(volume.center,volume.axes[2]),...depths)+.1];
+    }
+    function nudgeVolume(axis,direction) {
+      if(!volume || ![0,1,2].includes(axis) || ![-1,1].includes(direction))return;
+      if(volumeTool==='rotate'){rotateVolume(axis,direction*Math.PI/12);return;}
+      if(volumeTool==='resize')volume.half[axis]=Math.max(volume.baseHalf[axis]*.05,Math.min(volume.baseHalf[axis]*3,volume.half[axis]*(1+direction*.1)));
+      else {const delta=volume.half[axis]*.2*direction;volume.center=volume.center.map((v,i)=>v+volume.axes[axis][i]*delta);updateDepthLimits();}
+      refreshArea();schedule();
+    }
     function setAreaSelection(enabled) {
       areaMode=!!enabled;brush=null;volumeDrag=null;pointers.clear();last=null;moved=true;clearPreview();
       canvas.style.cursor=areaMode?'crosshair':'grab';notifyArea();schedule();
     }
-    function clearArea() {areaApplied=false;areaKeys.clear();volume=brush=volumeDrag=null;handles=[];refreshArea();schedule();}
+    function clearArea() {areaApplied=false;areaKeys.clear();volume=brush=volumeDrag=null;handles=[];badgeBounds=null;refreshArea();schedule();}
     function dropAreaBox() {brush=null;volumeDrag=null;notifyArea();}
     function setVolumeDimension(name,value) {
       if(!volume || !Number.isFinite(Number(value)))return;
@@ -272,7 +313,7 @@
       let x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),right=Math.max(a[0],b[0]),bottom=Math.max(a[1],b[1]);
       if(right-x<4 && bottom-y<4){x=Math.max(0,x-6);y=Math.max(0,y-6);right=Math.min(width,right+6);bottom=Math.min(height,bottom+6);}
       volume=volumeFromBrush({x,y,w:right-x,h:bottom-y},rows,yaw,pitch,magnification,width,height);areaApplied=true;
-      brush=null;areaMode=false;canvas.style.cursor='grab';refreshArea();volumeView();schedule();
+      brush=null;areaMode=false;volumeTool='resize';canvas.style.cursor='grab';refreshArea();volumeView();schedule();
     }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
     const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
@@ -413,20 +454,38 @@
         ctx.strokeStyle=far?'#728579':'#172c21';ctx.lineWidth=far?1.25:2;ctx.setLineDash(far?[5,4]:[]);ctx.stroke();
       }
       ctx.setLineDash([]);
-      handles=volume.axes.map((axis,i)=>{
-        const p=project(volume.center.map((v,j)=>v+axis[j]*volume.half[i]),yaw,pitch,magnification,width,height);
-        return {x:p.x,y:p.y,axis:i,name:['W','H','D'][i]};
-      });
-      for(const handle of handles) {
-        ctx.fillStyle='#f8faf5';ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.fillRect(handle.x-8,handle.y-8,16,16);ctx.strokeRect(handle.x-8,handle.y-8,16,16);
-        ctx.font='600 11px system-ui';ctx.fillStyle='#172c21';ctx.fillText(handle.name,handle.x-4,handle.y+4);
+      handles=[];
+      const colors=['#b2352c','#246744','#245dd0'];
+      if(volumeTool==='rotate') {
+        const radius=Math.max(...volume.half)*1.15;
+        volume.axes.forEach((axis,i)=>{
+          const u=volume.axes[(i+1)%3],v=volume.axes[(i+2)%3];
+          const samples=Array.from({length:65},(_,j)=>{const angle=j/64*Math.PI*2;return project(volume.center.map((c,k)=>c+radius*(u[k]*Math.cos(angle)+v[k]*Math.sin(angle))),yaw,pitch,magnification,width,height);});
+          ctx.beginPath();samples.forEach((p,j)=>j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=colors[i];ctx.lineWidth=3;ctx.stroke();
+          handles.push({axis:i,name:['X','Y','Z'][i],kind:'rotate',samples:samples.map(({x,y})=>({x,y}))});
+        });
+      } else {
+        volume.axes.forEach((axis,i)=>{
+          for(const sign of [-1,1]) {
+            const distance=volumeTool==='move' ? .23 : volume.half[i];
+            const p=project(volume.center.map((v,j)=>v+axis[j]*distance*sign),yaw,pitch,magnification,width,height);
+            if(Math.hypot(p.x-center.x,p.y-center.y)<12)continue;
+            ctx.beginPath();ctx.moveTo(center.x,center.y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=colors[i];ctx.lineWidth=2.5;ctx.stroke();
+            ctx.fillStyle=colors[i];
+            if(volumeTool==='move') {
+              const angle=Math.atan2(p.y-center.y,p.x-center.x);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-15*Math.cos(angle-.45),p.y-15*Math.sin(angle-.45));ctx.lineTo(p.x-15*Math.cos(angle+.45),p.y-15*Math.sin(angle+.45));ctx.closePath();ctx.fill();
+            } else {ctx.fillRect(p.x-7,p.y-7,14,14);ctx.strokeStyle='#f8faf5';ctx.lineWidth=1;ctx.strokeRect(p.x-7,p.y-7,14,14);}
+            ctx.font='600 12px system-ui';ctx.fillText(['X','Y','Z'][i]+(sign<0?'−':'+'),p.x+10,p.y-8);
+            handles.push({x:p.x,y:p.y,axis:i,sign,name:['X','Y','Z'][i],kind:volumeTool});
+          }
+        });
       }
       const top=Math.min(...corners.map(p=>p.y)),right=Math.max(...corners.map(p=>p.x)),left=Math.min(...corners.map(p=>p.x)),bottom=Math.max(...corners.map(p=>p.y));
       const w=Math.min(282,width-16),h=areaStats.medianPrompt?92:72;
       const x=Math.max(8,Math.min(width-w-8,right+14+w<=width-8?right+14:left-w-14>=8?left-w-14:left));
       const y=Math.max(8,Math.min(height-h-8,right+14+w<=width-8 || left-w-14>=8?top:top-h-14>=8?top-h-14:bottom+14));
       ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,center.x)),Math.max(y,Math.min(y+h,center.y)));ctx.lineTo(Math.max(left,Math.min(right,center.x)),Math.max(top,Math.min(bottom,center.y)));ctx.strokeStyle='#728579';ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#172c21';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
+      badgeBounds={x,y,w,h};ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#172c21';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
       ctx.fillStyle='#172c21';ctx.font='600 14px system-ui';ctx.fillText(`${areaStats.total} runs · ${areaStats.successRate===null?'No success rate':(areaStats.successRate*100).toFixed(1)+'% success'}`,x+10,y+21,w-20);
       ctx.font='12px system-ui';ctx.fillText(`${areaStats.Success} Success / ${areaStats.Failure} Failure · ${areaStats.scored} labeled`,x+10,y+41,w-20);
       ctx.fillText(`${areaStats.Uncertain} Uncertain · ${areaStats.Unscored} unlabeled / excluded`,x+10,y+59,w-20);
@@ -436,14 +495,53 @@
         ctx.fillText(prompt,x+10,y+79);
       }
     }
-    function handleAt(event) {const [x,y]=canvasPoint(event);return handles.filter(h=>Math.hypot(h.x-x,h.y-y)<(event.pointerType==='touch'?23:16)).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];}
+    function handleAt(event) {
+      const [x,y]=canvasPoint(event),radius=event.pointerType==='touch'?23:16;
+      if(badgeBounds && x>=badgeBounds.x && x<=badgeBounds.x+badgeBounds.w && y>=badgeBounds.y && y<=badgeBounds.y+badgeBounds.h)return null;
+      const distance=h=>{
+        if(!h.samples)return Math.hypot(h.x-x,h.y-y);
+        let best=Infinity;
+        for(let i=1;i<h.samples.length;i++) {
+          const a=h.samples[i-1],b=h.samples[i],dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/Math.max(.001,dx*dx+dy*dy)));
+          best=Math.min(best,Math.hypot(x-a.x-t*dx,y-a.y-t*dy));
+        }
+        return best;
+      };
+      return handles.map(handle=>({handle,distance:distance(handle)})).filter(hit=>hit.distance<(hit.handle.samples?radius*.65:radius)).sort((a,b)=>a.distance-b.distance)[0]?.handle;
+    }
+    function startVolumeDrag(handle,point) {
+      const normal=handle.kind==='rotate'?volume.axes[handle.axis]:cross(volume.axes[handle.axis],cross(worldCoordinates([0,0,1],yaw,pitch),volume.axes[handle.axis]));
+      const origin=rayPlanePoint(point,volume.center,normal,yaw,pitch,magnification,canvas.clientWidth,canvas.clientHeight);
+      if(!origin)return false;
+      volumeDrag={axis:handle.axis,kind:handle.kind,sign:handle.sign,origin,normal,center:volume.center.slice(),half:volume.half.slice(),axes:volume.axes.map(axis=>axis.slice()),depthLimits:volume.depthLimits.slice()};
+      return true;
+    }
+    function dragVolume(point) {
+      const drag=volumeDrag,current=rayPlanePoint(point,drag.center,drag.normal,yaw,pitch,magnification,canvas.clientWidth,canvas.clientHeight);if(!current)return;
+      const axis=drag.axes[drag.axis];
+      if(drag.kind==='rotate') {
+        const a=drag.origin.map((v,i)=>v-drag.center[i]),b=current.map((v,i)=>v-drag.center[i]);
+        const angle=Math.atan2(dot(axis,cross(a,b)),dot(a,b));
+        volume.axes=drag.axes.map(vector=>rotateVector(vector,axis,angle));updateDepthLimits();
+      } else {
+        const distance=dot(current.map((v,i)=>v-drag.origin[i]),axis);
+        if(drag.kind==='move')volume.center=drag.center.map((v,i)=>v+axis[i]*distance);
+        else {
+          const half=Math.max(volume.baseHalf[drag.axis]*.05,Math.min(volume.baseHalf[drag.axis]*3,drag.half[drag.axis]+drag.sign*distance/2));
+          volume.half[drag.axis]=half;volume.center=drag.center.map((v,i)=>v+axis[i]*drag.sign*(half-drag.half[drag.axis]));
+        }
+      }
+      refreshArea();schedule();
+    }
+    function cancelVolumeDrag() {if(!volumeDrag)return;volume.center=volumeDrag.center;volume.half=volumeDrag.half;volume.axes=volumeDrag.axes;volume.depthLimits=volumeDrag.depthLimits;volumeDrag=null;refreshArea();}
     function hit(event) {
       const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left,y=event.clientY-rect.top;
+      if(volume && badgeBounds && x>=badgeBounds.x && x<=badgeBounds.x+badgeBounds.w && y>=badgeBounds.y && y<=badgeBounds.y+badgeBounds.h)return [];
       return points.filter(p=>Math.hypot(p.x-x,p.y-y)<13).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
     }
     function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight} : null);}
     function clearPreview() {hover=null;preview(null);}
-    function previewFocused() {if(areaMode)return;const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
+    function previewFocused() {if(areaMode || volume)return;const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
     function zoom(factor) {clearPreview();dropAreaBox();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
     function reset() {clearPreview();dropAreaBox();yaw=-.3;pitch=.2;magnification=1;schedule();}
     function open() {if(rows[focused]) {clearPreview();selected=rows[focused].episode_id;focus(rows[focused]);onSelect(rows[focused]);schedule();}}
@@ -454,17 +552,12 @@
       last=[event.clientX,event.clientY];moved=false;
       if(pointers.size===2) {dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
       else if(areaMode){const point=canvasPoint(event);brush=[point,point];last=null;notifyArea();schedule();}
-      else if(volume) {const handle=handleAt(event);if(handle){volumeDrag={axis:handle.axis,start:canvasPoint(event),half:volume.half.slice(),center:project(volume.center,yaw,pitch,magnification,canvas.clientWidth,canvas.clientHeight),handle};last=null;moved=true;}}
+      else if(volume) {const handle=handleAt(event);if(handle && startVolumeDrag(handle,canvasPoint(event))){last=null;moved=true;}}
     });
     canvas.addEventListener('pointermove',event=>{
       if(pointers.has(event.pointerId)) {
         pointers.set(event.pointerId,[event.clientX,event.clientY]);
-        if(volumeDrag && pointers.size===1) {
-          const drag=volumeDrag,[x,y]=canvasPoint(event),dx=drag.handle.x-drag.center.x,dy=drag.handle.y-drag.center.y;
-          const fraction=((x-drag.start[0])*dx+(y-drag.start[1])*dy)/Math.max(36,dx*dx+dy*dy);
-          volume.half[drag.axis]=Math.max(volume.baseHalf[drag.axis]*.05,Math.min(volume.baseHalf[drag.axis]*3,drag.half[drag.axis]*(1+fraction)));
-          moved=true;refreshArea();schedule();
-        } else if(brush && pointers.size===1){brush[1]=canvasPoint(event);moved=true;schedule();}
+        if(volumeDrag && pointers.size===1) {dragVolume(canvasPoint(event));moved=true;} else if(brush && pointers.size===1){brush[1]=canvasPoint(event);moved=true;schedule();}
         else if(pointers.size===2) {
           const [a,b]=[...pointers.values()],distance=Math.hypot(a[0]-b[0],a[1]-b[1]);
           if(lastDistance>0) zoom(distance/lastDistance);lastDistance=distance;moved=true;
@@ -475,7 +568,7 @@
         }
       } else {
         if(areaMode){canvas.style.cursor='crosshair';return;}
-        if(volume && handleAt(event)){clearPreview();canvas.style.cursor='ew-resize';return;}
+        if(volume){clearPreview();canvas.style.cursor=handleAt(event)?(volumeTool==='rotate'?'grab':'ew-resize'):'grab';return;}
         if (event.pointerType !== 'touch') {
           const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
           onWarm(points.map(p=>({point:p,distance:Math.hypot(p.x-x,p.y-y)})).filter(p=>p.distance<100)
@@ -496,14 +589,15 @@
         if(hits.length) {focused=rows.indexOf(hits[hitCycle].run);open();}
       }
     });
-    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;brush=null;if(volumeDrag){volume.half=volumeDrag.half;volumeDrag=null;refreshArea();}clearPreview();notifyArea();schedule();});
+    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;brush=null;cancelVolumeDrag();clearPreview();notifyArea();schedule();});
     canvas.addEventListener('pointerleave',()=>{clearPreview();focus(rows[focused]);schedule();});
     canvas.addEventListener('focus',previewFocused);
     canvas.addEventListener('blur',clearPreview);
     canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
     canvas.addEventListener('keydown',event=>{
       const key=event.key;
-      if(key==='Escape') {if(brush){brush=null;notifyArea();}else if(areaMode)setAreaSelection(false);clearPreview();schedule();return;}
+      if(key==='Escape') {if(volumeDrag){cancelVolumeDrag();pointers.clear();last=null;moved=true;}if(brush){brush=null;notifyArea();}else if(areaMode)setAreaSelection(false);clearPreview();schedule();return;}
+      if(volume && !areaMode && ['w','e','r'].includes(key.toLowerCase())){event.preventDefault();setVolumeTool({w:'move',e:'rotate',r:'resize'}[key.toLowerCase()]);return;}
       if(areaMode && (key.startsWith('Arrow') || key==='Enter')) {
         event.preventDefault();
         if(!brush){const w=canvas.clientWidth,h=canvas.clientHeight;brush=[[w*.35,h*.35],[w*.65,h*.65]];}
@@ -524,7 +618,7 @@
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();dropAreaBox();schedule();}).observe(canvas);
     return {setRuns(next,id) {clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
       setHighlight(mode) {highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
-      select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,clearPreview,reset,zoom,step,open};
+      select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};
   }
-  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor,summarizeArea,medianPrompt,volumeContains,volumeCorners,volumeFromBrush,cameraCoordinates,worldCoordinates};
+  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor,summarizeArea,medianPrompt,volumeContains,volumeCorners,volumeFromBrush,cameraCoordinates,worldCoordinates,rotateVector,rayPlanePoint};
 })();
