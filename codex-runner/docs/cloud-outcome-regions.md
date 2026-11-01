@@ -17,7 +17,17 @@ unobstructed. When enabled, Success and Failure count labels include an actual
 matching median prompt. The choice is remembered under `yam-cloud-area-labels`.
 Hover/focus details remain in the text below the canvas; per-run canvas captions
 are not added when zooming, and hosted Cloud hover-video overlays are disabled.
-Click a run to open its video sidebar.
+Click a run to open its video sidebar. Clicking or tapping an area caption opens
+the actual matching-outcome run used for its median prompt in that same sidebar.
+Dragging a caption still orbits the cloud; a small pointer movement does not
+turn a click into a camera movement. Hovering a caption also focuses that median
+run, so Enter or **Open focused run** opens the same recording.
+
+Area captions hide when their projected neighborhood diameter reaches 40% of
+the shorter canvas dimension, and return when zooming out. The cutoff uses each
+region's projected depth and size, rather than one global zoom value. Outcome
+tints, run markers, underlying counts and the selected-box summary are unchanged.
+Hidden, filtered, disabled or stale captions cannot open an old median run.
 
 ## Automatic neighborhood rules
 

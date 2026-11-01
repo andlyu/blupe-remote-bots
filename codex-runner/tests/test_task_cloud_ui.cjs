@@ -120,7 +120,8 @@ test('area captions are opt-in and zoom does not cover runs with individual task
  const c=setup(run=>run.testOutcome),prompt='Unobstructed task';c.cloud.setRuns(Array.from({length:6},(_,i)=>({episode_id:'plain'+i,prompt,xyz:[0,0,0],testOutcome:'Failure'})));c.cloud.setHighlight('both');c.draw();
  assert.equal(c.canvas.dataset.areaLabels,'false');assert.equal(c.canvas.dataset.highlightRegions,'1');assert.ok(!c.draws.some(call=>call[0]==='fillText' && /Failure:|Unobstructed/.test(call[1])));
  c.cloud.zoom(3);c.draws.length=0;c.draw();assert.ok(!c.draws.some(call=>call[0]==='fillText' && /Failure:|Unobstructed/.test(call[1])));
- c.cloud.setAreaLabels(true);c.draw();assert.equal(c.canvas.dataset.areaLabels,'true');assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Failure: 6/6'));assert.match(c.focused.textContent,/Median failure prompt/);
+ c.cloud.setAreaLabels(true);c.draws.length=0;c.draw();assert.equal(c.canvas.dataset.areaLabels,'true');assert.ok(!c.draws.some(call=>call[0]==='fillText' && call[1]==='Failure: 6/6'),'Zoomed-close captions stay hidden even when enabled');
+ c.cloud.zoom(1/3);c.draw();assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Failure: 6/6'));assert.match(c.focused.textContent,/Median failure prompt/);
 });
 test('neighborhoods require five binary labels, ignore uncertain/unknown outcomes and preserve 3D separation',()=>{
  const c=setup(run=>run.testOutcome),rows=[];
@@ -242,4 +243,50 @@ test('pointer and keyboard previews track the point, clear on exit/drag/reset, a
  c.events.pointerup(pointer);assert.equal(c.opened.at(-1),run);
  c.cloud.step(1);assert.equal(c.previews.at(-1).run,run);
  c.cloud.setRuns([]);assert.equal(c.previews.at(-1).run,null);
+});
+
+function captionFixture() {
+ const c=setup(run=>run.testOutcome),rows=[
+  {episode_id:'left',robot_id:'yam-1',prompt:'Left failed task',xyz:[-.03,0,0],testOutcome:'Failure'},
+  ...Array.from({length:4},(_,i)=>({episode_id:'median_'+i,robot_id:'yam-1',prompt:'Lift the bottle',xyz:[.02,0,0],testOutcome:'Failure'})),
+  {episode_id:'right',robot_id:'yam-1',prompt:'Right failed task',xyz:[.06,0,0],testOutcome:'Failure'},
+  {episode_id:'a_success',robot_id:'yam-1',prompt:'Other outcome at the median',xyz:[.02,0,0],testOutcome:'Success'}];
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
+ const box=()=>JSON.parse(c.canvas.dataset.areaCaptions)[0];
+ const pointer=(pointerType='mouse')=>{const b=box();return {pointerId:1,pointerType,clientX:b.x+b.w/2,clientY:b.y+b.h/2}};
+ return {...c,rows,box,pointer};
+}
+test('clicking or tapping an area caption opens its actual matching-outcome median run without moving the camera',()=>{
+ for(const pointerType of ['mouse','touch']) {
+  const c=captionFixture(),camera=c.canvas.dataset.cloudCamera,point=c.pointer(pointerType);
+  assert.equal(c.box().episodeId,'median_0');assert.equal(c.regionsFor(c.rows.slice().reverse()).regions[0].representativeRun.episode_id,'median_0');
+  c.events.pointerdown(point);c.events.pointermove({...point,clientX:point.clientX+1});c.events.pointerup(point);c.draw();
+  assert.equal(c.opened.length,1);assert.equal(c.opened[0].episode_id,'median_0');assert.equal(c.opened[0].testOutcome,'Failure');assert.equal(c.opened[0].prompt,'Lift the bottle');
+  assert.equal(c.canvas.dataset.cloudCamera,camera);
+ }
+});
+test('caption visibility follows projected depth and returns on zoom out while preserving tints and points',()=>{
+ const c=setup(run=>run.testOutcome),rows=['near','far'].flatMap((name,index)=>Array.from({length:5},(_,i)=>({episode_id:name+i,prompt:name,xyz:[0,0,index?.5:-.5],testOutcome:'Success'})));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('success');c.cloud.setAreaLabels(true);c.draw();assert.equal(JSON.parse(c.canvas.dataset.areaCaptions).length,2);
+ c.cloud.zoom(3);c.draw();const captions=JSON.parse(c.canvas.dataset.areaCaptions);assert.equal(captions.length,1);assert.equal(captions[0].episodeId,'far0');
+ assert.equal(c.canvas.dataset.renderedPoints,'10');assert.equal(c.canvas.dataset.highlightRegions,'2');
+ c.cloud.zoom(1/3);c.draw();assert.equal(JSON.parse(c.canvas.dataset.areaCaptions).length,2);
+});
+test('caption dragging, cancellation and hidden or filtered release never open a stale median run',()=>{
+ for(const change of ['drag','cancel','zoom','filter','labels','highlight']) {
+  const c=captionFixture(),point=c.pointer();c.events.pointerdown(point);
+  if(change==='drag')c.events.pointermove({...point,clientX:point.clientX+40});
+  if(change==='cancel')c.events.pointercancel();
+  if(change==='zoom')c.cloud.zoom(3);
+  if(change==='filter')c.cloud.setRuns([]);
+  if(change==='labels')c.cloud.setAreaLabels(false);
+  if(change==='highlight')c.cloud.setHighlight('none');
+  c.draw();c.events.pointerup(point);assert.equal(c.opened.length,0,change);
+ }
+});
+test('caption hover focuses its median for existing keyboard/open controls without starting a video preview',()=>{
+ const c=captionFixture(),point=c.pointer();c.events.pointermove(point);c.draw();
+ assert.equal(c.canvas.style.cursor,'pointer');assert.match(c.focused.textContent,/Lift the bottle/);
+ assert.ok(c.previews.every(preview=>preview.run===null));
+ c.events.keydown({key:'Enter',preventDefault(){}});assert.equal(c.opened[0].episode_id,'median_0');
 });
