@@ -23,6 +23,14 @@ function setup() {
   events['blupe-robot-selected']({detail:'yam-1'});
   return {nodes,events,requests,timers,opened,window,flush,answer,state,stored,summaries,charts,advance(delay){for(const [id,fn] of timers)if(fn.delay===delay){timers.delete(id);fn();break}}};
 }
+test('a public library replay keeps its recorded robot while live control stays elsewhere',async()=>{
+ const c=setup();c.events['blupe-robot-selected']({detail:'robohouse'});
+ c.window.yamReplayReview.openEpisode('ep_roboskills',{robot_id:'yam-1',model:'RoboSkills',prompt:'Task'});
+ const poll=c.requests.at(-1);assert.match(poll.url,/episode_id=ep_roboskills&robot_id=yam-1/);
+ assert.equal(poll.options.headers['X-Blupe-Robot'],'yam-1');
+ c.answer(poll,[{episode_id:'ep_roboskills',robot_id:'yam-1',model:'RoboSkills',video_url:'/retained.mp4',video_duration_s:.8}]);await c.flush();
+ assert.equal(c.opened[0].robot_id,'yam-1');assert.equal(c.opened[0].model,'RoboSkills');
+});
 test('own run waits exactly five seconds while preview request starts immediately, then opens processing review once',async()=>{
   const c=setup(); c.state('idle',{public_run:{status:'running',episode_id:'ep_other'}});
   assert.equal(c.nodes.get('pastRunDialog').open,false);
