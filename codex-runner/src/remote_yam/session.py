@@ -14,18 +14,22 @@ from copy import deepcopy
 from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib import error, parse, request
 
+from .cadence import trajectory_cadence
+
 SCHEMA_VERSION = 1
 MAX_COMMANDS = 3000  # Total accepted waypoints in one policy session.
 MAX_WAYPOINTS_PER_PACKET = 300
 MAX_DREAM_COMMANDS = 1200 * 10 + MAX_WAYPOINTS_PER_PACKET
+MAX_TRAJECTORY_COMMANDS = 1200 * 30 + MAX_WAYPOINTS_PER_PACKET
 
 
-def command_budget(provider="", run_duration_s=300):
+def command_budget(provider="", run_duration_s=300, cadence_hz=10.0):
+    cadence_hz = trajectory_cadence(cadence_hz)
     # One in-flight packet may extend past the selected deadline. Keep the
     # deadline authoritative while bounding all accepted Dream waypoints.
     if provider in ('dream', 'dream_flash') and type(run_duration_s) is int and 600 < run_duration_s <= 1200:
-        return run_duration_s * 10 + MAX_WAYPOINTS_PER_PACKET
-    return MAX_COMMANDS
+        return int(run_duration_s * cadence_hz) + MAX_WAYPOINTS_PER_PACKET
+    return int(MAX_COMMANDS * cadence_hz / 10)
 
 TERMINAL_STATES = frozenset(
     {"resetting", "stopped", "timed_out", "disconnected", "safety_aborted"}
@@ -47,7 +51,7 @@ class SessionEventStream(Protocol):
 class SessionAPI(Protocol):
     def get_queue_snapshot(self) -> dict[str, Any]: ...
     def get_robot_observation(self, jetson_id: str) -> dict[str, Any]: ...
-    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", model: str = "", email_run_video: bool = False, provider: str = "") -> dict[str, Any]: ...
+    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", model: str = "", email_run_video: bool = False, provider: str = "", cadence_hz: float = 10.0) -> dict[str, Any]: ...
     def get_session(self, session_id: str) -> dict[str, Any]: ...
     def open_events(self, session_id: str) -> SessionEventStream: ...
     def submit_action(
@@ -143,7 +147,7 @@ class HttpSessionAPI:
     def get_queue_snapshot(self) -> dict[str, Any]:
         return self._request("GET", f"/v1/robots/{parse.quote(self.robot_id, safe='')}/queue")
 
-    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", model: str = "", email_run_video: bool = False, provider: str = "") -> dict[str, Any]:
+    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", model: str = "", email_run_video: bool = False, provider: str = "", cadence_hz: float = 10.0) -> dict[str, Any]:
         if self._websocket_factory is None:
             try:
                 import websocket  # noqa: F401
@@ -151,7 +155,10 @@ class HttpSessionAPI:
                 raise RuntimeError(
                     "Control transport is not installed; relaunch with `./run.sh --session-api <base-url>`"
                 ) from exc
+        cadence_hz = trajectory_cadence(cadence_hz)
         payload = {"schema_version": 1, "robot_id": self.robot_id, "prompt": prompt, "run_duration_s": run_duration_s}
+        if cadence_hz != 10:
+            payload["cadence_hz"] = cadence_hz
         if provider:
             payload["provider"] = provider
         if runner_name:
@@ -259,14 +266,13 @@ class HttpSessionAPI:
     ) -> dict[str, Any]:
         if not trajectory_id:
             raise ValueError("trajectory_id must be non-empty")
-        if isinstance(cadence_hz, bool) or float(cadence_hz) != 10.0:
-            raise ValueError("cadence_hz must equal 10.0")
+        cadence_hz = trajectory_cadence(cadence_hz)
         payload = {
             "schema_version": SCHEMA_VERSION,
             "episode_id": episode_id,
             "lease_id": lease_id,
             "trajectory_id": trajectory_id,
-            "cadence_hz": 10.0,
+            "cadence_hz": cadence_hz,
             "waypoints": _trajectory_waypoints(waypoints, self.joint_counts),
         }
         return self._request(
@@ -459,11 +465,14 @@ class MockSessionAPI:
         self.trajectory_attempts: list[dict[str, Any]] = []
         self.trajectory_log: list[dict[str, Any]] = []
 
-    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", model: str = "", email_run_video: bool = False, provider: str = "") -> dict[str, Any]:
+    def create_session(self, prompt: str, run_duration_s: int = 300, *, runner_name: str = "", email: str = "", model: str = "", email_run_video: bool = False, provider: str = "", cadence_hz: float = 10.0) -> dict[str, Any]:
         if not prompt.strip():
             raise ValueError("prompt must be non-empty")
+        cadence_hz = trajectory_cadence(cadence_hz)
         with self._lock:
             payload = {"schema_version": 1, "prompt": prompt, "run_duration_s": run_duration_s}
+            if cadence_hz != 10:
+                payload["cadence_hz"] = cadence_hz
             if provider:
                 payload["provider"] = provider
             if runner_name:
@@ -483,7 +492,8 @@ class MockSessionAPI:
                 "status": "queued",
                 "position": 1,
                 "next_command_step": 0,
-                "max_commands": command_budget(provider, run_duration_s),
+                "max_commands": command_budget(provider, run_duration_s, cadence_hz),
+                "cadence_hz": cadence_hz,
                 "next_observation": 0,
                 "events": queue.Queue(),
                 "receipts": {},
@@ -651,15 +661,14 @@ class MockSessionAPI:
             record = self._record(session_id)
             if not trajectory_id:
                 raise ValueError("trajectory_id must be non-empty")
-            if isinstance(cadence_hz, bool) or float(cadence_hz) != 10.0:
-                raise ValueError("cadence_hz must equal 10.0")
+            cadence_hz = trajectory_cadence(cadence_hz)
             normalized = _trajectory_waypoints(waypoints)
             attempt = {
                 "schema_version": SCHEMA_VERSION,
                 "episode_id": episode_id,
                 "lease_id": lease_id,
                 "trajectory_id": trajectory_id,
-                "cadence_hz": 10.0,
+                "cadence_hz": cadence_hz,
                 "waypoints": normalized,
             }
             self.trajectory_attempts.append(deepcopy(attempt))
@@ -677,6 +686,8 @@ class MockSessionAPI:
                 duplicate = deepcopy(receipt)
                 duplicate["duplicate"] = True
                 return duplicate
+            if cadence_hz != record["cadence_hz"]:
+                raise SessionAPIError("Trajectory cadence differs from session", code="cadence_mismatch", status=409)
             if record["active_trajectory"] is not None:
                 raise SessionAPIError(
                     "A trajectory is already active", code="trajectory_active", status=409
@@ -870,6 +881,7 @@ class MockSessionAPI:
             "schema_version": 1,
             "session_id": record["session_id"],
             "status": record["status"],
+            "cadence_hz": record["cadence_hz"],
             "position": record["position"],
             "episode_id": record["episode_id"],
             "return_to_rest_requested": record["return_to_rest_requested"],
