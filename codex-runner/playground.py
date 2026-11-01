@@ -746,6 +746,10 @@ class HostedRunner:
                     annotations = json.loads(label_path.read_text()) if label_path.exists() else {'runs': []}
                     context = await asyncio.to_thread(build_context, catalog, overlay, annotations,
                         data_scope, self.robot_id, question, history)
+                    # Recorded station identity must not be inferred from task text.
+                    context['robot_names'] = {robot['id']: robot['name'] for robot in self.robots}
+                    context['library_context']['robot_name'] = context['robot_names'].get(self.robot_id, self.robot_id)
+                    context['robot_identity_basis'] = 'robot_id and robot_names identify the execution station; a task prompt can mention a different station.'
                     if not context['counts']['total']:
                         result = {'answer': 'No runs match this scope. Clear a filter or select a different box to discuss the data.',
                             'citations': [], 'requested_model': self.data_chat.model, 'resolved_model': None}

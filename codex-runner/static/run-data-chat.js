@@ -68,7 +68,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
         const list = document.createElement('ul'); list.className = 'runDataChatEvidence';
         for (const citation of data.citations) {
           const li = document.createElement('li'), link = document.createElement('a'), note = document.createElement('span');
-          link.href = citation.url; link.target='_blank'; link.rel='noopener noreferrer'; link.title=citation.prompt; link.textContent = `${citation.label}: ${citation.prompt.length>160 ? citation.prompt.slice(0,157)+'…' : citation.prompt}`;
+          link.href = citation.url; link.target='_blank'; link.rel='noopener noreferrer'; link.title=citation.prompt; link.textContent = `${data.scope.robot_names?.[citation.robot_id] || citation.robot_id} · ${citation.label}: ${citation.prompt.length>160 ? citation.prompt.slice(0,157)+'…' : citation.prompt}`;
           link.addEventListener('click', async event => {
             const currentRobot = () => window.yamReplayHistory?.dataScope?.('all')?.robot_id;
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !window.yamReplayHistory?.selectRun || currentRobot() !== citation.robot_id) return;
