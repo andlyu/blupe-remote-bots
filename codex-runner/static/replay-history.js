@@ -75,9 +75,10 @@
         try {
           let detail=entry.run.preview?.video_url ? entry.run.preview : entry.run.video_url ? entry.run : null;
           if (!detail) {
-            const response=await fetch(`/api/past-runs?episode_id=${encodeURIComponent(entry.run.episode_id)}&robot_id=${encodeURIComponent(request.robot)}`,{cache:'no-store',signal:controller.signal,headers:{'X-Blupe-Robot':request.robot}});
+            const robot=entry.run.robot_id;
+            const response=await fetch(`/api/past-runs?episode_id=${encodeURIComponent(entry.run.episode_id)}&robot_id=${encodeURIComponent(robot)}`,{cache:'no-store',signal:controller.signal,headers:{'X-Blupe-Robot':robot}});
             if (!response.ok) throw new Error();
-            const data=await response.json();detail=data.runs?.find(row=>row.episode_id===entry.run.episode_id && row.robot_id===request.robot);
+            const data=await response.json();detail=data.runs?.find(row=>row.episode_id===entry.run.episode_id && row.robot_id===robot);
           }
           if (request.closed || controller.signal.aborted || !entry.visible) return;
           if (!detail?.video_url || detail.video_duration_s===0 || detail.video_status==='unavailable') {entry.note.textContent='Preview unavailable · select for run details';return;}
@@ -121,7 +122,7 @@
   }
   async function refresh(force=false) {
     if (!active || !dialog.open) return;
-    const selected=selection?.robot===active.robot_id ? selection : null;
+    const selected=selection?.rows.some(row=>row.robot_id===active.robot_id && row.episode_id===active.episode_id) ? selection : null;
     const key=selected ? `box:${selected.version}` : catalogKey(active.robot_id), cached=selected ? null : catalog.get(key), nextSignature=`${key}:${active.episode_id}:${source}:${cached?.version || 0}`;
     if(!force && signature===nextSignature)return;
     signature=nextSignature;const oldShown=scope?.shown || 8, oldScroll=selected ? body.scrollTop : 0;cancelScope();list.replaceChildren();more.hidden=true;more.textContent=selected?'Show more runs':'Show more similar videos';status.textContent=selected?'Loading selected runs…':'Finding similar videos…';if(score)score.textContent='';
@@ -152,9 +153,9 @@
     }
   }
   window.yamRunSidebar={
-    openSelection(rows) {
+    openSelection(rows,{allRobots=false}={}) {
       const robot=rows[0]?.robot_id, seen=new Set();
-      const runs=rows.filter(row=>row.robot_id===robot && row.episode_id && !seen.has(row.episode_id) && seen.add(row.episode_id)).map(row=>({...row}));
+      const runs=rows.filter(row=>row.robot_id && (allRobots || row.robot_id===robot) && row.episode_id && !seen.has(`${row.robot_id}:${row.episode_id}`) && seen.add(`${row.robot_id}:${row.episode_id}`)).map(row=>({...row}));
       if(!robot || !runs.length)return false;
       selection={robot,rows:runs,key:catalogKey(robot),version:++selectionRevision};signature='';cancelScope();body.scrollTop=0;
       const first=runs.find(row=>{const clip=row.preview || row;return (clip.video_url || row.video_url) && clip.video_duration_s!==0 && row.video_status!=='unavailable';}) || runs[0];
@@ -174,7 +175,7 @@
     setCatalog(rows,{robot,complete,source:labelSource,filters:nextFilters}) {
       source=labelSource || source;
       if(nextFilters)filters={models:[...(nextFilters.models || [])].sort(),query:nextFilters.query || ''};
-      if(selection && (selection.robot!==robot || selection.key!==catalogKey(robot))){selection=null;signature='';}
+      if(selection && selection.key!==catalogKey(selection.robot)){selection=null;signature='';}
       if(complete)rememberCatalog(catalogKey(robot),rows.slice());
       if(dialog.open && active?.robot_id===robot)refresh();
     },
@@ -283,9 +284,10 @@
   }
   function openEpisode(id, known = {}) {
     if (!validId(id) || !robot) return;
-    known = {...known,episode_id:id,robot_id:robot};
+    const recordingRobot = known.robot_id || robot;
+    known = {...known,episode_id:id,robot_id:recordingRobot};
     ready();
-    pending = {id, robot, generation, known};
+    pending = {id, robot:recordingRobot, generation, known};
     if (!window.yamRunSidebar) $('past-runs').scrollIntoView({behavior: 'smooth', block: 'start'});
     player.pause(); player.yamRecordingView?.(); player.yamRecordingView = null;
     player.removeAttribute('src'); player.load(); player.parentElement.hidden = true;
@@ -293,7 +295,7 @@
     if ($('pastRunSpeed')) $('pastRunSpeed').hidden = true;
     renderSummary(known);
     $('pastRunError').textContent = '';
-    if (window.yamRunSidebar) window.yamRunSidebar.open({...known,episode_id:id,robot_id:robot});
+    if (window.yamRunSidebar) window.yamRunSidebar.open(known);
     else if (!dialog.open) dialog.showModal();
     window.yamReplayHistory?.setContextRun?.(known);
     poll(pending);

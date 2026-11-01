@@ -5,10 +5,11 @@ const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf8').split('\n})();')[0]+'\n})();';
 test('Table recording blocks wait for robot selection, ignore stale responses and open shared details', async () => {
-  const c = require('./helpers/past-runs.cjs')('','table');
+  const c = require('./helpers/past-runs.cjs')('','table',null,false);
   assert.equal(c.requests.length,0);
   c.events['blupe-robot-selected']({detail:'robot-3652c537a175cbae'});
-  assert.match(c.requests[0].url,/api\/run-catalog.*robot_id=robot-3652c537a175cbae/);
+  assert.match(c.requests[0].url,/api\/run-catalog/);
+  assert.doesNotMatch(c.requests[0].url,/[?&]robot_id=/);
   assert.match(c.nodes.get('datasetViewer').src,/Public-MakerMods-SO101-runs/);
   c.events['blupe-robot-selected']({detail:'so101'});
   c.answer(c.requests[0],[],100,101); await c.flush();
