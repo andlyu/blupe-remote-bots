@@ -204,6 +204,7 @@ async function disclosureFixture({fetchCatalog,hostname='127.0.0.1'} = {}) {
   const intervals=[];const window={addEventListener(){},setInterval(callback){intervals.push(callback);}};
   const c=vm.createContext({document,window,location:{hostname,search:''},URLSearchParams,
     fetch:async()=>({ok:true,json:async()=>fetchCatalog ? fetchCatalog(fixtureCatalog) : fixtureCatalog})});
+  vm.runInContext(source.slice(source.indexOf('function currentRunHeading('), source.indexOf('function createProviderRunDuration(')), c);
   vm.runInContext(source.slice(start),c);
   await new Promise(resolve=>setImmediate(resolve));
   const conversationEvents=new Map();let now=10000;
