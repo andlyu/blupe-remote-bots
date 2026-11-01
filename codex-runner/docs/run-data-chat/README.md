@@ -1,7 +1,7 @@
 # Run-library data conversation
 
-The library's **Ask about these runs** action opens a read-only conversation beside
-Cloud or Table. The baseline is the complete public collection across robots.
+The library shows **Discuss the data** by default beside Cloud or Table.
+**Close** hides the read-only conversation; **Ask about these runs** reopens it. The baseline is the complete public collection across robots.
 Current robot, model/search filters, box selection and opened replay are separate
 context. Changing them preserves the conversation. The scope selector offers an
 explicit filtered/box or opened-replay focus. Each answer retains its own scope,
