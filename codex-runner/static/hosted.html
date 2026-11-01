@@ -324,7 +324,16 @@
         </div>
         <div id="pastRunsCloud" hidden>
           <p class="help">Nearby points have similar task descriptions; this does not establish identical starting conditions or physical difficulty. Small offsets separate repeated attempts.</p>
-          <div class="cloudToolbar"><label class="cloudRegionControl" for="taskCloudHighlight">Highlight <select id="taskCloudHighlight"><option value="both">Success &amp; failure areas</option><option value="success">Success-heavy areas</option><option value="failure">Failure-heavy areas</option><option value="none">None</option></select></label><label class="cloudRegionControl cloudAreaLabelsControl"><input id="taskCloudShowLabels" type="checkbox" checked>Area labels</label><span class="cloudDrawActions"><button id="taskCloudSelectArea" type="button" class="cloudAreaToggle" aria-pressed="false" aria-describedby="taskCloudAreaHelp" disabled>Draw box</button><button id="resetTaskCloud" type="button">Reset view</button></span><button id="taskCloudClearArea" type="button" disabled>Clear selection</button></div>
+          <div class="cloudToolbar cloudControlBar">
+            <div class="cloudDisplayControls" role="group" aria-label="Cloud display">
+              <label class="cloudRegionControl" for="taskCloudHighlight">Highlight <select id="taskCloudHighlight"><option value="both">Success &amp; failure</option><option value="success">Success areas</option><option value="failure">Failure areas</option><option value="none">None</option></select></label>
+              <label class="cloudRegionControl cloudAreaLabelsControl"><input id="taskCloudShowLabels" type="checkbox" role="switch" checked>Area labels</label>
+            </div>
+            <div class="cloudSelectionControls" role="group" aria-label="Cloud selection">
+              <span class="cloudDrawActions"><button id="taskCloudSelectArea" type="button" class="cloudAreaToggle" aria-pressed="false" aria-describedby="taskCloudAreaHelp" disabled>Draw box</button><button id="resetTaskCloud" type="button">Reset view</button></span>
+              <button id="taskCloudClearArea" type="button" aria-label="Clear selection" title="Clear selection" disabled>Clear</button>
+            </div>
+          </div>
           <p id="taskCloudRegionStatus" class="help" role="status"></p>
           <p id="taskCloudLegend" class="visuallyHidden">Green: Success. Red: Failure. Amber: Uncertain. Hollow: No agreed result.</p>
           <p id="taskCloudAreaHelp" class="visuallyHidden">Choose Draw box, then drag to select a 3D region. Drag empty space to orbit; scroll or pinch to zoom.</p>
