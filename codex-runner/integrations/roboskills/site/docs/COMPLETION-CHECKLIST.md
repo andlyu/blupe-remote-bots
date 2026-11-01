@@ -712,3 +712,22 @@ Normal-UI c77e42b3 completed its first approach1.566mm/.251deg after1boundedcorr
 A second fresh normal-UI task c7468c5d explicitly allowed a clear noncontact retreat and reobservation. Its left first approach completed, then a40mm nominal retreat reached81.34mmZ versus85.49mm requested. The generic exact move stopped at5.227mm positionerror after bounded correction before observe();79waypoints/10packets,68.613s nativewindow, no grasp/stack. Actual46s replayplayed/sought34s; nativepark/torqueoff verified. Startup postHome upper18.291528s fails15 (packet-ready lower16.739395s already beyond15); rawRun upper30.731225s minus observedinitialqueue10.200185s once gives20.531041s PASS30. This new miss is outside existing exceptions.
 
 Acceptance stays12/15 with7/13/15 open;12 measured startup passes retained. Existing exact owner exceptions and the specifically excluded old recording remain unchanged. Current precise movement contract behaved as declared; a dedicated measured-pose camera-observation command is proposed, not implemented or qualified here. No grasp tolerance, native limit or safety policy was relaxed to pass these tests.
+
+
+## BluPe library method attribution — November 1, 2026
+
+The owner requested “Great, lets make sure that RoboSkills includes the model label”.
+This invokes the adopted shared harness's playground-fix workflow; its contract
+covers source publication and public website updates. See the scoped repair and
+verification record at
+[catalog model labels](../../../../docs/roboskills/verification/2026-11-01-model-label.md).
+
+The Site and its runner already record `RoboSkills` as the approach, separately
+from the planner IDs. The native recording catalog lost that attribution. The
+repair imports provenance-backed public metadata into a dedicated read-only
+catalog source; it does not infer method from task text or change the planner,
+physical controls, results or recordings. Private contact fields and capabilities
+are excluded. No new physical run or underlying model selection is part of this
+metadata repair. Existing acceptance checks, owner exceptions and specifically
+excluded historical media retain their recorded status. Broader integration
+qualification remains incomplete; the scoped record tracks delivery separately.
