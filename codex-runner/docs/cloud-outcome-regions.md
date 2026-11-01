@@ -1,8 +1,8 @@
 # Cloud outcome regions
 
 The Cloud view's **Highlight** selector adds a descriptive overlay for areas
-with more Success or Failure labels. **Success & failure areas** is the default;
-the other choices are **Success-heavy areas**, **Failure-heavy areas** and
+with more Success or Failure labels. **Success & failure** is the default;
+the other choices are **Success areas**, **Failure areas** and
 **None**. The browser remembers the choice under `yam-cloud-highlight`. None
 removes the overlay while keeping individual run colors visible.
 
@@ -12,11 +12,11 @@ may also show a count label such as `Success: 6/8`: six Success labels among
 eight nearby Success/Failure labels. These are local descriptive counts, not a
 confidence estimate, statistical test or new model score.
 
-The **Area labels** checkbox is on by default. Success and Failure count labels
+The **Area labels** switch is on by default. Success and Failure count labels
 include an actual matching median prompt. The choice is remembered under
 `yam-cloud-area-labels`; an explicit off preference is honored on later visits.
-Hover/focus details remain in the text below the canvas; per-run canvas captions
-are not added when zooming, and hosted Cloud hover-video overlays are disabled.
+Hover/focus details remain below the canvas and in playing video previews;
+per-run canvas captions are not added when zooming.
 Click a run to open its video sidebar. Clicking or tapping an area caption opens
 the actual matching-outcome run used for its median prompt in that same sidebar.
 Dragging a caption still orbits the cloud; a small pointer movement does not
@@ -225,3 +225,5 @@ rotation, transform cancellation and robot reset.
 Rendered desktop/phone and deployed evidence are recorded in the task checklist.
 
 Hovering a dot plays its muted video preview even with Draw box armed or an existing selection. Hovering an area caption previews its median run; clicking still opens that run in the sidebar. Active drawing, orbiting and box manipulation hide the preview until the pointer returns to a point.
+
+The control bar groups Highlight and Area labels separately from selection actions. Draw box is primary, Reset view stays beside it, and the compact Clear action has the accessible name Clear selection. Control positions stay stable while drawing; the renderer and keyboard behavior are unchanged.
