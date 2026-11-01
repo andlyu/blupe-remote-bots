@@ -34,3 +34,18 @@ test('Dream effective 2x keeps the existing trimmed file and accounts for encode
   }
   assert.equal(playbackSource({video_url:'original',replay_speed:2},false).rate,2);
 });
+
+
+
+test('labels load alongside the catalog while rows wait for correct source labels',async()=>{
+ const c=require('./helpers/past-runs.cjs')('', 'cloud');
+ let labelStarted=false,finishLabels;
+ c.window.yamRunLabels={load(){labelStarted=true;return new Promise(resolve=>finishLabels=resolve)},summary(){return 'Labels ready'}};
+ c.events['blupe-robot-selected']({detail:'yam-1'});
+ assert.equal(c.requests.length,1);
+ assert.equal(labelStarted,true,'Label IO starts before the catalog response');
+ c.answer(c.requests[0],[{episode_id:'ep_parallel',robot_id:'yam-1',prompt:'Lift',xyz:[0,0,0]}]);
+ await c.flush();assert.equal(c.cloud.rows.length,0,'Do not render incorrect source labels while loading');
+ finishLabels();await c.flush();assert.equal(c.cloud.rows.length,1);
+ assert.notEqual(c.nodes.get('pastRunsStatus').textContent,'Loading past runs…');
+});
