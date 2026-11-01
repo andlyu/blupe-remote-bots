@@ -294,7 +294,6 @@
 .meetingConsole .meetingRoom #yourQueue.meetingQueueEmpty { display:none; }
 .meetingConsole .meetingRoom .cameraStatusLine { text-align:left; }
 .meetingConsole .meetingRoom #liveViewer.cameras>figure>figcaption { top:auto; right:auto; width:max-content; height:auto; }
-.meetingConsole .meetingRoom .conversationModes [data-conversation-mode="visitor"] { display:none; }
 .meetingConsole .meetingRoom .watchInteraction>.visitorChat { position:static; inset:auto; flex:1; min-height:0; width:100%; height:auto; margin:0; padding:12px 16px; border:0; background:#f8fafd; }
 .meetingConsole .meetingRoom .watchInteraction>.visitorChat[hidden] { display:none; }
 .meetingConsole .meetingRoom .watchInteraction.visitorChatSelected>#liveConversationPanel { display:none; }
