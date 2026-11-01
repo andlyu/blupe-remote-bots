@@ -587,7 +587,7 @@ function createRunLaunchGuard() {
     toggle.setAttribute('aria-pressed',String(area.active));
     toggle.textContent=area.active?'Cancel drawing':'Draw box';
     toggle.hidden=false;
-    $('taskCloudTransformToolbar').hidden=false;
+    $('taskCloudTransformToolbar').hidden=!area.hasSelection;
     for(const tool of ['Move','Resize','Rotate']){$('taskCloudTool'+tool).disabled=!area.hasSelection;$('taskCloudTool'+tool).setAttribute('aria-pressed',String(area.hasSelection && area.tool===tool.toLowerCase()));}
     $('taskCloudToolHelp').textContent=!area.hasSelection?'Draw a box to use Move, Resize and Rotate. Drag empty space to orbit.':area.tool==='move'?'Drag an arrow to move the whole box along X, Y or Z. Drag empty space to orbit.':area.tool==='rotate'?'Drag a colored ring to rotate the box around its axis. Drag empty space to orbit.':'Drag a colored cube to push or pull one box face. Drag empty space to orbit.';
     $('taskCloudToolHelp').textContent+=' Box axes: X red, Y green, Z blue.';
@@ -718,7 +718,6 @@ function createRunLaunchGuard() {
   });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
   for(const tool of ['Move','Resize','Rotate'])$('taskCloudTool'+tool)?.addEventListener('click',()=>cloud?.setVolumeTool?.(tool.toLowerCase()));
-  for(const [suffix,view] of [['Iso','isometric'],['Front','front'],['Top','top'],['Side','side']])$('taskCloudView'+suffix)?.addEventListener('click',()=>cloud?.setView?.(view));
   for(const [axis,name] of ['X','Y','Z'].entries())for(const [suffix,direction] of [['Minus',-1],['Plus',1]])$('taskCloudNudge'+name+suffix)?.addEventListener('click',()=>cloud?.nudgeVolume?.(axis,direction));
   $('taskCloudSelectArea')?.addEventListener('click', () => {
     const active=$('taskCloudSelectArea').getAttribute('aria-pressed')!=='true';
@@ -727,8 +726,6 @@ function createRunLaunchGuard() {
   });
   $('taskCloudClearArea')?.addEventListener('click', () => cloud?.clearArea?.());
   for(const name of ['Width','Height','Depth','Position'])$('taskCloudVolume'+name)?.addEventListener('input', () => cloud?.setVolumeDimension?.(name.toLowerCase(),Number($('taskCloudVolume'+name).value)));
-  $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));
-  $('zoomTaskCloudOut').addEventListener('click', () => cloud?.zoom(1/1.2));
   $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));
   $('taskCloudNext').addEventListener('click', () => cloud?.step(1));
   $('taskCloudOpen').addEventListener('click', () => cloud?.open());

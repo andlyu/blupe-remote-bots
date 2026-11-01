@@ -104,17 +104,17 @@ test('area controls expose the binary denominator, label source and empty state 
  c.cloud.clearArea=()=>c.cloud.areaChange({...area,total:0,hasSelection:false,active:true});
  c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Lift',xyz:[0,0,0]}]);await c.flush();
  c.nodes.get('taskCloudSelectArea').emit('click');
- assert.equal(c.nodes.get('taskCloudSelectArea').getAttribute('aria-pressed'),'true');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,false);
+ assert.equal(c.nodes.get('taskCloudSelectArea').getAttribute('aria-pressed'),'true');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,false);assert.equal(c.nodes.get('taskCloudTransformToolbar').hidden,false);
  assert.match(c.nodes.get('taskCloudAreaRate').textContent,/33\.3% of 3 Success\/Failure labels/);assert.match(c.nodes.get('taskCloudAreaCounts').textContent,/10 runs selected/);
  assert.equal(c.nodes.get('taskCloudAreaPrompt').textContent,'Actual central task');
  const changed=[];c.cloud.setVolumeDimension=(...args)=>changed.push(args);
  assert.equal(c.nodes.get('taskCloudVolumeDepth').value,'50');c.nodes.get('taskCloudVolumeDepth').value='200';c.nodes.get('taskCloudVolumeDepth').emit('input');assert.deepEqual(changed,[['depth',200]]);assert.equal(c.requests.length,1);
- const tools=[];c.cloud.setVolumeTool=tool=>tools.push(tool);c.cloud.nudgeVolume=(axis,direction)=>tools.push([axis,direction]);c.cloud.setView=view=>tools.push(view);
- c.nodes.get('taskCloudToolRotate').emit('click');c.nodes.get('taskCloudNudgeZPlus').emit('click');c.nodes.get('taskCloudViewTop').emit('click');assert.deepEqual(tools,['rotate',[2,1],'top']);
+ const tools=[];c.cloud.setVolumeTool=tool=>tools.push(tool);c.cloud.nudgeVolume=(axis,direction)=>tools.push([axis,direction]);
+ c.nodes.get('taskCloudToolRotate').emit('click');c.nodes.get('taskCloudNudgeZPlus').emit('click');assert.deepEqual(tools,['rotate',[2,1]]);
  c.nodes.get('pastRunsLabelSource').value='human';c.nodes.get('pastRunsLabelSource').emit('change');
  c.cloud.areaChange({...area,Success:0,Failure:0,Uncertain:0,Unscored:10,scored:0,successRate:null,active:true});
  assert.match(c.nodes.get('taskCloudAreaRate').textContent,/No Success\/Failure labels.*Human-labeled/);assert.equal(c.requests.length,1);
- c.nodes.get('taskCloudClearArea').emit('click');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,true);assert.equal(c.nodes.get('taskCloudClearArea').disabled,true);
+ c.nodes.get('taskCloudClearArea').emit('click');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,true);assert.equal(c.nodes.get('taskCloudClearArea').disabled,true);assert.equal(c.nodes.get('taskCloudTransformToolbar').hidden,true);
 });
 test('area captions are opt-in and zoom does not cover runs with individual task labels',()=>{
  const c=setup(run=>run.testOutcome),prompt='Unobstructed task';c.cloud.setRuns(Array.from({length:6},(_,i)=>({episode_id:'plain'+i,prompt,xyz:[0,0,0],testOutcome:'Failure'})));c.cloud.setHighlight('both');c.draw();
