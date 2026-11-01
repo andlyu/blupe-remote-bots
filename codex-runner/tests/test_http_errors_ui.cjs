@@ -4,7 +4,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf
 
 function fixture(reply) {
   const calls = [], key = {value:'retained-key'};
-  const c = vm.createContext({robotGeneration:1, csrf:'token', selectedRobot:'robo-house',
+  const c = vm.createContext({robotGeneration:1, csrf:'token', selectedRobot:'robo-house', liveViewers:null,
     ended:false, buttons(){}, $:()=>key,
     fetch:async (...args)=>{calls.push(args); return typeof reply === 'function' ? reply() : reply;}});
   let start = source.indexOf('function createRunLaunchGuard(');
@@ -14,6 +14,17 @@ function fixture(reply) {
   vm.runInContext(source.slice(start, source.indexOf('  const runVideoEmail', start)), c);
   return {c, calls, key};
 }
+
+test('status heartbeats use the selected robot and the live camera visibility', async ()=>{
+  for(const watching of [true,false]) {
+    const f=fixture(Response.json({status:'idle'}));
+    f.c.liveViewers={watching:()=>watching};
+    await f.c.api('/api/status');
+    assert.equal(f.calls[0][1].headers['X-YAM-Watching'],watching?'1':'0');
+    assert.equal(f.calls[0][1].headers['X-Blupe-Robot'],'robo-house');
+    assert.equal(f.calls[0][1].method,'GET');
+  }
+});
 
 test('plain-text maintenance rejection has an actionable error and never replays the run', async ()=>{
   const f = fixture(new Response('Deployment in progress. Please retry shortly.', {status:503}));
