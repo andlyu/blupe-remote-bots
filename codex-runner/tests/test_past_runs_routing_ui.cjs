@@ -70,22 +70,10 @@ test('recording blocks retain reason, assessment text and the live-speed replay 
  assert.equal(c.nodes.get('pastRunVideo').src,run.original_video_url);assert.equal(c.nodes.get('pastRunVideo').playbackRate,1);
 });
 
-test('Cloud lazily requests only its preview detail and clears media scope on search, view, robot and hidden page',async()=>{
- const c=require('./helpers/past-runs.cjs')('','table');c.events['blupe-robot-selected']({detail:'yam-1'});
- c.answer(c.requests[0],[]);await c.flush();c.nodes.get('pastRunsCloudView').emit('click');
- c.answer(c.requests[1],[{episode_id:'ep_one',prompt:'Task',xyz:[0,0,0]}]);await c.flush();
- assert.equal(c.requests.length,2,'Cloud catalog load does not fetch all recording details');
- const options=c.cloudPreview.options,signal={};
- const loading=options.loadRun({episode_id:'ep_one'},signal);
- assert.match(c.requests[2].url,/api\/past-runs\?episode_id=ep_one&robot_id=yam-1/);
- assert.equal(c.requests[2].options.signal,signal);
- c.answer(c.requests[2],[{episode_id:'ep_wrong',robot_id:'yam-1'},{episode_id:'ep_one',robot_id:'other'},{episode_id:'ep_one',robot_id:'yam-1',video_url:'real.mp4'}]);
- assert.equal((await loading).video_url,'real.mp4');
- assert.equal(options.canPlay(),true);
- let stopped=c.cloudPreview.hides;c.document.hidden=true;c.events.visibilitychange();assert.ok(c.cloudPreview.hides>stopped);assert.equal(options.canPlay(),false);c.document.hidden=false;
- stopped=c.cloudPreview.hides;c.search('apple');assert.ok(c.cloudPreview.hides>stopped);
- stopped=c.cloudPreview.hides;c.nodes.get('pastRunsTableView').emit('click');assert.ok(c.cloudPreview.hides>stopped);assert.equal(options.canPlay(),false);
- stopped=c.cloudPreview.hides;c.events['blupe-robot-selected']({detail:'other'});assert.ok(c.cloudPreview.hides>stopped);
+test('Cloud hover leaves the view clear and does not load media',async()=>{
+ const c=require('./helpers/past-runs.cjs')('','cloud');c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Task',xyz:[0,0,0]}]);await c.flush();
+ const count=c.requests.length;c.cloud.preview({episode_id:'ep_a',prompt:'Task'},{x:200,y:200});
+ assert.equal(c.cloudPreview.options,undefined);assert.equal(c.cloudPreview.shows.length,0);assert.equal(c.requests.length,count);
 });
 
 test('native preparation updates its block without losing loaded pages and aborts stale detail requests',async()=>{

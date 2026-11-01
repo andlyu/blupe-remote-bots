@@ -10,9 +10,14 @@ The overlay uses the existing green Success (`#246744`) and red Failure
 (`#b2352c`) colors as translucent tints behind the run markers. Selected areas
 may also show a count label such as `Success: 6/8`: six Success labels among
 eight nearby Success/Failure labels. These are local descriptive counts, not a
-confidence estimate, statistical test or new model score. Both Success and
-Failure count labels show a representative task prompt from their matching
-outcome beneath the count when one is available.
+confidence estimate, statistical test or new model score.
+
+The **Area labels** checkbox is off by default, leaving the tints and markers
+unobstructed. When enabled, Success and Failure count labels include an actual
+matching median prompt. The choice is remembered under `yam-cloud-area-labels`.
+Hover/focus details remain in the text below the canvas; per-run canvas captions
+are not added when zooming, and hosted Cloud hover-video overlays are disabled.
+Click a run to open its video sidebar.
 
 ## Automatic neighborhood rules
 
@@ -68,8 +73,7 @@ The canvas keeps the count above up to two prompt lines. Prompt text wraps at
 word boundaries and is ellipsized when needed, with a text-width limit of
 `210px` or the available canvas width minus `30px`, whichever is smaller. Label
 height grows by `16px` per prompt line from the existing `24px` count label.
-Collision checks use those variable heights for both area labels and individual
-run labels. Each area caption tries vertical offsets in order `0, +1, -1, +2,
+Collision checks use those variable heights for area labels. Each area caption tries vertical offsets in order `0, +1, -1, +2,
 -2, +3, -3`, multiplied by its height plus `10px`, from the usual position above
 the region center. Each candidate is clamped within the canvas and checked
 against placed labels. A caption moved to an alternate position has a `1px`
@@ -79,17 +83,12 @@ the existing offscreen checks, colors and interactions remain in effect.
 
 ## Select a 3D volume
 
-**Add 3D box** immediately creates a finite box in map space and keeps the current
-camera view, zoom and page position. Its center is the coordinatewise median of mapped attempts; its
-half extents use half the20th–80th-percentile span of each coordinate, bounded
-to `0.08–0.3`. Initial axes match the saved map axes. This gives the same initial
-membership on desktop and phone, independently of the viewport. Adding a box
-focuses the canvas without scrolling; adding again replaces the box from the
-current filtered catalog. **Draw box** optionally replaces it using a drawn
-outline at the median candidate depth. Creating or drawing never turns the
-camera or resets zoom; choose a camera preset explicitly when wanted. The
-transform toolbar stays in place, with tools disabled before selection, so
-selection does not shift the canvas.
+**Draw box** is the selection action. Drag an outline and release, or use
+arrows/Shift+arrows and Enter, to create a finite 3D volume at the median candidate
+depth. Drawing preserves the current camera, zoom and page position. Camera
+presets change the view only when explicitly selected. The transform toolbar
+stays in place, with tools disabled before selection, so drawing does not shift
+the canvas. Drawing again replaces the current selection.
 
 The toolbar adopts the familiar interaction patterns in
 [Three.js TransformControls](https://threejs.org/examples/misc_controls_transform.html),
@@ -107,13 +106,13 @@ references, not a new runtime dependency or copied upstream source. See the
   from `5%` to `300%` of the initial dimensions.
 - **Rotate box** shows three projected rings. Dragging a ring rotates the box
   about its own corresponding axis; center and size stay fixed. The pointer ray
-  intersects the ring's actual3D plane, and Rodrigues rotation updates the
+  intersects the ring's actual 3D plane, and Rodrigues rotation updates the
   orthonormal basis. Move/resize use a ray plane containing the selected axis.
 
 Red X, green Y and blue Z identify box controls, separately from run-outcome
 colors. Active tools use a pressed state. With the canvas focused, W selects
 Move, R Resize and E Rotate. Native X−/X+/Y−/Y+/Z−/Z+ buttons provide keyboard
-and touch-friendly alternatives: move10% of box size, resize10%, or rotate15°.
+and touch-friendly alternatives: move 10% of box size, resize 10%, or rotate 15°.
 Escape and pointer cancellation restore a transform being dragged. Pinching
 cancels an unfinished outline and zooms without applying it.
 
@@ -121,9 +120,8 @@ Dragging empty space or using arrow keys orbits the camera while retaining the
 box in map space. **3D**, **Front**, **Top** and **Side** are camera presets;
 camera orientation, zoom/reset and responsive resizing do not alter selection.
 **Depth position** translates along the current box Z axis. **Clear selection**
-removes the volume. Hover/focus video previews pause while a box is present so
-they do not obscure it; clicking a run still opens its replay. Clearing restores
-ordinary previews and automatic region/task captions.
+removes the volume. Hover/focus details stay below the cloud, and clicking a run opens its replay.
+Clearing restores the full cloud; region captions follow the Area labels choice.
 
 Membership tests all six faces against the original, unjittered saved `xyz`,
 including boundaries. Screen-overlapping runs outside the box's depth are
@@ -163,8 +161,8 @@ resolver is absent, recognizes only included runner Success/Failure labels.
 
 The status text reports how many success-heavy and failure-heavy areas pass the
 current selection, explains the five-label/two-thirds rule, and explains when
-none qualify or highlights are off. With highlights enabled, it also explains
-that area labels include a median task prompt. It is a `role="status"`
+none qualify or highlights are off. With highlights enabled, it reports whether area labels are hidden or include
+a median task prompt. It is a `role="status"`
 paragraph associated with the canvas through `aria-describedby`.
 
 With highlights enabled, hovering or focusing any mapped run adds its nearby
@@ -202,7 +200,7 @@ individual run descriptions and replay evidence when interpreting an area.
 
 ## Design conformance evidence
 
-The3D selection follows the incumbent Operate canvas, paper background,
+The 3D selection follows the incumbent Operate canvas, paper background,
 native controls, palette and focus treatment. Axis arrows, face handles and rotation rings use
 the same projection as all twelve box edges. A neutral label attached to the
 box keeps counts distinct from outcome colors; dashed far edges convey depth.

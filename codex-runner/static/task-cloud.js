@@ -248,7 +248,7 @@
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
-    let highlight = 'none', regionData = null;
+    let highlight = 'none', regionData = null, showAreaLabels=false;
     let areaMode=false, areaApplied=false, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
     function volumeControls() {
       if(!volume)return null;
@@ -320,7 +320,7 @@
     function highlightSummary() {
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
-      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. Area labels include a median task prompt.`;
+      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Area labels include a median task prompt.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
     }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
@@ -386,8 +386,6 @@
         return {...project(xyz,yaw,pitch,magnification,width,height),run};
       }).sort((a,b)=>b.depth-a.depth);
       for (const point of points) if (point.x>-15 && point.x<width+15 && point.y>-15 && point.y<height+15) marker(point);
-      const labels = points.filter(p=>p.run.episode_id===hover || p.run.episode_id===selected || p.run===rows[focused]);
-      if (magnification>1.8) labels.push(...points.filter(p=>!labels.includes(p)).slice().reverse());
       const boxes=[];
       ctx.font='600 12px system-ui';
       const rankedRegions=regionPoints.slice().sort((a,b)=>b.strength-a.strength);
@@ -395,7 +393,7 @@
       const labelRegions=highlight==='both'
         ? Array.from({length:width<600?2:3},(_,i)=>[successes[i],failures[i]]).flat().filter(Boolean)
         : rankedRegions.slice(0,6);
-      for (const region of volume ? [] : labelRegions) {
+      for (const region of volume || !showAreaLabels ? [] : labelRegions) {
         if (region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
         ctx.font='600 12px system-ui';
         const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
@@ -424,21 +422,13 @@
         ctx.font='12px system-ui';ctx.fillStyle='#172c21';
         lines.forEach((line,index)=>ctx.fillText(line,x+7,y+32+index*16));
       }
-      ctx.font='13px system-ui';
-      for (const point of volume ? [] : labels) {
-        if (boxes.length>=14) break;
-        const text=point.run.prompt.length>64?point.run.prompt.slice(0,61)+'…':point.run.prompt;
-        const length=Math.min(ctx.measureText(text).width+12,width-12);
-        const x=Math.max(4,Math.min(width-length-4,point.x+12)),y=Math.max(4,Math.min(height-27,point.y-25));
-        if(boxes.some(b=>x<b.x+b.w && x+length>b.x && y<b.y+b.h && y+24>b.y)) continue;
-        boxes.push({x,y,w:length,h:24});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,length,24);ctx.fillStyle='#172c21';ctx.fillText(text,x+6,y+17,length-12);
-      }
       if(volume)drawVolume(width,height);
       if(box){ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.setLineDash(brush?[5,4]:[]);ctx.strokeRect(box.x,box.y,box.w,box.h);ctx.setLineDash([]);}
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
       canvas.dataset.highlightRegions=String(regionPoints.length);
       canvas.dataset.regionMode=highlight;
+      canvas.dataset.areaLabels=String(showAreaLabels);
       canvas.dataset.areaSelected=String(areaKeys.size);
       canvas.dataset.volumeBox=volume?JSON.stringify({center:volume.center,half:volume.half,axes:volume.axes}):'';
       canvas.dataset.volumeHandles=JSON.stringify(handles);
@@ -617,6 +607,7 @@
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();dropAreaBox();schedule();}).observe(canvas);
     return {setRuns(next,id) {clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+      setAreaLabels(enabled) {showAreaLabels=!!enabled;schedule();},
       setHighlight(mode) {highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};
   }
