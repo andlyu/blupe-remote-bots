@@ -1,10 +1,10 @@
 # Cloud outcome regions
 
-The Cloud view's **Highlight** selector adds a descriptive overlay for areas
-with more Success or Failure labels. **Success & failure** is the default;
-the other choices are **Success areas**, **Failure areas** and
-**None**. The browser remembers the choice under `yam-cloud-highlight`. None
-removes the overlay while keeping individual run colors visible.
+The Cloud panel has independent **Success areas**, **Failure areas**, and
+**Area labels** checkboxes inside the visualization. Both outcome areas are on
+by default. The existing `yam-cloud-highlight` preference still stores both,
+success, failure or none, so previous choices are retained. Clearing both area
+checkboxes hides the tints and captions while keeping individual dots visible.
 
 The overlay uses the existing green Success (`#246744`) and red Failure
 (`#b2352c`) colors as translucent tints behind the run markers. Selected areas
@@ -12,11 +12,18 @@ may also show a count label such as `Success: 6/8`: six Success labels among
 eight nearby Success/Failure labels. These are local descriptive counts, not a
 confidence estimate, statistical test or new model score.
 
-The **Area labels** switch is on by default. Success and Failure count labels
+The **Area labels** checkbox is on by default. Success and Failure count labels
 include an actual matching median prompt. The choice is remembered under
 `yam-cloud-area-labels`; an explicit off preference is honored on later visits.
 Hover/focus details remain below the canvas and in playing video previews;
 per-run canvas captions are not added when zooming.
+Each caption has a top-right **Dismiss** button and a **View** button. View
+opens its actual matching-outcome median run in the existing video sidebar.
+Dismiss hides only that caption, preserving its tint and all dots. Dismissals
+survive camera changes and unchanged data refreshes; changing the run dataset
+or label source, or turning Area labels off and back on, restores the labels.
+The buttons are native keyboard-accessible controls.
+
 Click a run to open its video sidebar. Clicking or tapping an area caption opens
 the actual matching-outcome run used for its median prompt in that same sidebar.
 Dragging a caption still orbits the cloud; a small pointer movement does not
