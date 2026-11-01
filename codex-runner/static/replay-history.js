@@ -271,6 +271,7 @@
     }
   }
   function renderSummary(run) {
+    window.yamReplayHistory?.setContextRun?.(run);
     $('pastRunTitle').textContent = `${run.runner_name || 'Run replay'} · ${run.episode_index == null ? 'Recent run' : 'Run #'+run.episode_index}`;
     $('pastRunPrompt').textContent = run.prompt || '';
     window.yamRunAssessment?.showReplay(run);
@@ -294,6 +295,7 @@
     $('pastRunError').textContent = '';
     if (window.yamRunSidebar) window.yamRunSidebar.open({...known,episode_id:id,robot_id:robot});
     else if (!dialog.open) dialog.showModal();
+    window.yamReplayHistory?.setContextRun?.(known);
     poll(pending);
   }
   async function poll(request) {

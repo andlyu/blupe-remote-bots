@@ -363,7 +363,7 @@ function createRunLaunchGuard() {
   let historyModelChoices = null, modelOptionsKey = '';
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
-  let selectedRun = null;
+  let selectedRun = null, dataChatBoxSelected = false;
   let preview = null, cloudPreview = null;
   const readyMedia = new Map();
   const mediaKey = run => `${run.robot_id || historyRobot}:${run.episode_id}`;
@@ -425,11 +425,13 @@ function createRunLaunchGuard() {
     player.defaultPlaybackRate = player.playbackRate = source.rate;
     if (window.yamRunSidebar) window.yamRunSidebar.open(run);
     else if (!dialog.open) dialog.showModal();
+    window.yamRunDataChat?.scopeChanged();
     const expectedRun=selectedRun, expectedSource=player.src;
     player.play().catch(() => { if(selectedRun===expectedRun && player.src===expectedSource) $('pastRunError').textContent = 'Press Play to start this replay.'; });
   }
   $('closePastRun').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
+    window.yamRunDataChat?.scopeChanged();
     player.pause(); player.yamRecordingView?.(); player.yamRecordingView = null;
     player.removeAttribute('src'); player.load();
   });
@@ -656,6 +658,8 @@ function createRunLaunchGuard() {
     }
   }
   function renderAreaSummary(area) {
+    dataChatBoxSelected = area.hasSelection;
+    window.yamRunDataChat?.scopeChanged();
     const toggle=$('taskCloudSelectArea'), summary=$('taskCloudAreaSummary');
     if(!toggle || !summary)return;
     toggle.setAttribute('aria-pressed',String(area.active));
@@ -715,6 +719,7 @@ function createRunLaunchGuard() {
       if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
       renderView();
+      window.yamRunDataChat?.scopeChanged();
       next = data.next_offset;
       $('morePastRuns').hidden = historyView === 'cloud' || next == null;
       const hasRuns = data.total > 0;
@@ -735,12 +740,22 @@ function createRunLaunchGuard() {
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
-  window.yamReplayHistory = {openRun, selectRun, refresh: () => load(true)};
+  window.yamReplayHistory = {openRun, selectRun, setContextRun(run) {selectedRun=run;window.yamRunDataChat?.scopeChanged();}, refresh: () => load(true), dataScope(requested) {
+    if (!historyRobot || requested === 'run' && (!selectedRun || selectedRun.robot_id !== historyRobot)) return null;
+    const libraryKind = historyView === 'cloud' && dataChatBoxSelected ? 'box' : 'filtered';
+    const kind = requested === 'all' ? 'all' : requested === 'run' ? 'run' : libraryKind;
+    const boxIds = libraryKind === 'box' ? (cloud?.getSelectedRuns?.() || []).map(r=>r.episode_id) : null;
+    return {robot_id:historyRobot, robot_name:$('robotSelector')?.selectedOptions?.[0]?.textContent || historyRobot,
+      models:historyModels.slice(), query:historySearch, label_source:labelSource, kind,
+      episode_ids:kind === 'run' ? [selectedRun.episode_id] : kind === 'box' ? boxIds : null,
+      library_context:{episode_ids:boxIds}, opened_episode_id:selectedRun?.robot_id === historyRobot ? selectedRun.episode_id : null, replay_open:!!dialog.open};
+  }};
   $('refreshPastRuns').addEventListener('click', () => load(true));
   window.addEventListener('yam-assessment-changed', () => load(true));
   $('morePastRuns').addEventListener('click', () => load());
   function searchPastRuns(query) {
     historySearch = query.trim();
+    window.yamRunDataChat?.scopeChanged();
     historyGeneration++; loading = false; next = 0;
     clearBlocks(); $('morePastRuns').hidden = true;
     $('clearPastRunsSearch').hidden = !historySearch;
@@ -782,6 +797,7 @@ function createRunLaunchGuard() {
   });
   $('pastRunsLabelSource')?.addEventListener('change', () => {
     labelSource = $('pastRunsLabelSource').value;
+    window.yamRunDataChat?.scopeChanged();
     try { localStorage.setItem('yam-run-label-source', labelSource); } catch (_) {}
     window.yamRunSidebar?.setSource(labelSource);
     if (historyView === 'table') { clearBlocks(); renderBlocks(catalogRows); }
@@ -2604,6 +2620,7 @@ function createRunLaunchGuard() {
     if (!robotCatalog) await loadRobotSelector();
     try {
       const session = await api('/api/session', {}); csrf = session.csrf; ended = false;
+      window.yamRunDataChat?.configure({...session.data_chat, send:payload => api('/api/run-data-chat', payload)});
       window.yamReplayEmail.configure(session.replay_email, csrf);
       window.yamReactions?.reset(session.reaction_cursor);
       chatScope = session.chat_scope === 'public' ? 'Shared with everyone watching this robot' : 'Shared in this playground';
