@@ -352,7 +352,7 @@ function createRunLaunchGuard() {
   let showAreaLabels = true;
   try { showAreaLabels = localStorage.getItem('yam-cloud-area-labels') !== 'false'; } catch (_) {}
   if ($('taskCloudShowLabels')) $('taskCloudShowLabels').checked = showAreaLabels;
-  let historyModels = [], historyView = 'cloud', catalogRows = [], cloud = null, cloudTimer = null;
+  let historyModels = [], historyView = 'cloud', catalogRows = [], cloud = null, cloudTimer = null, cloudProjection = null;
   try { historyView = localStorage.getItem('yam-past-runs-view') === 'table' ? 'table' : 'cloud'; } catch (_) {}
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
   if ($('pastRunsQuery')) $('pastRunsQuery').value = historySearch;
@@ -638,7 +638,7 @@ function createRunLaunchGuard() {
       });
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
         (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm?.(runs), renderAreaSummary, $('taskCloudAreaCaptions'));
-      cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
+      cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id, cloudProjection);
       cloud?.setHighlight?.(regionHighlight);
       cloud?.setAreaLabels?.(showAreaLabels);
       if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
@@ -700,6 +700,7 @@ function createRunLaunchGuard() {
         if (historyView === 'cloud' && cached && Date.now()-cached.at < 60000) run.preview = cached.detail;
       }
       catalogRows.push(...data.runs);
+      if (data.cloud?.version) cloudProjection = data.cloud.version;
       window.yamRunSidebar?.setCatalog(catalogRows, {robot:historyRobot, complete:historyView === 'cloud' && !data.sampled && data.next_offset == null, source:labelSource, filters:{models:historyModels.slice(),query:historySearch}});
       if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
@@ -717,7 +718,8 @@ function createRunLaunchGuard() {
           summary += data.cloud?.status === 'error' ? ' Semantic indexing unavailable; use Table. Retrying in one minute.' : ' Building semantic task coordinates in the background; use Table while it indexes.';
           cloudTimer = setTimeout(() => load(true), data.cloud?.status === 'error' ? 60000 : 3000);
         }
-        $('taskCloudVersion').textContent = data.cloud?.version ? `Map: ${data.cloud.version}` : 'Map is being prepared.';
+        $('taskCloudVersion').textContent = data.cloud?.version ? `${data.cloud.projection?.includes('umap') ? 'UMAP' : 'PCA'} · fixed layout` : 'Map is being prepared.';
+        $('taskCloudVersion').title = data.cloud?.version || '';
       }
       $('pastRunsStatus').textContent = summary + (data.stale ? ' Showing saved results; the archive is temporarily unavailable.' : '');
     } catch (error) { if (generation === historyGeneration) $('pastRunsStatus').textContent = error.message; }
