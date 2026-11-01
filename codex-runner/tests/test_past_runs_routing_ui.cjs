@@ -70,10 +70,21 @@ test('recording blocks retain reason, assessment text and the live-speed replay 
  assert.equal(c.nodes.get('pastRunVideo').src,run.original_video_url);assert.equal(c.nodes.get('pastRunVideo').playbackRate,1);
 });
 
-test('Cloud hover leaves the view clear and does not load media',async()=>{
- const c=require('./helpers/past-runs.cjs')('','cloud');c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Task',xyz:[0,0,0]}]);await c.flush();
- const count=c.requests.length;c.cloud.preview({episode_id:'ep_a',prompt:'Task'},{x:200,y:200});
- assert.equal(c.cloudPreview.options,undefined);assert.equal(c.cloudPreview.shows.length,0);assert.equal(c.requests.length,count);
+test('hosted cloud connects hover playback, loads only matching robot details and stops on hide',async()=>{
+ const c=require('./helpers/past-runs.cjs')('', 'cloud');
+ assert.ok(c.cloudPreview.options,'controller must create the actual preview player');
+ c.events['blupe-robot-selected']({detail:'yam-1'});
+ c.answer(c.requests[0],[]);await c.flush();
+ const run={episode_id:'ep_hover',robot_id:'yam-1',prompt:'Hover task'},point={x:100,y:100,width:1000,height:540};
+ c.cloud.preview(run,point);assert.equal(c.cloudPreview.shows.at(-1)[0],run);
+ const loading=c.cloudPreview.options.loadRun(run,new AbortController().signal),request=c.requests.at(-1);
+ assert.match(request.url,/episode_id=ep_hover&robot_id=yam-1/);
+ c.answer(request,[{...run,video_url:'https://example/clip.mp4',compressed:true}]);assert.equal((await loading).video_url,'https://example/clip.mp4');
+ const count=c.requests.length;await c.cloudPreview.options.loadRun(run,new AbortController().signal);assert.equal(c.requests.length,count,'warm detail is cached');
+ assert.equal(c.cloudPreview.options.canPlay(),true);c.nodes.get('pastRunDialog').open=true;
+ assert.equal(c.cloudPreview.options.canPlay(),false,'modal playback has priority');
+ c.nodes.get('pastRunDialog').classList={contains:name=>name==='runSidebar'};assert.equal(c.cloudPreview.options.canPlay(),true,'nonmodal sidebar preserves dot hover');
+ const hides=c.cloudPreview.hides;c.document.hidden=true;c.events.visibilitychange();assert.ok(c.cloudPreview.hides>hides);assert.equal(c.cloudPreview.options.canPlay(),false);
 });
 
 test('native preparation updates its block without losing loaded pages and aborts stale detail requests',async()=>{

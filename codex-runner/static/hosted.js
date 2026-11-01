@@ -348,7 +348,7 @@ function createRunLaunchGuard() {
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
-  let preview = null;
+  let preview = null, cloudPreview = null;
   const readyMedia = new Map();
   const mediaKey = run => `${run.robot_id || historyRobot}:${run.episode_id}`;
   function rememberMedia(run) {
@@ -363,6 +363,7 @@ function createRunLaunchGuard() {
     if (preview) preview.pause();
     preview = null;
     cloud?.clearPreview?.();
+    cloudPreview?.hide();
   }
   function clearBlocks() {
     stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
@@ -572,7 +573,27 @@ function createRunLaunchGuard() {
     $('pastRunsTableView').setAttribute('aria-pressed', String(historyView === 'table'));
     $('pastRunsCloudView').setAttribute('aria-pressed', String(historyView === 'cloud'));
     if (historyView === 'cloud') {
-      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun, () => {}, () => {}, renderAreaSummary);
+      cloudPreview ||= window.yamTaskCloud?.createPreview?.($('taskCloudPreview'), {
+        async loadRun(run, signal) {
+          const robot = historyRobot;
+          if (run.robot_id && run.robot_id !== robot) return null;
+          const cached = readyMedia.get(mediaKey(run));
+          if (cached && Date.now()-cached.at < 60000) return cached.detail;
+          const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(robot)}`,
+            {signal,cache:'no-store',headers:{'X-Blupe-Robot':robot}});
+          if (!response.ok) throw new Error('Video unavailable');
+          const data = await response.json();
+          const detail = data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === robot);
+          if (detail && !signal.aborted && robot === historyRobot) rememberMedia(detail);
+          return detail;
+        },
+        source: run => playbackSource(run, false),
+        layout: (...args) => window.yamRecordingView?.(...args),
+        canPlay: () => historyView === 'cloud' && !document.hidden && !(dialog.open && !dialog.classList?.contains('runSidebar')),
+        reducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      });
+      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
+        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm?.(runs), renderAreaSummary);
       cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
       cloud?.setHighlight?.(regionHighlight);
       cloud?.setAreaLabels?.(showAreaLabels);

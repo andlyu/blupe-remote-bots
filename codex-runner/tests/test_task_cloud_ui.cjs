@@ -284,9 +284,26 @@ test('caption dragging, cancellation and hidden or filtered release never open a
   c.draw();c.events.pointerup(point);assert.equal(c.opened.length,0,change);
  }
 });
-test('caption hover focuses its median for existing keyboard/open controls without starting a video preview',()=>{
+test('caption hover previews its median and keeps keyboard/open controls on that run',()=>{
  const c=captionFixture(),point=c.pointer();c.events.pointermove(point);c.draw();
  assert.equal(c.canvas.style.cursor,'pointer');assert.match(c.focused.textContent,/Lift the bottle/);
- assert.ok(c.previews.every(preview=>preview.run===null));
+ assert.equal(c.previews.at(-1).run.episode_id,'median_0');
  c.events.keydown({key:'Enter',preventDefault(){}});assert.equal(c.opened[0].episode_id,'median_0');
+});
+
+test('idle dot and keyboard previews work while drawing is armed and after a box is selected',()=>{
+ for(const mode of ['draw','selected']) {
+  const c=setup(),run={episode_id:'ep_hover_box',prompt:'Hover with box',xyz:[0,0,0]};
+  c.cloud.setRuns([run]);c.draw();c.cloud.setAreaSelection(true);
+  if(mode==='selected'){c.events.keydown({key:'Enter',preventDefault(){}});c.draw();}
+  const camera=c.canvas.dataset.cloudCamera,box=c.canvas.dataset.volumeBox;
+  const p=c.project(c.offset(run.episode_id),-.3,.2,1,1000,540),pointer={clientX:p.x,clientY:p.y,pointerType:'mouse',pointerId:1};
+  c.events.pointermove(pointer);assert.equal(c.previews.at(-1).run,run,mode);
+  c.events.pointerleave();assert.equal(c.previews.at(-1).run,null);
+  c.events.focus();assert.equal(c.previews.at(-1).run,run,mode+' keyboard');
+  c.draw();assert.equal(c.canvas.dataset.cloudCamera,camera);assert.equal(c.canvas.dataset.volumeBox,box);
+  c.events.pointerdown(pointer);assert.equal(c.previews.at(-1).run,null,'active gesture hides preview');
+  c.events.pointermove({...pointer,clientX:p.x+20});assert.equal(c.previews.at(-1).run,null);
+  c.events.pointercancel();
+ }
 });
