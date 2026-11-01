@@ -258,7 +258,8 @@ class NativeAppTests(unittest.IsolatedAsyncioTestCase):
         code,assessment,_=await self.call('/api/run-assessment',{'episode_id':'ep_local','operation':'vote','revision':1,'vote':-1})
         self.assertEqual((code,assessment['label'],assessment['eligibility']),(200,'Success','excluded'))
         import numpy as np
-        self.app.task_cloud=TaskCloud(self.root/'map.sqlite3',lambda texts:np.ones((len(texts),4)))
+        self.app.task_cloud=TaskCloud(self.root/'map.sqlite3')
+        self.app.task_cloud.encode=lambda texts:np.ones((len(texts),384))
         self.app.task_cloud.index(self.app.past_runs.page(metadata=True)['runs'])
         _,excluded,_=await self.call('/api/run-catalog',query='view=cloud')
         self.assertEqual(excluded['scores'][0]['denominator'],0);xyz=excluded['runs'][0]['xyz']
