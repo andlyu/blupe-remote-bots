@@ -601,17 +601,23 @@ function createRunLaunchGuard() {
     const toggle=$('taskCloudSelectArea'), summary=$('taskCloudAreaSummary');
     if(!toggle || !summary)return;
     toggle.setAttribute('aria-pressed',String(area.active));
+    toggle.textContent=area.active?'Cancel drawing':area.hasSelection?'Draw new 3D box':'Draw 3D box';
     $('taskCloudClearArea').disabled=!area.hasSelection && !area.drawing;
-    $('taskCloudAreaHelp').hidden=!area.active && !area.drawing;
+    $('taskCloudAreaHelp').hidden=!area.active && !area.drawing && !area.hasSelection;
     summary.hidden=!area.hasSelection;
-    $('taskCloudAreaTitle').textContent=area.drawing?'Selecting area…':'Selected area';
+    $('taskCloudAreaTitle').textContent=area.drawing?'Drawing 3D box…':'3D selection';
     $('taskCloudAreaCounts').textContent=area.total
       ? `${area.total} runs selected · ${area.Success} Success · ${area.Failure} Failure · ${area.Uncertain} Uncertain · ${area.Unscored} unlabeled or excluded`
-      : 'No runs in this selection. Draw another area or clear the selection.';
+      : 'No runs inside this 3D box. Expand it, adjust its depth position or draw another box.';
     $('taskCloudAreaRate').textContent=area.successRate===null
       ? `No Success/Failure labels to calculate a success rate. ${labelSource==='auto'?'Auto-labeled':'Human-labeled'} results.`
       : `Success rate: ${(area.successRate*100).toFixed(1)}% of ${area.scored} Success/Failure labels. ${labelSource==='auto'?'Auto-labeled':'Human-labeled'} results.`;
     $('taskCloudAreaPrompt').textContent=area.medianPrompt || 'Not available for this selection.';
+    for(const name of ['Width','Height','Depth','Position']) {
+      const value=area.volume?.[name.toLowerCase()];
+      $('taskCloudVolume'+name).disabled=value===undefined;
+      if(value!==undefined){$('taskCloudVolume'+name).value=String(value);$('taskCloudVolume'+name+'Value').textContent=value+'%';}
+    }
   }
   async function load(reset = false) {
     if (loading || !historyRobot) return;
@@ -720,6 +726,9 @@ function createRunLaunchGuard() {
     if(active)$('taskCloudCanvas').focus({preventScroll:true});
   });
   $('taskCloudClearArea')?.addEventListener('click', () => cloud?.clearArea?.());
+  for(const name of ['Width','Height','Depth','Position'])$('taskCloudVolume'+name)?.addEventListener('input', () => cloud?.setVolumeDimension?.(name.toLowerCase(),Number($('taskCloudVolume'+name).value)));
+  $('taskCloudVolumeFront')?.addEventListener('click', () => cloud?.volumeView?.(false));
+  $('taskCloudVolumeSide')?.addEventListener('click', () => cloud?.volumeView?.(true));
   $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));
   $('zoomTaskCloudOut').addEventListener('click', () => cloud?.zoom(1/1.2));
   $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));
