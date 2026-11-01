@@ -25,3 +25,8 @@ settled acquisition, no loading during gestures, cancellation, tap versus click,
 focus transfer, exact replay callback, switching input methods and 3× rendering.
 Browser checks use Chromium with synthesized touch and real public recordings;
 physical iOS/Android testing is not claimed.
+
+On small or touch screens, **Display** starts collapsed to leave the cloud clear.
+Open it to change the same color, area-label and highlight checkboxes. Their
+remembered choices are preserved. Mouse desktop keeps the panel expanded;
+opening or closing the disclosure leaves camera and canvas geometry unchanged.

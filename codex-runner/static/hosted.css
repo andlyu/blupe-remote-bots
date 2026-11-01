@@ -1211,3 +1211,18 @@ body.cameraExpanded{overflow:hidden}
 .taskCloudPreviewOpen:focus-visible{outline:2px solid #326c4e;outline-offset:-2px}
 .taskCloudPreviewOpen[hidden]{display:none}
 @media (pointer:coarse) and (max-height:500px){.taskCloudCanvas{height:min(370px,80svh);min-height:260px}}
+
+/* Keep touch display options available without covering the cloud by default. */
+.taskCloudDisplay{position:absolute;top:12px;left:12px;z-index:3;max-width:calc(100% - 16px)}
+.taskCloudDisplay > summary{display:none}
+.taskCloudDisplay .cloudLayers{position:static}
+@media(max-width:700px),(pointer:coarse){
+  .taskCloudDisplay{top:8px;left:8px;-webkit-tap-highlight-color:rgba(33,78,57,.12)}
+  .taskCloudDisplay :is(summary,label){-webkit-user-select:none;user-select:none}
+  .taskCloudDisplay > summary{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;width:max-content;min-width:96px;min-height:44px;padding:0 10px;list-style:none;border:1px solid #c3cfc0;border-radius:8px;background:#f8faf5;color:#172c21;font-size:13px;font-weight:600;cursor:pointer}
+  .taskCloudDisplay > summary::-webkit-details-marker{display:none}
+  .taskCloudDisplay > summary::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg)}
+  .taskCloudDisplay[open] > summary{margin-bottom:4px}
+  .taskCloudDisplay[open] > summary::after{transform:translateY(2px) rotate(225deg)}
+  .taskCloudDisplay > summary:focus-visible{outline:3px solid #326c4e;outline-offset:2px}
+}
