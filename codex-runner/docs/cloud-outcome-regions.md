@@ -223,3 +223,5 @@ runs at distinct depths, stable box membership under camera/source changes,
 dimension and depth-position changes, one-face resize, move and true plane-based
 rotation, transform cancellation and robot reset.
 Rendered desktop/phone and deployed evidence are recorded in the task checklist.
+
+Hovering a dot plays its muted video preview even with Draw box armed or an existing selection. Hovering an area caption previews its median run; clicking still opens that run in the sidebar. Active drawing, orbiting and box manipulation hide the preview until the pointer returns to a point.
