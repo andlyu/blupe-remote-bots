@@ -61,16 +61,17 @@
   const validPosition = run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite);
   const distanceSquared = (a,b) => a.reduce((sum,value,i) => sum+(value-b[i])**2,0);
   const runKey = run => `${run.robot_id || ''}:${run.episode_id}`;
-  function medianPrompt(runs) {
+  function medianRun(runs) {
     const mapped=runs.filter(validPosition);
-    if (!mapped.length) return '';
+    if (!mapped.length) return null;
     const median=[0,1,2].map(axis=>{
       const values=mapped.map(run=>run.xyz[axis]).sort((a,b)=>a-b), middle=Math.floor(values.length/2);
       return values.length%2 ? values[middle] : (values[middle-1]+values[middle])/2;
     });
     return mapped.filter(run=>typeof run.prompt==='string' && run.prompt.trim())
-      .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || runKey(a).localeCompare(runKey(b)) || a.prompt.localeCompare(b.prompt))[0]?.prompt.trim() || '';
+      .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || runKey(a).localeCompare(runKey(b)) || a.prompt.localeCompare(b.prompt))[0] || null;
   }
+  const medianPrompt = runs => medianRun(runs)?.prompt.trim() || '';
   function summarizeArea(runs) {
     const counts={Success:0,Failure:0,Uncertain:0,Unscored:0};
     for(const run of runs)counts[outcome(run)]++;
@@ -115,7 +116,8 @@
     }
     for (const region of regions) {
       const matching=runs.filter(run=>validPosition(run) && outcome(run)===region.label && distanceSquared(region.xyz,run.xyz)<=regionRadius**2);
-      region.representativePrompt=medianPrompt(matching);
+      region.representativeRun=medianRun(matching);
+      region.representativePrompt=region.representativeRun?.prompt.trim() || '';
     }
     return {regions,nearby};
   }
@@ -249,6 +251,7 @@
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null, showAreaLabels=false;
+    let captionBoxes=[], pressedCaption=null;
     let areaMode=false, areaApplied=false, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
     function volumeControls() {
       if(!volume)return null;
@@ -320,7 +323,7 @@
     function highlightSummary() {
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
-      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Area labels include a median task prompt.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
+      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Click an area label to open its median run. Labels hide when you zoom close.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
     }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
@@ -364,9 +367,12 @@
       ctx.fillStyle='#f8faf5';ctx.fillRect(0,0,width,height);
       const box=brush ? {x:Math.min(brush[0][0],brush[1][0]),y:Math.min(brush[0][1],brush[1][1]),w:Math.abs(brush[1][0]-brush[0][0]),h:Math.abs(brush[1][1]-brush[0][1])} : null;
       if(box){ctx.fillStyle='rgba(23,44,33,.07)';ctx.fillRect(box.x,box.y,box.w,box.h);}
-      const regionPoints=visibleRegions().map(region=>({...region,...project(region.xyz,yaw,pitch,magnification,width,height)})).sort((a,b)=>b.depth-a.depth);
+      const regionPoints=visibleRegions().map(region=>{
+        const point=project(region.xyz,yaw,pitch,magnification,width,height);
+        return {...region,...point,radius:Math.min(width,height)*2.6*magnification*regionRadius/Math.max(.8,3+point.depth)};
+      }).sort((a,b)=>b.depth-a.depth);
       for (const region of regionPoints) {
-        const radius=Math.min(width,height)*2.6*magnification*regionRadius/Math.max(.8,3+region.depth);
+        const radius=region.radius;
         if (region.x+radius<0 || region.x-radius>width || region.y+radius<0 || region.y-radius>height) continue;
         const rgb=region.label==='Success'?'36,103,68':'178,53,44';
         const field=ctx.createRadialGradient(region.x,region.y,0,region.x,region.y,radius*1.4);
@@ -386,7 +392,7 @@
         return {...project(xyz,yaw,pitch,magnification,width,height),run};
       }).sort((a,b)=>b.depth-a.depth);
       for (const point of points) if (point.x>-15 && point.x<width+15 && point.y>-15 && point.y<height+15) marker(point);
-      const boxes=[];
+      const boxes=[];captionBoxes=[];
       ctx.font='600 12px system-ui';
       const rankedRegions=regionPoints.slice().sort((a,b)=>b.strength-a.strength);
       const successes=rankedRegions.filter(r=>r.label==='Success'), failures=rankedRegions.filter(r=>r.label==='Failure');
@@ -394,7 +400,9 @@
         ? Array.from({length:width<600?2:3},(_,i)=>[successes[i],failures[i]]).flat().filter(Boolean)
         : rankedRegions.slice(0,6);
       for (const region of volume || !showAreaLabels ? [] : labelRegions) {
-        if (region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
+        // Hide captions once the neighborhood spans 40% of the shorter viewport axis.
+        // Use projected size so nearby/deeper regions cross the threshold independently.
+        if (region.radius>=Math.min(width,height)*.2 || region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
         ctx.font='600 12px system-ui';
         const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
         const lines=[], maxTextWidth=Math.min(210,width-30);
@@ -415,7 +423,9 @@
         if(!position)continue;
         const y=position.y;
         if(position.offset){ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,region.x)),Math.max(y,Math.min(y+h,region.y)));ctx.lineTo(region.x,region.y);ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.stroke();}
-        boxes.push({x,y,w,h});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);
+        boxes.push({x,y,w,h});
+        if(region.representativeRun)captionBoxes.push({x,y,w,h,run:region.representativeRun});
+        ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);
         ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
         ctx.font='600 12px system-ui';
         ctx.fillStyle=ctx.strokeStyle;ctx.fillText(text,x+7,y+16);
@@ -429,6 +439,7 @@
       canvas.dataset.highlightRegions=String(regionPoints.length);
       canvas.dataset.regionMode=highlight;
       canvas.dataset.areaLabels=String(showAreaLabels);
+      canvas.dataset.areaCaptions=JSON.stringify(captionBoxes.map(({x,y,w,h,run})=>({x,y,w,h,episodeId:run.episode_id,robotId:run.robot_id || ''})));
       canvas.dataset.areaSelected=String(areaKeys.size);
       canvas.dataset.volumeBox=volume?JSON.stringify({center:volume.center,half:volume.half,axes:volume.axes}):'';
       canvas.dataset.volumeHandles=JSON.stringify(handles);
@@ -524,7 +535,13 @@
       refreshArea();schedule();
     }
     function cancelVolumeDrag() {if(!volumeDrag)return;volume.center=volumeDrag.center;volume.half=volumeDrag.half;volume.axes=volumeDrag.axes;volume.depthLimits=volumeDrag.depthLimits;volumeDrag=null;refreshArea();}
+    function captionAt(event) {
+      if(!showAreaLabels || volume || areaMode || highlight==='none')return null;
+      const [x,y]=canvasPoint(event);
+      return captionBoxes.find(box=>x>=box.x && x<=box.x+box.w && y>=box.y && y<=box.y+box.h) || null;
+    }
     function hit(event) {
+      if(captionAt(event))return [];
       const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left,y=event.clientY-rect.top;
       if(volume && badgeBounds && x>=badgeBounds.x && x<=badgeBounds.x+badgeBounds.w && y>=badgeBounds.y && y<=badgeBounds.y+badgeBounds.h)return [];
       return points.filter(p=>Math.hypot(p.x-x,p.y-y)<13).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
@@ -532,15 +549,16 @@
     function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight} : null);}
     function clearPreview() {hover=null;preview(null);}
     function previewFocused() {if(areaMode || volume)return;const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
-    function zoom(factor) {clearPreview();dropAreaBox();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
-    function reset() {clearPreview();dropAreaBox();yaw=-.3;pitch=.2;magnification=1;schedule();}
+    function zoom(factor) {captionBoxes=[];clearPreview();dropAreaBox();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
+    function reset() {captionBoxes=[];clearPreview();dropAreaBox();yaw=-.3;pitch=.2;magnification=1;schedule();}
     function open() {if(rows[focused]) {clearPreview();selected=rows[focused].episode_id;focus(rows[focused]);onSelect(rows[focused]);schedule();}}
     function step(delta) {if(rows.length) {focused=(focused+delta+rows.length)%rows.length;focus(rows[focused]);previewFocused();}}
     canvas.addEventListener('pointerdown',event=>{
+      const caption=captionAt(event);pressedCaption=caption ? runKey(caption.run) : null;
       clearPreview();
       pointers.set(event.pointerId,[event.clientX,event.clientY]);canvas.setPointerCapture(event.pointerId);
       last=[event.clientX,event.clientY];moved=false;
-      if(pointers.size===2) {dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
+      if(pointers.size===2) {pressedCaption=null;dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
       else if(areaMode){const point=canvasPoint(event);brush=[point,point];last=null;notifyArea();schedule();}
       else if(volume) {const handle=handleAt(event);if(handle && startVolumeDrag(handle,canvasPoint(event))){last=null;moved=true;}}
     });
@@ -553,12 +571,19 @@
           if(lastDistance>0) zoom(distance/lastDistance);lastDistance=distance;moved=true;
         } else if(last) {
           const dx=event.clientX-last[0],dy=event.clientY-last[1];
+          if(pressedCaption && !moved && Math.hypot(dx,dy)<=5)return;
           if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
           dropAreaBox();yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));last=[event.clientX,event.clientY];schedule();
         }
       } else {
         if(areaMode){canvas.style.cursor='crosshair';return;}
         if(volume){clearPreview();canvas.style.cursor=handleAt(event)?(volumeTool==='rotate'?'grab':'ew-resize'):'grab';return;}
+        const caption=captionAt(event);
+        if(caption){
+          focused=rows.findIndex(run=>runKey(run)===runKey(caption.run));
+          if(hover!==caption.run.episode_id){clearPreview();hover=caption.run.episode_id;focus(caption.run);schedule();}
+          canvas.style.cursor='pointer';return;
+        }
         if (event.pointerType !== 'touch') {
           const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
           onWarm(points.map(p=>({point:p,distance:Math.hypot(p.x-x,p.y-y)})).filter(p=>p.distance<100)
@@ -572,14 +597,21 @@
       if(!pointers.has(event.pointerId))return;
       if(brush){brush[1]=canvasPoint(event);pointers.delete(event.pointerId);last=null;moved=true;applyBrush();return;}
       if(volumeDrag){volumeDrag=null;pointers.delete(event.pointerId);last=null;moved=true;return;}
-      const dragged=moved || pointers.size>1;pointers.delete(event.pointerId);last=null;
+      const dragged=moved || pointers.size>1, captionKey=pressedCaption;pressedCaption=null;pointers.delete(event.pointerId);last=null;
       if(!dragged) {
+        if(captionKey){
+          const caption=captionAt(event);
+          if(!caption || runKey(caption.run)!==captionKey)return;
+          focused=rows.findIndex(run=>runKey(run)===captionKey);
+          if(focused>=0)open();
+          return;
+        }
         const hits=hit(event),signature=hits.map(p=>p.run.episode_id).join(',');
         hitCycle=signature===lastHits?(hitCycle+1)%Math.max(1,hits.length):0;lastHits=signature;
         if(hits.length) {focused=rows.indexOf(hits[hitCycle].run);open();}
       }
     });
-    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;brush=null;cancelVolumeDrag();clearPreview();notifyArea();schedule();});
+    canvas.addEventListener('pointercancel',()=>{pressedCaption=null;pointers.clear();last=null;brush=null;cancelVolumeDrag();clearPreview();notifyArea();schedule();});
     canvas.addEventListener('pointerleave',()=>{clearPreview();focus(rows[focused]);schedule();});
     canvas.addEventListener('focus',previewFocused);
     canvas.addEventListener('blur',clearPreview);
@@ -605,10 +637,10 @@
       if(key==='+' || key==='=') zoom(1.2);if(key==='-') zoom(1/1.2);
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
-    if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();dropAreaBox();schedule();}).observe(canvas);
-    return {setRuns(next,id) {clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
-      setAreaLabels(enabled) {showAreaLabels=!!enabled;schedule();},
-      setHighlight(mode) {highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
+    if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{captionBoxes=[];clearPreview();dropAreaBox();schedule();}).observe(canvas);
+    return {setRuns(next,id) {captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+      setAreaLabels(enabled) {captionBoxes=[];showAreaLabels=!!enabled;schedule();},
+      setHighlight(mode) {captionBoxes=[];highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};
   }
   window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor,summarizeArea,medianPrompt,volumeContains,volumeCorners,volumeFromBrush,cameraCoordinates,worldCoordinates,rotateVector,rayPlanePoint};
