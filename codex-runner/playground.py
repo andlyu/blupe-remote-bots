@@ -239,6 +239,8 @@ class HostedRunner:
                     default_run_duration_s=120,
                     help='YAM1 joint policy using the overhead and wrist cameras. GPU preparation can take several minutes.')
         from remote_yam.run_data_chat import OpenAIDataChat
+        from remote_yam.run_data_search import SourceSnapshot
+        self.data_chat_sources = SourceSnapshot()
         self.data_chat = OpenAIDataChat.configured()
         self.visitors: dict[str, Visitor] = {}
         self.monitor_api = self.api_factory()
@@ -736,7 +738,7 @@ class HostedRunner:
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
             if path == '/api/run-data-chat':
-                from remote_yam.run_data_chat import validate_payload, build_context, DataChatUnavailable
+                from remote_yam.run_data_chat import validate_payload, build_context, load_sources, DataChatUnavailable
                 from remote_yam.run_data_search import lookup_answer
                 try:
                     question, data_scope, history = validate_payload(payload)
@@ -749,21 +751,14 @@ class HostedRunner:
                 visitor.data_chat_busy = True
                 search_started = time.perf_counter()
                 try:
-                    catalog = await asyncio.to_thread(self.past_runs.page, metadata=True)
-                    # Hosted libraries may include public receipts not yet in the archive.
-                    # Use their same projection; archive rows win after publication.
-                    receipt_reader = getattr(self.run_names, 'catalog', None)
-                    if callable(receipt_reader):
-                        receipts = await asyncio.to_thread(receipt_reader)
-                        merged = {r['episode_id']: r for r in receipts}
-                        merged.update({r['episode_id']: r for r in catalog['runs']})
-                        catalog = {**catalog, 'runs': sorted(merged.values(), key=lambda r: r.get('started_at') or 0, reverse=True)}
-                    overlay = await asyncio.to_thread(self.run_assessments.summaries)
-                    label_path = ROOT / 'annotations' / 'run-labels.json'
-                    annotations = json.loads(label_path.read_text()) if label_path.exists() else {'runs': []}
+                    sources, snapshot_age = await asyncio.to_thread(self.data_chat_sources.get,
+                        lambda: load_sources(self.past_runs, self.run_names, self.run_assessments,
+                            ROOT / 'annotations' / 'run-labels.json'))
+                    catalog, overlay, annotations = sources
                     context = await asyncio.to_thread(build_context, catalog, overlay, annotations,
                         data_scope, self.robot_id, question, history)
                     # Recorded station identity must not be inferred from task text.
+                    context['source_snapshot_age_s'] = round(snapshot_age, 3)
                     context['robot_names'] = {robot['id']: robot['name'] for robot in self.robots}
                     context['library_context']['robot_name'] = context['robot_names'].get(self.robot_id, self.robot_id)
                     context['robot_identity_basis'] = 'robot_id and robot_names identify the execution station; a task prompt can mention a different station.'

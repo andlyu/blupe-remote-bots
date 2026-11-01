@@ -116,6 +116,19 @@ def counts(rows):
         success_rate=round(c['Success']/denominator, 4) if denominator else None)
 
 
+def load_sources(past_runs, run_names, run_assessments, label_path):
+    """The same public archive/receipt projection, without per-query I/O."""
+    catalog = past_runs.page(metadata=True)
+    receipt_reader = getattr(run_names, 'catalog', None)
+    if callable(receipt_reader):
+        merged = {r['episode_id']:r for r in receipt_reader()}
+        merged.update({r['episode_id']:r for r in catalog['runs']})
+        catalog = {**catalog, 'runs':sorted(merged.values(), key=lambda r:r.get('started_at') or 0, reverse=True)}
+    overlay = run_assessments.summaries()
+    annotations = json.loads(label_path.read_text()) if label_path.exists() else {'runs':[]}
+    return catalog, overlay, annotations
+
+
 def build_context(catalog, overlays, annotations, scope, robot_id, question, history):
     from .run_search import rank_runs
     labels = {(r['robot_id'], r['episode_id']):r for r in annotations.get('runs', [])}

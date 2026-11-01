@@ -32,7 +32,9 @@ the latest user topic; camera/cam and unplugged/unpluged/detached normalize toge
 Each answer reports searched/matched/returned counts. Lookups return up to eight replay
 links immediately without a model call; they do not consume the analysis cooldown or
 provider budget. Matches describe requested tasks or saved predictions, never proof of
-physical causation. The index caches two immutable public-text snapshots and changes
+physical causation. Public source I/O is cached for at most five seconds per runner, with the snapshot age
+retained in response provenance; failed refreshes are not accepted as fresh.
+The index caches two immutable public-text snapshots and changes
 when prompt/annotation content changes. No media or private runner fields are indexed.
 
 Analytical questions still use the explicitly selected model with full aggregates and
