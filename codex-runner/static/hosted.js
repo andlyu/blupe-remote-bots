@@ -2199,8 +2199,9 @@ function createRunLaunchGuard() {
     // Public spectator video does not share the authenticated control session's lifetime.
     const sessionEnded = () => ended && !['robo-house', 'synchronized-hd'].includes(streamPath);
     // Reserve YAM's upstream capture/SRT time inside the two-second total budget.
-    const liveTarget = streamPath === 'synchronized-hd' ? .5 : 1;
-    const maxLiveDelay = streamPath === 'synchronized-hd' ? 1 : 2;
+    const steadyRoomAudio = streamPath === 'robo-house';
+    const liveTarget = streamPath === 'synchronized-hd' ? .5 : steadyRoomAudio ? 2 : 1;
+    const maxLiveDelay = streamPath === 'synchronized-hd' ? 1 : steadyRoomAudio ? 10 : 2;
     video.muted = true; video.autoplay = true; video.playsInline = true; video.controls = true;
     video.setAttribute('aria-label', image.alt); image.replaceWith(video);
     video.dataset.camera = cameraName;
@@ -2291,10 +2292,10 @@ function createRunLaunchGuard() {
         const localComposite = cameraName === 'synchronized' &&
           ['127.0.0.1', 'localhost'].includes(location.hostname) &&
           ['synchronized-hd', 'robo-house'].includes(streamPath);
-        hls = new Hls({enableWorker:false, lowLatencyMode:!localComposite, maxBufferLength:4,
+        hls = new Hls({enableWorker:false, lowLatencyMode:!localComposite && !steadyRoomAudio, maxBufferLength:steadyRoomAudio ? 6 : 4,
           liveSyncMode:['synchronized-hd', 'robo-house'].includes(streamPath) ? 'buffered' : 'edge',
-          backBufferLength:0, liveSyncDuration:liveTarget, liveMaxLatencyDuration:maxLiveDelay,
-          liveSyncOnStallIncrease:0, maxLiveSyncPlaybackRate:1.05});
+          backBufferLength:steadyRoomAudio ? 2 : 0, liveSyncDuration:liveTarget, liveMaxLatencyDuration:maxLiveDelay,
+          liveSyncOnStallIncrease:0, maxLiveSyncPlaybackRate:steadyRoomAudio ? 1 : 1.05});
         hls.on(Hls.Events.ERROR, (_, data) => {
           if (attempt !== generation) return;
           video.dataset.playbackError = JSON.stringify({type:data.type, details:data.details, fatal:data.fatal, at:Date.now()});

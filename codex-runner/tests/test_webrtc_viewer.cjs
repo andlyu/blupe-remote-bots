@@ -33,9 +33,11 @@ function harness(role='observer', monitored=false, streamPath, native=false, loc
  assert.equal(robo.reader,undefined,'Robo-house avoids the stalling audio WebRTC relay');
  assert.equal(robo.video.dataset.transport,'hls');assert.equal(robo.video.hls.url,'/robo-house/index.m3u8');
  assert.equal(robo.video.hls.config.liveSyncMode,'buffered','Robo-house catch-up must not seek beyond downloaded video');
- assert.equal(robo.video.hls.config.liveSyncDuration,1);
- assert.equal(robo.video.hls.config.liveMaxLatencyDuration,2);
- assert.equal(robo.video.hls.config.lowLatencyMode,true,'Hosted playback retains low-latency parts');
+ assert.equal(robo.video.hls.config.liveSyncDuration,2);
+ assert.equal(robo.video.hls.config.liveMaxLatencyDuration,10);
+ assert.equal(robo.video.hls.config.lowLatencyMode,false,'Room audio uses complete segments to avoid partial-fragment churn');
+ assert.equal(robo.video.hls.config.maxLiveSyncPlaybackRate,1,'Room audio stays at normal speed');
+ assert.equal(robo.video.hls.config.backBufferLength,2,'Retain a small buffer across audio/video segment boundaries');
  for (const path of ['robo-house','synchronized-hd']) {
   const proxied=harness('synchronized',false,path,false,true);
   assert.equal(proxied.video.hls.config.lowLatencyMode,false,'Local proxy uses complete segments to avoid a backlog of small parts');
