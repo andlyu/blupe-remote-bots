@@ -590,15 +590,24 @@ function createRunLaunchGuard() {
       if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
       if($('taskCloudSelectArea'))$('taskCloudSelectArea').disabled=!catalogRows.length || !cloud?.setAreaSelection;
+      if($('taskCloudAddBox'))$('taskCloudAddBox').disabled=!catalogRows.length || !cloud?.addVolume;
     }
   }
   function renderAreaSummary(area) {
     const toggle=$('taskCloudSelectArea'), summary=$('taskCloudAreaSummary');
     if(!toggle || !summary)return;
     toggle.setAttribute('aria-pressed',String(area.active));
-    toggle.textContent=area.active?'Cancel drawing':area.hasSelection?'Draw new 3D box':'Draw 3D box';
+    toggle.textContent=area.active?'Cancel footprint':'Redraw footprint';
+    toggle.hidden=!area.hasSelection && !area.active;
+    $('taskCloudAddBox').textContent=area.hasSelection?'Reset 3D box':'Add 3D box';
+    $('taskCloudTransformToolbar').hidden=!area.hasSelection;
+    for(const tool of ['Move','Resize','Rotate'])$('taskCloudTool'+tool).setAttribute('aria-pressed',String(area.tool===tool.toLowerCase()));
+    $('taskCloudToolHelp').textContent=area.tool==='move'?'Drag an arrow to move the whole box along X, Y or Z. Drag empty space to orbit.':area.tool==='rotate'?'Drag a colored ring to rotate the box around its axis. Drag empty space to orbit.':'Drag a colored cube to push or pull one box face. Drag empty space to orbit.';
+    $('taskCloudToolHelp').textContent+=' Box axes: X red, Y green, Z blue.';
+    $('taskCloudNudgeHelp').textContent=area.tool==='move'?'Move by 10% of box size':area.tool==='rotate'?'Rotate by 15°':'Resize by 10%';
     $('taskCloudClearArea').disabled=!area.hasSelection && !area.drawing;
-    $('taskCloudAreaHelp').hidden=!area.active && !area.drawing && !area.hasSelection;
+    $('taskCloudAreaHelp').hidden=false;
+    $('taskCloudAreaHelp').textContent=area.active?'Drag an outline, then release or press Enter to replace the 3D box. Escape cancels.':'Add a 3D box to select runs. Drag empty space to orbit the view; scroll or pinch to zoom.';
     summary.hidden=!area.hasSelection;
     $('taskCloudAreaTitle').textContent=area.drawing?'Drawing 3D box…':'3D selection';
     $('taskCloudAreaCounts').textContent=area.total
@@ -715,6 +724,10 @@ function createRunLaunchGuard() {
     if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
   });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
+  $('taskCloudAddBox')?.addEventListener('click', () => {cloud?.addVolume?.();$('taskCloudCanvas').focus({preventScroll:true});$('taskCloudCanvas').scrollIntoView?.({block:'center'});});
+  for(const tool of ['Move','Resize','Rotate'])$('taskCloudTool'+tool)?.addEventListener('click',()=>cloud?.setVolumeTool?.(tool.toLowerCase()));
+  for(const [suffix,view] of [['Iso','isometric'],['Front','front'],['Top','top'],['Side','side']])$('taskCloudView'+suffix)?.addEventListener('click',()=>cloud?.setView?.(view));
+  for(const [axis,name] of ['X','Y','Z'].entries())for(const [suffix,direction] of [['Minus',-1],['Plus',1]])$('taskCloudNudge'+name+suffix)?.addEventListener('click',()=>cloud?.nudgeVolume?.(axis,direction));
   $('taskCloudSelectArea')?.addEventListener('click', () => {
     const active=$('taskCloudSelectArea').getAttribute('aria-pressed')!=='true';
     cloud?.setAreaSelection?.(active);
@@ -722,8 +735,6 @@ function createRunLaunchGuard() {
   });
   $('taskCloudClearArea')?.addEventListener('click', () => cloud?.clearArea?.());
   for(const name of ['Width','Height','Depth','Position'])$('taskCloudVolume'+name)?.addEventListener('input', () => cloud?.setVolumeDimension?.(name.toLowerCase(),Number($('taskCloudVolume'+name).value)));
-  $('taskCloudVolumeFront')?.addEventListener('click', () => cloud?.volumeView?.(false));
-  $('taskCloudVolumeSide')?.addEventListener('click', () => cloud?.volumeView?.(true));
   $('zoomTaskCloudIn').addEventListener('click', () => cloud?.zoom(1.2));
   $('zoomTaskCloudOut').addEventListener('click', () => cloud?.zoom(1/1.2));
   $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));

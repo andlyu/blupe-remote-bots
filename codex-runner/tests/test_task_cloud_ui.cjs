@@ -46,14 +46,34 @@ test('volume axes round-trip camera coordinates and contain only real persisted 
  assert.equal(c.volumeCorners(volume).length,8);for(const point of c.volumeCorners(volume))assert.equal(c.volumeContains(volume,point),true);
  for(let axis=0;axis<3;axis++)for(const sign of [-1,1])assert.equal(c.volumeContains(volume,world.map((v,i)=>v+axes[axis][i]*(volume.half[axis]+.001)*sign)),false);
 });
-test('projected box handles resize the real volume without moving its center or opening a replay',()=>{
+test('face handles resize one boundary while retaining the opposite face and preserving replays',()=>{
  const c=setup(),rows=[{episode_id:'center',prompt:'Center',xyz:[0,0,0]}];c.cloud.setRuns(rows);c.draw();c.cloud.setAreaSelection(true);
  const start={pointerId:1,pointerType:'mouse',clientX:440,clientY:220},end={...start,clientX:560,clientY:320};
  c.events.pointerdown(start);c.events.pointermove(end);c.events.pointerup(end);c.draw();
- const before=JSON.parse(c.canvas.dataset.volumeBox),handle=JSON.parse(c.canvas.dataset.volumeHandles).find(h=>h.name==='W'),camera=c.canvas.dataset.cloudCamera.split(',').map(Number),center=c.project(before.center,...camera,1000,540);
+ const before=JSON.parse(c.canvas.dataset.volumeBox),handle=JSON.parse(c.canvas.dataset.volumeHandles).find(h=>h.name==='X' && h.sign===1),camera=c.canvas.dataset.cloudCamera.split(',').map(Number),center=c.project(before.center,...camera,1000,540);
  const down={...start,clientX:handle.x,clientY:handle.y},up={...down,clientX:handle.x+(handle.x-center.x)*.5,clientY:handle.y+(handle.y-center.y)*.5};
  c.events.pointerdown(down);c.events.pointermove(up);c.events.pointerup(up);c.draw();
- const after=JSON.parse(c.canvas.dataset.volumeBox);assert.ok(after.half[0]>before.half[0]);assert.deepEqual(after.center,before.center);assert.deepEqual(after.axes,before.axes);assert.equal(c.opened.length,0);assert.deepEqual(rows[0].xyz,[0,0,0]);
+ const after=JSON.parse(c.canvas.dataset.volumeBox);assert.ok(after.half[0]>before.half[0]);for(let i=0;i<3;i++)assert.ok(Math.abs((after.center[i]-after.axes[0][i]*after.half[0])-(before.center[i]-before.axes[0][i]*before.half[0]))<1e-9,'opposite face stays fixed');assert.deepEqual(after.axes,before.axes);assert.equal(c.opened.length,0);assert.deepEqual(rows[0].xyz,[0,0,0]);
+});
+test('Add3D box is immediate and moving/rotating the object changes membership independently of camera views',()=>{
+ const c=setup(run=>run.testOutcome),rows=Array.from({length:10},(_,i)=>({episode_id:'x'+i,prompt:'X task',xyz:[i%2?-.18:.18,0,0],testOutcome:'Success'}));
+ rows.push({episode_id:'y',prompt:'Y task',xyz:[0,.18,0],testOutcome:'Failure'});
+ c.cloud.setRuns(rows);c.cloud.addVolume();c.draw();assert.equal(c.areas.at(-1).total,10);assert.equal(c.areas.at(-1).successRate,1);assert.equal(c.areas.at(-1).active,false);
+ const initialBox=JSON.parse(c.canvas.dataset.volumeBox),camera=c.canvas.dataset.cloudCamera;
+ c.cloud.setVolumeTool('move');c.cloud.nudgeVolume(0,1);c.draw();assert.equal(c.areas.at(-1).total,5);assert.equal(c.canvas.dataset.cloudCamera,camera);assert.deepEqual(JSON.parse(c.canvas.dataset.volumeBox).axes,initialBox.axes);
+ c.cloud.addVolume();c.draw();c.cloud.rotateVolume(2,Math.PI/2);c.draw();assert.equal(c.areas.at(-1).total,1);assert.equal(c.areas.at(-1).Failure,1);assert.equal(c.areas.at(-1).successRate,0);assert.equal(c.canvas.dataset.cloudCamera,camera);
+ const rotated=c.canvas.dataset.volumeBox;c.cloud.setView('front');c.draw();assert.equal(c.canvas.dataset.volumeBox,rotated);assert.notEqual(c.canvas.dataset.cloudCamera,camera);assert.equal(c.areas.at(-1).total,1);
+ for(const [key,tool] of [['w','move'],['e','rotate'],['r','resize']]){c.events.keydown({key,preventDefault(){}});assert.equal(c.areas.at(-1).tool,tool)}
+ assert.equal(c.opened.length,0);assert.deepEqual(rows.at(-1).xyz,[0,.18,0]);
+});
+test('rotation ring uses its actual3D plane; Escape restores the full original transform',()=>{
+ const c=setup();c.cloud.setRuns([{episode_id:'a',prompt:'Task',xyz:[0,0,0]}]);c.cloud.addVolume();c.cloud.setVolumeTool('rotate');c.draw();
+ const before=c.canvas.dataset.volumeBox,camera=c.canvas.dataset.cloudCamera,ring=JSON.parse(c.canvas.dataset.volumeHandles).find(h=>h.name==='Z');
+ const a=ring.samples[35],b=ring.samples[43],start={pointerId:1,pointerType:'mouse',clientX:a.x,clientY:a.y},end={...start,clientX:b.x,clientY:b.y};
+ c.events.pointerdown(start);c.events.pointermove(end);c.draw();assert.notEqual(c.canvas.dataset.volumeBox,before);assert.equal(c.canvas.dataset.cloudCamera,camera);
+ const changed=JSON.parse(c.canvas.dataset.volumeBox),original=JSON.parse(before);assert.deepEqual(changed.center,original.center);assert.deepEqual(changed.half,original.half);
+ for(const axis of changed.axes)assert.ok(Math.abs(axis.reduce((n,v)=>n+v*v,0)-1)<1e-9);
+ c.events.keydown({key:'Escape'});c.draw();assert.equal(c.canvas.dataset.volumeBox,before);assert.equal(c.opened.length,0);
 });
 test('keyboard area controls apply, cancel and clear while leaving default camera keys intact',()=>{
  const c=setup(run=>run.testOutcome),rows=Array.from({length:6},(_,i)=>({episode_id:'ep_key'+i,prompt:'Center task',xyz:[0,0,0],testOutcome:i%2?'Success':'Failure'}));
@@ -84,6 +104,8 @@ test('area controls expose the binary denominator, label source and empty state 
  assert.equal(c.nodes.get('taskCloudAreaPrompt').textContent,'Actual central task');
  const changed=[];c.cloud.setVolumeDimension=(...args)=>changed.push(args);
  assert.equal(c.nodes.get('taskCloudVolumeDepth').value,'50');c.nodes.get('taskCloudVolumeDepth').value='200';c.nodes.get('taskCloudVolumeDepth').emit('input');assert.deepEqual(changed,[['depth',200]]);assert.equal(c.requests.length,1);
+ const tools=[];c.cloud.addVolume=()=>tools.push('add');c.cloud.setVolumeTool=tool=>tools.push(tool);c.cloud.nudgeVolume=(axis,direction)=>tools.push([axis,direction]);c.cloud.setView=view=>tools.push(view);
+ c.nodes.get('taskCloudAddBox').emit('click');c.nodes.get('taskCloudToolRotate').emit('click');c.nodes.get('taskCloudNudgeZPlus').emit('click');c.nodes.get('taskCloudViewTop').emit('click');assert.deepEqual(tools,['add','rotate',[2,1],'top']);
  c.nodes.get('pastRunsLabelSource').value='human';c.nodes.get('pastRunsLabelSource').emit('change');
  c.cloud.areaChange({...area,Success:0,Failure:0,Uncertain:0,Unscored:10,scored:0,successRate:null,active:true});
  assert.match(c.nodes.get('taskCloudAreaRate').textContent,/No Success\/Failure labels.*Human-labeled/);assert.equal(c.requests.length,1);
