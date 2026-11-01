@@ -16,7 +16,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id), panel = $('runDataChat');
   if (!panel) return;
-  let config = {}, history = [], revision = 0, scopeKey = '', busy = false;
+  let config = null, history = [], revision = 0, scopeKey = '', busy = false;
   const form = $('runDataChatForm'), input = $('runDataChatQuestion'), status = $('runDataChatStatus');
   function scope() { return window.yamReplayHistory?.dataScope?.($('runDataChatScope').value) || null; }
   function describe(s) {
@@ -31,10 +31,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
       scopeKey = key;
       status.textContent = $('runDataChatMessages').children.length ? 'Library context updated. The conversation continues; earlier answers retain their original data scope.' : '';
     }
-    input.disabled = !config.available || !s;
+    input.disabled = !config?.available || !s;
     $('runDataChatSend').disabled = busy || input.disabled;
     $('runDataChatCancel').hidden = !busy;
-    $('runDataChatModel').textContent = config.available ? `${config.model} · Text metadata and saved annotations; no video supplied.` : 'Data chat is unavailable on this server. You can still browse runs and replays.';
+    $('runDataChatModel').textContent = config === null ? 'Connecting data chat…' : config.available ? `${config.model} · Text metadata and saved annotations; no video supplied.` : 'Data chat is unavailable on this server. You can still browse runs and replays.';
   }
   function message(role, text, label) {
     const article = document.createElement('article'), title = document.createElement('strong'), body = document.createElement('p');
@@ -54,7 +54,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
   async function ask(event) {
     event.preventDefault(); sync();
     const question = input.value.trim(), s = scope();
-    if (!question || busy || !config.available || !s) return;
+    if (!question || busy || !config?.available || !s) return;
     const current = ++revision; busy = true; $('runDataChatSend').disabled = true; $('runDataChatCancel').hidden = false;
     status.textContent = 'Reading matching run metadata and asking OpenAI. This can take up to a minute; no videos are being watched.';
     const previous = history.slice(-12); message('user', question, describe(s));
@@ -105,5 +105,5 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
   panel.addEventListener('keydown', event => { if(event.key === 'Escape') {event.stopPropagation();open(false);} });
   for (const button of panel.querySelectorAll('[data-question]')) button.addEventListener('click', () => {input.value=button.dataset.question;input.focus();});
   form.addEventListener('submit', ask);
-  window.addEventListener('blupe-robot-selected', () => {revision++; config={};busy=false;sync();});
+  window.addEventListener('blupe-robot-selected', () => {revision++; config=null;busy=false;sync();});
 })();
