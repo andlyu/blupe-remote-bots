@@ -21,6 +21,19 @@ function playgroundEntryModel(search, options, session = {}) {
     || (session.local_runner ? null : astra());
 }
 
+function currentRunHeading(run, result = null) {
+  const task = [run?.task, run?.task_progress?.task]
+    .find(value => typeof value === 'string' && value.trim())?.trim() || '';
+  if (!task) return {task:'', status:''};
+  const states = {queued:'Queued', preparing:'Preparing', running:'Running',
+    completed:'Completed', stopped:'Stopped', cancelled:'Stopped', canceled:'Stopped',
+    timed_out:'Time limit reached', failed:'Failed', error:'Failed', idle:'Not running'};
+  const status = run.reviewing_prompt ? 'Reviewing prompt'
+    : run.error === 'Run reached time limit' ? 'Time limit reached'
+    : run.error ? 'Failed' : result?.label || states[run.status] || 'Status unavailable';
+  return {task, status};
+}
+
 function createProviderRunDuration(input) {
   const explicit = new Map();
   let selected = null;
@@ -1330,11 +1343,13 @@ function createRunLaunchGuard() {
   const stopwatchTime = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
   function tickStopwatch() {
     if (!stopwatch) {
+      $('runTimer').hidden = true;
       $('runTimer').textContent = '—:—';
       $('ownRunTimer').textContent = '—:—';
       $('runTimerDetail').textContent = 'Waiting for a run';
       return;
     }
+    $('runTimer').hidden = stopwatch.duration === null || !['preparing', 'running'].includes(stopwatch.status);
     const running = ['preparing', 'running'].includes(stopwatch.status);
     const age = Math.max(0, (performance.now() - stopwatch.receivedAt) / 1000);
     const elapsed = stopwatch.elapsed + (running ? Math.min(age, 5) : 0);
@@ -1664,14 +1679,16 @@ function createRunLaunchGuard() {
     const text = (id,value) => {if($(id).textContent !== value) $(id).textContent=value;};
     text('currentRunner','Runner: ' + (live?.runner_name || '—'));
     text('currentPrompt',live?.task || 'Waiting for someone to run a policy.');
-    const header = $('taskHeaderPrompt');
-    if (header) {
-      const prompt = live?.task || live?.task_progress?.task || '';
-      header.textContent = prompt ? ': ' + prompt : '';
-      if (header.parentElement) header.parentElement.title = prompt;
-    }
     applyModelName(live);
     const result = renderModelRunResult(live);
+    const heading = currentRunHeading(live, result);
+    const taskTitle = $('liveTaskTitle'), taskState = $('liveTaskState');
+    if (taskTitle && taskState) {
+      text('liveTaskTitle', heading.task);
+      text('liveTaskState', heading.status);
+      taskTitle.title = heading.task;
+      taskTitle.hidden = taskState.hidden = !heading.task;
+    }
     text('conversationState',failure ? failure.label+' · '+failure.reason : live?.reviewing_prompt ? 'Reviewing your prompt…' :
       (result?.label || live?.status || 'Waiting for a run').replaceAll('_', ' ') + (live?.error ? ' · ' + live.error : ''));
     if(identity(live) !== identity(previous) || live?.reviewing_prompt) renderCurrentConversation.errorTimes=new Map();
@@ -2746,7 +2763,7 @@ function createRunLaunchGuard() {
   function show(visible) {
     panel.hidden = !visible;
     pane.classList.toggle('visitorChatSelected', visible);
-    title.textContent = visible ? 'Visitor chat' : 'Task chat';
+    title.textContent = visible ? 'Visitor chat' : 'Activity';
     open.setAttribute('aria-expanded', String(visible));
     close.setAttribute('aria-expanded', String(visible));
     if (visible) {
