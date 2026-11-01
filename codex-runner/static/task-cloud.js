@@ -269,7 +269,7 @@
           card=doc.createElement('section');card.className='cloudAreaCaption';
           const title=doc.createElement('strong'), prompt=doc.createElement('p'), close=doc.createElement('button'), view=doc.createElement('button');
           title.className='cloudAreaCaptionTitle';prompt.className='cloudAreaCaptionPrompt';
-          close.type=view.type='button';close.className='cloudAreaCaptionClose';view.className='cloudAreaCaptionView';view.textContent='View';
+          close.type=view.type='button';close.className='cloudAreaCaptionClose';view.className='cloudAreaCaptionView';view.textContent='View';close.title='Hide label';view.title='View median run';
           const current=()=>captionBoxes.find(item=>item.key===box.key);
           close.addEventListener('click',()=>{if(!current())return;dismissedCaptions.add(box.key);captionBoxes=captionBoxes.filter(item=>item.key!==box.key);card.hidden=true;if(card.contains(doc.activeElement))canvas.focus({preventScroll:true});clearPreview();schedule();});
           view.addEventListener('click',()=>{const active=current();if(!active)return;focused=rows.findIndex(run=>runKey(run)===runKey(active.run));if(focused>=0)open();});
@@ -447,7 +447,9 @@
         if (dismissedCaptions.has(captionKey(region)) || region.radius>=Math.min(width,height)*.2 || region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
         ctx.font='600 12px system-ui';
         const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
-        const lines=[], maxTextWidth=Math.min(210,width-30);
+        const besideLayers=captionRoot && width<600 && layerBounds && layerBounds.width<width/2 && layerBounds.height>height*.4;
+        const columnWidth=besideLayers ? width-(layerBounds.left-canvas.getBoundingClientRect().left+layerBounds.width)-16 : width-16;
+        const lines=[], maxTextWidth=Math.min(210,width-30,columnWidth-20);
         if (region.representativePrompt) {
           ctx.font='12px system-ui';
           for (const word of region.representativePrompt.split(/\s+/)) {
@@ -458,13 +460,14 @@
           if(lines.length>2)lines.splice(1,lines.length-1,lines.slice(1).join(' '));
           for(let i=0;i<lines.length;i++)if(ctx.measureText(lines[i]).width>maxTextWidth){while(lines[i].length && ctx.measureText(lines[i]+'…').width>maxTextWidth)lines[i]=lines[i].slice(0,-1);lines[i]+='…';}
         }
-        const w=captionRoot ? Math.min(width-16,Math.max(190,countWidth+54,...lines.map(line=>ctx.measureText(line).width+20))) : Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=captionRoot ? 88+lines.length*16 : 24+lines.length*16;
-        const x=Math.max(4,Math.min(width-w-4,region.x-w/2));
-        const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
-        if(captionRoot && width<600){positions.unshift({offset:1,y:height-h-4});if(layerBounds){const bounds=canvas.getBoundingClientRect();positions.push({offset:1,y:layerBounds.bottom-bounds.top+8});}}
-        const position=positions.find(({y})=>y>=4 && y+h<=height-4 && !boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
+        const w=captionRoot ? Math.min(width-16,Math.max(174,countWidth+84,...lines.map(line=>ctx.measureText(line).width+16))) : Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=captionRoot ? 34+lines.length*16 : 24+lines.length*16;
+        const centerX=Math.max(4,Math.min(width-w-4,region.x-w/2));
+        const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,x:centerX,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
+        if(captionRoot && width<600){positions.unshift({offset:1,x:centerX,y:height-h-4});if(layerBounds){const bounds=canvas.getBoundingClientRect();positions.push({offset:1,x:centerX,y:layerBounds.bottom-bounds.top+8});}}
+        if(besideLayers)positions.push(...positions.map(position=>({...position,x:width-w-4})));
+        const position=positions.find(({x,y})=>y>=4 && y+h<=height-4 && !boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
         if(!position)continue;
-        const y=position.y;
+        const {x,y}=position;
         if(position.offset){ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,region.x)),Math.max(y,Math.min(y+h,region.y)));ctx.lineTo(region.x,region.y);ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.stroke();}
         boxes.push({x,y,w,h});
         if(region.representativeRun)captionBoxes.push({x,y,w,h,run:region.representativeRun,key:captionKey(region),label:region.label,text,lines});
