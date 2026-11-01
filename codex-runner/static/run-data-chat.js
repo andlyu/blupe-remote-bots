@@ -1,6 +1,19 @@
+async function openDataChatReplay(citation, fetcher, currentRobot, selectRun) {
+  if (currentRobot() !== citation.robot_id) return false;
+  const response = await fetcher(`/api/past-runs?episode_id=${encodeURIComponent(citation.episode_id)}&robot_id=${encodeURIComponent(citation.robot_id)}`,
+    {cache:'no-store',headers:{'X-Blupe-Robot':citation.robot_id}});
+  if (!response.ok) throw new Error('This replay is unavailable right now. Try the evidence link again.');
+  const data = await response.json();
+  if (currentRobot() !== citation.robot_id) return false;
+  const run = data.runs?.find(r => r.episode_id === citation.episode_id && r.robot_id === citation.robot_id);
+  if (!run?.video_url || run.video_duration_s === 0) throw new Error('This replay is not ready. Try again later, or open the link in a new tab for run details.');
+  selectRun(run); return true;
+}
+if (typeof module !== 'undefined' && module.exports) module.exports = {openDataChatReplay};
 /* Data discussion has no route to robot task submission or visitor chat. */
 (() => {
   'use strict';
+  if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id), panel = $('runDataChat');
   if (!panel) return;
   let config = {}, history = [], revision = 0, scopeKey = '', busy = false;
@@ -56,9 +69,14 @@
         for (const citation of data.citations) {
           const li = document.createElement('li'), link = document.createElement('a'), note = document.createElement('span');
           link.href = citation.url; link.target='_blank'; link.rel='noopener noreferrer'; link.title=citation.prompt; link.textContent = `${citation.label}: ${citation.prompt.length>160 ? citation.prompt.slice(0,157)+'…' : citation.prompt}`;
-          link.addEventListener('click', event => {
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !window.yamReplayReview?.openEpisode || window.yamReplayHistory?.dataScope?.('filtered')?.robot_id !== citation.robot_id) return;
-            event.preventDefault(); window.yamReplayReview?.openEpisode(citation.episode_id, {robot_id:citation.robot_id});
+          link.addEventListener('click', async event => {
+            const currentRobot = () => window.yamReplayHistory?.dataScope?.('all')?.robot_id;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !window.yamReplayHistory?.selectRun || currentRobot() !== citation.robot_id) return;
+            event.preventDefault(); status.textContent='Loading the cited replay…';
+            try {
+              const opened = await openDataChatReplay(citation, fetch, currentRobot, run => window.yamReplayHistory.selectRun(run));
+              if (opened) status.textContent='Replay open. Keep discussing all runs, or choose the replay as a focused scope.';
+            } catch (error) { status.textContent=error.message || 'The replay could not be loaded. Try again.'; }
           });
           note.textContent = citation.note; li.append(link, note); list.append(li);
         }
