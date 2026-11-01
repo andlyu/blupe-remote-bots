@@ -2,9 +2,10 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const full=fs.readFileSync(path.join(__dirname,'../../static/hosted.js'),'utf8');
 const start=full.lastIndexOf('(() => {',full.indexOf('const zeroSecondVideo'));
 const source=full.slice(start).split('\n})();')[0]+'\n})();';
-module.exports=function setup(initialSearch='',savedView=null){
+module.exports=function setup(initialSearch='',savedView=null,savedHighlight=null){
   const nodes=new Map(),events={},requests=[],opened=[],storage=new Map(),cloudPreview={shows:[],hides:0,show(...args){this.shows.push(args)},hide(){this.hides++}},cloud={rows:[],selected:null,setRuns(rows,id){this.rows=rows;this.selected=id},select(id){this.selected=id},clearPreview(){this.preview?.(null,null)},reset(){},zoom(){},step(){},open(){}};
   const timers=new Map();let timerId=0;
+  if(savedHighlight)storage.set('yam-cloud-highlight',savedHighlight);
   if(savedView)storage.set('yam-past-runs-view',savedView);
   const element=(tag='div')=>({tag,children:[],listeners:{},dataset:{},style:{},value:'',open:false,attributes:{},plays:0,pauses:0,
     get selectedOptions(){return this.children.filter(child=>child.selected)},
