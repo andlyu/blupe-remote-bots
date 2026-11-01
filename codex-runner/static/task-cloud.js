@@ -246,7 +246,7 @@
           status.textContent = 'Video is still preparing. Open run for details.'; position(); return;
         }
         if (!detail?.video_url || detail.video_duration_s === 0) {
-          status.textContent = 'No preview available. Open run for details.'; return;
+          status.textContent = 'No preview available. Open run for details.'; position(); return;
         }
         const recording = {...run,...detail};
         video = entry.video;
@@ -258,7 +258,7 @@
         else await clip.play().catch(error => state(error.name === 'NotAllowedError'
           ? 'Preview playback was blocked. Open run to play.' : 'Preview could not play. Open run to play.'));
       } catch (_) {
-        if (version === generation) status.textContent = 'Video unavailable. Open run to retry.';
+        if (version === generation) {status.textContent = 'Video unavailable. Open run to retry.'; position();}
       }
     }
     return {show,hide,warm};

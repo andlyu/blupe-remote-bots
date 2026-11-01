@@ -144,3 +144,12 @@ test('touch preview docks below aim with an explicit replay action and cancels s
  showing=c.preview.show(run('ep_mouse'),c.point);c.loads.at(-1).resolve(detail('ep_mouse'));await showing;assert.equal(c.openButton.hidden,true);
  await c.preview.show(run('ep_mouse'),{...c.point,input:'touch'});assert.equal(c.openButton.hidden,false,'same buffered video can switch input method');
 });
+
+test('touch empty and failure messages remain docked after their content changes height',async()=>{
+ for(const failed of [false,true]){
+  const c=setup();Object.defineProperty(c.root,'offsetHeight',{get:()=>/unavailable|No preview/.test(c.status.textContent)?290:250});
+  const showing=c.preview.show(run('ep_missing'),{...c.point,input:'touch'});
+  if(failed)c.loads[0].reject(Error());else c.loads[0].resolve({...run('ep_missing'),video_duration_s:0});
+  await showing;assert.equal(parseInt(c.root.style.top)+c.root.offsetHeight,c.point.height-8);assert.equal(c.openButton.hidden,false);
+ }
+});
