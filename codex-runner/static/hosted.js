@@ -337,6 +337,9 @@ function createRunLaunchGuard() {
   let regionHighlight = 'both';
   try { const saved = localStorage.getItem('yam-cloud-highlight'); if (['both','success','failure','none'].includes(saved)) regionHighlight = saved; } catch (_) {}
   if ($('taskCloudHighlight')) $('taskCloudHighlight').value = regionHighlight;
+  let showAreaLabels = false;
+  try { showAreaLabels = localStorage.getItem('yam-cloud-area-labels') === 'true'; } catch (_) {}
+  if ($('taskCloudShowLabels')) $('taskCloudShowLabels').checked = showAreaLabels;
   let historyModels = [], historyView = 'table', catalogRows = [], cloud = null, cloudTimer = null;
   try { historyView = localStorage.getItem('yam-past-runs-view') === 'cloud' ? 'cloud' : 'table'; } catch (_) {}
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
@@ -345,7 +348,7 @@ function createRunLaunchGuard() {
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
-  let preview = null, cloudPreview = null;
+  let preview = null;
   const readyMedia = new Map();
   const mediaKey = run => `${run.robot_id || historyRobot}:${run.episode_id}`;
   function rememberMedia(run) {
@@ -360,7 +363,6 @@ function createRunLaunchGuard() {
     if (preview) preview.pause();
     preview = null;
     cloud?.clearPreview?.();
-    cloudPreview?.hide();
   }
   function clearBlocks() {
     stopPreview(); previewViews.splice(0).forEach(dispose => dispose());
@@ -570,32 +572,13 @@ function createRunLaunchGuard() {
     $('pastRunsTableView').setAttribute('aria-pressed', String(historyView === 'table'));
     $('pastRunsCloudView').setAttribute('aria-pressed', String(historyView === 'cloud'));
     if (historyView === 'cloud') {
-      cloudPreview ||= window.yamTaskCloud?.createPreview?.($('taskCloudPreview'), {
-        async loadRun(run, signal) {
-          const robot = historyRobot;
-          const cached = readyMedia.get(mediaKey(run));
-          if (cached && Date.now()-cached.at < 60000) return cached.detail;
-          const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(robot)}`,
-            {signal,cache:'no-store',headers:{'X-Blupe-Robot':robot}});
-          if (!response.ok) throw new Error('Video unavailable');
-          const data = await response.json();
-          const detail = data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === robot);
-          if (detail && !signal.aborted && robot === historyRobot) rememberMedia(detail);
-          return detail;
-        },
-        source: run => playbackSource(run, false),
-        layout: (...args) => window.yamRecordingView?.(...args),
-        canPlay: () => historyView === 'cloud' && !document.hidden && !dialog.open,
-        reducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-      });
-      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
-        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm(runs), renderAreaSummary);
+      cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun, () => {}, () => {}, renderAreaSummary);
       cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
       cloud?.setHighlight?.(regionHighlight);
+      cloud?.setAreaLabels?.(showAreaLabels);
       if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
       for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
       if($('taskCloudSelectArea'))$('taskCloudSelectArea').disabled=!catalogRows.length || !cloud?.setAreaSelection;
-      if($('taskCloudAddBox'))$('taskCloudAddBox').disabled=!catalogRows.length || !cloud?.addVolume;
     }
   }
   function renderAreaSummary(area) {
@@ -604,15 +587,14 @@ function createRunLaunchGuard() {
     toggle.setAttribute('aria-pressed',String(area.active));
     toggle.textContent=area.active?'Cancel drawing':'Draw box';
     toggle.hidden=false;
-    $('taskCloudAddBox').textContent='Add 3D box';
     $('taskCloudTransformToolbar').hidden=false;
     for(const tool of ['Move','Resize','Rotate']){$('taskCloudTool'+tool).disabled=!area.hasSelection;$('taskCloudTool'+tool).setAttribute('aria-pressed',String(area.hasSelection && area.tool===tool.toLowerCase()));}
-    $('taskCloudToolHelp').textContent=!area.hasSelection?'Add or draw a box to use Move, Resize and Rotate. Drag empty space to orbit.':area.tool==='move'?'Drag an arrow to move the whole box along X, Y or Z. Drag empty space to orbit.':area.tool==='rotate'?'Drag a colored ring to rotate the box around its axis. Drag empty space to orbit.':'Drag a colored cube to push or pull one box face. Drag empty space to orbit.';
+    $('taskCloudToolHelp').textContent=!area.hasSelection?'Draw a box to use Move, Resize and Rotate. Drag empty space to orbit.':area.tool==='move'?'Drag an arrow to move the whole box along X, Y or Z. Drag empty space to orbit.':area.tool==='rotate'?'Drag a colored ring to rotate the box around its axis. Drag empty space to orbit.':'Drag a colored cube to push or pull one box face. Drag empty space to orbit.';
     $('taskCloudToolHelp').textContent+=' Box axes: X red, Y green, Z blue.';
     $('taskCloudNudgeHelp').textContent=area.tool==='move'?'Move by 10% of box size':area.tool==='rotate'?'Rotate by 15°':'Resize by 10%';
     $('taskCloudClearArea').disabled=!area.hasSelection && !area.drawing;
     $('taskCloudAreaHelp').hidden=false;
-    $('taskCloudAreaHelp').textContent=area.active?'Drag an outline, then release or press Enter to replace the 3D box. Escape cancels.':'Add a 3D box to select runs. Drag empty space to orbit the view; scroll or pinch to zoom.';
+    $('taskCloudAreaHelp').textContent=area.active?'Drag an outline, then release or press Enter to replace the 3D box. Escape cancels.':'Choose Draw box, then drag to select a 3D region. Drag empty space to orbit; scroll or pinch to zoom.';
     summary.hidden=!area.hasSelection;
     $('taskCloudAreaTitle').textContent=area.drawing?'Drawing 3D box…':'3D selection';
     $('taskCloudAreaCounts').textContent=area.total
@@ -728,8 +710,13 @@ function createRunLaunchGuard() {
     cloud?.setHighlight?.(regionHighlight);
     if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
   });
+  $('taskCloudShowLabels')?.addEventListener('change', () => {
+    showAreaLabels = $('taskCloudShowLabels').checked;
+    try { localStorage.setItem('yam-cloud-area-labels', String(showAreaLabels)); } catch (_) {}
+    cloud?.setAreaLabels?.(showAreaLabels);
+    if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
+  });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
-  $('taskCloudAddBox')?.addEventListener('click', () => {cloud?.addVolume?.();$('taskCloudCanvas').focus({preventScroll:true});});
   for(const tool of ['Move','Resize','Rotate'])$('taskCloudTool'+tool)?.addEventListener('click',()=>cloud?.setVolumeTool?.(tool.toLowerCase()));
   for(const [suffix,view] of [['Iso','isometric'],['Front','front'],['Top','top'],['Side','side']])$('taskCloudView'+suffix)?.addEventListener('click',()=>cloud?.setView?.(view));
   for(const [axis,name] of ['X','Y','Z'].entries())for(const [suffix,direction] of [['Minus',-1],['Plus',1]])$('taskCloudNudge'+name+suffix)?.addEventListener('click',()=>cloud?.nudgeVolume?.(axis,direction));
