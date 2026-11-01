@@ -751,3 +751,21 @@ seeking were verified while live control stayed on Robo-house. See
 [model-filter scope evidence](../../../../docs/roboskills/verification/2026-11-01-model-filter-scope.md).
 This changes only public history discovery and its read-only context. Broader
 12/15 acceptance, open items 7/13/15 and all prior exceptions remain unchanged.
+
+## Actual point-cloud mapping verified — November 1, 2026
+
+The owner reported selecting RoboSkills but seeing no cloud points. A catalog
+count had not proved mapping: 35 records had null coordinates because Numba's
+compilation cache was unwritable in the protected website service. Hosting PR201
+adds a persistent service-owned cache while retaining strict/read-only protections,
+the frozen projection and every old coordinate. All 35 runs now have finite
+coordinates; the normal canvas renders 35 points, and selecting a point opens a
+retained replay that plays/seeks. See the scoped
+[point-cloud repair evidence](../../../../docs/roboskills/verification/2026-11-01-point-cloud.md).
+
+The five point-cloud repair checks are verified. The current broader unchecked
+requirements above—representative physical task, intuitive visitor flow, every-run
+startup timing, meaningful waits and final integration qualification—remain open.
+Historical dated acceptance summaries, prior owner exceptions and the specifically
+excluded old recording retain their recorded scope. No new physical/model-policy
+run, identity submission, camera recording or media publication was performed.
