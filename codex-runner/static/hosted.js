@@ -847,6 +847,10 @@ function createRunLaunchGuard() {
   let aspireRunAvailable = false;
   const originalProviderMarkup = $('provider').innerHTML;
   const resolveViewerStream = createViewerStreamResolver();
+  const liveViewers = window.yamLiveViewers?.create({
+    badge:$('liveViewerCount'), label:$('liveViewerCountText'), viewer:$('liveViewer')
+  });
+  window.addEventListener('blupe-robot-selected', () => liveViewers?.reset());
   let selectedRobot = window.yamApplication?.defaultRobot || new URLSearchParams(location.search).get('robot_id') || 'robot-ba8413962083809c', robotGeneration = 0, robotCatalog = null, pollingStarted = false;
   let ownRunLive = false, conversationSharingAllowed = true;
   let grootModel = 'groot-reviewed-step10000';
@@ -886,6 +890,7 @@ function createRunLaunchGuard() {
     const launchVersion = runLaunchGuard.version;
     const sessionToken = csrf;
     const headers = path === '/api/robots' ? {} : {'X-Blupe-Robot': selectedRobot};
+    if (path === '/api/status') headers['X-YAM-Watching'] = liveViewers?.watching() ? '1' : '0';
     if (data !== undefined) { headers['Content-Type'] = 'application/json'; headers['X-YAM-Runner-Token'] = csrf; }
     const response = await fetch(path, {method: data === undefined ? 'GET' : 'POST', headers,
       body: data === undefined ? undefined : JSON.stringify(data), credentials: 'same-origin', cache: 'no-store'});
@@ -1814,6 +1819,7 @@ function createRunLaunchGuard() {
       : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
+    liveViewers?.render(state.live_viewer_count);
     window.yamRuntimeSteering?.update(state);
     if (state.subscription_setup?.setup_prompt) {
       const failure = `${state.session_id}:${state.error}`;

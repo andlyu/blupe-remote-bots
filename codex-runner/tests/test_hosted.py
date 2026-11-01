@@ -25,6 +25,42 @@ class HeldProvider(ScriptedAdapter):
 
 
 class HostedTests(unittest.IsolatedAsyncioTestCase):
+    async def test_live_viewers_only_count_watching_sessions_and_deduplicate_tabs(self):
+        first, second = await self.session(), await self.session()
+        code, data, _ = await self.call('/api/status')
+        self.assertEqual(code, 401)
+        _, data, _ = await self.call('/api/status', **first)
+        self.assertEqual(data['live_viewer_count'], 0)
+        for _ in range(2):
+            _, data, _ = await self.call('/api/status', extra={'x-yam-watching':'1'}, **first)
+            self.assertEqual(data['live_viewer_count'], 1)
+        # A background tab sharing the first cookie must not remove its visible tab.
+        _, data, _ = await self.call('/api/status', extra={'x-yam-watching':'0'}, **first)
+        self.assertEqual(data['live_viewer_count'], 1)
+        _, data, _ = await self.call('/api/status', extra={'x-yam-watching':'1'}, **second)
+        self.assertEqual(data['live_viewer_count'], 2)
+        self.assertFalse(self.providers, 'Watching must never start a robot policy')
+        self.assertNotIn('cookie', data)
+        self.assertNotIn('watchers', data)
+
+    async def test_live_viewers_expire_without_a_visible_heartbeat(self):
+        first, second = await self.session(), await self.session()
+        await self.call('/api/status', extra={'x-yam-watching':'1'}, **first)
+        await self.call('/api/status', extra={'x-yam-watching':'1'}, **second)
+        first_visitor, second_visitor = self.app.visitors.values()
+        first_visitor.last_watched -= hosted.LIVE_VIEWER_SECONDS
+        _, data, _ = await self.call('/api/status', extra={'x-yam-watching':'0'}, **first)
+        self.assertEqual(data['live_viewer_count'], 1)
+        second_visitor.retired = True
+        _, data, _ = await self.call('/api/status', **first)
+        self.assertEqual(data['live_viewer_count'], 0)
+        second_visitor.retired = False
+
+    async def test_live_viewer_script_is_publicly_served(self):
+        code, body, _ = await self.call('/static/live-viewers.js')
+        self.assertEqual(code, 200)
+        self.assertIn(b'window.yamLiveViewers', body)
+
     async def test_public_label_export_is_separate_from_runner_assessments(self):
         code, data, _ = await self.call('/api/run-labels')
         self.assertEqual(code, 200)
