@@ -107,6 +107,8 @@ class Visitor:
     launch_requested_at: float | None = None
     chat_id: str = field(default_factory=lambda: secrets.token_hex(4))
     last_chat: float = -float("inf")
+    last_data_chat: float = -float("inf")
+    data_chat_busy: bool = False
     last_reaction: float = -float("inf")
     last_stream_report: float = -float("inf")
     last_watched: float = -float("inf")
@@ -236,6 +238,8 @@ class HostedRunner:
                 self.runpod_providers[name] = dict(label=selected['label'], model=selected['model'],
                     default_run_duration_s=120,
                     help='YAM1 joint policy using the overhead and wrist cameras. GPU preparation can take several minutes.')
+        from remote_yam.run_data_chat import OpenAIDataChat
+        self.data_chat = OpenAIDataChat.configured()
         self.visitors: dict[str, Visitor] = {}
         self.monitor_api = self.api_factory()
         self.dream_providers = {}
@@ -531,7 +535,7 @@ class HostedRunner:
         if method == "GET" and path == "/static/manrope-variable.ttf":
             await self.respond(send, 200, (ROOT / "static/manrope-variable.ttf").read_bytes(), "font/ttf")
             return
-        if method == "GET" and path in {"/", "/static/hosted.js", "/static/run-assessments.js", "/static/run-labels.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/live-viewers.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
+        if method == "GET" and path in {"/", "/static/hosted.js", "/static/run-assessments.js", "/static/run-labels.js", "/static/run-data-chat.js", "/static/run-data-chat.css", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/live-viewers.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -695,6 +699,7 @@ class HostedRunner:
                                'claude': await asyncio.to_thread(subscription_status, 'claude'), 'claude_model': CLAUDE_MODEL}
             from remote_yam.system_prompts import catalog as system_prompt_catalog
             await self.json(send, 200, {**local_setup, **application_setup,
+                                      "data_chat": {"available": self.data_chat is not None, "model": self.data_chat.model if self.data_chat else None},
                                       "system_prompts": system_prompt_catalog(self.joint_counts == (6,6)), "robot_id": self.robot_id, "video_stream": self.video_stream, "cameras": list(self.camera_names), "model_cameras": list(self.model_camera_names()), "joint_policy": self.joint_counts != (6,6), "claude_supported": self.hardware == "makerarm" or self.joint_counts in {(6,6), (5,5), (5,0)}, "csrf": visitor.csrf, "astra_enabled": bool(self.astra_endpoint), "groot_enabled": bool(self.groot_key_file), "groot_model": self.groot_model, "groot_label": self.groot_label, "runpod_providers": self.runpod_providers, "custom_endpoint_enabled": True,
                                       "custom_endpoint_profile": dict(robot_id=self.robot_id, joint_counts=list(self.joint_counts), cameras=list(self.model_camera_names()), action_dim=sum(count + 1 for count in self.joint_counts if count)),
                                       "simulation": self.simulation, "share_conversation": self.share_conversation,
@@ -714,7 +719,40 @@ class HostedRunner:
             payload = await self.body(receive)
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
-            if path == '/api/run-assessment':
+            if path == '/api/run-data-chat':
+                from remote_yam.run_data_chat import validate_payload, build_context, DataChatUnavailable
+                try:
+                    question, data_scope, history = validate_payload(payload)
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
+                if self.data_chat is None:
+                    raise RequestError(503, 'Data chat is not configured on this server. The run library and replays remain available.')
+                if visitor.data_chat_busy or time.monotonic() - visitor.last_data_chat < 3:
+                    raise RequestError(429, 'Please wait for the current answer before asking again.')
+                visitor.data_chat_busy = True
+                visitor.last_data_chat = time.monotonic()
+                try:
+                    catalog = await asyncio.to_thread(self.past_runs.page, metadata=True)
+                    overlay = await asyncio.to_thread(self.run_assessments.summaries)
+                    label_path = ROOT / 'annotations' / 'run-labels.json'
+                    annotations = json.loads(label_path.read_text()) if label_path.exists() else {'runs': []}
+                    context = await asyncio.to_thread(build_context, catalog, overlay, annotations,
+                        data_scope, self.robot_id, question, history)
+                    if not context['counts']['total']:
+                        result = {'answer': 'No runs match this scope. Clear a filter or select a different box to discuss the data.',
+                            'citations': [], 'requested_model': self.data_chat.model, 'resolved_model': None}
+                    else:
+                        result = await asyncio.to_thread(self.data_chat.answer, context, question, history)
+                    result['scope'] = {k:v for k,v in context.items() if k not in ('evidence','by_model','repeated_tasks')}
+                except ValueError as exc:
+                    raise RequestError(400, str(exc)) from None
+                except DataChatUnavailable as exc:
+                    raise RequestError(503, str(exc)) from None
+                except Exception:
+                    raise RequestError(503, 'Run data is unavailable. Refresh the library and try again.') from None
+                finally:
+                    visitor.data_chat_busy = False
+            elif path == '/api/run-assessment':
                 from remote_yam.run_assessments import AssessmentConflict
                 eid, operation = payload.get('episode_id'), payload.get('operation', 'read')
                 if not isinstance(eid, str) or not re.fullmatch(r'ep_[A-Za-z0-9_-]{1,100}', eid):

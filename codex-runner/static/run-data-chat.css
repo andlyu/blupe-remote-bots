@@ -1,0 +1,38 @@
+/* Run-library discussion inherits the existing workspace palette and type. */
+.runDiscussionLayout { min-width:0; }
+.runDiscussionData { min-width:0; }
+.runDiscussionLayout[data-chat-open="true"] { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,380px); gap:24px; align-items:start; }
+.runDataChat { position:sticky; top:16px; max-height:calc(100dvh - 32px); overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:8px; padding:16px; background:#fff; color:#202124; border:1px solid #c4c7c5; border-radius:12px; min-width:0; font-size:14px; line-height:1.5; }
+.runDataChat.hasConversation .runDataChatStarters { display:none; }
+.runDataChat[hidden] { display:none; }
+.runDataChatHeader { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.runDataChatHeader h3 { margin:0; font-size:18px; }
+.runDataChatHeader button { min-width:44px; min-height:44px; }
+.runDataChat p { margin:0; }
+.runDataChatScope { display:flex; flex-direction:column; gap:6px; }
+.runDataChatScope select { width:100%; min-height:44px; }
+.runDataChatScopeText,.runDataChatModel,.runDataChatMessage small { font-size:12px; color:#5f6368; overflow-wrap:anywhere; }
+.runDataChatScopeText { font-variant-numeric:tabular-nums; }
+.runDataChatStarters { display:flex; flex-wrap:wrap; gap:6px; }
+.runDataChatStarters button { font-size:12px; text-align:left; min-height:36px; }
+.runDataChatMessages { flex:1; min-height:160px; max-height:420px; overflow-y:auto; overscroll-behavior:contain; scrollbar-color:#9aa0a6 #f8fafd; }
+.runDataChatMessage { padding:12px 0; border-bottom:1px solid #dadce0; overflow-wrap:anywhere; }
+.runDataChatMessage[data-role="user"] { background:#f8fafd; padding:12px; }
+.runDataChatMessage p,.runDataChatMessage small { white-space:pre-wrap; }
+.runDataChatMessage p { margin:6px 0; }
+.runDataChatMessage small { display:block; }
+.runDataChatEvidence { padding-left:18px; margin:12px 0; }
+.runDataChatEvidence li { margin:10px 0; }
+.runDataChatEvidence a { color:#174ea6; text-decoration:underline; text-underline-offset:3px; }
+.runDataChatEvidence span { display:block; font-size:12px; }
+.runDataChatForm { display:flex; flex-direction:column; gap:8px; }
+.runDataChatForm textarea { width:100%; box-sizing:border-box; min-height:64px; max-height:150px; resize:vertical; font:inherit; color:#202124; background:#fff; border:1px solid #9aa0a6; border-radius:8px; padding:10px; caret-color:#174ea6; }
+.runDataChatForm textarea::placeholder { color:#5f6368; }
+.runDataChatActions { display:flex; flex-wrap:wrap; gap:8px; }
+.runDataChatActions button { min-height:44px; }
+.runDataChat :focus-visible { outline:2px solid #174ea6; outline-offset:2px; }
+.runDataChat ::selection { background:#d3e3fd; color:#18345b; }
+.runDataChatStatus { font-size:12px; color:#3c4043; }
+.runDataChat button:disabled { opacity:.55; }
+@media(max-width:1000px) { .runDiscussionLayout[data-chat-open="true"] { grid-template-columns:minmax(0,1fr) minmax(300px,340px); gap:16px; } }
+@media(max-width:800px) { .runDiscussionLayout[data-chat-open="true"] { display:flex; flex-direction:column; } .runDiscussionData {width:100%;} .runDataChat { position:static; width:100%; box-sizing:border-box; max-height:850px; } .runDataChatForm textarea {font-size:16px;} }
