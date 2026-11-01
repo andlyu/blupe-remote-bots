@@ -639,6 +639,7 @@
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{captionBoxes=[];clearPreview();dropAreaBox();schedule();}).observe(canvas);
     return {setRuns(next,id) {captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+      getSelectedRuns() {return areaApplied ? rows.filter(run=>areaKeys.has(runKey(run))) : [];},
       setAreaLabels(enabled) {captionBoxes=[];showAreaLabels=!!enabled;schedule();},
       setHighlight(mode) {captionBoxes=[];highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};
