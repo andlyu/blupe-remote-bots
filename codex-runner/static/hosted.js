@@ -736,9 +736,9 @@ function createRunLaunchGuard() {
     const filter = $('pastRunsModelFilter');
     if (filter?.open && !filter.contains(event.target)) filter.open = false;
   });
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && $('pastRunsModelFilter')?.open) {
-      event.preventDefault(); $('pastRunsModelFilter').open = false; $('pastRunsModelSummary').focus({preventScroll:true});
+  $('pastRunsModelFilter')?.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && $('pastRunsModelFilter').open) {
+      event.preventDefault(); event.stopPropagation(); $('pastRunsModelFilter').open = false; $('pastRunsModelSummary').focus({preventScroll:true});
     }
   });
   for (const view of ['table', 'cloud']) $(view === 'table' ? 'pastRunsTableView' : 'pastRunsCloudView').addEventListener('click', () => {
