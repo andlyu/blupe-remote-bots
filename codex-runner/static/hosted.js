@@ -610,6 +610,10 @@ function createRunLaunchGuard() {
     if (caveat) caveat.hidden = labelSource === 'auto';
     $('pastRunsTable').hidden = historyView !== 'table';
     $('pastRunsCloud').hidden = historyView !== 'cloud';
+    const searchForm = $('pastRunsSearch'), stage = $('taskCloudCanvas')?.parentElement, table = $('pastRunsTable');
+    if (historyView === 'cloud') {
+      if (searchForm && stage?.nextElementSibling !== searchForm) stage?.after?.(searchForm);
+    } else if (searchForm && table?.previousElementSibling !== searchForm) table?.before?.(searchForm);
     $('pastRunsTableView').setAttribute('aria-pressed', String(historyView === 'table'));
     $('pastRunsCloudView').setAttribute('aria-pressed', String(historyView === 'cloud'));
     if (historyView === 'cloud') {
@@ -638,7 +642,6 @@ function createRunLaunchGuard() {
       cloud?.setHighlight?.(regionHighlight);
       cloud?.setAreaLabels?.(showAreaLabels);
       if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
-      for (const id of ['taskCloudPrevious','taskCloudNext','taskCloudOpen']) $(id).disabled = !catalogRows.length;
       if($('taskCloudSelectArea'))$('taskCloudSelectArea').disabled=!catalogRows.length || !cloud?.setAreaSelection;
     }
   }
@@ -800,9 +803,6 @@ function createRunLaunchGuard() {
     if(runs.length)window.yamRunSidebar?.openSelection?.(runs);
   });
   for(const name of ['Width','Height','Depth','Position'])$('taskCloudVolume'+name)?.addEventListener('input', () => cloud?.setVolumeDimension?.(name.toLowerCase(),Number($('taskCloudVolume'+name).value)));
-  $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));
-  $('taskCloudNext').addEventListener('click', () => cloud?.step(1));
-  $('taskCloudOpen').addEventListener('click', () => cloud?.open());
   renderView();
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopPreview(); });
   window.addEventListener('blupe-robot-selected', event => {
