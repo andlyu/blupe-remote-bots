@@ -56,13 +56,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
     const question = input.value.trim(), s = scope();
     if (!question || busy || !config?.available || !s) return;
     const current = ++revision; busy = true; $('runDataChatSend').disabled = true; $('runDataChatCancel').hidden = false;
-    status.textContent = 'Reading matching run metadata and asking OpenAI. This can take up to a minute; no videos are being watched.';
+    status.textContent = 'Searching run prompts and saved annotations. Analysis may take a moment; no videos are being watched.';
     const previous = history.slice(-12); message('user', question, describe(s));
     try {
       const data = await config.send({question, scope:s, history:previous});
       if (current !== revision) return;
       const c = data.scope.counts, denominator = c.denominator;
-      const basis = `${data.scope.counts.total} ${data.scope.kind === 'all' ? 'runs across all public robots' : 'runs in focused scope'} · ${c.Success} Success, ${c.Failure} Failure, ${c.Uncertain} Uncertain, ${c.Unscored} unlabeled/excluded · ${denominator ? `${(c.Success/denominator*100).toFixed(1)}% of ${denominator} Success/Failure labels` : 'No Success/Failure denominator'} · ${data.scope.evidence_count} example records supplied${data.scope.stale ? ' · Saved archive snapshot (temporarily stale)' : ''}\nCurrent library context: ${data.scope.library_context?.counts.total ?? 'unknown'} runs · ${data.scope.library_context?.counts.denominator ?? 0} Success/Failure labels.`;
+      const search = data.scope.search;
+      const searchBasis = search ? `\nText search: ${search.searched_runs.toLocaleString()} full prompts/annotations · ${search.matched_runs} matches · ${search.records_returned} returned` : '';
+      const basis = `${data.scope.counts.total} ${data.scope.kind === 'all' ? 'runs across all public robots' : 'runs in focused scope'} · ${c.Success} Success, ${c.Failure} Failure, ${c.Uncertain} Uncertain, ${c.Unscored} unlabeled/excluded · ${denominator ? `${(c.Success/denominator*100).toFixed(1)}% of ${denominator} Success/Failure labels` : 'No Success/Failure denominator'} · ${data.scope.evidence_count} evidence records${data.scope.stale ? ' · Saved archive snapshot (temporarily stale)' : ''}\nCurrent library context: ${data.scope.library_context?.counts.total ?? 'unknown'} runs · ${data.scope.library_context?.counts.denominator ?? 0} Success/Failure labels.${searchBasis}`;
       const article = message('assistant', data.answer, `${describe(s)}\n${basis}`);
       if (data.citations?.length) {
         const list = document.createElement('ul'); list.className = 'runDataChatEvidence';
@@ -83,7 +85,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = {openDataC
         article.append(list);
       }
       const model = document.createElement('small');
-      model.textContent = data.provider === 'codex_subscription' ? `ChatGPT subscription · selected ${data.requested_model} · low reasoning · resolved model ID not exposed` : data.resolved_model ? `OpenAI · requested ${data.requested_model} · returned ${data.resolved_model} · low reasoning` : 'No model call needed for an empty scope.'; article.append(model); $('runDataChatMessages').scrollTop=$('runDataChatMessages').scrollHeight;
+      model.textContent = data.provider === 'local_search' ? `${data.scope.kind === 'all' ? 'Full-library' : 'Focused'} text search · ${Math.round(data.elapsed_ms || 0)} ms server time · no model call` : data.provider === 'codex_subscription' ? `ChatGPT subscription · selected ${data.requested_model} · low reasoning · resolved model ID not exposed` : data.resolved_model ? `OpenAI · requested ${data.requested_model} · returned ${data.resolved_model} · low reasoning` : 'No model call needed for an empty scope.'; article.append(model); $('runDataChatMessages').scrollTop=$('runDataChatMessages').scrollHeight;
       history = [...previous, {role:'user',content:question}, {role:'assistant',content:data.answer}].slice(-12);
       input.value = ''; status.textContent = 'Ask a follow-up, or open a supporting replay to inspect it.';
     } catch (error) {

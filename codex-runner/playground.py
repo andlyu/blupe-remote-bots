@@ -733,16 +733,17 @@ class HostedRunner:
                 return
             if path == '/api/run-data-chat':
                 from remote_yam.run_data_chat import validate_payload, build_context, DataChatUnavailable
+                from remote_yam.run_data_search import lookup_answer
                 try:
                     question, data_scope, history = validate_payload(payload)
                 except ValueError as exc:
                     raise RequestError(400, str(exc)) from None
                 if self.data_chat is None:
                     raise RequestError(503, 'Data chat is not configured on this server. The run library and replays remain available.')
-                if visitor.data_chat_busy or time.monotonic() - visitor.last_data_chat < 3:
+                if visitor.data_chat_busy:
                     raise RequestError(429, 'Please wait for the current answer before asking again.')
                 visitor.data_chat_busy = True
-                visitor.last_data_chat = time.monotonic()
+                search_started = time.perf_counter()
                 try:
                     catalog = await asyncio.to_thread(self.past_runs.page, metadata=True)
                     # Hosted libraries may include public receipts not yet in the archive.
@@ -766,12 +767,20 @@ class HostedRunner:
                         result = {'answer': 'No runs match this scope. Clear a filter or select a different box to discuss the data.',
                             'citations': [], 'requested_model': self.data_chat.model, 'resolved_model': None}
                     else:
-                        result = await asyncio.to_thread(self.data_chat.answer, context, question, history)
+                        result = lookup_answer(context, question, history)
+                        if result is None:
+                            if time.monotonic() - visitor.last_data_chat < 3:
+                                raise RequestError(429, 'Please wait a moment before asking for another analysis.')
+                            visitor.last_data_chat = time.monotonic()
+                            result = await asyncio.to_thread(self.data_chat.answer, context, question, history)
+                    result['elapsed_ms'] = round((time.perf_counter() - search_started)*1000, 2)
                     result['scope'] = {k:v for k,v in context.items() if k not in ('evidence','by_model','repeated_tasks')}
                 except ValueError as exc:
                     raise RequestError(400, str(exc)) from None
                 except DataChatUnavailable as exc:
                     raise RequestError(503, str(exc)) from None
+                except RequestError:
+                    raise
                 except Exception:
                     raise RequestError(503, 'Run data is unavailable. Refresh the library and try again.') from None
                 finally:
