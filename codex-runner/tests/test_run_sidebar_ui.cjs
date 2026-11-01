@@ -13,7 +13,7 @@ function setup(options={}){
    contains(other){for(let p=other;p;p=p.parent)if(p===this)return true;return false},focus(){this.focused=true},isConnected:true};
   Object.defineProperty(n,'src',{get:()=>attrs.get('src'),set:v=>attrs.set('src',v)});return n;
  }
- for(const id of ['pastRunDialog','runSidebarBody','similarRunsList','similarRunsStatus','similarRunsScore','moreSimilarRuns','similarRunsSentinel','pastRunVideo','pastRunsLabelSource'])nodes.set(id,element());
+ for(const id of ['pastRunDialog','runSidebarBody','similarRunsList','similarRunsTitle','similarRunsStatus','similarRunsScore','moreSimilarRuns','similarRunsSentinel','pastRunVideo','pastRunsLabelSource'])nodes.set(id,element());
  nodes.get('pastRunDialog').classList.add('runSidebar');
  const body=element(),focus=element(),document={body,activeElement:focus,getElementById:id=>nodes.get(id),createElement:element,addEventListener:(k,f)=>events[k]=f};
  const window={addEventListener:(k,f)=>events[k]=f,yamRunLabels:{load:async()=>{},outcome:(_,s)=>s==='human'?'Failure':'Success'},yamReplayHistory:{selectRun:run=>window.selected=run},matchMedia:()=>({matches:false})};
@@ -81,4 +81,33 @@ test('Escape leaves a nested email/settings modal alone and otherwise closes the
  const c=setup();c.window.yamRunSidebar.open(row('ep_self'));let modal=true;c.document.querySelector=()=>modal?{}:null;
  c.events.keydown({key:'Escape',preventDefault(){}});assert.ok(c.nodes.get('pastRunDialog').open);
  modal=false;c.events.keydown({key:'Escape',preventDefault(){}});assert.ok(!c.nodes.get('pastRunDialog').open);
+});
+
+test('box browsing includes every selected run without similarity ranking or a forty-run limit',async()=>{
+ const c=setup(),rows=Array.from({length:60},(_,i)=>({...row('ep_box'+i,'Unrelated task '+i,[i,0,0]),testOutcome:i<10?'Failure':'Success'}));
+ rows[0].preview={...preview,video_duration_s:0};c.window.yamRunLabels.outcome=(run,source)=>source==='auto'?run.testOutcome:'Failure';
+ c.window.yamRunSidebar.setCatalog([...rows,row('ep_outside')],{robot:'yam-1',complete:true,source:'auto'});
+ assert.equal(c.window.yamRunSidebar.openSelection([...rows,rows[0],row('ep_wrong','Wrong station',[0,0,0],'other')]),true);
+ assert.equal(c.window.selected.episode_id,'ep_box1','opens an available recording while retaining unavailable entries in the collection');
+ c.window.yamRunSidebar.open(c.window.selected);await c.flush();
+ assert.equal(c.nodes.get('similarRunsTitle').textContent,'Runs in box');assert.equal(c.nodes.get('similarRunsList').children.length,8);
+ assert.match(c.nodes.get('similarRunsStatus').textContent,/Showing 8 of 60 runs in the selected box/);
+ assert.match(c.nodes.get('similarRunsScore').textContent,/83\.3% success \(50\/60 Success\/Failure labels\).*60 runs in the selected box/);
+ assert.equal(c.requests.length,0,'the exact box snapshot never fetches or ranks the full catalog');
+ while(!c.nodes.get('moreSimilarRuns').hidden)c.nodes.get('moreSimilarRuns').emit('click');
+ assert.equal(c.nodes.get('similarRunsList').children.length,60);assert.match(c.nodes.get('similarRunsStatus').textContent,/Showing 60 of 60/);
+ c.nodes.get('runSidebarBody').scrollTop=240;c.window.yamRunSidebar.open(rows[57]);await c.flush();assert.equal(c.nodes.get('runSidebarBody').scrollTop,240);assert.equal(c.nodes.get('similarRunsList').children.length,60,'watching another selected run preserves box scope');
+ c.window.yamRunSidebar.setSource('human');await c.flush();assert.match(c.nodes.get('similarRunsScore').textContent,/0\.0% success \(0\/60/);
+ c.window.yamRunSidebar.open(row('ep_outside'));await c.flush();assert.equal(c.nodes.get('similarRunsTitle').textContent,'Similar videos','outside selection restores normal browsing');
+});
+test('box browsing aborts stale similar-catalog requests and reverts when filters change',async()=>{
+ const c=setup(),selected=[row('ep_inside','Inside box'),row('ep_other','Completely different task')];
+ c.window.yamRunSidebar.open(row('ep_old'));assert.equal(c.requests.length,1);
+ assert.equal(c.window.yamRunSidebar.openSelection(selected),true);c.window.yamRunSidebar.open(c.window.selected);await c.flush();
+ assert.equal(c.requests[0].options.signal.aborted,true);assert.equal(c.nodes.get('similarRunsList').children.length,2);
+ c.answer(c.requests[0],[row('ep_stale')]);await c.flush();assert.match(c.nodes.get('similarRunsStatus').textContent,/2 of 2 runs in the selected box/);
+ c.window.yamRunSidebar.setCatalog([],{robot:'yam-1',complete:false,source:'auto',filters:{models:['Policy B'],query:'cup'}});await c.flush();
+ assert.equal(c.nodes.get('similarRunsTitle').textContent,'Similar videos');assert.match(c.requests.at(-1).url,/model=Policy%20B&q=cup/);
+ c.nodes.get('pastRunDialog').close();assert.equal(c.requests.at(-1).options.signal.aborted,true);
+ assert.equal(c.window.yamRunSidebar.openSelection([]),false);
 });

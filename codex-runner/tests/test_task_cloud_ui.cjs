@@ -29,6 +29,7 @@ test('3D box excludes overlapping points outside its depth; resizing changes mem
  const start={pointerId:1,pointerType:'mouse',clientX:470,clientY:245},end={...start,clientX:530,clientY:295};
  c.cloud.setAreaSelection(true);c.events.pointerdown(start);c.events.pointermove(end);c.events.pointerup(end);c.draw();
  assert.equal(c.areas.at(-1).total,1);assert.equal(c.areas.at(-1).Success,1);assert.equal(c.areas.at(-1).successRate,1);assert.equal(c.opened.length,0);
+ assert.deepEqual(Array.from(c.cloud.getSelectedRuns(),run=>run.episode_id),['ep_volume1']);
  assert.equal(c.canvas.dataset.cloudCamera,initialCamera,'creation preserves the current camera');assert.equal(c.areas.at(-1).active,false,'background drag immediately rotates after drawing');
  const volume=c.canvas.dataset.volumeBox;c.cloud.zoom(1.5);c.events.keydown({key:'ArrowRight',preventDefault(){}});c.draw();
  assert.equal(c.canvas.dataset.volumeBox,volume);assert.equal(c.canvas.dataset.areaSelected,'1');
@@ -36,7 +37,7 @@ test('3D box excludes overlapping points outside its depth; resizing changes mem
  c.cloud.setRuns(rows.map(run=>({...run,testOutcome:'Failure'})));c.draw();assert.equal(c.areas.at(-1).Failure,3);assert.equal(c.areas.at(-1).successRate,0);
  c.cloud.setVolumeDimension('position',0);c.draw();assert.equal(c.areas.at(-1).total,2,'depth position shifts finite volume, not just its camera');
  c.cloud.setRuns(rows.slice(1));c.draw();assert.equal(c.areas.at(-1).total,1);
- c.cloud.setRuns(rows.map(run=>({...run,robot_id:'other'})));c.draw();assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.areas.at(-1).total,0);assert.equal(c.canvas.dataset.volumeBox,'');
+ c.cloud.setRuns(rows.map(run=>({...run,robot_id:'other'})));c.draw();assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.areas.at(-1).total,0);assert.equal(c.canvas.dataset.volumeBox,'');assert.equal(c.cloud.getSelectedRuns().length,0);
 });
 test('volume axes round-trip camera coordinates and contain only real persisted coordinates within all six faces',()=>{
  const c=setup(),local=[.2,-.3,.4],world=c.worldCoordinates(local,.7,-.3),back=c.cameraCoordinates(world,.7,-.3);
@@ -306,4 +307,35 @@ test('idle dot and keyboard previews work while drawing is armed and after a box
   c.events.pointermove({...pointer,clientX:p.x+20});assert.equal(c.previews.at(-1).run,null);
   c.events.pointercancel();
  }
+});
+
+test('View runs in the box uses the current selection and disables empty boxes',()=>{
+ const c=require('./helpers/past-runs.cjs')('', 'cloud'),opened=[];
+ let selected=[{episode_id:'ep_selected',robot_id:'yam-1',prompt:'Selected task'}];
+ c.cloud.getSelectedRuns=()=>selected;c.window.yamRunSidebar={openSelection:rows=>opened.push(rows.slice())};
+ const area={hasSelection:true,total:1,Success:1,Failure:0,Uncertain:0,Unscored:0,scored:1,successRate:1,medianPrompt:'Selected task'};
+ c.cloud.areaChange(area);const button=c.nodes.get('taskCloudViewAreaRuns');assert.equal(button.disabled,false);
+ button.emit('click');assert.equal(opened[0][0].episode_id,'ep_selected');
+ selected=[{episode_id:'ep_after_resize',robot_id:'yam-1'}];button.emit('click');assert.equal(opened[1][0].episode_id,'ep_after_resize','reads geometry at click time');
+ selected=[];c.cloud.areaChange({...area,total:0,scored:0,successRate:null});assert.equal(button.disabled,true);button.emit('click');assert.equal(opened.length,2);
+ c.cloud.areaChange({...area,hasSelection:false,total:0,successRate:null});assert.equal(button.disabled,true);
+});
+
+test('Hide box removes the overlay and handles while preserving exact geometry, runs and camera',()=>{
+ const c=setup(),rows=[{episode_id:'ep_inside',robot_id:'yam-1',prompt:'Inside',xyz:[0,0,0]},{episode_id:'ep_outside',robot_id:'yam-1',prompt:'Outside',xyz:[1,1,1]}];
+ c.cloud.setRuns(rows);c.draw();c.cloud.setAreaSelection(true);c.events.keydown({key:'Enter',preventDefault(){}});c.draw();
+ const box=c.canvas.dataset.volumeBox,camera=c.canvas.dataset.cloudCamera,selected=Array.from(c.cloud.getSelectedRuns(),r=>r.episode_id),handles=JSON.parse(c.canvas.dataset.volumeHandles);
+ assert.equal(c.canvas.dataset.boxVisible,'true');assert.ok(handles.length>0);
+ c.cloud.setBoxVisible(false);c.draw();assert.equal(c.canvas.dataset.boxVisible,'false');assert.equal(c.canvas.dataset.volumeBox,box);assert.equal(c.canvas.dataset.cloudCamera,camera);assert.equal(c.canvas.dataset.volumeHandles,'[]');assert.deepEqual(Array.from(c.cloud.getSelectedRuns(),r=>r.episode_id),selected);assert.equal(c.areas.at(-1).boxVisible,false);
+ c.events.pointermove({pointerId:1,pointerType:'mouse',clientX:handles[0].x,clientY:handles[0].y});assert.notEqual(c.canvas.style.cursor,'ew-resize','hidden handles cannot intercept dot hover');
+ c.cloud.setBoxVisible(true);c.draw();assert.equal(c.canvas.dataset.boxVisible,'true');assert.equal(c.canvas.dataset.volumeBox,box);assert.equal(c.canvas.dataset.cloudCamera,camera);assert.ok(JSON.parse(c.canvas.dataset.volumeHandles).length>0);
+ c.cloud.setBoxVisible(false);c.cloud.setAreaSelection(true);c.events.keydown({key:'Enter',preventDefault(){}});c.draw();assert.equal(c.canvas.dataset.boxVisible,'true','drawing a new box makes it visible');
+ c.cloud.clearArea();c.draw();assert.equal(c.canvas.dataset.boxVisible,'false');assert.equal(c.cloud.getSelectedRuns().length,0);
+});
+test('Hide and Show use visibility state while View runs remains enabled for a hidden selection',()=>{
+ const c=require('./helpers/past-runs.cjs')('', 'cloud'),changes=[];c.cloud.setBoxVisible=value=>changes.push(value);c.window.yamRunSidebar={openSelection(){}};
+ const area={hasSelection:true,total:1,Success:1,Failure:0,Uncertain:0,Unscored:0,scored:1,successRate:1,boxVisible:true};
+ c.cloud.areaChange(area);const hide=c.nodes.get('taskCloudHideArea');assert.equal(hide.disabled,false);assert.equal(hide.textContent,'Hide box');hide.emit('click');assert.equal(changes.at(-1),false);
+ c.cloud.areaChange({...area,boxVisible:false});assert.equal(hide.textContent,'Show box');assert.equal(c.nodes.get('taskCloudViewAreaRuns').disabled,false);hide.emit('click');assert.equal(changes.at(-1),true);
+ c.cloud.areaChange({...area,hasSelection:false,total:0,boxVisible:false,successRate:null});assert.equal(hide.disabled,true);
 });

@@ -24,12 +24,12 @@
       .sort((a,b)=>Number(b.exact)-Number(a.exact) || b.overlap-a.overlap || (a.distance ?? 1)-(b.distance ?? 1) || (b.row.started_at || 0)-(a.row.started_at || 0) || a.row.episode_id.localeCompare(b.row.episode_id))
       .slice(0,limit).map(item=>item.row);
   }
-  function similarSuccessSummary(rows, source) {
-    const nearest=rows.slice(0,10), counts={Success:0,Failure:0,Uncertain:0,Unscored:0};
-    if(!nearest.length)return 'No similar published runs to score.';
+  function similarSuccessSummary(rows, source, selected=false) {
+    const nearest=selected ? rows : rows.slice(0,10), counts={Success:0,Failure:0,Uncertain:0,Unscored:0};
+    if(!nearest.length)return selected ? 'No runs in this box to score.' : 'No similar published runs to score.';
     for(const row of nearest){const label=window.yamRunLabels?.outcome(row,source) || 'Unscored';counts[label in counts?label:'Unscored']++;}
     const scored=counts.Success+counts.Failure;
-    const basis=nearest.length===10?'the 10 closest similar runs':`${nearest.length} available similar ${nearest.length===1?'run':'runs'}`;
+    const basis=selected ? `${nearest.length} ${nearest.length===1?'run':'runs'} in the selected box` : nearest.length===10?'the 10 closest similar runs':`${nearest.length} available similar ${nearest.length===1?'run':'runs'}`;
     const result=scored ? `${(counts.Success/scored*100).toFixed(1)}% success (${counts.Success}/${scored} Success/Failure labels) across ${basis}.` : `No Success/Failure labels among ${basis}.`;
     return `${result} ${counts.Uncertain} Uncertain and ${counts.Unscored} unlabeled or excluded. ${source==='auto'?'Auto-labeled':'Human-labeled'}.`;
   }
@@ -38,6 +38,7 @@
   if (!dialog?.classList?.contains('runSidebar') || !body || !list) return;
   const status=$('similarRunsStatus'), score=$('similarRunsScore'), more=$('moreSimilarRuns'), sentinel=$('similarRunsSentinel'), catalog=new Map();
   let active=null, source=$('pastRunsLabelSource')?.value==='human'?'human':'auto', scope=null, signature='', returnFocus=null, catalogRevision=0, filters={models:[],query:''};
+  let selection=null, selectionRevision=0;
   const catalogKey = robot => JSON.stringify([robot,filters.models,filters.query]);
   function rememberCatalog(key,rows) {
     catalog.delete(key);catalog.set(key,{rows,at:Date.now(),version:++catalogRevision});
@@ -57,8 +58,8 @@
   function updateCount(request) {
     if (scope!==request || request.closed) return;
     status.textContent=request.rows.length
-      ? `Showing ${request.shown} of ${request.rows.length} similar published videos on this robot. ${source==='auto'?'Auto-labeled':'Human-labeled'} results. ${request.shown<request.rows.length?'Scroll for more.':'All suggestions shown.'}`
-      : 'No similar published videos found on this robot yet.';
+      ? `Showing ${request.shown} of ${request.rows.length} ${request.selected?'runs in the selected box':'similar published videos on this robot'}. ${source==='auto'?'Auto-labeled':'Human-labeled'} results. ${request.shown<request.rows.length?'Scroll for more.':'All suggestions shown.'}`
+      : request.selected ? 'No runs in this box.' : 'No similar published videos found on this robot yet.';
     more.hidden=request.shown>=request.rows.length;
   }
   function release(request,entry) {
@@ -97,7 +98,8 @@
     if (request.closed || scope!==request) return;
     for (const row of request.rows.slice(request.shown,request.shown+count)) {
       const li=document.createElement('li'), button=document.createElement('button'), video=document.createElement('video'), text=document.createElement('span'), title=document.createElement('strong'), meta=document.createElement('span'), note=document.createElement('span');
-      button.type='button';button.className='similarRunCard';button.setAttribute('aria-label',`Watch similar run: ${row.prompt || 'Task not recorded'}`);
+      button.type='button';button.className='similarRunCard';button.setAttribute('aria-label',`Watch ${request.selected?'run in box':'similar run'}: ${row.prompt || 'Task not recorded'}`);
+      if(request.selected)button.setAttribute('aria-current',String(row.episode_id===request.run.episode_id));
       video.muted=true;video.playsInline=true;video.loop=true;video.preload='none';video.setAttribute('aria-hidden','true');video.tabIndex=-1;
       text.className='similarRunText';title.textContent=row.prompt || 'Task not recorded';meta.className='similarRunMeta';meta.textContent=`${stateText(row)} · ${row.model || 'Model not recorded'}`;note.className='similarRunState';note.textContent=request.mediaObserver?'Preview loads when visible':'Hover or focus to preview';
       text.append(title,meta,note);button.append(video,text);li.append(button);list.append(li);
@@ -119,12 +121,14 @@
   }
   async function refresh(force=false) {
     if (!active || !dialog.open) return;
-    const key=catalogKey(active.robot_id), cached=catalog.get(key), nextSignature=`${key}:${active.episode_id}:${source}:${cached?.version || 0}`;
+    const selected=selection?.robot===active.robot_id ? selection : null;
+    const key=selected ? `box:${selected.version}` : catalogKey(active.robot_id), cached=selected ? null : catalog.get(key), nextSignature=`${key}:${active.episode_id}:${source}:${cached?.version || 0}`;
     if(!force && signature===nextSignature)return;
-    signature=nextSignature;const oldShown=scope?.shown || 8;cancelScope();list.replaceChildren();more.hidden=true;more.textContent='Show more similar videos';status.textContent='Finding similar videos…';if(score)score.textContent='';
-    const request=scope={run:{...active},robot:active.robot_id,filters:{models:filters.models.slice(),query:filters.query},closed:false,controllers:new Set(),media:new Map(),entries:new Map(),queue:[],busy:0,shown:0,rows:[]};
+    signature=nextSignature;const oldShown=scope?.shown || 8, oldScroll=selected ? body.scrollTop : 0;cancelScope();list.replaceChildren();more.hidden=true;more.textContent=selected?'Show more runs':'Show more similar videos';status.textContent=selected?'Loading selected runs…':'Finding similar videos…';if(score)score.textContent='';
+    if($('similarRunsTitle'))$('similarRunsTitle').textContent=selected?'Runs in box':'Similar videos';
+    const request=scope={selected:!!selected,run:{...active},robot:active.robot_id,filters:{models:filters.models.slice(),query:filters.query},closed:false,controllers:new Set(),media:new Map(),entries:new Map(),queue:[],busy:0,shown:0,rows:[]};
     try {
-      let rows=cached && Date.now()-cached.at<60000 ? cached.rows : null;
+      let rows=selected ? selected.rows : cached && Date.now()-cached.at<60000 ? cached.rows : null;
       if (!rows) {
         const controller=new AbortController();request.controllers.add(controller);
         const modelQuery=request.filters.models.map(model=>`&model=${encodeURIComponent(model)}`).join(''), query=request.filters.query?`&q=${encodeURIComponent(request.filters.query)}`:'';
@@ -133,26 +137,36 @@
         if(request.closed)return;rememberCatalog(key,rows);
       }
       await window.yamRunLabels?.load();if(request.closed || scope!==request)return;
-      request.rows=rankSimilar(request.run,rows);
-      if(score)score.textContent=similarSuccessSummary(request.rows,source);
+      request.rows=selected ? rows.slice() : rankSimilar(request.run,rows);
+      if(score)score.textContent=similarSuccessSummary(request.rows,source,!!selected);
       if(typeof IntersectionObserver!=='undefined') {
         request.mediaObserver=new IntersectionObserver(entries=>{
           for(const observed of entries){const entry=request.entries.get(observed.target);if(!entry)continue;entry.visible=observed.isIntersecting;if(entry.visible)enqueue(request,entry);else release(request,entry);}
         },{root:body,rootMargin:'80px 0px'});
         request.moreObserver=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)&&request.shown<request.rows.length)append(request);},{root:body,rootMargin:'0px 0px 120px 0px'});
       }
-      append(request,Math.max(8,oldShown));request.moreObserver?.observe(sentinel);
+      append(request,Math.max(8,oldShown));if(selected)body.scrollTop=oldScroll;request.moreObserver?.observe(sentinel);
     } catch (_) {
       if(request.closed || scope!==request)return;
-      status.textContent='Similar videos are unavailable. Retry to load them.';more.textContent='Retry similar videos';more.hidden=false;
+      status.textContent=selected?'Selected runs are unavailable. Retry to load them.':'Similar videos are unavailable. Retry to load them.';more.textContent=selected?'Retry selected runs':'Retry similar videos';more.hidden=false;
     }
   }
   window.yamRunSidebar={
+    openSelection(rows) {
+      const robot=rows[0]?.robot_id, seen=new Set();
+      const runs=rows.filter(row=>row.robot_id===robot && row.episode_id && !seen.has(row.episode_id) && seen.add(row.episode_id)).map(row=>({...row}));
+      if(!robot || !runs.length)return false;
+      selection={robot,rows:runs,key:catalogKey(robot),version:++selectionRevision};signature='';cancelScope();body.scrollTop=0;
+      const first=runs.find(row=>{const clip=row.preview || row;return (clip.video_url || row.video_url) && clip.video_duration_s!==0 && row.video_status!=='unavailable';}) || runs[0];
+      window.yamReplayHistory?.selectRun(first);
+      return true;
+    },
     open(run) {
+      if(selection && !selection.rows.some(row=>row.robot_id===run.robot_id && row.episode_id===run.episode_id)){selection=null;signature='';}
       const changed=!active || active.episode_id!==run.episode_id || active.robot_id!==run.robot_id;
       const switchingInside=changed && dialog.open && dialog.contains(document.activeElement);
       if(!dialog.open || !dialog.contains(document.activeElement))returnFocus=document.activeElement;
-      active={...(changed?{}:active),...run};if(changed){signature='';cancelScope();body.scrollTop=0;}
+      active={...(changed?{}:active),...run};if(changed){signature='';if(!selection){cancelScope();body.scrollTop=0;}}
       document.body.classList.add('runSidebarOpen');if(!dialog.open)dialog.show();
       if(switchingInside)$('closePastRun')?.focus({preventScroll:true});
       refresh();
@@ -160,13 +174,14 @@
     setCatalog(rows,{robot,complete,source:labelSource,filters:nextFilters}) {
       source=labelSource || source;
       if(nextFilters)filters={models:[...(nextFilters.models || [])].sort(),query:nextFilters.query || ''};
+      if(selection && (selection.robot!==robot || selection.key!==catalogKey(robot))){selection=null;signature='';}
       if(complete)rememberCatalog(catalogKey(robot),rows.slice());
       if(dialog.open && active?.robot_id===robot)refresh();
     },
     setSource(value) {source=value;signature='';refresh();}
   };
   more.addEventListener('click',()=>{if(scope?.rows.length)append(scope);else refresh(true);});
-  dialog.addEventListener('close',()=>{cancelScope();active=null;signature='';document.body.classList.remove('runSidebarOpen');if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});});
+  dialog.addEventListener('close',()=>{cancelScope();active=null;selection=null;signature='';document.body.classList.remove('runSidebarOpen');if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});});
   document.addEventListener('keydown',event=>{if(event.key==='Escape' && dialog.open && !document.querySelector?.('dialog:modal') && !document.fullscreenElement && !$('pastRunVideo').webkitDisplayingFullscreen){event.preventDefault();dialog.close();}});
   window.addEventListener('blupe-robot-selected',event=>{if(dialog.open && active?.robot_id!==event.detail)dialog.close();});
 })();

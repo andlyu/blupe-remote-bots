@@ -229,3 +229,5 @@ Hovering a dot plays its muted video preview even with Draw box armed or an exis
 The control bar groups Highlight and Area labels separately from selection actions. Draw box is primary, Reset view stays beside it, and the compact Clear action has the accessible name Clear selection. Control positions stay stable while drawing; the renderer and keyboard behavior are unchanged.
 
 The control icons use local CSS shapes and text glyphs, so they render under the hosted Content Security Policy without embedded image URLs. Reset and Clear retain explicit accessible names.
+
+After drawing a box, **View runs in the box** opens its full selected set in the video sidebar; similarity ranking and the related-video limit do not filter that collection. **Hide box** hides the outline, handles, badge and selection dimming while retaining the box geometry and selected runs. **Show box** restores it without moving the camera. Drawing a new box makes that box visible. These actions stay in the main cloud toolbar so they remain usable when the old adjustment form is hidden.
