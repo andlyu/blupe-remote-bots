@@ -252,13 +252,13 @@
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null, showAreaLabels=false;
     let captionBoxes=[], pressedCaption=null;
-    let areaMode=false, areaApplied=false, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
+    let areaMode=false, areaApplied=false, boxVisible=true, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
     function volumeControls() {
       if(!volume)return null;
       const [min,max]=volume.depthLimits;
       return {width:Math.round(volume.half[0]/volume.baseHalf[0]*100),height:Math.round(volume.half[1]/volume.baseHalf[1]*100),depth:Math.round(volume.half[2]/volume.baseHalf[2]*100),position:Math.round(Math.max(0,Math.min(100,(dot(volume.center,volume.axes[2])-min)/(max-min)*100)))};
     }
-    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush,volume:volumeControls(),tool:volumeTool});
+    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush,boxVisible:!!volume && boxVisible,volume:volumeControls(),tool:volumeTool});
     const refreshArea = () => {areaKeys=new Set(rows.filter(run=>validPosition(run) && volume && volumeContains(volume,run.xyz)).map(runKey));areaStats=summarizeArea(rows.filter(run=>areaKeys.has(runKey(run))));notifyArea();};
     function setVolumeTool(tool) {if(!['move','resize','rotate'].includes(tool))return;volumeTool=tool;setAreaSelection(false);notifyArea();schedule();}
     function addVolume() {
@@ -267,7 +267,7 @@
       const center=sorted.map(values=>(values[Math.floor(values.length/2)]+values[Math.floor((values.length-1)/2)])/2);
       const half=sorted.map(values=>Math.max(.08,Math.min(.3,(values[Math.floor((values.length-1)*.8)]-values[Math.floor((values.length-1)*.2)])/2)));
       volume={center,half,baseHalf:half.slice(),axes:[[1,0,0],[0,1,0],[0,0,1]],depthLimits:[Math.min(0,...sorted[2])-.1,Math.max(0,...sorted[2])+.1],view:{yaw:0,pitch:0}};
-      areaApplied=true;volumeTool='resize';setAreaSelection(false);refreshArea();schedule();
+      areaApplied=true;boxVisible=true;volumeTool='resize';setAreaSelection(false);refreshArea();schedule();
     }
     function setView(name) {
       const view={isometric:[.7,.55],front:[0,0],top:[0,1.5],side:[Math.PI/2,0]}[name];
@@ -293,7 +293,12 @@
       areaMode=!!enabled;brush=null;volumeDrag=null;pointers.clear();last=null;moved=true;clearPreview();
       canvas.style.cursor=areaMode?'crosshair':'grab';notifyArea();schedule();
     }
-    function clearArea() {areaApplied=false;areaKeys.clear();volume=brush=volumeDrag=null;handles=[];badgeBounds=null;refreshArea();schedule();}
+    function clearArea() {boxVisible=true;areaApplied=false;areaKeys.clear();volume=brush=volumeDrag=null;handles=[];badgeBounds=null;refreshArea();schedule();}
+    function setBoxVisible(visible) {
+      if(!volume)return;
+      boxVisible=!!visible;areaMode=false;brush=volumeDrag=null;pointers.clear();last=null;moved=true;
+      handles=[];badgeBounds=null;canvas.style.cursor='grab';clearPreview();notifyArea();schedule();
+    }
     function dropAreaBox() {brush=null;volumeDrag=null;notifyArea();}
     function setVolumeDimension(name,value) {
       if(!volume || !Number.isFinite(Number(value)))return;
@@ -315,7 +320,7 @@
       const [a,b]=brush, width=canvas.clientWidth,height=canvas.clientHeight;
       let x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),right=Math.max(a[0],b[0]),bottom=Math.max(a[1],b[1]);
       if(right-x<4 && bottom-y<4){x=Math.max(0,x-6);y=Math.max(0,y-6);right=Math.min(width,right+6);bottom=Math.min(height,bottom+6);}
-      volume=volumeFromBrush({x,y,w:right-x,h:bottom-y},rows,yaw,pitch,magnification,width,height);areaApplied=true;
+      volume=volumeFromBrush({x,y,w:right-x,h:bottom-y},rows,yaw,pitch,magnification,width,height);areaApplied=true;boxVisible=true;
       brush=null;areaMode=false;volumeTool='resize';canvas.style.cursor='grab';refreshArea();schedule();
     }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
@@ -343,7 +348,7 @@
       }
     }
     function marker(point) {
-      ctx.globalAlpha=areaApplied && !areaKeys.has(runKey(point.run)) ? .22 : 1;
+      ctx.globalAlpha=areaApplied && boxVisible && !areaKeys.has(runKey(point.run)) ? .22 : 1;
       const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
       const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
       ctx.beginPath();
@@ -432,7 +437,8 @@
         ctx.font='12px system-ui';ctx.fillStyle='#172c21';
         lines.forEach((line,index)=>ctx.fillText(line,x+7,y+32+index*16));
       }
-      if(volume)drawVolume(width,height);
+      handles=[];badgeBounds=null;
+      if(volume && boxVisible)drawVolume(width,height);
       if(box){ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.setLineDash(brush?[5,4]:[]);ctx.strokeRect(box.x,box.y,box.w,box.h);ctx.setLineDash([]);}
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
@@ -443,6 +449,7 @@
       canvas.dataset.areaSelected=String(areaKeys.size);
       canvas.dataset.volumeBox=volume?JSON.stringify({center:volume.center,half:volume.half,axes:volume.axes}):'';
       canvas.dataset.volumeHandles=JSON.stringify(handles);
+      canvas.dataset.boxVisible=String(!!volume && boxVisible);
     }
     function drawVolume(width,height) {
       const corners=volumeCorners(volume).map(xyz=>project(xyz,yaw,pitch,magnification,width,height));
@@ -497,6 +504,7 @@
       }
     }
     function handleAt(event) {
+      if(!boxVisible)return null;
       const [x,y]=canvasPoint(event),radius=event.pointerType==='touch'?23:16;
       if(badgeBounds && x>=badgeBounds.x && x<=badgeBounds.x+badgeBounds.w && y>=badgeBounds.y && y<=badgeBounds.y+badgeBounds.h)return null;
       const distance=h=>{
@@ -638,7 +646,8 @@
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{captionBoxes=[];clearPreview();dropAreaBox();schedule();}).observe(canvas);
-    return {setRuns(next,id) {captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+    return {setRuns(next,id) {captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;boxVisible=true;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+      setBoxVisible,getSelectedRuns() {return areaApplied ? rows.filter(run=>areaKeys.has(runKey(run))) : [];},
       setAreaLabels(enabled) {captionBoxes=[];showAreaLabels=!!enabled;schedule();},
       setHighlight(mode) {captionBoxes=[];highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};

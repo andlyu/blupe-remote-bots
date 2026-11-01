@@ -658,6 +658,9 @@ function createRunLaunchGuard() {
     $('taskCloudToolHelp').textContent+=' Box axes: X red, Y green, Z blue.';
     $('taskCloudNudgeHelp').textContent=area.tool==='move'?'Move by 10% of box size':area.tool==='rotate'?'Rotate by 15°':'Resize by 10%';
     $('taskCloudClearArea').disabled=!area.hasSelection && !area.drawing;
+    $('taskCloudViewAreaRuns').disabled=!area.hasSelection || !area.total || !window.yamRunSidebar?.openSelection;
+    const hideBox=$('taskCloudHideArea'), visible=area.boxVisible!==false;
+    hideBox.disabled=!area.hasSelection || !cloud?.setBoxVisible;hideBox.dataset.visible=String(visible);hideBox.textContent=visible?'Hide box':'Show box';
     $('taskCloudAreaHelp').hidden=false;
     $('taskCloudAreaHelp').textContent=area.active?'Drag an outline, then release or press Enter to replace the 3D box. Escape cancels.':'Choose Draw box, then drag to select a 3D region. Drag empty space to orbit; scroll or pinch to zoom.';
     summary.hidden=!area.hasSelection;
@@ -794,6 +797,11 @@ function createRunLaunchGuard() {
     if(active)$('taskCloudCanvas').focus({preventScroll:true});
   });
   $('taskCloudClearArea')?.addEventListener('click', () => cloud?.clearArea?.());
+  $('taskCloudHideArea')?.addEventListener('click', () => cloud?.setBoxVisible?.($('taskCloudHideArea').dataset.visible!=='true'));
+  $('taskCloudViewAreaRuns')?.addEventListener('click', () => {
+    const runs=cloud?.getSelectedRuns?.() || [];
+    if(runs.length)window.yamRunSidebar?.openSelection?.(runs);
+  });
   for(const name of ['Width','Height','Depth','Position'])$('taskCloudVolume'+name)?.addEventListener('input', () => cloud?.setVolumeDimension?.(name.toLowerCase(),Number($('taskCloudVolume'+name).value)));
   $('taskCloudPrevious').addEventListener('click', () => cloud?.step(-1));
   $('taskCloudNext').addEventListener('click', () => cloud?.step(1));
