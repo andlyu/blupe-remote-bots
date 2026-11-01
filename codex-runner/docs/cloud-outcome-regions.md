@@ -79,52 +79,62 @@ the existing offscreen checks, colors and interactions remain in effect.
 
 ## Select a 3D volume
 
-**Draw 3D box** starts an outline in the current view. Release to create a
-finite, oriented cuboid in persisted map coordinates. Its width and height come
-from the outline at the median depth of matching projected runs. Its initial
-depth is half the candidate depth span, bounded to a full depth of `0.08–0.8`.
-An empty outline uses center depth zero and full depth `0.24`. The box's axes
-match the camera at creation and then stay fixed in map space. Drawing turns
-the camera by `0.65` radians horizontally and `0.16` vertically to expose depth;
-it immediately restores normal drag-to-rotate interaction.
+**Add 3D box** immediately creates a finite box in map space and opens an angled
+camera view. Its center is the coordinatewise median of mapped attempts; its
+half extents use half the20th–80th-percentile span of each coordinate, bounded
+to `0.08–0.3`. Initial axes match the saved map axes. This gives the same initial
+membership on desktop and phone, independently of the viewport. Adding a box
+focuses and scrolls to the canvas; **Reset 3D box** starts over from the current
+filtered catalog. **Redraw footprint** optionally replaces it using a drawn
+outline at the median candidate depth, as in the earlier selection flow.
 
-Membership tests all six faces using the original, unjittered `xyz` coordinates,
-including boundaries. Runs that overlap on screen can therefore be excluded
-when outside the box's depth. Display offsets only separate repeated markers;
-they do not change membership. Invalid/unmapped runs do not contribute.
+The toolbar adopts the familiar interaction patterns in
+[Three.js TransformControls](https://threejs.org/examples/misc_controls_transform.html),
+[Potree clipping volumes](https://potree.org/potree/examples/clipping_volume.html)
+and [CloudCompare section boxes](https://www.cloudcompare.org/doc/wiki/index.php/Cross_Section).
+The implementation uses the existing perspective renderer; these are pattern
+references, not a new runtime dependency or copied upstream source. See the
+[reference notes](refs/task-cloud/selection-controls.md).
 
-Drag the projected **W**, **H** or **D** face handle to resize width, height or
-depth symmetrically about the fixed center. Native range controls below the
-canvas offer the same dimensions from `5%` to `300%` of the original size.
-**Depth position** translates the center along the box's original depth axis,
-over the catalog's depth span plus `0.1` at each end. It does not rotate the box
-or move the camera. **Front view** restores the creation view; **Depth view**
-restores the angled view. Rotation, zoom, reset and responsive resizing retain
-the volume and its membership. Filter/catalog changes recalculate membership
-within that same volume; a robot change clears it. Selection is memory-only.
+- **Move box** shows arrows along its local X/Y/Z axes. Dragging an arrow moves
+  the entire volume along that axis, without moving the camera or changing size.
+- **Resize box** shows six face handles. Dragging one moves that boundary and
+  its center while keeping the opposite face fixed. Width/height/depth range
+  controls below the canvas also support symmetric resizing about the center,
+  from `5%` to `300%` of the initial dimensions.
+- **Rotate box** shows three projected rings. Dragging a ring rotates the box
+  about its own corresponding axis; center and size stay fixed. The pointer ray
+  intersects the ring's actual3D plane, and Rodrigues rotation updates the
+  orthonormal basis. Move/resize use a ray plane containing the selected axis.
 
-When drawing, arrow keys start/move the outline, Shift+arrows resize it and
-Enter creates the box. Escape cancels drawing; a second Escape exits drawing
-mode. After creation, arrow keys again rotate the camera. Sliders support native
-keyboard adjustments, including Home/End. Pinching cancels an unfinished outline
-and zooms without committing it. Pointer cancellation restores an in-progress
-handle resize. **Draw new 3D box** replaces the volume; **Clear selection**
-removes it and restores all markers.
+Red X, green Y and blue Z identify box controls, separately from run-outcome
+colors. Active tools use a pressed state. With the canvas focused, W selects
+Move, R Resize and E Rotate. Native X−/X+/Y−/Y+/Z−/Z+ buttons provide keyboard
+and touch-friendly alternatives: move10% of box size, resize10%, or rotate15°.
+Escape and pointer cancellation restore a transform being dragged. Pinching
+cancels an unfinished outline and zooms without applying it.
 
-An anchored canvas label beside the projected box reports total runs, binary
-success percentage, Success/Failure counts, usable-label denominator, uncertain
-and unknown coverage, and an ellipsized actual median prompt. It stays within
-the canvas as the box rotates. The complete, accessible summary and median are
-below the canvas with the resize controls. Automatic region captions and
-per-point task captions yield while a volume is active; their underlying tints
-and point colors remain visible. Clearing the box restores those captions.
+Dragging empty space or using arrow keys orbits the camera while retaining the
+box in map space. **3D**, **Front**, **Top** and **Side** are camera presets;
+camera orientation, zoom/reset and responsive resizing do not alter selection.
+**Depth position** translates along the current box Z axis. **Clear selection**
+removes the volume. Hover/focus video previews pause while a box is present so
+they do not obscure it; clicking a run still opens its replay. Clearing restores
+ordinary previews and automatic region/task captions.
 
-The success rate is `Success / (Success + Failure)` under the current Auto/Human
-label source. Uncertain and unlabeled/excluded runs are reported separately.
-An empty selection or one with no binary labels has no success percentage.
-Median prompt uses the existing actual task nearest the coordinatewise median
-across every selected mapped attempt, including all outcomes. Full summary
-text stays associated with the canvas and masked from analytics capture.
+Membership tests all six faces against the original, unjittered saved `xyz`,
+including boundaries. Screen-overlapping runs outside the box's depth are
+excluded; repeated attempts retain equal weight. Invalid/unmapped runs do not
+contribute. Source/filter/catalog changes recalculate counts within the same
+volume; changing robots clears it. The box and summaries remain memory-only.
+
+The bounded label beside the projected box shows run count, success percentage,
+Success/Failure denominator, uncertain/unknown coverage, and an ellipsized actual
+median prompt. Full accessible counts and median stay below the canvas, masked
+from analytics. Percentage is `Success / (Success + Failure)` under the selected
+Auto/Human source; empty/no-binary-label selections have no success percentage.
+Median prompt is the actual task nearest the coordinatewise median across all
+selected mapped outcomes. This is a descriptive result for the selected volume.
 
 ## Label source, robot and filter scope
 
@@ -190,11 +200,12 @@ individual run descriptions and replay evidence when interpreting an area.
 ## Design conformance evidence
 
 The3D selection follows the incumbent Operate canvas, paper background,
-native controls, palette and focus treatment. Width/height/depth handles use
+native controls, palette and focus treatment. Axis arrows, face handles and rotation rings use
 the same projection as all twelve box edges. A neutral label attached to the
 box keeps counts distinct from outcome colors; dashed far edges convey depth.
 Full counts and median remain in accessible DOM text, with two-column controls
 at phone widths. Geometry tests cover six-face boundaries, screen-overlapping
 runs at distinct depths, stable box membership under camera/source changes,
-dimension and depth-position changes, handle drag, cancellation and robot reset.
+dimension and depth-position changes, one-face resize, move and true plane-based
+rotation, transform cancellation and robot reset.
 Rendered desktop/phone and deployed evidence are recorded in the task checklist.
