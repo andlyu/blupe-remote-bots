@@ -108,6 +108,15 @@ class DataChatHostedTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.providers,'Data chat must never create a robot policy')
         self.assertEqual((await self.call('/api/run-data-chat',method='POST',payload=payload,**session))[0],429)
 
+    async def test_data_chat_history_uses_its_own_bounded_body_limit(self):
+        session=await self.session()
+        self.app.data_chat=Mock(model=MODEL);self.app.data_chat.answer.return_value={'answer':'Answer','citations':[]}
+        self.app.past_runs=Mock();self.app.past_runs.page.return_value={'runs':[row('ep_a')]}
+        payload={'question':'q','history':[{'role':'user' if i%2==0 else 'assistant','content':'x'*3000} for i in range(12)]}
+        code,_,_=await self.call('/api/run-data-chat',method='POST',payload=payload,**session)
+        self.assertEqual(code,200)
+        self.assertEqual((await self.call('/api/chat',method='POST',payload=payload,**session))[0],413)
+
     async def test_empty_scope_never_calls_model_and_unavailable_is_honest(self):
         session=await self.session()
         self.app.data_chat=None
