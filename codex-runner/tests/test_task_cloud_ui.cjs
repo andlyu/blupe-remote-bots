@@ -1,14 +1,17 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-function setup(labeler){
+function setup(labeler,interactive=false){
  const source=fs.readFileSync(path.join(__dirname,'../static/task-cloud.js'),'utf8');
  const window={devicePixelRatio:1,...(labeler?{yamRunLabels:{outcome:labeler,describe:labeler}}:{})},events={},draws=[],focused={};let queued;
  const ctx=new Proxy({createRadialGradient(){return {addColorStop(){}}},measureText:text=>({width:text.length*7}),fill(){draws.push(['fill',this.fillStyle])},stroke(){draws.push(['stroke',this.strokeStyle])}},{get:(target,key)=>target[key]||((...args)=>draws.push([key,...args]))});
  const canvas={width:1000,height:540,clientWidth:1000,clientHeight:540,dataset:{},style:{},getContext:()=>ctx,
   addEventListener:(name,fn)=>events[name]=fn,setPointerCapture(){},getBoundingClientRect:()=>({left:0,top:0})};
  vm.runInNewContext(source,{window,ResizeObserver:class{observe(){}},requestAnimationFrame:fn=>{queued=fn;return 1}});
- const opened=[],previews=[],areas=[],cloud=window.yamTaskCloud.create(canvas,focused,run=>opened.push(run),(run,point)=>previews.push({run,point}),()=>{},area=>areas.push(area));
+ const doc={activeElement:null,createElement(tag){return {tag,children:[],listeners:{},dataset:{},style:{},hidden:false,attributes:{},ownerDocument:doc,
+  append(...items){for(const item of items)item.parent=this;this.children.push(...items)},addEventListener(name,fn){this.listeners[name]=fn},emit(name,event={}){this.listeners[name]?.({...event,target:event.target || this})},setAttribute(name,value){this.attributes[name]=value},contains(node){return node===this || this.children.includes(node)},closest(selector){return selector==='button' && this.tag==='button'?this:null},remove(){this.removed=true},focus(){doc.activeElement=this}}}};
+ const captionRoot=interactive?doc.createElement('div'):null;canvas.focus=()=>{doc.activeElement=canvas};
+ const opened=[],previews=[],areas=[],cloud=window.yamTaskCloud.create(canvas,focused,run=>opened.push(run),(run,point)=>previews.push({run,point}),()=>{},area=>areas.push(area),captionRoot);
  const draw=()=>{queued?.();queued=null};
- return{cloud,canvas,events,opened,draw,focused,areas,volumeContains:window.yamTaskCloud.volumeContains,volumeCorners:window.yamTaskCloud.volumeCorners,worldCoordinates:window.yamTaskCloud.worldCoordinates,cameraCoordinates:window.yamTaskCloud.cameraCoordinates,summarizeArea:window.yamTaskCloud.summarizeArea,project:window.yamTaskCloud.project,offset:window.yamTaskCloud.offset,draws,previews,outcome:window.yamTaskCloud.outcome,regionsFor:window.yamTaskCloud.regionsFor};
+ return{cloud,canvas,events,opened,draw,focused,areas,captionRoot,doc,volumeContains:window.yamTaskCloud.volumeContains,volumeCorners:window.yamTaskCloud.volumeCorners,worldCoordinates:window.yamTaskCloud.worldCoordinates,cameraCoordinates:window.yamTaskCloud.cameraCoordinates,summarizeArea:window.yamTaskCloud.summarizeArea,project:window.yamTaskCloud.project,offset:window.yamTaskCloud.offset,draws,previews,outcome:window.yamTaskCloud.outcome,regionsFor:window.yamTaskCloud.regionsFor};
 }
 test('area summary separates unknown outcomes and chooses an actual median task across all selected attempts',()=>{
  const c=setup(run=>run.testOutcome),rows=[
@@ -193,14 +196,20 @@ test('combined phone labels retain success and failure captions when their defau
  assert.equal(c.canvas.dataset.highlightRegions,'2');assert.equal(c.canvas.dataset.renderedPoints,'10');
  for(const call of c.draws.filter(call=>call[0]==='strokeRect')){assert.ok(call[1]>=4 && call[2]>=4);assert.ok(call[1]+call[3]<=316 && call[2]+call[4]<=356)}
 });
-test('highlight picker updates the existing Cloud and remembers the choice without fetching new runs',async()=>{
- const c=require('./helpers/past-runs.cjs')('', 'cloud');
- c.cloud.setHighlight=mode=>{c.cloud.highlight=mode};c.cloud.highlightSummary=()=>`Region mode: ${c.cloud.highlight}`;
- c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Lift',xyz:[0,0,0]}]);await c.flush();
- assert.equal(c.cloud.highlight,'both');const before=c.cloud.rows;
- c.nodes.get('taskCloudHighlight').value='success';c.nodes.get('taskCloudHighlight').emit('change');
- assert.equal(c.cloud.highlight,'success');assert.equal(c.cloud.rows,before);assert.equal(c.requests.length,1);
- assert.equal(c.nodes.get('taskCloudRegionStatus').textContent,'Region mode: success');assert.equal(c.storage.get('yam-cloud-highlight'),'success');
+test('independent outcome checkboxes retain all four saved modes without fetching new runs',async()=>{
+ for(const saved of ['both','success','failure','none']) {
+  const c=require('./helpers/past-runs.cjs')('', 'cloud',saved);
+  c.cloud.setHighlight=mode=>{c.cloud.highlight=mode};c.cloud.highlightSummary=()=>`Region mode: ${c.cloud.highlight}`;
+  const success=c.nodes.get('taskCloudSuccessAreas'),failure=c.nodes.get('taskCloudFailureAreas');
+  assert.equal(success.checked,['both','success'].includes(saved));assert.equal(failure.checked,['both','failure'].includes(saved));
+  c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Lift',xyz:[0,0,0]}]);await c.flush();
+  assert.equal(c.cloud.highlight,saved);const before=c.cloud.rows;
+  for(const [green,red,mode] of [[true,false,'success'],[false,true,'failure'],[false,false,'none'],[true,true,'both']]) {
+   success.checked=green;failure.checked=red;success.emit('change');
+   assert.equal(c.cloud.highlight,mode);assert.equal(c.cloud.rows,before);assert.equal(c.requests.length,1);
+   assert.equal(c.storage.get('yam-cloud-highlight'),mode);assert.equal(c.nodes.get('taskCloudRegionStatus').textContent,`Region mode: ${mode}`);
+  }
+ }
 });
 test('xyz rotation changes projected depth; persisted xyz is never changed; keyboard reaches duplicates',()=>{
  const c=setup(),xyz=[.1,.2,.3],rows=Array.from({length:5},(_,i)=>({episode_id:'ep_'+i,prompt:'Same task',xyz,assessment:{label:i%2?'Success':'Failure',eligibility:'included'}}));
@@ -246,8 +255,8 @@ test('pointer and keyboard previews track the point, clear on exit/drag/reset, a
  c.cloud.setRuns([]);assert.equal(c.previews.at(-1).run,null);
 });
 
-function captionFixture() {
- const c=setup(run=>run.testOutcome),rows=[
+function captionFixture(interactive=false) {
+ const c=setup(run=>run.testOutcome,interactive),rows=[
   {episode_id:'left',robot_id:'yam-1',prompt:'Left failed task',xyz:[-.03,0,0],testOutcome:'Failure'},
   ...Array.from({length:4},(_,i)=>({episode_id:'median_'+i,robot_id:'yam-1',prompt:'Lift the bottle',xyz:[.02,0,0],testOutcome:'Failure'})),
   {episode_id:'right',robot_id:'yam-1',prompt:'Right failed task',xyz:[.06,0,0],testOutcome:'Failure'},
@@ -338,4 +347,38 @@ test('Hide and Show use visibility state while View runs remains enabled for a h
  c.cloud.areaChange(area);const hide=c.nodes.get('taskCloudHideArea');assert.equal(hide.disabled,false);assert.equal(hide.textContent,'Hide box');hide.emit('click');assert.equal(changes.at(-1),false);
  c.cloud.areaChange({...area,boxVisible:false});assert.equal(hide.textContent,'Show box');assert.equal(c.nodes.get('taskCloudViewAreaRuns').disabled,false);hide.emit('click');assert.equal(changes.at(-1),true);
  c.cloud.areaChange({...area,hasSelection:false,total:0,boxVisible:false,successRate:null});assert.equal(hide.disabled,true);
+});
+
+test('native caption actions open the matching median and dismiss without changing camera, tints or points',()=>{
+ const c=captionFixture(true),card=c.captionRoot.children.find(card=>!card.hidden),camera=c.canvas.dataset.cloudCamera;
+ assert.equal(card.children[0].textContent,'Failure: 6/7');
+ const view=card.children[3];assert.match(view.attributes['aria-label'],/View median failure run: Lift the bottle/);
+ view.emit('click');c.draw();assert.equal(c.opened.at(-1).episode_id,'median_0');assert.equal(c.canvas.dataset.cloudCamera,camera);
+ assert.equal(c.captionRoot.children.find(item=>!item.hidden),card,'draw reuses native buttons and keyboard focus');
+ card.children[2].focus();card.children[2].emit('click');c.draw();
+ assert.equal(card.hidden,true);assert.equal(c.doc.activeElement,c.canvas);assert.equal(c.canvas.dataset.renderedPoints,'7');assert.equal(c.canvas.dataset.highlightRegions,'1');assert.equal(c.canvas.dataset.cloudCamera,camera);
+ c.cloud.setRuns(c.rows.map(run=>({...run})));c.cloud.setAreaLabels(true);c.draw();assert.equal(card.hidden,true,'unchanged refresh preserves dismissal');
+ c.events.keydown({key:'ArrowRight',preventDefault(){}});c.draw();assert.equal(card.hidden,true);
+ c.cloud.setAreaLabels(false);c.cloud.setAreaLabels(true);c.draw();assert.equal(card.hidden,false,'off/on restores dismissed captions');
+});
+test('native caption body retains preview and drag while hidden or filtered action buttons cannot open stale runs',()=>{
+ const c=captionFixture(true),card=c.captionRoot.children.find(card=>!card.hidden),point=c.pointer(),camera=c.canvas.dataset.cloudCamera;
+ card.emit('pointermove',point);assert.equal(c.previews.at(-1).run.episode_id,'median_0');
+ card.emit('pointerdown',{...point,preventDefault(){}});c.events.pointermove({...point,clientX:point.clientX+40});c.events.pointerup(point);c.draw();
+ assert.notEqual(c.canvas.dataset.cloudCamera,camera);assert.equal(c.opened.length,0);
+ const view=card.children[3];c.cloud.setAreaLabels(false);view.emit('click');assert.equal(c.opened.length,0);
+ c.cloud.setAreaLabels(true);c.draw();c.cloud.setRuns([]);view.emit('click');c.draw();assert.equal(c.opened.length,0);assert.equal(card.removed,true);
+});
+
+test('phone native captions leave room for both outcomes below in-cloud checkboxes',()=>{
+ const c=setup(run=>run.testOutcome,true);c.canvas.clientWidth=354;c.canvas.clientHeight=360;
+ c.captionRoot.parentElement={querySelector:()=>({getBoundingClientRect:()=>({left:8,top:8,bottom:106,width:338,height:98})})};
+ const rows=['Success','Failure'].flatMap((testOutcome,index)=>Array.from({length:5},(_,i)=>({episode_id:`ep_${index}_${i}`,prompt:index?'Place blue block on the tray':'Place green block on the towel',xyz:index?[.07,0,.1]:[-.07,0,-.1],testOutcome})));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
+ assert.deepEqual(c.captionRoot.children.filter(card=>!card.hidden).map(card=>card.dataset.outcome).sort(),['Failure','Success']);
+});
+test('count-only regions still have a dismissible label and View opens an actual median run',()=>{
+ const c=setup(run=>run.testOutcome,true),rows=Array.from({length:5},(_,i)=>({episode_id:'blank'+i,prompt:'',xyz:[0,0,0],testOutcome:'Success'}));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
+ const card=c.captionRoot.children[0];assert.equal(card.children[0].textContent,'Success: 5/5');card.children[3].emit('click');assert.equal(c.opened[0].episode_id,'blank0');
 });

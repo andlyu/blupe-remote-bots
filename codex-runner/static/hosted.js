@@ -347,7 +347,8 @@ function createRunLaunchGuard() {
   if ($('pastRunsLabelSource')) $('pastRunsLabelSource').value = labelSource;
   let regionHighlight = 'both';
   try { const saved = localStorage.getItem('yam-cloud-highlight'); if (['both','success','failure','none'].includes(saved)) regionHighlight = saved; } catch (_) {}
-  if ($('taskCloudHighlight')) $('taskCloudHighlight').value = regionHighlight;
+  if ($('taskCloudSuccessAreas')) $('taskCloudSuccessAreas').checked = ['both','success'].includes(regionHighlight);
+  if ($('taskCloudFailureAreas')) $('taskCloudFailureAreas').checked = ['both','failure'].includes(regionHighlight);
   let showAreaLabels = true;
   try { showAreaLabels = localStorage.getItem('yam-cloud-area-labels') !== 'false'; } catch (_) {}
   if ($('taskCloudShowLabels')) $('taskCloudShowLabels').checked = showAreaLabels;
@@ -632,7 +633,7 @@ function createRunLaunchGuard() {
         reducedMotion: () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       });
       cloud ||= window.yamTaskCloud?.create($('taskCloudCanvas'), $('taskCloudFocus'), selectRun,
-        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm?.(runs), renderAreaSummary);
+        (run, point) => cloudPreview?.show(run, point), runs => cloudPreview?.warm?.(runs), renderAreaSummary, $('taskCloudAreaCaptions'));
       cloud?.setRuns(catalogRows.map(run => ({...run, label_source:labelSource})), selectedRun?.episode_id);
       cloud?.setHighlight?.(regionHighlight);
       cloud?.setAreaLabels?.(showAreaLabels);
@@ -771,8 +772,9 @@ function createRunLaunchGuard() {
     if (historyView === 'table') { clearBlocks(); renderBlocks(catalogRows); }
     renderView();
   });
-  $('taskCloudHighlight')?.addEventListener('change', () => {
-    regionHighlight = $('taskCloudHighlight').value;
+  for (const id of ['taskCloudSuccessAreas','taskCloudFailureAreas']) $(id)?.addEventListener('change', () => {
+    const success = $('taskCloudSuccessAreas').checked, failure = $('taskCloudFailureAreas').checked;
+    regionHighlight = success ? (failure ? 'both' : 'success') : (failure ? 'failure' : 'none');
     try { localStorage.setItem('yam-cloud-highlight', regionHighlight); } catch (_) {}
     cloud?.setHighlight?.(regionHighlight);
     if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';

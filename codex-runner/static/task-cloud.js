@@ -61,15 +61,16 @@
   const validPosition = run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite);
   const distanceSquared = (a,b) => a.reduce((sum,value,i) => sum+(value-b[i])**2,0);
   const runKey = run => `${run.robot_id || ''}:${run.episode_id}`;
-  function medianRun(runs) {
+  function medianRun(runs,allowBlank=false) {
     const mapped=runs.filter(validPosition);
     if (!mapped.length) return null;
     const median=[0,1,2].map(axis=>{
       const values=mapped.map(run=>run.xyz[axis]).sort((a,b)=>a-b), middle=Math.floor(values.length/2);
       return values.length%2 ? values[middle] : (values[middle-1]+values[middle])/2;
     });
-    return mapped.filter(run=>typeof run.prompt==='string' && run.prompt.trim())
-      .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || runKey(a).localeCompare(runKey(b)) || a.prompt.localeCompare(b.prompt))[0] || null;
+    const named=mapped.filter(run=>typeof run.prompt==='string' && run.prompt.trim());
+    return (named.length ? named : allowBlank ? mapped : [])
+      .sort((a,b)=>distanceSquared(a.xyz,median)-distanceSquared(b.xyz,median) || runKey(a).localeCompare(runKey(b)) || (a.prompt || '').localeCompare(b.prompt || ''))[0] || null;
   }
   const medianPrompt = runs => medianRun(runs)?.prompt.trim() || '';
   function summarizeArea(runs) {
@@ -116,8 +117,8 @@
     }
     for (const region of regions) {
       const matching=runs.filter(run=>validPosition(run) && outcome(run)===region.label && distanceSquared(region.xyz,run.xyz)<=regionRadius**2);
-      region.representativeRun=medianRun(matching);
-      region.representativePrompt=region.representativeRun?.prompt.trim() || '';
+      region.representativeRun=medianRun(matching,true);
+      region.representativePrompt=region.representativeRun?.prompt?.trim() || '';
     }
     return {regions,nearby};
   }
@@ -246,12 +247,45 @@
     }
     return {show,hide,warm};
   }
-  function create(canvas, focusText, onSelect, onPreview = () => {}, onWarm = () => {}, onAreaChange = () => {}) {
+  function create(canvas, focusText, onSelect, onPreview = () => {}, onWarm = () => {}, onAreaChange = () => {}, captionRoot = null) {
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null, showAreaLabels=false;
-    let captionBoxes=[], pressedCaption=null;
+    let captionBoxes=[], pressedCaption=null, captionContext='';
+    const captionNodes=new Map(), dismissedCaptions=new Set();
+    const captionKey=region=>[region.label,...region.xyz,runKey(region.representativeRun || {})].join('|');
+    function syncCaptions() {
+      if(!captionRoot)return;
+      const visible=new Set(captionBoxes.map(box=>box.key));
+      for(const [key,card] of captionNodes) {
+        card.hidden=!visible.has(key);
+        if(card.hidden && card.contains(captionRoot.ownerDocument.activeElement))canvas.focus({preventScroll:true});
+      }
+      for(const box of captionBoxes) {
+        let card=captionNodes.get(box.key);
+        if(!card) {
+          const doc=captionRoot.ownerDocument;
+          card=doc.createElement('section');card.className='cloudAreaCaption';
+          const title=doc.createElement('strong'), prompt=doc.createElement('p'), close=doc.createElement('button'), view=doc.createElement('button');
+          title.className='cloudAreaCaptionTitle';prompt.className='cloudAreaCaptionPrompt';
+          close.type=view.type='button';close.className='cloudAreaCaptionClose';view.className='cloudAreaCaptionView';view.textContent='View';
+          const current=()=>captionBoxes.find(item=>item.key===box.key);
+          close.addEventListener('click',()=>{if(!current())return;dismissedCaptions.add(box.key);captionBoxes=captionBoxes.filter(item=>item.key!==box.key);card.hidden=true;if(card.contains(doc.activeElement))canvas.focus({preventScroll:true});clearPreview();schedule();});
+          view.addEventListener('click',()=>{const active=current();if(!active)return;focused=rows.findIndex(run=>runKey(run)===runKey(active.run));if(focused>=0)open();});
+          card.addEventListener('pointerdown',event=>{if(event.target.closest('button'))return;event.preventDefault();canvas.focus({preventScroll:true});pointerDown(event);});
+          card.addEventListener('pointermove',event=>{if(event.target.closest('button'))clearPreview();else pointerMove(event);});
+          card.addEventListener('pointerleave',()=>{if(!pointers.size){clearPreview();schedule();}});
+          card.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
+          card.append(title,prompt,close,view);captionRoot.append(card);captionNodes.set(box.key,card);
+        }
+        card.hidden=false;card.dataset.outcome=box.label;
+        card.style.left=box.x+'px';card.style.top=box.y+'px';card.style.width=box.w+'px';card.style.height=box.h+'px';
+        card.children[0].textContent=box.text;card.children[1].textContent=box.lines.join(' ');
+        card.children[2].setAttribute('aria-label','Dismiss '+box.label.toLowerCase()+' area label: '+(box.run.prompt || box.text));
+        card.children[3].setAttribute('aria-label','View median '+box.label.toLowerCase()+' run: '+(box.run.prompt || box.text));
+      }
+    }
     let areaMode=false, areaApplied=false, boxVisible=true, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
     function volumeControls() {
       if(!volume)return null;
@@ -398,6 +432,8 @@
       }).sort((a,b)=>b.depth-a.depth);
       for (const point of points) if (point.x>-15 && point.x<width+15 && point.y>-15 && point.y<height+15) marker(point);
       const boxes=[];captionBoxes=[];
+      const layerBounds=captionRoot?.parentElement?.querySelector('.cloudLayers')?.getBoundingClientRect();
+      if(layerBounds){const bounds=canvas.getBoundingClientRect();boxes.push({x:layerBounds.left-bounds.left,y:layerBounds.top-bounds.top,w:layerBounds.width,h:layerBounds.height});}
       ctx.font='600 12px system-ui';
       const rankedRegions=regionPoints.slice().sort((a,b)=>b.strength-a.strength);
       const successes=rankedRegions.filter(r=>r.label==='Success'), failures=rankedRegions.filter(r=>r.label==='Failure');
@@ -407,7 +443,7 @@
       for (const region of volume || !showAreaLabels ? [] : labelRegions) {
         // Hide captions once the neighborhood spans 40% of the shorter viewport axis.
         // Use projected size so nearby/deeper regions cross the threshold independently.
-        if (region.radius>=Math.min(width,height)*.2 || region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
+        if (dismissedCaptions.has(captionKey(region)) || region.radius>=Math.min(width,height)*.2 || region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
         ctx.font='600 12px system-ui';
         const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
         const lines=[], maxTextWidth=Math.min(210,width-30);
@@ -421,15 +457,17 @@
           if(lines.length>2)lines.splice(1,lines.length-1,lines.slice(1).join(' '));
           for(let i=0;i<lines.length;i++)if(ctx.measureText(lines[i]).width>maxTextWidth){while(lines[i].length && ctx.measureText(lines[i]+'…').width>maxTextWidth)lines[i]=lines[i].slice(0,-1);lines[i]+='…';}
         }
-        const w=Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=24+lines.length*16;
+        const w=captionRoot ? Math.min(width-16,Math.max(190,countWidth+54,...lines.map(line=>ctx.measureText(line).width+20))) : Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=captionRoot ? 88+lines.length*16 : 24+lines.length*16;
         const x=Math.max(4,Math.min(width-w-4,region.x-w/2));
         const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
-        const position=positions.find(({y})=>!boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
+        if(captionRoot && width<600){positions.unshift({offset:1,y:height-h-4});if(layerBounds){const bounds=canvas.getBoundingClientRect();positions.push({offset:1,y:layerBounds.bottom-bounds.top+8});}}
+        const position=positions.find(({y})=>y>=4 && y+h<=height-4 && !boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
         if(!position)continue;
         const y=position.y;
         if(position.offset){ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,region.x)),Math.max(y,Math.min(y+h,region.y)));ctx.lineTo(region.x,region.y);ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.stroke();}
         boxes.push({x,y,w,h});
-        if(region.representativeRun)captionBoxes.push({x,y,w,h,run:region.representativeRun});
+        if(region.representativeRun)captionBoxes.push({x,y,w,h,run:region.representativeRun,key:captionKey(region),label:region.label,text,lines});
+        if(captionRoot)continue;
         ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);
         ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
         ctx.font='600 12px system-ui';
@@ -437,6 +475,7 @@
         ctx.font='12px system-ui';ctx.fillStyle='#172c21';
         lines.forEach((line,index)=>ctx.fillText(line,x+7,y+32+index*16));
       }
+      syncCaptions();
       handles=[];badgeBounds=null;
       if(volume && boxVisible)drawVolume(width,height);
       if(box){ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.setLineDash(brush?[5,4]:[]);ctx.strokeRect(box.x,box.y,box.w,box.h);ctx.setLineDash([]);}
@@ -561,7 +600,7 @@
     function reset() {captionBoxes=[];clearPreview();dropAreaBox();yaw=-.3;pitch=.2;magnification=1;schedule();}
     function open() {if(rows[focused]) {clearPreview();selected=rows[focused].episode_id;focus(rows[focused]);onSelect(rows[focused]);schedule();}}
     function step(delta) {if(rows.length) {focused=(focused+delta+rows.length)%rows.length;focus(rows[focused]);previewFocused();}}
-    canvas.addEventListener('pointerdown',event=>{
+    function pointerDown(event) {
       const caption=captionAt(event);pressedCaption=caption ? runKey(caption.run) : null;
       clearPreview();
       pointers.set(event.pointerId,[event.clientX,event.clientY]);canvas.setPointerCapture(event.pointerId);
@@ -569,8 +608,9 @@
       if(pointers.size===2) {pressedCaption=null;dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
       else if(areaMode){const point=canvasPoint(event);brush=[point,point];last=null;notifyArea();schedule();}
       else if(volume) {const handle=handleAt(event);if(handle && startVolumeDrag(handle,canvasPoint(event))){last=null;moved=true;}}
-    });
-    canvas.addEventListener('pointermove',event=>{
+    }
+    canvas.addEventListener('pointerdown',pointerDown);
+    function pointerMove(event) {
       if(pointers.has(event.pointerId)) {
         pointers.set(event.pointerId,[event.clientX,event.clientY]);
         if(volumeDrag && pointers.size===1) {dragVolume(canvasPoint(event));moved=true;} else if(brush && pointers.size===1){brush[1]=canvasPoint(event);moved=true;schedule();}
@@ -600,7 +640,8 @@
         canvas.style.cursor=areaMode?'crosshair':point?'pointer':'grab';
         if(hover!==point?.run.episode_id) {hover=point?.run.episode_id;focus(point?.run || rows[focused]);preview(event.pointerType === 'touch' ? null : point);schedule();}
       }
-    });
+    }
+    canvas.addEventListener('pointermove',pointerMove);
     canvas.addEventListener('pointerup',event=>{
       if(!pointers.has(event.pointerId))return;
       if(brush){brush[1]=canvasPoint(event);pointers.delete(event.pointerId);last=null;moved=true;applyBrush();return;}
@@ -646,9 +687,12 @@
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{captionBoxes=[];clearPreview();dropAreaBox();schedule();}).observe(canvas);
-    return {setRuns(next,id) {captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;boxVisible=true;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+    return {setRuns(next,id) {
+        const context=next.map(run=>[runKey(run),run.label_source,outcome(run),run.xyz?.join(','),run.prompt].join(':')).sort().join('|');
+        if(context!==captionContext){captionContext=context;dismissedCaptions.clear();for(const card of captionNodes.values())card.remove();captionNodes.clear();}
+        captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;boxVisible=true;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
       setBoxVisible,getSelectedRuns() {return areaApplied ? rows.filter(run=>areaKeys.has(runKey(run))) : [];},
-      setAreaLabels(enabled) {captionBoxes=[];showAreaLabels=!!enabled;schedule();},
+      setAreaLabels(enabled) {captionBoxes=[];if(enabled && !showAreaLabels)dismissedCaptions.clear();showAreaLabels=!!enabled;schedule();},
       setHighlight(mode) {captionBoxes=[];highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};
   }
