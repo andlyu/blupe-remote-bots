@@ -111,3 +111,15 @@ test('box browsing aborts stale similar-catalog requests and reverts when filter
  c.nodes.get('pastRunDialog').close();assert.equal(c.requests.at(-1).options.signal.aborted,true);
  assert.equal(c.window.yamRunSidebar.openSelection([]),false);
 });
+test('all-robot boxes preserve both stations and fetch each recording on its own robot',async()=>{
+ const c=setup({observer:false}),rows=[{...row('ep_house','Task',null,'robohouse'),preview:null},{...row('ep_skills','Task',null,'yam-1'),preview:null}];
+ assert.equal(c.window.yamRunSidebar.openSelection(rows,{allRobots:true}),true);
+ c.window.yamRunSidebar.open(c.window.selected);await c.flush();
+ assert.equal(c.nodes.get('similarRunsList').children.length,2);
+ assert.match(c.requests[0].url,/robot_id=robohouse/);assert.match(c.requests[1].url,/robot_id=yam-1/);
+ c.window.yamRunSidebar.setCatalog([rows[0]],{robot:'robohouse',complete:true,source:'auto'});
+ c.window.yamRunSidebar.setCatalog([rows[1]],{robot:'yam-1',complete:true,source:'auto'});
+ c.window.yamRunSidebar.open(rows[1]);await c.flush();
+ assert.equal(c.nodes.get('similarRunsTitle').textContent,'Runs in box');
+ assert.equal(c.nodes.get('similarRunsList').children.length,2);
+});

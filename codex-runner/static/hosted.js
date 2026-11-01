@@ -344,6 +344,7 @@ function createRunLaunchGuard() {
   const $ = id => document.getElementById(id);
   if (!$('pastRunsList')) return;
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
+  const libraryRobot = () => document.body?.dataset.stationLocal === 'true' ? historyRobot : $('pastRunsRobot').value;
   let labelSource = 'auto';
   try { labelSource = localStorage.getItem('yam-run-label-source') === 'human' ? 'human' : 'auto'; } catch (_) {}
   if ($('pastRunsLabelSource')) $('pastRunsLabelSource').value = labelSource;
@@ -635,8 +636,8 @@ function createRunLaunchGuard() {
     if (historyView === 'cloud') {
       cloudPreview ||= window.yamTaskCloud?.createPreview?.($('taskCloudPreview'), {
         async loadRun(run, signal) {
-          const robot = historyRobot;
-          if (run.robot_id && run.robot_id !== robot) return null;
+          const generation = historyGeneration, robot = run.robot_id || historyRobot;
+          if (libraryRobot() && robot !== libraryRobot()) return null;
           const cached = readyMedia.get(mediaKey(run));
           if (cached && Date.now()-cached.at < 60000) return cached.detail;
           const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(robot)}`,
@@ -644,7 +645,7 @@ function createRunLaunchGuard() {
           if (!response.ok) throw new Error('Video unavailable');
           const data = await response.json();
           const detail = data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === robot);
-          if (detail && !signal.aborted && robot === historyRobot) rememberMedia(detail);
+          if (detail && !signal.aborted && generation === historyGeneration) rememberMedia(detail);
           return detail;
         },
         source: run => playbackSource(run, false),
@@ -706,7 +707,8 @@ function createRunLaunchGuard() {
     try {
       const searchQuery = historySearch ? `&q=${encodeURIComponent(historySearch)}` : '';
       const modelQuery = historyModels.map(model => `&model=${encodeURIComponent(model)}`).join('');
-      const catalogRequest = fetch(`/api/run-catalog?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}&view=${historyView}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}}).then(response => {
+      const robotQuery = libraryRobot() ? `&robot_id=${encodeURIComponent(libraryRobot())}` : '';
+      const catalogRequest = fetch(`/api/run-catalog?offset=${reset ? 0 : next}${robotQuery}${modelQuery}${searchQuery}&view=${historyView}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}}).then(response => {
         if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
         return response.json();
       });
@@ -721,7 +723,9 @@ function createRunLaunchGuard() {
       }
       catalogRows.push(...data.runs);
       if (data.cloud?.version) cloudProjection = data.cloud.version;
-      window.yamRunSidebar?.setCatalog(catalogRows, {robot:historyRobot, complete:historyView === 'cloud' && !data.sampled && data.next_offset == null, source:labelSource, filters:{models:historyModels.slice(),query:historySearch}});
+      for (const robot of new Set([libraryRobot() || historyRobot, ...catalogRows.map(row => row.robot_id)])) {
+        window.yamRunSidebar?.setCatalog(catalogRows.filter(row => row.robot_id === robot), {robot, complete:historyView === 'cloud' && !data.sampled && data.next_offset == null, source:labelSource, filters:{models:historyModels.slice(),query:historySearch}});
+      }
       if (historyView === 'table') renderBlocks(data.runs);
       renderScores(data.scores);
       renderView();
@@ -747,14 +751,14 @@ function createRunLaunchGuard() {
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
   window.yamReplayHistory = {openRun, selectRun, setContextRun(run) {selectedRun=run;window.yamRunDataChat?.scopeChanged();}, refresh: () => load(true), dataScope(requested) {
-    if (!historyRobot || requested === 'run' && (!selectedRun || selectedRun.robot_id !== historyRobot)) return null;
+    if (!historyRobot || requested === 'run' && (!selectedRun || libraryRobot() && selectedRun.robot_id !== libraryRobot())) return null;
     const libraryKind = historyView === 'cloud' && dataChatBoxSelected ? 'box' : 'filtered';
     const kind = requested === 'all' ? 'all' : requested === 'run' ? 'run' : libraryKind;
     const boxIds = libraryKind === 'box' ? (cloud?.getSelectedRuns?.() || []).map(r=>r.episode_id) : null;
-    return {robot_id:historyRobot, robot_name:$('robotSelector')?.selectedOptions?.[0]?.textContent || historyRobot,
+    return {robot_id:historyRobot, robot_name:libraryRobot() ? $('pastRunsRobot').selectedOptions?.[0]?.textContent || libraryRobot() : 'All robots',
       models:historyModels.slice(), query:historySearch, label_source:labelSource, kind,
       episode_ids:kind === 'run' ? [selectedRun.episode_id] : kind === 'box' ? boxIds : null,
-      library_context:{episode_ids:boxIds}, opened_episode_id:selectedRun?.robot_id === historyRobot ? selectedRun.episode_id : null, replay_open:!!dialog.open};
+      library_context:{episode_ids:boxIds,all_robots:!libraryRobot(),robot_id:libraryRobot() || null}, opened_episode_id:selectedRun && (!libraryRobot() || selectedRun.robot_id === libraryRobot()) ? selectedRun.episode_id : null, replay_open:!!dialog.open};
   }};
   $('refreshPastRuns').addEventListener('click', () => load(true));
   window.addEventListener('yam-assessment-changed', () => load(true));
@@ -781,6 +785,11 @@ function createRunLaunchGuard() {
     renderModelFilter(); searchPastRuns(historySearch);
   });
   $('pastRunsModelSearch')?.addEventListener('input', filterModelOptions);
+  $('pastRunsRobot')?.addEventListener('change', () => {
+    if (dialog.open) dialog.close();
+    readyMedia.clear(); historyModelChoices = null; renderModelFilter();
+    searchPastRuns(historySearch);
+  });
   $('pastRunsModelReset')?.addEventListener('click', () => {
     historyModels = []; $('pastRunsModelSearch').value = '';
     renderModelFilter(); searchPastRuns(historySearch); $('pastRunsModelSearch').focus({preventScroll:true});
@@ -839,7 +848,7 @@ function createRunLaunchGuard() {
   $('taskCloudHideArea')?.addEventListener('click', () => cloud?.setBoxVisible?.($('taskCloudHideArea').dataset.visible!=='true'));
   $('taskCloudViewAreaRuns')?.addEventListener('click', () => {
     const runs=cloud?.getSelectedRuns?.() || [];
-    if(runs.length)window.yamRunSidebar?.openSelection?.(runs);
+    if(runs.length)window.yamRunSidebar?.openSelection?.(runs,{allRobots:!libraryRobot()});
   });
   for(const name of ['Width','Height','Depth','Position'])$('taskCloudVolume'+name)?.addEventListener('input', () => cloud?.setVolumeDimension?.(name.toLowerCase(),Number($('taskCloudVolume'+name).value)));
   renderView();
@@ -848,6 +857,13 @@ function createRunLaunchGuard() {
     clearBlocks();
     readyMedia.clear();
     historyRobot = event.detail; historyGeneration++; loading = false; next = 0;
+    const robotFilter = $('pastRunsRobot'), selectedRobot = robotFilter.value;
+    const options = Array.from($('robotSelector')?.options || []);
+    robotFilter.replaceChildren(...[{value:'',textContent:'All robots'}, ...options].map(option => {
+      const choice = document.createElement('option'); choice.value = option.value; choice.textContent = option.textContent; return choice;
+    }));
+    robotFilter.value = document.body?.dataset.stationLocal === 'true' ? historyRobot : selectedRobot;
+    robotFilter.disabled = document.body?.dataset.stationLocal === 'true';
     const selectedName = $('robotSelector')?.selectedOptions?.[0]?.textContent ||
       {'yam-1':'YAM', 'robot-3652c537a175cbae':'MakerMods Bimanual SO101', 'robot-abecb4cd868ab24b':'SO101'}[historyRobot] || historyRobot;
     $('allEpisodesTitle').textContent = `All ${selectedName} episodes`;

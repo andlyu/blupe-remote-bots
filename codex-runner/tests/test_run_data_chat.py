@@ -15,6 +15,21 @@ class DataChatTests(unittest.TestCase):
     def scope(self, **kwargs):
         return validate_payload(dict(question='What works?',scope={'kind':'filtered',**kwargs}))[1]
 
+    def test_public_library_robot_scope_is_independent_of_live_control(self):
+        rows=[row('ep_robo',robot='robohouse'),row('ep_skills',model='RoboSkills')]
+        scope=self.scope(models=['RoboSkills'],library_context={'all_robots':True})
+        c=build_context({'runs':rows},{},{},scope,'robohouse','q',[])
+        self.assertEqual(c['counts']['total'],1)
+        self.assertEqual(c['evidence'][0]['episode_id'],'ep_skills')
+        self.assertTrue(c['library_context']['all_robots'])
+        scope=self.scope(kind='run',episode_ids=['ep_skills'],opened_episode_id='ep_skills',library_context={'all_robots':True})
+        c=build_context({'runs':rows},{},{},scope,'robohouse','q',[])
+        self.assertEqual(c['opened_run']['episode_id'],'ep_skills')
+        scope=self.scope(library_context={'robot_id':'yam-1'})
+        self.assertEqual(build_context({'runs':rows},{},{},scope,'robohouse','q',[])['counts']['total'],1)
+        for library in [{'all_robots':'yes'},{'robot_id':'../../secret'}]:
+            with self.assertRaises(ValueError):self.scope(library_context=library)
+
     def test_scope_counts_are_complete_evidence_is_bounded_and_private_fields_absent(self):
         rows=[row('ep_'+str(i)) for i in range(100)]+[row('ep_other',robot='other')]
         labels={'runs':[dict(robot_id='yam-1',episode_id=r['episode_id'],

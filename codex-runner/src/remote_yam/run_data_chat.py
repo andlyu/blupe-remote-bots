@@ -66,6 +66,11 @@ def validate_payload(payload):
     library = scope.get('library_context', {})
     if not isinstance(library, dict):
         raise ValueError('Invalid library context.')
+    all_robots = library.get('all_robots', False)
+    library_robot = library.get('robot_id')
+    if type(all_robots) is not bool or library_robot is not None and (
+            not isinstance(library_robot, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', library_robot)):
+        raise ValueError('Invalid library robot scope.')
     box_ids = library.get('episode_ids')
     if box_ids is not None and (not isinstance(box_ids, list) or len(box_ids) > 10000 or
             any(not isinstance(e, str) or not re.fullmatch(r'ep_[A-Za-z0-9_-]{1,100}', e) for e in box_ids)):
@@ -84,7 +89,7 @@ def validate_payload(payload):
             raise ValueError('Invalid conversation message.')
     return question.strip(), dict(models=models, query=query.strip(), label_source=source,
         kind=kind, episode_ids=list(dict.fromkeys(ids)) if kind in ('box','run') else None,
-        library_context={'episode_ids':box_ids}, opened_episode_id=opened, replay_open=scope.get('replay_open',False)), history
+        library_context={'episode_ids':box_ids,'all_robots':all_robots,'robot_id':library_robot}, opened_episode_id=opened, replay_open=scope.get('replay_open',False)), history
 
 
 def outcome(row, annotation, source):
@@ -113,7 +118,9 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
     labels = {(r['robot_id'], r['episode_id']):r for r in annotations.get('runs', [])}
     rows = [dict(r, assessment=overlays.get(r['episode_id'], r.get('assessment', {})))
             for r in catalog['runs']]
-    library_rows = [r for r in rows if r['robot_id'] == robot_id]
+    library = scope.get('library_context', {})
+    library_robot = None if library.get('all_robots') else library.get('robot_id') or robot_id
+    library_rows = [r for r in rows if library_robot is None or r['robot_id'] == library_robot]
     if scope['models']:
         library_rows = [r for r in library_rows if (r.get('model') or '__unrecorded__') in scope['models']]
     if scope['query']:
@@ -123,7 +130,7 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
         library_rows = [r for r in library_rows if r['episode_id'] in set(box_ids)]
     all_rows = rows
     if scope['kind'] != 'all':
-        rows = [r for r in rows if r['robot_id'] == robot_id] if scope['kind'] == 'run' else library_rows
+        rows = [r for r in rows if library_robot is None or r['robot_id'] == library_robot] if scope['kind'] == 'run' else library_rows
     if scope['episode_ids'] is not None:
         wanted = set(scope['episode_ids'])
         rows = [r for r in rows if r['episode_id'] in wanted]
@@ -145,7 +152,7 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
                 if scope['label_source'] == 'auto' and a else None)))
     library_keys = {(r['robot_id'],r['episode_id']) for r in library_rows}
     current = [r for r in public if (r['robot_id'],r['episode_id']) in library_keys]
-    opened = next((r for r in public if r['robot_id'] == robot_id and r['episode_id'] == scope.get('opened_episode_id')), None)
+    opened = next((r for r in public if (library_robot is None or r['robot_id'] == library_robot) and r['episode_id'] == scope.get('opened_episode_id')), None)
     collection_counts = counts(public)
     public = [r for r in public if (r['robot_id'],r['episode_id']) in selected_keys]
     groups, tasks, robots = defaultdict(list), defaultdict(list), defaultdict(list)
@@ -171,7 +178,7 @@ def build_context(catalog, overlays, annotations, scope, robot_id, question, his
                 evidence.append(buckets[label].pop(0))
     result = dict(robot_id=robot_id, kind=scope['kind'], filters={k:scope[k] for k in ('models','query','label_source')},
         stale=bool(catalog.get('stale')), generated_at=time.time(), counts=counts(public), collection_counts=collection_counts,
-        library_context={'robot_id':robot_id, 'kind':'box' if box_ids is not None else 'filtered',
+        library_context={'robot_id':library_robot, 'all_robots':library_robot is None, 'kind':'box' if box_ids is not None else 'filtered',
             'counts':counts(current), 'models':scope['models'], 'query':scope['query'],
             'selection_requested':len(box_ids) if box_ids is not None else None},
         opened_run=opened, replay_open=scope.get('replay_open',False),
