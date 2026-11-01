@@ -741,3 +741,13 @@ minute. Shared PR258 is merged, and hosting PR197 retains the existing compatibl
 runner base. Evidence, revision hashes, validation and the explicit no-new-run
 scope are in the linked record. Broader acceptance remains 12/15 with items
 7/13/15 open; prior owner exceptions and the excluded old recording are unchanged.
+
+The owner's follow-up screenshot exposed a separate discovery gap: the default
+Robo-house control selection silently scoped the All runs model search, hiding
+RoboSkills on YAM. Shared PR260 and hosting PR199 are merged; the deployed public
+library now defaults to All robots with an independent Robots filter. The actual
+default-page search, 35 selected RoboSkills results and retained replay playback/
+seeking were verified while live control stayed on Robo-house. See
+[model-filter scope evidence](../../../../docs/roboskills/verification/2026-11-01-model-filter-scope.md).
+This changes only public history discovery and its read-only context. Broader
+12/15 acceptance, open items 7/13/15 and all prior exceptions remain unchanged.
