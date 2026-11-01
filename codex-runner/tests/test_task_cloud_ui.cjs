@@ -391,6 +391,7 @@ test('changing the frozen projection clears old geometry while same-map refresh 
  c.cloud.setRuns(rows,null,'umap-map');c.draw();
  assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.canvas.dataset.volumeBox,'');
  assert.equal(c.canvas.dataset.mapVersion,'umap-map');assert.equal(c.canvas.dataset.renderedPoints,'1');
+});
 
 test('hiding outcome colors preserves point positions, selected box statistics and video preview',()=>{
  const c=setup(run=>run.testOutcome),rows=Array.from({length:6},(_,i)=>({episode_id:'neutral'+i,prompt:'Lift',xyz:[0,0,0],testOutcome:'Success'}));
