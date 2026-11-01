@@ -60,6 +60,9 @@ outside this panel's changes; the new panel is checked visually at shipping size
 
 ## Final result and evidence
 
+November 1 search follow-up: [full-library prompt lookup and latency acceptance](SEARCH-VERIFICATION.md)
+is verified separately, including the explicit hosted-CI exception and local equivalent checks.
+
 All applicable feature requirements above are verified. No feature requirement
 remains open. This is **not** a claim of completing a physical research-method
 integration. The user explicitly made data chat separate from that harness and

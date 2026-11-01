@@ -109,3 +109,6 @@ Public Chrome verification covered complete collection versus current filters,
 preserved follow-ups, independent opened-replay context, a decoded/played cited
 recording, explicit last-replay focus and the 390px phone layout. Model statements
 remain predictions to inspect against their supporting runs, not verified causes.
+
+[Verified full-library search and measured latency](SEARCH-VERIFICATION.md) records the
+whole-corpus incident lookup, follow-up regressions and final deployment evidence.

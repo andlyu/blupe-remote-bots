@@ -1,0 +1,130 @@
+{
+  "verified_at_utc": "2026-11-01T21:22:44.142522+00:00",
+  "website": "https://playground.blupe.io/#past-runs",
+  "summary": {
+    "http_warm_median_ms": 425.8,
+    "server_warm_median_ms": 309.94,
+    "http_first_ms": 1718.13,
+    "runs": 1426,
+    "camera_matches": 2
+  },
+  "compatible_revision": "e8d0e39da333786ccd8f145b77a3a152818af045",
+  "model_calls": 0,
+  "hardware_commands": 0,
+  "cases": [
+    {
+      "case": "Camera incident lookup",
+      "http_elapsed_ms": 1718.13,
+      "server_elapsed_ms": 1622.76,
+      "snapshot_age_s": 0.0,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 2,
+      "episode_ids": [
+        "ep_07f4575dde7c49e8",
+        "ep_bc0355b33e304e4c"
+      ]
+    },
+    {
+      "case": "Misspelled pronoun follow-up",
+      "http_elapsed_ms": 293.46,
+      "server_elapsed_ms": 159.06,
+      "snapshot_age_s": 1.031,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 2,
+      "episode_ids": [
+        "ep_07f4575dde7c49e8",
+        "ep_bc0355b33e304e4c"
+      ]
+    },
+    {
+      "case": "Full-library follow-up",
+      "http_elapsed_ms": 203.13,
+      "server_elapsed_ms": 97.55,
+      "snapshot_age_s": 1.294,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 2,
+      "episode_ids": [
+        "ep_07f4575dde7c49e8",
+        "ep_bc0355b33e304e4c"
+      ]
+    },
+    {
+      "case": "No-match lookup",
+      "http_elapsed_ms": 982.64,
+      "server_elapsed_ms": 887.25,
+      "snapshot_age_s": 1.494,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 0,
+      "episode_ids": []
+    },
+    {
+      "case": "Different task lookup",
+      "http_elapsed_ms": 707.65,
+      "server_elapsed_ms": 594.65,
+      "snapshot_age_s": 2.491,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 136,
+      "episode_ids": [
+        "ep_b6d75d3b0bdc47a7",
+        "ep_094d8bb67f724bb9",
+        "ep_5ab85803dfe84841",
+        "ep_31495ac325a8434c",
+        "ep_72d5480e5f964ee9",
+        "ep_d0259662536e4c6b",
+        "ep_636a674339a54832",
+        "ep_b80150326fe34b1d"
+      ]
+    },
+    {
+      "case": "Repeated camera lookup",
+      "http_elapsed_ms": 165.4,
+      "server_elapsed_ms": 73.09,
+      "snapshot_age_s": 3.179,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 2,
+      "episode_ids": [
+        "ep_07f4575dde7c49e8",
+        "ep_bc0355b33e304e4c"
+      ]
+    },
+    {
+      "case": "Repeated camera lookup",
+      "http_elapsed_ms": 558.14,
+      "server_elapsed_ms": 460.83,
+      "snapshot_age_s": 3.35,
+      "scope_runs": 1426,
+      "model_called": false,
+      "matched_runs": 2,
+      "episode_ids": [
+        "ep_07f4575dde7c49e8",
+        "ep_bc0355b33e304e4c"
+      ]
+    }
+  ],
+  "validation": {
+    "shared_affected_python": 75,
+    "compatible_affected_python": 73,
+    "hosted_python_passed": 431,
+    "hosted_skipped": 9,
+    "hosted_subtests_passed": 21,
+    "hosted_python_runtime_s": 60.97,
+    "hosted_javascript_passed": 45,
+    "ownership_check": "passed",
+    "private_ci": "Hosted runner did not start; exact local hosted checks substituted, not reported as CI success"
+  },
+  "shared_merge": "cd4c9dc580fb45e547951767ce988977bd4d87ea",
+  "hosted_pin_merge": "b07a13ae030312d9ce57d6924be15ae4d834f7d0",
+  "ci": {
+    "initial_search": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41349627845",
+    "final_source": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41351497314",
+    "final_compatible": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41351409745"
+  },
+  "source_ci_result": "passed",
+  "remaining_search_requirements": []
+}
