@@ -283,6 +283,9 @@ class HostedRunner:
         from remote_yam.past_runs import PastRuns
         from remote_yam.run_history import run_models
         self.past_runs = PastRuns(robot_id=None, model_reader=lambda: run_models(self.submission_log.path))
+        if os.environ.get('YAM_PUBLIC_RUN_SOURCES'):
+            from remote_yam.integration_runs import IntegrationRuns
+            self.past_runs = IntegrationRuns(self.past_runs, json.loads(os.environ['YAM_PUBLIC_RUN_SOURCES']))
         self.task = None
         self.cleanups = set()
         self.frame_cache = {}
@@ -540,6 +543,15 @@ class HostedRunner:
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
             return
+        integration_video = re.fullmatch(r'/api/integration-replays/(ep_[A-Za-z0-9_-]{1,100})/([0-9a-f]{64})\.mp4', path)
+        if method == 'GET' and integration_video:
+            video_reader = getattr(self.past_runs, 'video', None)
+            video = await asyncio.to_thread(video_reader, *integration_video.groups(), headers.get('range')) if video_reader else None
+            if video is None:
+                raise RequestError(404, 'Replay is not available')
+            status, body, extra = video
+            await self.respond(send, status, body, 'video/mp4', extra)
+            return
         if method == 'GET' and path == '/api/run-labels':
             # Public, read-only model predictions and imported human reviews.
             # Never write these into runner-owned assessments or revision votes.
@@ -597,7 +609,7 @@ class HostedRunner:
                     speeds = await asyncio.to_thread(self.run_names.replay_speeds)
                     from remote_yam.past_runs import merge_run_result
                     for row in selected:
-                        row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                        row['runner_name'] = names.get(row['episode_id'], row.get('runner_name') or 'Name not recorded')
                         if row['episode_id'] in speeds:
                             row['replay_speed'] = speeds[row['episode_id']]
                         merge_run_result(row, outcomes.get(row['episode_id'], {}))
@@ -651,7 +663,7 @@ class HostedRunner:
                 assessments = await asyncio.to_thread(self.run_assessments.summaries)
                 for row in result['runs']:
                     row['assessment'] = assessments.get(row['episode_id'], self.run_assessments.summary())
-                    row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                    row['runner_name'] = names.get(row['episode_id'], row.get('runner_name') or 'Name not recorded')
                     if row['episode_id'] in replay_speeds:
                         row['replay_speed'] = replay_speeds[row['episode_id']]
                     from remote_yam.past_runs import merge_run_result
@@ -808,7 +820,7 @@ class HostedRunner:
                     from remote_yam.past_runs import merge_run_result
                     for row in result['runs']:
                         row['assessment'] = assessments.get(row['episode_id'], self.run_assessments.summary())
-                        row['runner_name'] = names.get(row['episode_id'], 'Name not recorded')
+                        row['runner_name'] = names.get(row['episode_id'], row.get('runner_name') or 'Name not recorded')
                         if row['episode_id'] in replay_speeds:
                             row['replay_speed'] = replay_speeds[row['episode_id']]
                         merge_run_result(row, outcomes.get(row['episode_id'], {}))
@@ -1391,7 +1403,7 @@ class HostedRunner:
         headers = [(b"content-type", content_type.encode()), (b"content-length", str(size).encode()),
                    (b"cache-control", b"no-store"), (b"x-content-type-options", b"nosniff"),
                    (b"referrer-policy", b"no-referrer"),
-                   (b"content-security-policy", b"default-src 'none'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; font-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com; media-src https://huggingface.co https://*.huggingface.co https://*.hf.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")]
+                   (b"content-security-policy", b"default-src 'none'; script-src 'self' https://www.googletagmanager.com; style-src 'self'; font-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src 'self' https://*.google-analytics.com https://www.googletagmanager.com; media-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")]
         if self.secure:
             headers.append((b"strict-transport-security", b"max-age=31536000"))
         await send({"type": "http.response.start", "status": status, "headers": headers + list(extra)})
