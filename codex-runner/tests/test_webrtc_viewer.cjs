@@ -43,6 +43,8 @@ function harness(role='observer', monitored=false, streamPath, native=false, loc
   assert.equal(proxied.video.hls.config.lowLatencyMode,false,'Local proxy uses complete segments to avoid a backlog of small parts');
   assert.equal(proxied.video.hls.config.liveSyncMode,'buffered');
  }
+ const roomHealth=harness('synchronized',true,'robo-house');
+ assert.equal(roomHealth.health.delayBudgetMs,4000);
  const yam=harness('synchronized',false,'synchronized-hd');
  assert.equal(yam.reader,undefined,'YAM HD must start directly without waiting for a WebRTC handshake or timeout');
  assert.equal(yam.video.dataset.transport,'hls');assert.equal(yam.video.hls.url,'/synchronized-hd/index.m3u8');

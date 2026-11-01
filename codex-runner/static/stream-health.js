@@ -2,8 +2,8 @@
 (() => {
   'use strict';
   class StreamHealth {
-    constructor(video, {badge, detail, recover, report, clock = () => performance.now()}) {
-      Object.assign(this, {video, badge, detail, recover, report, clock});
+    constructor(video, {badge, detail, recover, report, delayBudgetMs = 2000, clock = () => performance.now()}) {
+      Object.assign(this, {video, badge, detail, recover, report, delayBudgetMs, clock});
       this.started = clock(); this.lastFrame = null; this.frameTimes = [];
       this.delay = null; this.previous = null; this.lastRecovery = -Infinity;
       this.closed = false; this.frameId = null;
@@ -62,7 +62,7 @@
       let state = 'connecting';
       if (document.hidden) state = 'paused';
       else if (age !== null && age > 2000) state = 'stalled';
-      else if (delay !== null && delay > 2000) state = 'behind';
+      else if (delay !== null && delay > this.delayBudgetMs) state = 'behind';
       else if (age === null) state = now - this.started >= 8000 ? 'stalled' : 'connecting';
       else state = transport === 'hls' ? 'delayed' : 'live';
       return {state, transport, frame_age_ms: age === null ? null : Math.round(age),
@@ -77,7 +77,7 @@
         this.video.dataset.droppedFrames = String(quality.droppedVideoFrames);
       }
       const names = {connecting:'Checking stream', live:'Live video', delayed:'Video playing · delayed',
-        behind:'Video over 2s old · catching up', stalled:'Stream stalled · reconnecting', paused:'Stream paused in background'};
+        behind:'Video behind live stream', stalled:'Stream stalled · reconnecting', paused:'Stream paused in background'};
       if (this.badge) {
         this.badge.textContent = names[data.state]; this.badge.dataset.state = data.state;
         this.badge.title = 'Checks frames presented in this browser. Delay is estimated when available.';

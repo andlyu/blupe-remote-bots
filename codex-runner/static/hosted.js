@@ -2222,6 +2222,7 @@ function createRunLaunchGuard() {
     if (cameraName === 'synchronized' && window.YamStreamHealth) {
       video.yamHealth = new window.YamStreamHealth(video, {
         badge: $('streamHealth'), detail: $('streamHealthDetail'), recover: data => recoverStream(data),
+        delayBudgetMs:steadyRoomAudio ? 4000 : 2000,
         report: data => { if (csrf && !ended) api('/api/stream-health', data).catch(() => {}); }
       });
     }
