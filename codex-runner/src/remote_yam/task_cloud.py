@@ -1,14 +1,14 @@
-"""Background semantic indexing with a frozen, versioned 3D coordinate system.
+"""Background task embeddings with a frozen, versioned UMAP3 layout.
 
-MiniLM's documented normalized sentence embeddings + centered PCA via NumPy
-SVD. References and exact versions: docs/refs/task-cloud/INDEX.md. No model,
-outcome, reviewer, or vote is ever input to this index.
+The bundled trusted projection preserves the reviewed layout across installs.
+New tasks use its transform; filters, models and assessments never refit it.
 """
 from contextlib import closing
 import hashlib
+import io
 import json
 import logging
-import os
+import math
 from pathlib import Path
 import sqlite3
 import threading
@@ -17,7 +17,10 @@ import time
 MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
 REVISION = 'c9745ed1d9f207416be6d2e6f8de32d1f16199bf'
 REPRESENTATION = 'minilm-l6-v2-' + REVISION + '-normalized-v1'
-ALGORITHM = 'centered-pca3-frozen-v1'
+ALGORITHM = 'cosine-umap3-frozen-v1'
+SEED = Path(__file__).resolve().parents[2] / 'config/task-cloud-umap-v1.json'
+UMAP_PARAMETERS = dict(n_components=3, n_neighbors=15, min_dist=0.05,
+                       metric='cosine', random_state=42, transform_seed=42, n_jobs=1)
 
 
 def task_text(text):
@@ -28,6 +31,52 @@ def task_key(text):
     return hashlib.sha256(task_text(text).encode()).hexdigest()
 
 
+def normalized_vectors(values):
+    import numpy as np
+    vectors = np.asarray(values, dtype=float)
+    if vectors.ndim != 2 or not vectors.shape[1] or not np.isfinite(vectors).all():
+        raise ValueError('Invalid task embedding')
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    if not np.isfinite(norms).all() or (norms <= 0).any():
+        raise ValueError('Invalid task embedding norm')
+    return vectors / norms
+
+
+def fit_projection(keys, vectors):
+    """Build a release projection, or initialize an unseeded private index.
+
+    Only trusted code creates these joblib bytes. They are never accepted from
+    browser requests or external model URLs. Production uses the bundled seed.
+    """
+    import joblib
+    import numpy as np
+    from umap import UMAP
+    if len(keys) < 4:
+        raise ValueError('An unseeded UMAP projection needs at least four tasks')
+    matrix = normalized_vectors(vectors)
+    parameters = dict(UMAP_PARAMETERS, n_neighbors=min(15, len(keys) - 1))
+    if len(keys) <= 4:
+        parameters['init'] = 'random'
+    model = UMAP(**parameters)
+    xyz = model.fit_transform(matrix)
+    if xyz.shape != (len(keys), 3) or not np.isfinite(xyz).all():
+        raise ValueError('Invalid UMAP coordinates')
+    center = (xyz.min(axis=0).astype(float) + xyz.max(axis=0)) / 2
+    radius = float(np.max(np.abs(xyz - center)))
+    if not math.isfinite(radius) or radius <= 0:
+        raise ValueError('Degenerate UMAP projection')
+    scale = 0.62 / radius  # One uniform scale keeps camera/radius units stable.
+    buffer = io.BytesIO()
+    joblib.dump(model, buffer, compress=3)
+    blob = buffer.getvalue()
+    digest = hashlib.sha256(blob).hexdigest()
+    basis = dict(center=center.tolist(), scale=scale, fit_tasks=keys,
+                 parameters=parameters, model_sha256=digest)
+    version = ALGORITHM + '-' + digest[:16]
+    coordinates = {key: ((point - center) * scale).tolist() for key, point in zip(keys, xyz)}
+    return version, basis, coordinates, blob
+
+
 class TaskCloud:
     def __init__(self, path, encoder=None):
         self.path = Path(path)
@@ -36,6 +85,8 @@ class TaskCloud:
         self.busy = False
         self.error = False
         self.retry_at = 0
+        self.seed = None
+        self.projector = None
 
     def database(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,16 +100,32 @@ class TaskCloud:
                 PRIMARY KEY(representation,algorithm));
             CREATE TABLE IF NOT EXISTS task_coordinates (
                 version TEXT, task_id TEXT, xyz TEXT, PRIMARY KEY(version,task_id));
+            CREATE TABLE IF NOT EXISTS task_projection_models (
+                version TEXT PRIMARY KEY, model BLOB);
         ''')
-        seed = Path(__file__).resolve().parents[2] / 'config/task-cloud-projection-v1.json'
-        if self.encoder is None and seed.is_file():
-            data = json.loads(seed.read_text())
-            if data['representation'] != REPRESENTATION or data['algorithm'] != ALGORITHM:
+        if self.encoder is None:
+            try:
+                if self.seed is None:
+                    self.seed = json.loads(SEED.read_text())
+                data = self.seed
+                if data['representation'] != REPRESENTATION or data['algorithm'] != ALGORITHM:
+                    raise ValueError('Task projection does not match its declared representation')
+                current = db.execute('SELECT version FROM task_projections WHERE representation=? AND algorithm=?',
+                                     (REPRESENTATION, ALGORITHM)).fetchone()
+                if current and current[0] != data['version']:
+                    raise ValueError('Task projection version changed without an algorithm version change')
+                if not current:
+                    for point in data['coordinates'].values():
+                        if len(point) != 3 or not all(math.isfinite(v) for v in point):
+                            raise ValueError('Invalid seed coordinates')
+                    with db:
+                        db.execute('INSERT OR IGNORE INTO task_projections VALUES(?,?,?,?)',
+                                   (REPRESENTATION, ALGORITHM, data['version'], json.dumps(data['basis'])))
+                        db.executemany('INSERT OR IGNORE INTO task_coordinates VALUES(?,?,?)',
+                                       ((data['version'], key, json.dumps(xyz)) for key, xyz in data['coordinates'].items()))
+            except Exception:
                 db.close()
-                raise ValueError('Task projection does not match its declared representation')
-            db.execute('INSERT OR IGNORE INTO task_projections VALUES(?,?,?,?)',
-                       (REPRESENTATION, ALGORITHM, data['version'], json.dumps(data['basis'])))
-            db.commit()
+                raise
         return db
 
     def snapshot(self, rows):
@@ -74,14 +141,13 @@ class TaskCloud:
                 'missing': missing, 'coordinates': coordinates}
 
     def schedule(self, rows):
-        # A single daemon per runner; DB primary keys and BEGIN IMMEDIATE also
-        # serialize publication across processes sharing the same index path.
         with self.lock:
             if self.busy or time.monotonic() < self.retry_at:
                 return
             if not self.snapshot(rows)['missing']:
                 return
             self.busy = True
+
         def work():
             try:
                 self.index(rows)
@@ -99,60 +165,79 @@ class TaskCloud:
         if self.encoder:
             return self.encoder(texts)
         from sentence_transformers import SentenceTransformer
-        # Dedicated cache and explicit token=False avoid reading account tokens.
         model = SentenceTransformer(MODEL, revision=REVISION, device='cpu',
             cache_folder=str(self.path.parent / 'task-model'), token=False, trust_remote_code=False)
         return model.encode(texts, batch_size=32, normalize_embeddings=True,
                             show_progress_bar=False, convert_to_numpy=True)
 
+    def load_projector(self, db, version, basis):
+        if self.projector and self.projector[0] == version:
+            return self.projector[1]
+        import joblib
+        if 'model_file' in basis:
+            name = basis['model_file']
+            if Path(name).name != name:
+                raise ValueError('Invalid projection model path')
+            blob = (SEED.parent / name).read_bytes()
+        else:
+            row = db.execute('SELECT model FROM task_projection_models WHERE version=?', (version,)).fetchone()
+            if not row:
+                raise ValueError('Frozen projection model is unavailable')
+            blob = row[0]
+        if hashlib.sha256(blob).hexdigest() != basis['model_sha256']:
+            raise ValueError('Frozen projection model checksum mismatch')
+        # Trusted bundled or locally generated state only; never user uploads.
+        model = joblib.load(io.BytesIO(blob))
+        self.projector = (version, model)
+        return model
+
     def index(self, rows):
-        import numpy as np
         tasks = {task_key(r['prompt']): task_text(r['prompt']) for r in rows}
         if not tasks:
             return
+        state = self.snapshot(rows)
+        pending = sorted(set(tasks) - set(state['coordinates']))
+        if not pending:
+            return state
         with closing(self.database()) as db:
             embeddings = {key: json.loads(value) for key, value in db.execute(
                 'SELECT task_id,embedding FROM task_embeddings WHERE representation=?', (REPRESENTATION,))}
-        missing = sorted(set(tasks) - set(embeddings))
+        missing = sorted(set(pending) - set(embeddings))
         if missing:
             vectors = self.encode([tasks[k] for k in missing])
             if len(vectors) != len(missing):
                 raise ValueError('Encoder returned the wrong number of task vectors')
+            vectors = normalized_vectors(vectors)
             with closing(self.database()) as db, db:
                 for key, vector in zip(missing, vectors):
-                    vector = np.asarray(vector, dtype=float)
-                    if vector.ndim != 1 or not np.isfinite(vector).all():
-                        raise ValueError('Invalid task embedding')
                     embeddings[key] = vector.tolist()
                     db.execute('INSERT OR IGNORE INTO task_embeddings VALUES(?,?,?)',
                                (REPRESENTATION, key, json.dumps(embeddings[key])))
         with closing(self.database()) as db, db:
+            # Serialize only publication. UMAP work is background-only; shared
+            # index users see either complete prior or complete new coordinates.
             db.execute('BEGIN IMMEDIATE')
             projection = db.execute('SELECT version,basis FROM task_projections WHERE representation=? AND algorithm=?',
                                     (REPRESENTATION, ALGORITHM)).fetchone()
             if projection:
-                version, data = projection[0], json.loads(projection[1])
+                import numpy as np
+                version, basis = projection[0], json.loads(projection[1])
+                model = self.load_projector(db, version, basis)
+                coordinates = {}
+                for key in pending:
+                    # Transform separately so a task's position does not depend
+                    # on the number/order of other arrivals in the same batch.
+                    vector = normalized_vectors([embeddings[key]])
+                    point = np.asarray(model.transform(vector), dtype=float)
+                    if point.shape != (1, 3) or not np.isfinite(point).all():
+                        raise ValueError('Invalid transformed task coordinates')
+                    coordinates[key] = ((point[0] - basis['center']) * basis['scale']).tolist()
             else:
-                # Sorted unique task hashes make the initial fit independent of
-                # archive order, attempt count, filters, models and labels.
-                fit_keys = sorted(tasks)[:4096]
-                matrix = np.asarray([embeddings[k] for k in fit_keys])
-                center = matrix.mean(axis=0)
-                _, singular, basis = np.linalg.svd(matrix - center, full_matrices=False)
-                axes = basis[:3]
-                axes = np.pad(axes, ((0, max(0, 3-len(axes))), (0, 0)))
-                for axis in axes:
-                    if axis[np.argmax(np.abs(axis))] < 0:
-                        axis *= -1
-                data = {'center': center.tolist(), 'axes': axes.tolist(),
-                        'fit_tasks': fit_keys, 'singular_values': singular[:3].tolist()}
-                fingerprint = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]
-                version = ALGORITHM + '-' + fingerprint
+                keys = sorted(tasks)[:4096]
+                version, basis, coordinates, blob = fit_projection(keys, [embeddings[k] for k in keys])
                 db.execute('INSERT INTO task_projections VALUES(?,?,?,?)',
-                           (REPRESENTATION, ALGORITHM, version, json.dumps(data)))
-            center, axes = np.asarray(data['center']), np.asarray(data['axes'])
-            for key in tasks:
-                xyz = (np.asarray(embeddings[key]) - center) @ axes.T
-                db.execute('INSERT OR IGNORE INTO task_coordinates VALUES(?,?,?)',
-                           (version, key, json.dumps(xyz.tolist())))
+                           (REPRESENTATION, ALGORITHM, version, json.dumps(basis)))
+                db.execute('INSERT INTO task_projection_models VALUES(?,?)', (version, blob))
+            db.executemany('INSERT OR IGNORE INTO task_coordinates VALUES(?,?,?)',
+                           ((version, key, json.dumps(xyz)) for key, xyz in coordinates.items()))
         return self.snapshot(rows)
