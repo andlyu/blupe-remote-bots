@@ -733,6 +733,14 @@ class HostedRunner:
                 visitor.last_data_chat = time.monotonic()
                 try:
                     catalog = await asyncio.to_thread(self.past_runs.page, metadata=True)
+                    # Hosted libraries may include public receipts not yet in the archive.
+                    # Use their same projection; archive rows win after publication.
+                    receipt_reader = getattr(self.run_names, 'catalog', None)
+                    if callable(receipt_reader):
+                        receipts = await asyncio.to_thread(receipt_reader)
+                        merged = {r['episode_id']: r for r in receipts}
+                        merged.update({r['episode_id']: r for r in catalog['runs']})
+                        catalog = {**catalog, 'runs': sorted(merged.values(), key=lambda r: r.get('started_at') or 0, reverse=True)}
                     overlay = await asyncio.to_thread(self.run_assessments.summaries)
                     label_path = ROOT / 'annotations' / 'run-labels.json'
                     annotations = json.loads(label_path.read_text()) if label_path.exists() else {'runs': []}

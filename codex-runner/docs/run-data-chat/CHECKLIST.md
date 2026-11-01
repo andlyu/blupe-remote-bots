@@ -6,6 +6,9 @@ playground fix. The later direct clarification establishes all public runs as th
 baseline, with current filters/box and opened replay as contextual metadata;
 conversation persists when those change. Explicit focused discussion is optional.
 The user delegated model selection and confirmed Andrew for live test attribution.
+The user subsequently clarified that data chat is separate from the harness and
+must not require name entry. Normal data-chat users are never asked for name or
+email. The earlier agent verification attribution is historical evidence only.
 Execution mode is automated read-only feature verification, not a robot runner.
 No email is submitted. Public destinations: https://playground.blupe.io/ and
 https://github.com/andlyu/blupe-remote-bots. The contract reproduced below grants

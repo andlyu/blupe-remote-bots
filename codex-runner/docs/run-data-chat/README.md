@@ -7,8 +7,12 @@ context. Changing them preserves the conversation. The scope selector offers an
 explicit filtered/box or opened-replay focus. Each answer retains its own scope,
 counts, denominator, evidence sample size and actual model identifier.
 
+Data chat has no name/email prompt or harness enrollment. It is separate from
+robot execution and queue attribution.
+
 The server reloads authoritative public archive metadata and human assessments,
-then applies the same search/filter implementation as the library. It separately
+merges any available public pre-publication receipts with archive rows taking
+precedence, then applies the same search/filter implementation as the library. It separately
 computes all-collection, current-library and requested-focus aggregates. A box
 must contain existing IDs that match the current robot/filters; an empty box stays
 empty. Opened replays are robot-validated. Client-supplied labels, counts, model
