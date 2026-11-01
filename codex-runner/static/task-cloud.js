@@ -414,6 +414,7 @@
     }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };
+    canvas.parentElement?.querySelector('.taskCloudDisplay')?.addEventListener('toggle',schedule);
     function description(run) {
       const a = run.assessment || {};
       if (window.yamRunLabels) return `${run.prompt} · ${window.yamRunLabels.describe(run, run.label_source || 'human')} · ${run.episode_id}`;
@@ -481,7 +482,7 @@
       updateAim();
       for (const point of points) if (point.x>-15 && point.x<width+15 && point.y>-15 && point.y<height+15) marker(point);
       const boxes=[];captionBoxes=[];
-      const layerBounds=captionRoot?.parentElement?.querySelector('.cloudLayers')?.getBoundingClientRect();
+      const layerBounds=(captionRoot?.parentElement?.querySelector('.taskCloudDisplay') || captionRoot?.parentElement?.querySelector('.cloudLayers'))?.getBoundingClientRect();
       if(touchInput && !areaMode){const aim=aimLocation();boxes.push({x:aim.x-28,y:aim.y-28,w:56,h:56});}
       if(layerBounds){const bounds=canvas.getBoundingClientRect();boxes.push({x:layerBounds.left-bounds.left,y:layerBounds.top-bounds.top,w:layerBounds.width,h:layerBounds.height});}
       ctx.font='600 12px system-ui';
