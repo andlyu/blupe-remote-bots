@@ -97,7 +97,8 @@ class DataChatHostedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_normal_session_csrf_scope_and_no_policy_or_motion(self):
         session=await self.session()
-        payload=dict(question='What works?',scope={'robot_id':'forged-robot','kind':'filtered'})
+        self.app.robots[0]['name']='Recorded station'
+        payload=dict(question='What works?',scope={'robot_id':'forged-robot','robot_name':'Forged station','kind':'filtered'})
         self.assertEqual((await self.call('/api/run-data-chat',method='POST',payload=payload))[0],401)
         self.assertEqual((await self.call('/api/run-data-chat',method='POST',payload=payload,cookie=session['cookie']))[0],403)
         self.app.data_chat=Mock(model=MODEL)
@@ -105,6 +106,8 @@ class DataChatHostedTests(unittest.IsolatedAsyncioTestCase):
         self.app.past_runs=Mock();self.app.past_runs.page.return_value={'runs':[row('ep_a'),row('ep_foreign',robot='forged-robot')]}
         code,data,_=await self.call('/api/run-data-chat',method='POST',payload=payload,**session)
         self.assertEqual(code,200);self.assertEqual(data['scope']['robot_id'],'yam-1');self.assertEqual(data['scope']['counts']['total'],1)
+        self.assertEqual(data['scope']['robot_names']['yam-1'],'Recorded station')
+        self.assertNotIn('Forged station',json.dumps(self.app.data_chat.answer.call_args.args[0]))
         self.assertFalse(self.providers,'Data chat must never create a robot policy')
         self.assertEqual((await self.call('/api/run-data-chat',method='POST',payload=payload,**session))[0],429)
 
