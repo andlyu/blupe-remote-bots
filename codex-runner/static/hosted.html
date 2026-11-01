@@ -11,6 +11,7 @@
   <!-- application-head -->
   <link rel="stylesheet" href="/static/meeting.css?v=20261031">
   <script src="/static/stream-health.js" defer></script>
+  <script src="/static/live-viewers.js" defer></script>
   <script src="/static/model-picker.js" defer></script>
   <script src="/static/system-prompt.js" defer></script>
   <script src="/static/reactions.js" defer></script>
@@ -46,7 +47,7 @@
     <button type="button" data-conversation-mode="hide" aria-pressed="false" aria-controls="liveConversationPanel">Hide</button>
     <button type="button" data-conversation-mode="visitor" aria-pressed="false" aria-controls="visitorChatPanel">Visitor chat</button>
   </div>
-    <p class="help" id="videoDelayNotice">Live views, synchronized. <span id="streamHealth" class="streamHealth" role="status">Checking stream</span> <span id="streamHealthDetail" aria-live="off"></span> <span id="streamLatency" hidden title="Approximate age from the relay’s post-read capture timestamp to this browser canvas; assumes synchronized clocks."></span></p>
+    <p class="help" id="videoDelayNotice">Live views, synchronized. <span id="streamHealth" class="streamHealth" role="status">Checking stream</span> <span id="streamHealthDetail" aria-live="off"></span> <span id="streamLatency" hidden title="Approximate age from the relay’s post-read capture timestamp to this browser canvas; assumes synchronized clocks."></span> <span id="liveViewerCount" class="liveViewerCount" hidden title="Active browsers viewing this robot in the last 30 seconds. Includes you; multiple tabs count once."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span id="liveViewerCountText"></span></span></p>
   </div>
 <div class="watchVisuals">
   <section class="panel" aria-label="What’s running" hidden>
