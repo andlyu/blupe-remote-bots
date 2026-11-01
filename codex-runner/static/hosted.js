@@ -341,6 +341,13 @@ function createRunLaunchGuard() {
   'use strict';
   const $ = id => document.getElementById(id);
   if (!$('pastRunsList')) return;
+  const displayOptions = $('taskCloudDisplay'), compactDisplay = window.matchMedia?.('(max-width: 700px), (pointer: coarse)');
+  if (displayOptions) {
+    const syncDisplay = () => {displayOptions.open = !compactDisplay?.matches;};
+    syncDisplay();
+    if (compactDisplay?.addEventListener) compactDisplay.addEventListener('change', syncDisplay);
+    else compactDisplay?.addListener?.(syncDisplay);
+  }
   let next = 0, loading = false, historyRobot = null, historyGeneration = 0;
   const libraryRobot = () => document.body?.dataset.stationLocal === 'true' ? historyRobot : $('pastRunsRobot').value;
   let labelSource = 'auto';
