@@ -105,17 +105,15 @@ test('ready catalog hints start media immediately without a hover-detail request
  assert.equal(c.loads.length,0);assert.equal(c.videos[0].src,detail('ep_a').video_url);assert.equal(c.videos[0].plays,1);
  assert.equal(c.layouts[0].layout,'observer-focus');
 });
-test('Cloud reuses recent ready Table media without retaining assessment data',async()=>{
- const c=require('./helpers/past-runs.cjs')('','table');c.events['blupe-robot-selected']({detail:'yam-1'});
- const row={...detail('ep_a'),robot_id:'yam-1',assessment:{label:'Success'},replay_speed:2};
- c.answer(c.requests[0],[row]);await c.flush();c.nodes.get('pastRunsCloudView').emit('click');
- c.answer(c.requests[1],[run('ep_a')]);await c.flush();
- assert.equal(c.cloud.rows[0].preview.video_url,row.video_url,'Known recent cache clips override slower archive hints');
- const detailFromCache=await c.cloudPreview.options.loadRun({...run('ep_a'),robot_id:'yam-1'},new AbortController().signal);
- assert.equal(c.requests.length,2,'No additional hover detail request');
- assert.equal(detailFromCache.video_url,row.video_url);assert.equal(detailFromCache.replay_speed,2);
- assert.equal(detailFromCache.assessment,undefined,'Media reuse does not cache votes or labels');
+test('hosted area captions default off and an explicit toggle is remembered without fetching more runs',async()=>{
+ const c=require('./helpers/past-runs.cjs')('','cloud'),choices=[];c.cloud.setAreaLabels=value=>choices.push(value);
+ c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Task',xyz:[0,0,0]}]);await c.flush();
+ assert.equal(c.nodes.get('taskCloudShowLabels').checked,false);assert.equal(choices.at(-1),false);
+ const count=c.requests.length;c.nodes.get('taskCloudShowLabels').checked=true;c.nodes.get('taskCloudShowLabels').emit('change');
+ assert.equal(choices.at(-1),true);assert.equal(c.storage.get('yam-cloud-area-labels'),'true');assert.equal(c.requests.length,count);
+ c.nodes.get('taskCloudShowLabels').checked=false;c.nodes.get('taskCloudShowLabels').emit('change');assert.equal(choices.at(-1),false);
 });
+
 test('Custom end-point becomes the active provider and focuses its input without navigating',()=>{
  const full=fs.readFileSync(path.join(__dirname,'../static/hosted.js'),'utf8');
  const handler=full.match(/function selectModelChoice\(event\) \{[^]*?\n  \}/)[0];

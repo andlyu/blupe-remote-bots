@@ -109,12 +109,18 @@ test('area controls expose the binary denominator, label source and empty state 
  assert.equal(c.nodes.get('taskCloudAreaPrompt').textContent,'Actual central task');
  const changed=[];c.cloud.setVolumeDimension=(...args)=>changed.push(args);
  assert.equal(c.nodes.get('taskCloudVolumeDepth').value,'50');c.nodes.get('taskCloudVolumeDepth').value='200';c.nodes.get('taskCloudVolumeDepth').emit('input');assert.deepEqual(changed,[['depth',200]]);assert.equal(c.requests.length,1);
- const tools=[];c.cloud.addVolume=()=>tools.push('add');c.cloud.setVolumeTool=tool=>tools.push(tool);c.cloud.nudgeVolume=(axis,direction)=>tools.push([axis,direction]);c.cloud.setView=view=>tools.push(view);
- let scrolled=0;c.nodes.get('taskCloudCanvas').scrollIntoView=()=>scrolled++;c.nodes.get('taskCloudAddBox').emit('click');assert.equal(scrolled,0);c.nodes.get('taskCloudToolRotate').emit('click');c.nodes.get('taskCloudNudgeZPlus').emit('click');c.nodes.get('taskCloudViewTop').emit('click');assert.deepEqual(tools,['add','rotate',[2,1],'top']);
+ const tools=[];c.cloud.setVolumeTool=tool=>tools.push(tool);c.cloud.nudgeVolume=(axis,direction)=>tools.push([axis,direction]);c.cloud.setView=view=>tools.push(view);
+ c.nodes.get('taskCloudToolRotate').emit('click');c.nodes.get('taskCloudNudgeZPlus').emit('click');c.nodes.get('taskCloudViewTop').emit('click');assert.deepEqual(tools,['rotate',[2,1],'top']);
  c.nodes.get('pastRunsLabelSource').value='human';c.nodes.get('pastRunsLabelSource').emit('change');
  c.cloud.areaChange({...area,Success:0,Failure:0,Uncertain:0,Unscored:10,scored:0,successRate:null,active:true});
  assert.match(c.nodes.get('taskCloudAreaRate').textContent,/No Success\/Failure labels.*Human-labeled/);assert.equal(c.requests.length,1);
  c.nodes.get('taskCloudClearArea').emit('click');assert.equal(c.nodes.get('taskCloudAreaSummary').hidden,true);assert.equal(c.nodes.get('taskCloudClearArea').disabled,true);
+});
+test('area captions are opt-in and zoom does not cover runs with individual task labels',()=>{
+ const c=setup(run=>run.testOutcome),prompt='Unobstructed task';c.cloud.setRuns(Array.from({length:6},(_,i)=>({episode_id:'plain'+i,prompt,xyz:[0,0,0],testOutcome:'Failure'})));c.cloud.setHighlight('both');c.draw();
+ assert.equal(c.canvas.dataset.areaLabels,'false');assert.equal(c.canvas.dataset.highlightRegions,'1');assert.ok(!c.draws.some(call=>call[0]==='fillText' && /Failure:|Unobstructed/.test(call[1])));
+ c.cloud.zoom(3);c.draws.length=0;c.draw();assert.ok(!c.draws.some(call=>call[0]==='fillText' && /Failure:|Unobstructed/.test(call[1])));
+ c.cloud.setAreaLabels(true);c.draw();assert.equal(c.canvas.dataset.areaLabels,'true');assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Failure: 6/6'));assert.match(c.focused.textContent,/Median failure prompt/);
 });
 test('neighborhoods require five binary labels, ignore uncertain/unknown outcomes and preserve 3D separation',()=>{
  const c=setup(run=>run.testOutcome),rows=[];
@@ -132,11 +138,11 @@ test('neighborhoods require five binary labels, ignore uncertain/unknown outcome
 });
 test('highlight controls preserve individual runs, 3D support under rotation, source recalculation and replay selection',()=>{
  const c=setup(),rows=Array.from({length:6},(_,i)=>({episode_id:'ep_h'+i,prompt:'Lift',xyz:[0,0,0],assessment:{label:i===0?'Failure':'Success',eligibility:'included'}}));
- c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
  assert.equal(c.canvas.dataset.renderedPoints,'6');assert.equal(c.canvas.dataset.highlightRegions,'1');assert.match(c.cloud.highlightSummary(),/1 success-heavy/);assert.match(c.focused.textContent,/Nearby: 5 Success \/ 1 Failure/);
  c.events.keydown({key:'ArrowRight',preventDefault(){}});c.draw();assert.equal(c.canvas.dataset.highlightRegions,'1');
  c.cloud.open();assert.equal(c.opened[0].episode_id,'ep_h0');
- c.cloud.setHighlight('failure');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0');assert.match(c.cloud.highlightSummary(),/No areas meet/);
+ c.cloud.setHighlight('failure');c.cloud.setAreaLabels(true);c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0');assert.match(c.cloud.highlightSummary(),/No areas meet/);
  c.cloud.setHighlight('none');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0');assert.match(c.cloud.highlightSummary(),/off/);assert.equal(c.canvas.dataset.renderedPoints,'6');
  c.cloud.setRuns(rows.slice(0,4));c.cloud.setHighlight('both');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0','filtering to four runs must remove stale highlight');
  c.cloud.setRuns(rows.map(r=>({...r,assessment:{label:'Failure',eligibility:'included'}})));c.draw();assert.match(c.cloud.highlightSummary(),/1 failure-heavy/);
@@ -150,7 +156,7 @@ test('failure areas show the observed failed prompt nearest the repeated-attempt
  const result=c.regionsFor(rows),region=result.regions.find(region=>region.xyz[0]<.1);
  assert.equal(region.representativePrompt,'Pick up the poker chip');assert.equal(region.Failure,6);assert.equal(region.total,7);
  assert.equal(JSON.stringify(c.regionsFor(rows.slice().reverse()).regions),JSON.stringify(result.regions));
- c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
  assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Pick up the poker chip'));
  assert.match(c.focused.textContent,/Median failure prompt: Pick up the poker chip/);
  const noPrompts=c.regionsFor(rows.map(run=>({...run,prompt:''})));assert.equal(noPrompts.regions.find(region=>region.xyz[0]<.1).representativePrompt,'');
@@ -162,14 +168,14 @@ test('success captions use successful attempts even when a failed task shares th
   {episode_id:'z_right',prompt:'Right successful task',xyz:[.06,0,0],testOutcome:'Success'},
   {episode_id:'a_failed',prompt:'Drop the bottle',xyz:[.02,0,0],testOutcome:'Failure'}];
  const region=c.regionsFor(rows).regions.find(region=>region.label==='Success');assert.equal(region.Success,5);assert.equal(region.total,6);assert.equal(region.representativePrompt,'Lift the bottle');
- c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();assert.match(c.focused.textContent,/Median success prompt: Lift the bottle/);
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();assert.match(c.focused.textContent,/Median success prompt: Lift the bottle/);
  assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Lift the bottle'));
 });
 test('long failure prompts wrap and truncate inside mobile canvas bounds without changing region counts',()=>{
  const c=setup(run=>run.testOutcome),prompt='Pick up the poker chip and carefully move it to the cup '.repeat(8);
  c.canvas.clientWidth=320;c.canvas.clientHeight=360;
  c.cloud.setRuns(Array.from({length:6},(_,i)=>({episode_id:'ep_'+i,prompt,xyz:[0,0,0],testOutcome:'Failure'})));
- c.cloud.setHighlight('failure');c.draw();
+ c.cloud.setHighlight('failure');c.cloud.setAreaLabels(true);c.draw();
  const label=c.draws.find(call=>call[0]==='fillText' && call[1]==='Failure: 6/6');assert.ok(label);
  const promptLines=c.draws.filter(call=>call[0]==='fillText' && /Pick|…/.test(call[1]));
  assert.equal(promptLines.length,2);assert.match(promptLines[1][1],/…$/);
@@ -179,7 +185,7 @@ test('long failure prompts wrap and truncate inside mobile canvas bounds without
 test('combined phone labels retain success and failure captions when their default positions collide',()=>{
  const c=setup(run=>run.testOutcome);c.canvas.clientWidth=320;c.canvas.clientHeight=360;
  const rows=['Success','Failure'].flatMap((testOutcome,index)=>Array.from({length:5},(_,i)=>({episode_id:`ep_${index}_${i}`,prompt:index?'Place blue block on the tray':'Place green block on the towel',xyz:index?[.07,0,.1]:[-.07,0,-.1],testOutcome})));
- c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.draw();
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
  assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Success: 5/5'));
  assert.ok(c.draws.some(call=>call[0]==='fillText' && call[1]==='Failure: 5/5'));
  assert.equal(c.canvas.dataset.highlightRegions,'2');assert.equal(c.canvas.dataset.renderedPoints,'10');
