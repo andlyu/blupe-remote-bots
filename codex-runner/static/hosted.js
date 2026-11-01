@@ -701,10 +701,11 @@ function createRunLaunchGuard() {
     try {
       const searchQuery = historySearch ? `&q=${encodeURIComponent(historySearch)}` : '';
       const modelQuery = historyModels.map(model => `&model=${encodeURIComponent(model)}`).join('');
-      const response = await fetch(`/api/run-catalog?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}&view=${historyView}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}});
-      if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
-      const data = await response.json();
-      await window.yamRunLabels?.load();
+      const catalogRequest = fetch(`/api/run-catalog?offset=${reset ? 0 : next}&robot_id=${encodeURIComponent(historyRobot)}${modelQuery}${searchQuery}&view=${historyView}`, {cache:'no-store', headers:{'X-Blupe-Robot':historyRobot}}).then(response => {
+        if (!response.ok) throw new Error('Past runs are temporarily unavailable. Select Refresh to retry.');
+        return response.json();
+      });
+      const [data] = await Promise.all([catalogRequest, window.yamRunLabels?.load()]);
       if (generation !== historyGeneration) return;
       if (Array.isArray(data.models)) { historyModelChoices = data.models; renderModelFilter(); }
       if (reset) { clearBlocks(); catalogRows = []; }
@@ -3586,3 +3587,4 @@ THE SOFTWARE.
     status?.classList.remove('visuallyHidden');status?.classList.add('help');
   }
 })();
+
