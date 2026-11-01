@@ -17,9 +17,7 @@ include an actual matching median prompt. The choice is remembered under
 `yam-cloud-area-labels`; an explicit off preference is honored on later visits.
 Hover/focus details remain below the canvas and in playing video previews;
 per-run canvas captions are not added when zooming.
-Each caption keeps **View** and the close button together in its compact count
-row, with 26px-high native targets and no separate action footer. Caption height
-is 34px plus 16px per prompt line (up to 66px for two lines). View
+Each caption has a top-right **Dismiss** button and a **View** button. View
 opens its actual matching-outcome median run in the existing video sidebar.
 Dismiss hides only that caption, preserving its tint and all dots. Dismissals
 survive camera changes and unchanged data refreshes; changing the run dataset
