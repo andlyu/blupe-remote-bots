@@ -151,7 +151,7 @@ class DreamWorkerPool:
             except Exception:
                 pass  # Readiness remains false; retries have a fixed budget.
 
-    def _restore(self, owner, checkpoint):
+    def _restore(self, owner, checkpoint, action_hz=20):
         self._prime(timeout=self._prime_timeout, owner=owner, recovery=True)
         if owner is None or owner.closed.is_set() or self._stop.is_set():
             with self._condition:
@@ -159,8 +159,8 @@ class DreamWorkerPool:
             return
         # Same exclusive owner, fresh SDK session and empty observation window.
         try:
-            reply = self._worker.call('configure', checkpoint=checkpoint,
-                                      cancelled=self._stop.is_set, timeout=10)
+            reply = self._worker.call('configure', checkpoint=checkpoint, action_hz=action_hz,
+                                      cancelled=self._stop.is_set, timeout=180)
             if not reply['ok']:
                 raise RuntimeError('Dream recovered worker configuration failed')
         except Exception:
@@ -259,6 +259,7 @@ class DreamWorkerPool:
 class _VisitorWorker:
     def __init__(self, pool):
         self.pool = pool
+        self._action_hz = 20
         self.closed = threading.Event()
         self._lock = threading.Lock()
 
@@ -272,14 +273,17 @@ class _VisitorWorker:
                 if self.pool._owner is not self:
                     raise RuntimeError('Dream visitor is not configured')
                 future = self.pool._executor.submit(self.pool._invoke, self, command, payload, timeout)
-        return self._wait(future, cancelled)
+        reply = self._wait(future, cancelled)
+        if command == 'configure' and reply['ok']:
+            self._action_hz = payload.get('action_hz', 20)
+        return reply
 
     def recover(self, *, checkpoint, cancelled=lambda: False):
         with self._lock, self.pool._condition:
             if (self.closed.is_set() or cancelled() or self.pool._owner is not self
                     or self.pool._stop.is_set()):
                 raise RuntimeError('Dream worker recovery cancelled')
-            future = self.pool._executor.submit(self.pool._restore, self, checkpoint)
+            future = self.pool._executor.submit(self.pool._restore, self, checkpoint, self._action_hz)
         return self._wait(future, cancelled)
 
     def _wait(self, future, cancelled):

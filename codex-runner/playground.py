@@ -1119,6 +1119,13 @@ class HostedRunner:
             duration = payload.get("run_duration_s", default_duration)
             if type(duration) is not int or not 60 <= duration <= maximum_duration:
                 raise RequestError(400, f"Choose a run duration from 1 to {maximum_duration // 60} minutes")
+            from remote_yam.cadence import trajectory_cadence
+            try:
+                cadence_hz = trajectory_cadence(payload.get('cadence_hz', 10))
+            except ValueError as exc:
+                raise RequestError(400, str(exc)) from None
+            if cadence_hz != 10 and name not in ('dream', 'dream_flash'):
+                raise RequestError(400, 'Configurable playback cadence is available for Dream runs')
             runner_name = payload.get('runner_name', 'Anonymous')
             try:
                 handles = social_handles(payload)
@@ -1282,6 +1289,11 @@ class HostedRunner:
                 provider._urlopen = request.build_opener(NoRedirect).open
             if name in {'codex', 'claude'}:
                 provider.reasoning_effort = effort
+            configure_cadence = getattr(provider, 'configure_cadence', None)
+            if callable(configure_cadence):
+                configure_cadence(cadence_hz)
+            elif cadence_hz != 10:
+                raise RequestError(400, 'This executor does not support configurable cadence')
             if fast_provider:
                 provider.response_speed = response_speed
             try:

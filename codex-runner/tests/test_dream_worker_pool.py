@@ -49,7 +49,7 @@ class DreamClient:
         self._policy=SimpleNamespace(_ik=SimpleNamespace(traj_ready=event,
             _solver=Solver(),_solve_spec=lambda:SimpleNamespace(solve='traj')))
     def policy(self, config):
-        self.checkpoint=config['checkpoint'];log('policy',checkpoint=self.checkpoint)
+        self.checkpoint=config['checkpoint'];log('policy',checkpoint=self.checkpoint,action_hz=config['action_hz'])
         while Path(os.environ['TEST_HOLD']+'-prime').exists() and not Path(os.environ['TEST_RELEASE']).exists():time.sleep(.01)
         assert config['ik']=={'arm':'yam','head':'eef','solve':'traj'} and config['_record'] is False
     def set_observation(self, frames, state, timestamp):
@@ -459,3 +459,21 @@ def test_hosted_run_recovery_preserves_session_and_never_submits_after_cancel(
     finally:
         finish_dispatch.set(); release.touch(); visitor.close()
         shutil.rmtree(app.root, ignore_errors=True)
+
+
+def test_prepared_worker_keeps_selected_clock_through_recovery_and_next_visitor(resident):
+    pool,credentials,trace,*_=resident
+    handle=pool.factory(sys.executable,credentials,'unused')
+    assert handle.call('configure',checkpoint=MODELS['dream'][0],action_hz=30)['ok']
+    assert [r for r in rows(trace) if r['kind']=='policy'][-1]['action_hz']==30
+    pool._discard(recover=True)
+    handle.recover(checkpoint=MODELS['dream'][0])
+    assert [r for r in rows(trace) if r['kind']=='policy'][-1]['action_hz']==30
+    handle.close()
+    wait_for(lambda:not pool.status()['busy'])
+    other=pool.factory(sys.executable,credentials,'unused')
+    try:
+        assert other.call('configure',checkpoint=MODELS['dream'][0],action_hz=20)['ok']
+        assert [r for r in rows(trace) if r['kind']=='policy'][-1]['action_hz']==20
+    finally:
+        other.close()

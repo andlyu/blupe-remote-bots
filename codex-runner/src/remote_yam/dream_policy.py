@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 
+from .cadence import trajectory_cadence
 from .session import command_budget, MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET
 from .latency_spans import journal_span
 
@@ -34,8 +35,9 @@ class DreamObservationError(ValueError):
         self.field, self.retryable = field, retryable
 
 
-def motion_limited_waypoints(points, observation, max_step_deg, *, max_commands=MAX_COMMANDS):
-    """Retain every paired target; add 100 ms steps instead of clipping the path."""
+def motion_limited_waypoints(points, observation, max_step_deg, *, max_commands=MAX_COMMANDS, cadence_hz=10):
+    """Retain endpoints and cap joint/gripper speed in wall time at each cadence."""
+    cadence_hz = trajectory_cadence(cadence_hz)
     state_input(observation, '')
     previous = [*observation['left_joints_deg'], observation['left_gripper'],
                 *observation['right_joints_deg'], observation['right_gripper']]
@@ -49,7 +51,8 @@ def motion_limited_waypoints(points, observation, max_step_deg, *, max_commands=
             raise ValueError('Dream targets must convert to finite gateway angles')
         joint_delta = max(abs(target[i]-previous[i]) for i in (*range(6), *range(7, 13)))
         grip_delta = max(abs(target[i]-previous[i]) for i in (6, 13))
-        steps = max(1, math.ceil(joint_delta / max_step_deg), math.ceil(grip_delta / .3))
+        steps = max(1, math.ceil(joint_delta * cadence_hz / (max_step_deg * 10)),
+                    math.ceil(grip_delta * cadence_hz / 3))
         if len(result) + steps > capacity:
             raise ValueError('Motion-limited Dream path exceeds the session waypoint budget')
         for step in range(1, steps + 1):
@@ -81,13 +84,15 @@ def state_input(observation, prompt):
     return result
 
 
-def action_waypoints(action, first_step_id, *, max_commands=MAX_COMMANDS):
-    """20 Hz endpoint sampling at 10 Hz preserves the predicted duration."""
+def action_waypoints(action, first_step_id, *, max_commands=MAX_COMMANDS, cadence_hz=10):
+    """10/20 Hz retain slowed playback; 30 Hz uses native model timing."""
+    cadence_hz = trajectory_cadence(cadence_hz)
+    stride = 2 if cadence_hz == 10 else 1
     chunks = [action.get(key) for key in ('q_l_chunk', 'q_r_chunk')]
-    if (any(not isinstance(rows, list) or not rows or len(rows) % 2 for rows in chunks)
+    if (any(not isinstance(rows, list) or not rows or len(rows) % stride for rows in chunks)
             or len(chunks[0]) != len(chunks[1])):
         raise ValueError('Dream returned mismatched or incomplete joint chunks')
-    count = len(chunks[0]) // 2
+    count = len(chunks[0]) // stride
     if (type(first_step_id) is not int or first_step_id < 0 or count > MAX_WAYPOINTS_PER_PACKET
             or first_step_id + count > max_commands):
         raise ValueError('Dream chunk exceeds the session waypoint budget')
@@ -103,7 +108,7 @@ def action_waypoints(action, first_step_id, *, max_commands=MAX_COMMANDS):
                  # can overshoot their normalized endpoints; physical commands cannot.
                  left_gripper=min(1., max(0., chunks[0][i][6])),
                  right_gripper=min(1., max(0., chunks[1][i][6])))
-            for n, i in enumerate(range(1, len(chunks[0]), 2))]
+            for n, i in enumerate(range(stride - 1, len(chunks[0]), stride))]
 
 
 class DreamWorker:
@@ -216,12 +221,22 @@ class DreamAdapter:
         if self.interaction_sink:
             self.interaction_sink(kind, message, **details)
 
+    trajectory_cadence_hz = 10.0
+
+    def configure_cadence(self, cadence_hz):
+        if self._preparation is not None:
+            raise ValueError('Set cadence before preparing the Dream worker')
+        self.trajectory_cadence_hz = trajectory_cadence(cadence_hz)
+        self._max_commands = command_budget(self.provider_name, getattr(self, "_run_duration_s", 300), self.trajectory_cadence_hz)
+
     def configure_run_duration(self, seconds):
-        self._max_commands = command_budget(self.provider_name, seconds)
+        self._run_duration_s = seconds
+        self._max_commands = command_budget(self.provider_name, seconds, self.trajectory_cadence_hz)
 
     def public_config(self):
-        return dict(provider=self.provider_name, model=self.model, cadence_hz=10,
-                    model_action_hz=20, observation_fps=5, observation_window=9,
+        return dict(provider=self.provider_name, model=self.model, cadence_hz=self.trajectory_cadence_hz,
+                    model_action_hz=30 if self.trajectory_cadence_hz == 30 else 20,
+                    native_action_hz=30, observation_fps=5, observation_window=9,
                     api_key_configured=True, sdk_background_recording=False,
                     execution_mode='sequential_chunks', action_space='eef', ik_solve='traj',
                     max_joint_step_deg=self.max_joint_step_deg,
@@ -287,7 +302,9 @@ class DreamAdapter:
                         worker = self.worker_factory(self.python, self.credentials, self.directory)
                     self._worker = worker
                 with journal_span(self.interaction_sink, 'worker_configure'):
-                    reply = worker.call('configure', checkpoint=self.model, cancelled=self._cancelled, timeout=180)
+                    reply = worker.call('configure', checkpoint=self.model,
+                        action_hz=30 if self.trajectory_cadence_hz == 30 else 20,
+                        cancelled=self._cancelled, timeout=180)
                 self._worker_timings(reply)
                 if not reply['ok']:
                     self._failure = 'Dream SDK setup failed (' + reply.get('error_type', 'unknown') + ')'
@@ -616,12 +633,14 @@ class DreamAdapter:
                     began = time.monotonic()
                     continue
                 result = reply['result']
-                nominal = action_waypoints(result['action'], first_step_id, max_commands=self._max_commands)
+                nominal = action_waypoints(result['action'], first_step_id, max_commands=self._max_commands,
+                                           cadence_hz=self.trajectory_cadence_hz)
                 measured = latest['observation']
                 baseline = {side+'_joints_deg': [math.degrees(value) for value in measured['state.'+side+'_arm']]
                             for side in ('left', 'right')}
                 baseline.update({side+'_gripper': measured['state.'+side+'_gripper'][0] for side in ('left','right')})
-                points = motion_limited_waypoints(nominal, baseline, self.effective_joint_step_deg, max_commands=self._max_commands)
+                points = motion_limited_waypoints(nominal, baseline, self.effective_joint_step_deg, max_commands=self._max_commands,
+                                                  cadence_hz=self.trajectory_cadence_hz)
                 self._pending_commanded = {
                     key: [math.radians(value) for value in points[-1][side + '_joints_deg']]
                          + [points[-1][side + '_gripper']]

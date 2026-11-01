@@ -197,6 +197,20 @@ def main():
             current.close()
         raise SystemExit(0)
 
+    configured_rates = {}
+
+    def prepare_ik(client, spans):
+        # A changed playback clock creates a fresh IK instance too. Preserve
+        # the prepared-worker readiness guarantee before returning it to a run.
+        with stage(spans, 'sdk_full_preparation'):
+            if not client._policy._ik.traj_ready.wait(120):
+                raise RuntimeError('Dream trajectory preparation failed')
+            try:
+                from .dream_ik_preparation import prepare_trajectory_variants
+            except ImportError:
+                from dream_ik_preparation import prepare_trajectory_variants
+            return prepare_trajectory_variants(client._policy._ik)
+
     def configure(client, command, spans):
         nonlocal linear_algebra
         if dream.__version__ != '1.0.0':
@@ -208,6 +222,9 @@ def main():
                 from dream_ik_blockwise import install_blockwise_gram
             with stage(spans, 'ik_linear_algebra_install'):
                 linear_algebra = install_blockwise_gram()
+        action_hz = command.get('action_hz', 20)
+        if type(action_hz) not in (int, float) or action_hz not in (20, 30):
+            raise ValueError('Dream playback must use 20 or 30 Hz')
         checkpoint = command['checkpoint']
         if checkpoint not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash'):
             raise ValueError('Unknown checkpoint')
@@ -215,11 +232,12 @@ def main():
                  'left_arm': [7, 13], 'left_gripper': [13, 14]}
         with stage(spans, 'sdk_configure'):
             client.policy(dict(checkpoint=checkpoint, robot='yam', strict=True,
-                timeout_ms=15000, action_hz=20, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
+                timeout_ms=15000, action_hz=action_hz, ik={'arm': 'yam', 'head': 'eef', 'solve': 'traj'},
                 embodiment={'state': parts, 'action': dict(parts),
                     'video': {role: 'observation.images.' + role
                               for role in ('overhead', 'wrist_l', 'wrist_r')}},
                 _record=False))
+        configured_rates[id(client)] = action_hz
         sdk_trace.install(client)
 
     def handle(command, spans):
@@ -244,14 +262,7 @@ def main():
                 # SDK 1.0.0 compiles trajectory IK on a background thread. Read
                 # its pinned readiness event; never advertise a partially
                 # prepared solver. No observations or get_action are involved.
-                with stage(spans, 'sdk_full_preparation'):
-                    if not current._policy._ik.traj_ready.wait(120):
-                        raise RuntimeError('Dream trajectory preparation failed')
-                    try:
-                        from .dream_ik_preparation import prepare_trajectory_variants
-                    except ImportError:
-                        from dream_ik_preparation import prepare_trajectory_variants
-                    variants[checkpoint] = prepare_trajectory_variants(current._policy._ik)
+                variants[checkpoint] = prepare_ik(current, spans)
             prepared = True
             client = None
             return {'sdk_version': dream.__version__, 'fully_ready': True,
@@ -265,6 +276,9 @@ def main():
                 if client is not None:
                     reset_episode(client)
                 client = clients[checkpoint]
+                if configured_rates[id(client)] != command.get('action_hz', 20):
+                    configure(client, command, spans)
+                    prepare_ik(client, spans)
                 with stage(spans, 'sdk_reset'):
                     reset_episode(client)
             else:
