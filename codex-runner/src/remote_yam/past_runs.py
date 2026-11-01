@@ -404,6 +404,9 @@ class PastRuns:
         self.rows = None
         self.updated = 0
         self.details = {}
+        self.detail_lock = threading.Lock()
+        self.detail_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='past-run-details')
+        self.pending_details = {}
         self.viewing = {}
 
     def get(self, episode_id):
@@ -492,9 +495,11 @@ class PastRuns:
                         'stale': stale, 'total': len(available), 'models': models}
             selected = ([r for r in available if r['episode_id'] == episode_id]
                         if episode_id is not None else available[offset:offset+12])
-            result = self._with_details(selected)
-            return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
-                    'stale': stale, 'total': len(available), 'models': models}
+        # Recording IO must never hold the catalog lock: other visitors may be
+        # browsing the cloud while a remote episode file is slow or unavailable.
+        result = self._with_details(selected)
+        return {'runs': result, 'next_offset': offset+len(selected) if offset+len(selected) < len(available) else None,
+                'stale': stale, 'total': len(available), 'models': models}
 
     def _preview_hint(self, episode_id):
         preview = (self.viewing.get(episode_id) or {}).get('preview')
@@ -515,19 +520,42 @@ class PastRuns:
 
     def details_for(self, rows):
         """Enrich only the visible recording blocks, keeping full scores metadata-only."""
-        with self.lock:
-            return self._with_details(rows)
+        return self._with_details(rows)
 
     def _with_details(self, selected):
         now = time.monotonic()
-        missing = [r for r in selected if r['episode_id'] not in self.details or now-self.details[r['episode_id']][0] > 60]
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            for eid, detail in pool.map(self._detail, missing):
-                self.details[eid] = (now, detail)
-        if len(self.details) > 240:
-            wanted = {r['episode_id'] for r in selected}
-            self.details = {k: v for k, v in self.details.items() if k in wanted}
-        return [dict(r, **self.details[r['episode_id']][1]) for r in selected]
+        ready, pending = {}, {}
+        # Share in-flight episode lookups across table, hover and replay requests.
+        # Only cache bookkeeping is locked; remote IO and waits happen outside it.
+        with self.detail_lock:
+            for row in selected:
+                eid = row['episode_id']
+                cached = self.details.get(eid)
+                if cached is not None and now-cached[0] <= 60:
+                    ready[eid] = cached[1]
+                    continue
+                future = self.pending_details.get(eid)
+                if future is None:
+                    future = self.detail_pool.submit(self._detail, row)
+                    self.pending_details[eid] = future
+                pending[eid] = future
+        for eid, future in pending.items():
+            try:
+                _, detail = future.result()
+            except BaseException:
+                with self.detail_lock:
+                    if self.pending_details.get(eid) is future:
+                        self.pending_details.pop(eid)
+                raise
+            with self.detail_lock:
+                if self.pending_details.get(eid) is future:
+                    self.details.pop(eid, None)
+                    self.details[eid] = (time.monotonic(), detail)
+                    self.pending_details.pop(eid)
+                    while len(self.details) > 240:
+                        self.details.pop(next(iter(self.details)))
+            ready[eid] = detail
+        return [dict(row, **ready[row['episode_id']]) for row in selected]
 
     def _detail(self, row):
         eid = row['episode_id']

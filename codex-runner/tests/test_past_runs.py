@@ -232,3 +232,67 @@ def test_robot_catalog_isolation_and_legacy_yam_default():
     mixed = PastRuns(read, robot_id=None).page()['runs']
     assert [r['episode_id'] for r in mixed] == ['ep_maker', 'ep_yam']
     assert [r['robot_id'] for r in mixed] == ['robot-maker', 'yam-1']
+
+
+class CatalogConcurrencyTests(unittest.TestCase):
+    @staticmethod
+    def catalog(reader):
+        import time
+        catalog=PastRuns(reader,robot_id=None)
+        catalog.rows=[dict(episode_id='ep_slow',episode_index=1,robot_id='yam-1',
+                           started_at=1,prompt='Lift slow block',model=None),
+                      dict(episode_id='ep_fast',episode_index=2,robot_id='yam-1',
+                           started_at=2,prompt='Lift fast block',model=None)]
+        catalog.updated=time.monotonic()
+        return catalog
+
+    def test_slow_replay_does_not_block_eight_cached_catalog_reads(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor,wait
+        entered,release=threading.Event(),threading.Event()
+        def reader(path):
+            self.assertEqual(path,'episodes/ep_slow.json')
+            entered.set()
+            if not release.wait(5):raise RuntimeError('Test did not release reader')
+            return '{}'
+        catalog=self.catalog(reader)
+        with ThreadPoolExecutor(max_workers=9) as clients:
+            replay=clients.submit(catalog.get,'ep_slow')
+            try:
+                self.assertTrue(entered.wait(2))
+                readers=[clients.submit(catalog.page,metadata=True) for _ in range(8)]
+                done,pending=wait(readers,timeout=1)
+                self.assertFalse(pending,'A recording lookup must not hold the catalog lock')
+                self.assertFalse(release.is_set())
+                for result in done:
+                    self.assertEqual([r['episode_id'] for r in result.result()['runs']],['ep_slow','ep_fast'])
+            finally:
+                release.set()
+            self.assertEqual(replay.result()['episode_id'],'ep_slow')
+
+    def test_concurrent_replays_share_fetch_without_blocking_other_episodes(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        entered,release=threading.Event(),threading.Event()
+        calls=[]
+        def reader(path):
+            calls.append(path)
+            if path=='episodes/ep_slow.json':
+                entered.set()
+                if not release.wait(5):raise RuntimeError('Test did not release reader')
+            return '{"outcome":"policy_complete"}'
+        catalog=self.catalog(reader)
+        with ThreadPoolExecutor(max_workers=9) as clients:
+            replays=[clients.submit(catalog.get,'ep_slow') for _ in range(8)]
+            try:
+                self.assertTrue(entered.wait(2))
+                fast=clients.submit(catalog.get,'ep_fast')
+                self.assertEqual(fast.result(timeout=1)['episode_id'],'ep_fast')
+                self.assertFalse(release.is_set())
+            finally:
+                release.set()
+            for result in replays:self.assertEqual(result.result()['result'],'Success')
+        self.assertEqual(calls.count('episodes/ep_slow.json'),1)
+        self.assertEqual(calls.count('episodes/ep_fast.json'),1)
+        catalog.get('ep_slow');catalog.get('ep_fast')
+        self.assertEqual(len(calls),2,'Cached details for both recordings remain available')
