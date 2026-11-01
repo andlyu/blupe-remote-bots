@@ -332,6 +332,7 @@
             <div class="cloudSelectionControls" role="group" aria-label="Cloud selection">
               <span class="cloudDrawActions"><button id="taskCloudSelectArea" type="button" class="cloudAreaToggle" aria-pressed="false" aria-describedby="taskCloudAreaHelp" disabled>Draw box</button><button id="resetTaskCloud" type="button" aria-label="Reset view">Reset view</button></span>
               <button id="taskCloudClearArea" type="button" aria-label="Clear selection" title="Clear selection" disabled>Clear</button>
+              <span class="cloudBoxActions" role="group" aria-label="Selected box actions"><button id="taskCloudViewAreaRuns" type="button" disabled>View runs in the box</button><button id="taskCloudHideArea" type="button" disabled>Hide box</button></span>
             </div>
           </div>
           <p id="taskCloudRegionStatus" class="help" role="status"></p>
@@ -348,7 +349,6 @@
             <p id="taskCloudAreaCounts" role="status" aria-live="polite"></p>
             <p id="taskCloudAreaRate" class="help"></p>
             <p class="cloudAreaMedian"><strong>Median prompt:</strong> <span id="taskCloudAreaPrompt"></span></p>
-            <button id="taskCloudViewAreaRuns" type="button" disabled>View runs in the box</button>
             <div id="taskCloudTransformToolbar" class="cloudTransformToolbar" hidden>
               <div class="cloudTransformModes" role="group" aria-label="3D box tool"><button id="taskCloudToolMove" type="button" aria-pressed="false" aria-keyshortcuts="W">Move box</button><button id="taskCloudToolResize" type="button" aria-pressed="true" aria-keyshortcuts="R">Resize box</button><button id="taskCloudToolRotate" type="button" aria-pressed="false" aria-keyshortcuts="E">Rotate box</button></div>
               <p id="taskCloudToolHelp" class="help">Drag a colored cube to push or pull one box face. Box axes: X red, Y green, Z blue.</p>

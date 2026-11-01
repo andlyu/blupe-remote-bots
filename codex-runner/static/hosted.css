@@ -1030,3 +1030,5 @@ body.cameraExpanded{overflow:hidden}
 .cloudControlBar #taskCloudSelectArea::before{box-sizing:border-box;border:1.5px dashed currentColor;border-radius:2px}
 .cloudControlBar #resetTaskCloud::before{content:"↺";display:grid;place-items:center;font:20px/1 system-ui}
 .cloudControlBar #taskCloudClearArea::before{content:"×";display:grid;place-items:center;font:18px/1 system-ui}
+
+.cloudBoxActions{display:flex;align-items:center;gap:6px}.cloudControlBar .cloudBoxActions button{background:#fff;padding-inline:10px}.cloudControlBar .cloudBoxActions button::before{display:none}.cloudControlBar #taskCloudHideArea{min-width:90px}
