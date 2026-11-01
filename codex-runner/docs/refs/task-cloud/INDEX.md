@@ -15,7 +15,43 @@ NumPy (already a runner dependency via SciPy/MuJoCo), without a new projection o
 rendering library. The Canvas view applies genuine xyz rotation and perspective;
 its xy pixels are a camera projection of persisted 3D data.
 
-## Frozen projection
+## Frozen UMAP projection (current default)
+
+The user selected the reviewed UMAP preview for deployment on October 31, 2026.
+The underlying MiniLM model/revision and task identity normalization are unchanged.
+`config/task-cloud-umap-v1.json` and its trusted `.joblib` artifact freeze the
+487 unique public tasks used in that review. The old PCA seed/cache remains available
+for audit and rollback; existing assessments, replay links and task IDs do not change.
+
+UMAP 0.5.8 uses three components, cosine distance, 15 neighbors, minimum distance
+0.05, random/transform seeds42 and one job. A fixed center and one uniform scale
+map the fit into the existing camera units (largest absolute axis0.62); there is
+no per-axis stretching or per-filter refitting. New task vectors use the persisted
+UMAP transform, one task per call so arrival-batch size/order cannot change positions.
+Coordinates are cached by the new projection version. A version change clears an
+existing in-memory selection box while retaining the current camera.
+
+The bundled artifact is generated only by the repository build tool, verified by
+SHA256 before joblib loading, and never loaded from a visitor upload or URL. Indexing
+and artifact loading stay in the background worker; seeded coordinates need no
+model load. Pin UMAP/Numba from requirements. Artifact provenance records the build
+package versions, public catalog digest, fit task IDs and excluded uncached tasks.
+Generate an explicit new release/version to change the fit; never overwrite the
+current coordinates with a refit of filtered or repeated runs.
+
+The saved public-data experiment retained54.0% of original ten-neighbor relationships
+versus26.3% for frozen PCA, with similar results across two more random seeds.
+These are exploratory neighborhood diagnostics, not task-equivalence ground truth.
+The live archive contains additional tasks, which transform into this frozen map.
+
+Primary references: [UMAP0.5.8 source](https://github.com/lmcinnes/umap/tree/release-0.5.8),
+[parameters](https://umap-learn.readthedocs.io/en/latest/parameters.html),
+[new-data transform](https://umap-learn.readthedocs.io/en/latest/transform.html),
+[clustering limitations](https://umap-learn.readthedocs.io/en/latest/clustering.html).
+UMAP is BSD-3-Clause. Visually tight clusters do not establish equal task difficulty,
+initial state, or success probability.
+
+## Legacy frozen PCA projection (retained for audit)
 
 `config/task-cloud-projection-v1.json` contains a centered PCA3 basis learned from
 243 unique normalized public task descriptions (602 archive records fetched

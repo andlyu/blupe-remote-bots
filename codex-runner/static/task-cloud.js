@@ -1,5 +1,5 @@
 /* Perspective projection of real persisted xyz coordinates; Canvas API references
-   and MiniLM/PCA provenance are in docs/refs/task-cloud/INDEX.md. */
+   and MiniLM/UMAP provenance are in docs/refs/task-cloud/INDEX.md. */
 (() => {
   'use strict';
   const offset = id => {
@@ -286,7 +286,7 @@
         card.children[3].setAttribute('aria-label','View median '+box.label.toLowerCase()+' run: '+(box.run.prompt || box.text));
       }
     }
-    let areaMode=false, areaApplied=false, boxVisible=true, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot;
+    let areaMode=false, areaApplied=false, boxVisible=true, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], volumeTool='resize', badgeBounds=null, areaStats=summarizeArea([]), areaRobot, projectionVersion;
     function volumeControls() {
       if(!volume)return null;
       const [min,max]=volume.depthLimits;
@@ -692,7 +692,10 @@
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{captionBoxes=[];clearPreview();dropAreaBox();schedule();}).observe(canvas);
-    return {setRuns(next,id) {
+    return {setRuns(next,id,version) {
+        if(version && projectionVersion && version!==projectionVersion)clearArea();
+        if(version)projectionVersion=version;
+        canvas.dataset.mapVersion=projectionVersion || "";
         const context=next.map(run=>[runKey(run),run.label_source,outcome(run),run.xyz?.join(','),run.prompt].join(':')).sort().join('|');
         if(context!==captionContext){captionContext=context;dismissedCaptions.clear();for(const card of captionNodes.values())card.remove();captionNodes.clear();}
         captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;boxVisible=true;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},

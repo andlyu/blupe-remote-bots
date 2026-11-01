@@ -383,6 +383,15 @@ test('count-only regions still have a dismissible label and View opens an actual
  const card=c.captionRoot.children[0];assert.equal(card.children[0].textContent,'Success: 5/5');card.children[3].emit('click');assert.equal(c.opened[0].episode_id,'blank0');
 });
 
+test('changing the frozen projection clears old geometry while same-map refresh keeps selection',()=>{
+ const c=setup(), rows=[{episode_id:'a',prompt:'Apple',xyz:[0,0,0]}];
+ c.cloud.setRuns(rows,null,'pca-map');c.cloud.addVolume();c.draw();
+ assert.equal(c.areas.at(-1).hasSelection,true);
+ c.cloud.setRuns(rows,null,'pca-map');c.draw();assert.equal(c.areas.at(-1).hasSelection,true);
+ c.cloud.setRuns(rows,null,'umap-map');c.draw();
+ assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.canvas.dataset.volumeBox,'');
+ assert.equal(c.canvas.dataset.mapVersion,'umap-map');assert.equal(c.canvas.dataset.renderedPoints,'1');
+
 test('hiding outcome colors preserves point positions, selected box statistics and video preview',()=>{
  const c=setup(run=>run.testOutcome),rows=Array.from({length:6},(_,i)=>({episode_id:'neutral'+i,prompt:'Lift',xyz:[0,0,0],testOutcome:'Success'}));
  c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();const camera=c.canvas.dataset.cloudCamera;

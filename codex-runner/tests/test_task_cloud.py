@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -39,3 +40,69 @@ class TaskCloudTests(unittest.TestCase):
             with self.assertRaises(ValueError): cloud.index(rows)
             self.assertEqual(cloud.snapshot(rows)['coordinates'],{})
             self.assertEqual(cloud.snapshot([])['status'],'ready')
+
+
+    def test_bundled_layout_is_immediate_and_keeps_previous_pca_for_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cloud = TaskCloud(Path(directory)/'map.sqlite3')
+            cloud.encode = lambda _: self.fail('seeded task was re-encoded')
+            rows = [{'prompt':'Put the pens into the cup'}, {'prompt':'Put the pen into the cup'}]
+            state = cloud.snapshot(rows)
+            self.assertEqual(state['status'], 'ready')
+            self.assertTrue(state['projection'].startswith('cosine-umap3-'))
+            with cloud.database() as db:
+                db.execute('INSERT INTO task_projections VALUES(?,?,?,?)',
+                    ('legacy', 'centered-pca3-frozen-v1', 'old-map', '{}'))
+                db.execute('INSERT INTO task_coordinates VALUES(?,?,?)', ('old-map', 'old-task', '[1,2,3]'))
+                db.commit()
+            cloud.index(rows)
+            with cloud.database() as db:
+                self.assertEqual(db.execute('SELECT xyz FROM task_coordinates WHERE version=?', ('old-map',)).fetchone()[0], '[1,2,3]')
+            self.assertEqual(state['coordinates'], cloud.snapshot(rows)['coordinates'])
+
+    def test_new_arrivals_are_finite_frozen_and_independent_of_arrival_batch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def encode(texts):
+                return np.asarray([[1 if i == (0 if text == 'arrival one' else 1) else 0
+                                    for i in range(384)] for text in texts])
+            one, two = {'prompt':'arrival one'}, {'prompt':'arrival two'}
+            together = TaskCloud(Path(directory)/'together.sqlite3')
+            together.encode = encode
+            old = together.snapshot([])['coordinates']
+            combined = together.index([one, two])
+            for key, value in old.items():
+                self.assertEqual(value, combined['coordinates'][key])
+            separate = TaskCloud(Path(directory)/'separate.sqlite3')
+            separate.encode = encode
+            separate.index([two])
+            individual = separate.index([one])
+            for row in [one, two]:
+                key = task_key(row['prompt'])
+                self.assertTrue(np.isfinite(combined['coordinates'][key]).all())
+                self.assertEqual(combined['coordinates'][key], individual['coordinates'][key])
+            restored = TaskCloud(together.path)
+            restored.encode = lambda _: self.fail('cached arrival re-encoded')
+            self.assertEqual(combined['coordinates'], restored.index([one,two])['coordinates'])
+
+    def test_corrupt_projection_cannot_publish_new_positions(self):
+        from unittest.mock import patch
+        from remote_yam.task_cloud import SEED
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            seed = json.loads(SEED.read_text())
+            seed['basis']['model_file'] = 'corrupt.joblib'
+            (root/'seed.json').write_text(json.dumps(seed))
+            (root/'corrupt.joblib').write_bytes(b'invalid artifact')
+            with patch('remote_yam.task_cloud.SEED', root/'seed.json'):
+                cloud = TaskCloud(root/'map.sqlite3')
+                cloud.encode = lambda _: np.asarray([[1]+[0]*383])
+                row = {'prompt':'unseen task'}
+                with self.assertRaisesRegex(ValueError, 'checksum'):
+                    cloud.index([row])
+                self.assertNotIn(task_key(row['prompt']), cloud.snapshot([row])['coordinates'])
+
+    def test_zero_norm_embeddings_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cloud = TaskCloud(Path(directory)/'map.sqlite3', lambda _: np.zeros((1,384)))
+            with self.assertRaisesRegex(ValueError, 'norm'):
+                cloud.index([{'prompt':'invalid embedding'}])
