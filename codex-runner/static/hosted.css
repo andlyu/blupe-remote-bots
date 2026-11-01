@@ -1178,7 +1178,7 @@ body.cameraExpanded{overflow:hidden}
 
 /* Cloud display settings stay inside their visualization. */
 .cloudControlBar.cloudSelectionBar{justify-content:flex-end;padding:0;border:0;background:transparent}
-.cloudLayers{position:absolute;top:12px;left:12px;z-index:3;display:grid;grid-template-columns:repeat(3,max-content);column-gap:16px;padding:4px 12px;border:1px solid #c3cfc0;border-radius:10px;background:#f8faf5;color:#172c21}
+.cloudLayers{position:absolute;top:12px;left:12px;z-index:3;display:grid;grid-template-columns:max-content;row-gap:0;padding:4px 12px;border:1px solid #c3cfc0;border-radius:10px;background:#f8faf5;color:#172c21}
 .cloudLayers label{display:flex;align-items:center;gap:8px;min-height:44px;margin:0;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
 .cloudLayers input{width:16px;height:16px;margin:0;padding:0;accent-color:#246744}
 .cloudLayers input:focus-visible,.cloudAreaCaption button:focus-visible{outline:3px solid #326c4e;outline-offset:2px}
@@ -1197,4 +1197,6 @@ body.cameraExpanded{overflow:hidden}
 .cloudAreaCaptionClose::after{transform:rotate(-45deg)}
 .cloudAreaCaptionView{top:1px;right:29px;min-width:40px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
 .taskCloudPreview{z-index:4}
-@media(max-width:700px){.cloudControlBar.cloudSelectionBar .cloudSelectionControls{justify-content:flex-end}.cloudLayers{top:8px;left:8px;right:8px;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px;padding-inline:10px}}
+@media(max-width:700px){.cloudControlBar.cloudSelectionBar .cloudSelectionControls{justify-content:flex-end}.cloudLayers{top:8px;left:8px;right:auto;grid-template-columns:max-content;padding-inline:10px}}
+
+.cloudLayersHeading{padding:8px 0 2px;font-size:12px;font-weight:650;color:#43564a}.cloudLayers label:has(input:disabled){opacity:.5;cursor:default}

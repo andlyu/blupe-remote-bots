@@ -251,7 +251,7 @@
     const ctx = canvas.getContext('2d');
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
-    let highlight = 'none', regionData = null, showAreaLabels=false;
+    let highlight = 'none', regionData = null, showAreaLabels=false, showOutcomeColors=true;
     let captionBoxes=[], pressedCaption=null, captionContext='';
     const captionNodes=new Map(), dismissedCaptions=new Set();
     const captionKey=region=>[region.label,...region.xyz,runKey(region.representativeRun || {})].join('|');
@@ -358,8 +358,9 @@
       brush=null;areaMode=false;volumeTool='resize';canvas.style.cursor='grab';refreshArea();schedule();
     }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
-    const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
+    const visibleRegions = () => !showOutcomeColors || highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
     function highlightSummary() {
+      if (!showOutcomeColors) return 'Autolabels hidden. Hover a point to preview its video.';
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
       return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Click an area label to open its median run. Labels hide when you zoom close.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
@@ -384,7 +385,7 @@
     function marker(point) {
       ctx.globalAlpha=areaApplied && boxVisible && !areaKeys.has(runKey(point.run)) ? .22 : 1;
       const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
-      const state = outcome(point.run), color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
+      const state = showOutcomeColors ? outcome(point.run) : 'Unscored', color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
       ctx.beginPath();
       ctx.arc(point.x,point.y,radius,0,Math.PI*2);
       ctx.fillStyle = state === 'Unscored' ? '#f8faf5' : color;
@@ -446,7 +447,9 @@
         if (dismissedCaptions.has(captionKey(region)) || region.radius>=Math.min(width,height)*.2 || region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
         ctx.font='600 12px system-ui';
         const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
-        const lines=[], maxTextWidth=Math.min(210,width-30);
+        const besideLayers=captionRoot && width<600 && layerBounds && layerBounds.width<width/2 && layerBounds.height>height*.4;
+        const columnWidth=besideLayers ? width-(layerBounds.left-canvas.getBoundingClientRect().left+layerBounds.width)-16 : width-16;
+        const lines=[], maxTextWidth=Math.min(210,width-30,columnWidth-20);
         if (region.representativePrompt) {
           ctx.font='12px system-ui';
           for (const word of region.representativePrompt.split(/\s+/)) {
@@ -458,12 +461,13 @@
           for(let i=0;i<lines.length;i++)if(ctx.measureText(lines[i]).width>maxTextWidth){while(lines[i].length && ctx.measureText(lines[i]+'…').width>maxTextWidth)lines[i]=lines[i].slice(0,-1);lines[i]+='…';}
         }
         const w=captionRoot ? Math.min(width-16,Math.max(174,countWidth+84,...lines.map(line=>ctx.measureText(line).width+16))) : Math.max(countWidth,...lines.map(line=>ctx.measureText(line).width))+14, h=captionRoot ? 34+lines.length*16 : 24+lines.length*16;
-        const x=Math.max(4,Math.min(width-w-4,region.x-w/2));
-        const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
-        if(captionRoot && width<600){positions.unshift({offset:1,y:height-h-4});if(layerBounds){const bounds=canvas.getBoundingClientRect();positions.push({offset:1,y:layerBounds.bottom-bounds.top+8});}}
-        const position=positions.find(({y})=>y>=4 && y+h<=height-4 && !boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
+        const centerX=Math.max(4,Math.min(width-w-4,region.x-w/2));
+        const positions=[0,1,-1,2,-2,3,-3].map(offset=>({offset,x:centerX,y:Math.max(4,Math.min(height-h-4,region.y-42+offset*(h+10)))}));
+        if(captionRoot && width<600){positions.unshift({offset:1,x:centerX,y:height-h-4});if(layerBounds){const bounds=canvas.getBoundingClientRect();positions.push({offset:1,x:centerX,y:layerBounds.bottom-bounds.top+8});}}
+        if(besideLayers)positions.push(...positions.map(position=>({...position,x:width-w-4})));
+        const position=positions.find(({x,y})=>y>=4 && y+h<=height-4 && !boxes.some(b=>x<b.x+b.w+8 && x+w+8>b.x && y<b.y+b.h+8 && y+h+8>b.y));
         if(!position)continue;
-        const y=position.y;
+        const {x,y}=position;
         if(position.offset){ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,region.x)),Math.max(y,Math.min(y+h,region.y)));ctx.lineTo(region.x,region.y);ctx.strokeStyle=region.label==='Success'?'#246744':'#b2352c';ctx.lineWidth=1;ctx.stroke();}
         boxes.push({x,y,w,h});
         if(region.representativeRun)captionBoxes.push({x,y,w,h,run:region.representativeRun,key:captionKey(region),label:region.label,text,lines});
@@ -484,6 +488,7 @@
       canvas.dataset.highlightRegions=String(regionPoints.length);
       canvas.dataset.regionMode=highlight;
       canvas.dataset.areaLabels=String(showAreaLabels);
+      canvas.dataset.outcomeColors=String(showOutcomeColors);
       canvas.dataset.areaCaptions=JSON.stringify(captionBoxes.map(({x,y,w,h,run})=>({x,y,w,h,episodeId:run.episode_id,robotId:run.robot_id || ''})));
       canvas.dataset.areaSelected=String(areaKeys.size);
       canvas.dataset.volumeBox=volume?JSON.stringify({center:volume.center,half:volume.half,axes:volume.axes}):'';
@@ -695,6 +700,7 @@
         if(context!==captionContext){captionContext=context;dismissedCaptions.clear();for(const card of captionNodes.values())card.remove();captionNodes.clear();}
         captionBoxes=[];clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;boxVisible=true;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
       setBoxVisible,getSelectedRuns() {return areaApplied ? rows.filter(run=>areaKeys.has(runKey(run))) : [];},
+      setOutcomeColors(enabled) {showOutcomeColors=!!enabled;captionBoxes=[];schedule();},
       setAreaLabels(enabled) {captionBoxes=[];if(enabled && !showAreaLabels)dismissedCaptions.clear();showAreaLabels=!!enabled;schedule();},
       setHighlight(mode) {captionBoxes=[];highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
       select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,addVolume,setVolumeTool,rotateVolume,nudgeVolume,setView,clearPreview,reset,zoom,step,open};

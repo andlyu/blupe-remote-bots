@@ -336,9 +336,11 @@
           <div class="taskCloudStage">
             <canvas id="taskCloudCanvas" class="taskCloudCanvas" width="1000" height="540" tabindex="0" aria-label="3D task cloud" aria-describedby="taskCloudHelp taskCloudLegend taskCloudFocus taskCloudRegionStatus taskCloudAreaHelp taskCloudAreaCounts taskCloudAreaRate taskCloudAreaPrompt"></canvas>
             <div class="cloudLayers" role="group" aria-label="Cloud display">
-              <label><input id="taskCloudSuccessAreas" type="checkbox" checked>Success areas</label>
-              <label><input id="taskCloudFailureAreas" type="checkbox" checked>Failure areas</label>
+              <label><input id="taskCloudShowAutoLabels" type="checkbox" checked>Autolabels</label>
               <label><input id="taskCloudShowLabels" type="checkbox" checked>Area labels</label>
+              <span class="cloudLayersHeading">Highlight</span>
+              <label><input id="taskCloudSuccessAreas" type="checkbox" checked>Success</label>
+              <label><input id="taskCloudFailureAreas" type="checkbox" checked>Failure</label>
             </div>
             <div id="taskCloudAreaCaptions" class="cloudAreaCaptions" aria-label="Area median runs"></div>
             <div id="taskCloudPreview" class="taskCloudPreview" hidden aria-hidden="true">

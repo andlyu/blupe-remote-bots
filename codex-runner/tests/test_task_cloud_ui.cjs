@@ -383,6 +383,36 @@ test('count-only regions still have a dismissible label and View opens an actual
  const card=c.captionRoot.children[0];assert.equal(card.children[0].textContent,'Success: 5/5');card.children[3].emit('click');assert.equal(c.opened[0].episode_id,'blank0');
 });
 
+test('hiding outcome colors preserves point positions, selected box statistics and video preview',()=>{
+ const c=setup(run=>run.testOutcome),rows=Array.from({length:6},(_,i)=>({episode_id:'neutral'+i,prompt:'Lift',xyz:[0,0,0],testOutcome:'Success'}));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();const camera=c.canvas.dataset.cloudCamera;
+ c.cloud.setAreaSelection(true);c.events.keydown({key:'Enter',preventDefault(){}});c.draw();const box=c.canvas.dataset.volumeBox,total=c.areas.at(-1).total;
+ c.cloud.setOutcomeColors(false);c.draws.length=0;c.draw();
+ assert.equal(c.canvas.dataset.outcomeColors,'false');assert.equal(c.canvas.dataset.renderedPoints,'6');assert.equal(c.canvas.dataset.highlightRegions,'0');
+ assert.equal(c.canvas.dataset.cloudCamera,camera);assert.equal(c.canvas.dataset.volumeBox,box);assert.equal(c.areas.at(-1).total,total);assert.equal(c.areas.at(-1).Success,6);
+ assert.ok(c.draws.some(x=>x[0]==='stroke' && x[1]==='#607064'));assert.ok(!c.draws.some(x=>x[0]==='fill' && x[1]==='#246744'));
+ c.events.focus();assert.ok(c.previews.at(-1).run);assert.match(c.cloud.highlightSummary(),/Autolabels hidden/);
+ c.cloud.setOutcomeColors(true);c.draw();assert.equal(c.canvas.dataset.outcomeColors,'true');assert.ok(Number(c.canvas.dataset.highlightRegions)>0);
+});
+test('Autolabels defaults on, remembers explicit off locally, and leaves human labels independent',async()=>{
+ const c=require('./helpers/past-runs.cjs')('','cloud'),colors=[];c.cloud.setOutcomeColors=x=>colors.push(x);
+ c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'one',prompt:'Lift',xyz:[0,0,0]}]);await c.flush();
+ assert.equal(c.nodes.get('taskCloudShowAutoLabels').checked,true);assert.equal(colors.at(-1),true);const requests=c.requests.length;
+ c.nodes.get('taskCloudShowAutoLabels').checked=false;c.nodes.get('taskCloudShowAutoLabels').emit('change');assert.equal(colors.at(-1),false);assert.equal(c.storage.get('yam-cloud-autolabels'),'false');assert.equal(c.nodes.get('taskCloudShowLabels').disabled,true);assert.equal(c.requests.length,requests);
+ c.nodes.get('pastRunsLabelSource').value='human';c.nodes.get('pastRunsLabelSource').emit('change');assert.equal(colors.at(-1),true);assert.equal(c.nodes.get('taskCloudShowAutoLabels').disabled,true);assert.equal(c.nodes.get('taskCloudShowLabels').disabled,false);
+ c.nodes.get('pastRunsLabelSource').value='auto';c.nodes.get('pastRunsLabelSource').emit('change');assert.equal(colors.at(-1),false);
+ c.nodes.get('taskCloudShowAutoLabels').checked=true;c.nodes.get('taskCloudShowAutoLabels').emit('change');assert.equal(colors.at(-1),true);assert.equal(c.nodes.get('taskCloudShowLabels').disabled,false);assert.equal(c.requests.length,requests);
+});
+
+test('phone captions for both outcomes fit beside the vertical control panel',()=>{
+ const c=setup(run=>run.testOutcome,true);c.canvas.clientWidth=354;c.canvas.clientHeight=370;
+ c.captionRoot.parentElement={querySelector:()=>({getBoundingClientRect:()=>({left:8,top:8,bottom:218,width:112,height:210})})};
+ const rows=['Success','Failure'].flatMap((testOutcome,index)=>Array.from({length:5},(_,i)=>({episode_id:`vertical_${index}_${i}`,prompt:index?'Place blue block on the tray':'Place green block on the towel',xyz:index?[.07,0,.1]:[-.07,0,-.1],testOutcome})));
+ c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
+ const cards=c.captionRoot.children.filter(card=>!card.hidden);assert.deepEqual(cards.map(card=>card.dataset.outcome).sort(),['Failure','Success']);
+ for(const card of cards){const x=parseFloat(card.style.left),y=parseFloat(card.style.top),w=parseFloat(card.style.width),h=parseFloat(card.style.height);assert.ok(x>=128 || y>=226);assert.ok(x+w<=354 && y+h<=370);}
+});
+
 test('changing the frozen projection clears old geometry while same-map refresh keeps selection',()=>{
  const c=setup(), rows=[{episode_id:'a',prompt:'Apple',xyz:[0,0,0]}];
  c.cloud.setRuns(rows,null,'pca-map');c.cloud.addVolume();c.draw();
