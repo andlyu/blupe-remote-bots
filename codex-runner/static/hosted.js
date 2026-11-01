@@ -343,6 +343,7 @@ function createRunLaunchGuard() {
   let historySearch = new URLSearchParams(window.location?.search || '').get('q')?.slice(0, 300).trim() || '';
   if ($('pastRunsQuery')) $('pastRunsQuery').value = historySearch;
   if ($('clearPastRunsSearch')) $('clearPastRunsSearch').hidden = !historySearch;
+  let historyModelChoices = null, modelOptionsKey = '';
   const dialog = $('pastRunDialog'), player = $('pastRunVideo');
   const zeroSecondVideo = duration => typeof duration === 'number' && Number.isFinite(duration) && duration === 0;
   let selectedRun = null;
@@ -547,6 +548,36 @@ function createRunLaunchGuard() {
         }
       }
   }
+  const modelDisplayName = model => model === '__unrecorded__' ? 'Model not recorded' : model;
+  function filterModelOptions() {
+    const query = $('pastRunsModelSearch').value.trim().toLowerCase();
+    let visible = 0;
+    for (const row of $('pastRunsModel').children) {
+      row.hidden = !row.dataset.modelName.includes(query);
+      if (!row.hidden) visible++;
+    }
+    $('pastRunsModelEmpty').hidden = visible > 0;
+    $('pastRunsModelEmpty').textContent = historyModelChoices === null ? 'Loading models…' : query ? 'No matching models.' : 'No models available yet.';
+  }
+  function renderModelFilter() {
+    const choices = [...new Set([...(historyModelChoices || []), ...historyModels])];
+    const key = JSON.stringify(choices);
+    if (key !== modelOptionsKey) {
+      modelOptionsKey = key;
+      $('pastRunsModel').replaceChildren(...choices.map(model => {
+        const row = document.createElement('label'), check = document.createElement('input'), text = document.createElement('span');
+        row.className = 'runModelOption'; row.dataset.modelName = modelDisplayName(model).toLowerCase();
+        check.type = 'checkbox'; check.value = model;
+        text.textContent = modelDisplayName(model); row.append(check,text); return row;
+      }));
+    }
+    for (const row of $('pastRunsModel').children) row.children[0].checked = historyModels.includes(row.children[0].value);
+    $('pastRunsModelValue').textContent = historyModels.length === 1 ? modelDisplayName(historyModels[0]) : historyModels.length ? `${historyModels.length} selected` : 'All models';
+    $('pastRunsModelSummary').dataset.filtered = String(historyModels.length > 0);
+    $('pastRunsModelSummary').title = historyModels.length ? historyModels.map(modelDisplayName).join(', ') : 'Show runs from all models';
+    $('pastRunsModelReset').disabled = !historyModels.length;
+    filterModelOptions();
+  }
   function renderScores(scores) {
     $('pastRunsScores').replaceChildren();
     for (const score of scores || []) {
@@ -641,16 +672,7 @@ function createRunLaunchGuard() {
       const data = await response.json();
       await window.yamRunLabels?.load();
       if (generation !== historyGeneration) return;
-      if (Array.isArray(data.models) && $('pastRunsModel')) {
-        const choices = ['', ...new Set([...data.models, ...historyModels])];
-        $('pastRunsModel').replaceChildren(...choices.map(model => {
-          const option = document.createElement('option'); option.value = model;
-          option.textContent = model === '__unrecorded__' ? 'Model not recorded' : model || 'All models';
-          option.selected = model ? historyModels.includes(model) : !historyModels.length;
-          return option;
-        }));
-        $('pastRunsModelSummary').textContent = historyModels.length ? `Models: ${historyModels.join(', ')}` : 'Models: All models';
-      }
+      if (Array.isArray(data.models)) { historyModelChoices = data.models; renderModelFilter(); }
       if (reset) { clearBlocks(); catalogRows = []; }
       for (const run of data.runs) {
         rememberMedia(run);
@@ -702,9 +724,22 @@ function createRunLaunchGuard() {
     if (!$('pastRunsQuery').value) searchPastRuns('');
   });
   $('pastRunsModel')?.addEventListener('change', () => {
-    const values = Array.from($('pastRunsModel').selectedOptions, option => option.value);
-    historyModels = values.includes('') && historyModels.length ? [] : values.filter(Boolean);
-    searchPastRuns(historySearch);
+    historyModels = Array.from($('pastRunsModel').children, row => row.children[0]).filter(check => check.checked).map(check => check.value);
+    renderModelFilter(); searchPastRuns(historySearch);
+  });
+  $('pastRunsModelSearch')?.addEventListener('input', filterModelOptions);
+  $('pastRunsModelReset')?.addEventListener('click', () => {
+    historyModels = []; $('pastRunsModelSearch').value = '';
+    renderModelFilter(); searchPastRuns(historySearch); $('pastRunsModelSearch').focus({preventScroll:true});
+  });
+  document.addEventListener('pointerdown', event => {
+    const filter = $('pastRunsModelFilter');
+    if (filter?.open && !filter.contains(event.target)) filter.open = false;
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && $('pastRunsModelFilter')?.open) {
+      event.preventDefault(); $('pastRunsModelFilter').open = false; $('pastRunsModelSummary').focus({preventScroll:true});
+    }
   });
   for (const view of ['table', 'cloud']) $(view === 'table' ? 'pastRunsTableView' : 'pastRunsCloudView').addEventListener('click', () => {
     if (historyView === view) return;

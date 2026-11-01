@@ -20,6 +20,6 @@ module.exports=function setup(initialSearch='',savedView=null){
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))}});
   const answer=(request,runs=[],next_offset=null,total=runs.length,stale=false,models=[])=>request.resolve({ok:true,json:async()=>({runs,next_offset,total,stale,models,scores:[],cloud:{status:'ready',version:'fixed-v1'}})});
   const search=query=>{nodes.get('pastRunsQuery').value=query;nodes.get('pastRunsSearch').emit('submit',{preventDefault(){}})};
-  const choose=(...values)=>{const select=nodes.get('pastRunsModel');for(const option of select.children)option.selected=values.includes(option.value);select.emit('change')};
+  const choose=(...values)=>{const select=nodes.get('pastRunsModel');for(const row of select.children)row.children[0].checked=values.includes(row.children[0].value);select.emit('change')};
   return{timers,nodes,events,requests,answer,search,choose,opened,storage,cloud,cloudPreview,source,document,window,flush:()=>new Promise(setImmediate)};
 };
