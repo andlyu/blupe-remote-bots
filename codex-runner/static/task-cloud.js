@@ -15,6 +15,33 @@
     const perspective = Math.min(width,height)*2.6*zoom/Math.max(.8,3+depth);
     return {x:width/2+x*perspective,y:height/2-y*perspective,depth};
   }
+  // A box retains its orthonormal axes in persisted map space, independently of the camera.
+  const dot=(a,b)=>a.reduce((sum,value,i)=>sum+value*b[i],0);
+  function cameraCoordinates(xyz,yaw,pitch) {
+    const x=xyz[0]*Math.cos(yaw)+xyz[2]*Math.sin(yaw), z=-xyz[0]*Math.sin(yaw)+xyz[2]*Math.cos(yaw);
+    return [x,xyz[1]*Math.cos(pitch)-z*Math.sin(pitch),xyz[1]*Math.sin(pitch)+z*Math.cos(pitch)];
+  }
+  function worldCoordinates([x,y,depth],yaw,pitch) {
+    const z=-y*Math.sin(pitch)+depth*Math.cos(pitch);
+    return [x*Math.cos(yaw)-z*Math.sin(yaw),y*Math.cos(pitch)+depth*Math.sin(pitch),x*Math.sin(yaw)+z*Math.cos(yaw)];
+  }
+  function volumeContains(volume,xyz) {
+    return volume.axes.every((axis,i)=>Math.abs(dot(xyz.map((value,j)=>value-volume.center[j]),axis))<=volume.half[i]+1e-9);
+  }
+  function volumeCorners(volume) {
+    return Array.from({length:8},(_,bits)=>volume.center.map((value,j)=>value+volume.axes.reduce((sum,axis,i)=>sum+axis[j]*volume.half[i]*((bits>>i&1)?1:-1),0)));
+  }
+  function volumeFromBrush(rect,runs,yaw,pitch,zoom,width,height) {
+    const mapped=runs.filter(validPosition), candidates=mapped.filter(run=>{const p=project(run.xyz,yaw,pitch,zoom,width,height);return p.x>=rect.x && p.x<=rect.x+rect.w && p.y>=rect.y && p.y<=rect.y+rect.h;});
+    const depths=candidates.map(run=>cameraCoordinates(run.xyz,yaw,pitch)[2]).sort((a,b)=>a-b);
+    const middle=Math.floor(depths.length/2),depth=depths.length ? (depths[middle]+depths[Math.floor((depths.length-1)/2)])/2 : 0;
+    const scale=Math.min(width,height)*2.6*zoom/Math.max(.8,3+depth);
+    const allDepths=mapped.map(run=>cameraCoordinates(run.xyz,yaw,pitch)[2]);
+    const half=[Math.max(.005,rect.w/scale/2),Math.max(.005,rect.h/scale/2),Math.max(.04,Math.min(.4,depths.length?(depths.at(-1)-depths[0])/4:.12))];
+    return {center:worldCoordinates([(rect.x+rect.w/2-width/2)/scale,-(rect.y+rect.h/2-height/2)/scale,depth],yaw,pitch),
+      axes:[[1,0,0],[0,1,0],[0,0,1]].map(axis=>worldCoordinates(axis,yaw,pitch)),half,baseHalf:half.slice(),
+      depthLimits:[Math.min(0,...allDepths)-.1,Math.max(0,...allDepths)+.1],view:{yaw,pitch}};
+  }
   const legacyOutcome = run => run.assessment?.eligibility === 'included' && ['Success','Failure'].includes(run.assessment.label)
     ? run.assessment.label : 'Unscored';
   const outcome = run => window.yamRunLabels?.outcome(run, run.label_source || 'human') || legacyOutcome(run);
@@ -210,15 +237,31 @@
     let rows = [], points = [], yaw = -.3, pitch = .2, magnification = 1, focused = 0, selected = '', hover = null;
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null;
-    let areaMode=false, areaApplied=false, areaKeys=new Set(), areaBounds=null, brush=null, areaStats=summarizeArea([]), areaRobot;
-    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush});
-    const refreshArea = () => {areaStats=summarizeArea(rows.filter(run=>areaKeys.has(runKey(run))));notifyArea();};
+    let areaMode=false, areaApplied=false, areaKeys=new Set(), brush=null, volume=null, volumeDrag=null, handles=[], areaStats=summarizeArea([]), areaRobot;
+    function volumeControls() {
+      if(!volume)return null;
+      const [min,max]=volume.depthLimits;
+      return {width:Math.round(volume.half[0]/volume.baseHalf[0]*100),height:Math.round(volume.half[1]/volume.baseHalf[1]*100),depth:Math.round(volume.half[2]/volume.baseHalf[2]*100),position:Math.round((dot(volume.center,volume.axes[2])-min)/(max-min)*100)};
+    }
+    const notifyArea = () => onAreaChange({...areaStats,active:areaMode,hasSelection:areaApplied,drawing:!!brush,volume:volumeControls()});
+    const refreshArea = () => {areaKeys=new Set(rows.filter(run=>validPosition(run) && volume && volumeContains(volume,run.xyz)).map(runKey));areaStats=summarizeArea(rows.filter(run=>areaKeys.has(runKey(run))));notifyArea();};
     function setAreaSelection(enabled) {
-      areaMode=!!enabled;brush=null;pointers.clear();last=null;moved=true;clearPreview();
+      areaMode=!!enabled;brush=null;volumeDrag=null;pointers.clear();last=null;moved=true;clearPreview();
       canvas.style.cursor=areaMode?'crosshair':'grab';notifyArea();schedule();
     }
-    function clearArea() {areaApplied=false;areaKeys.clear();areaBounds=brush=null;refreshArea();schedule();}
-    function dropAreaBox() {areaBounds=brush=null;notifyArea();}
+    function clearArea() {areaApplied=false;areaKeys.clear();volume=brush=volumeDrag=null;handles=[];refreshArea();schedule();}
+    function dropAreaBox() {brush=null;volumeDrag=null;notifyArea();}
+    function setVolumeDimension(name,value) {
+      if(!volume || !Number.isFinite(Number(value)))return;
+      const axis=['width','height','depth'].indexOf(name);
+      if(axis>=0)volume.half[axis]=volume.baseHalf[axis]*Math.max(5,Math.min(300,Number(value)))/100;
+      else if(name==='position') {
+        const [min,max]=volume.depthLimits,target=min+(max-min)*Math.max(0,Math.min(100,Number(value)))/100;
+        const delta=target-dot(volume.center,volume.axes[2]);volume.center=volume.center.map((v,i)=>v+delta*volume.axes[2][i]);
+      } else return;
+      clearPreview();refreshArea();schedule();
+    }
+    function volumeView(depth=true) {if(!volume)return;yaw=volume.view.yaw+(depth ? .65 : 0);pitch=Math.max(-1.3,Math.min(1.3,volume.view.pitch+(depth ? .16 : 0)));clearPreview();schedule();}
     const canvasPoint = event => {
       const rect=canvas.getBoundingClientRect();
       return [Math.max(0,Math.min(canvas.clientWidth,event.clientX-rect.left)),Math.max(0,Math.min(canvas.clientHeight,event.clientY-rect.top))];
@@ -228,9 +271,8 @@
       const [a,b]=brush, width=canvas.clientWidth,height=canvas.clientHeight;
       let x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),right=Math.max(a[0],b[0]),bottom=Math.max(a[1],b[1]);
       if(right-x<4 && bottom-y<4){x=Math.max(0,x-6);y=Math.max(0,y-6);right=Math.min(width,right+6);bottom=Math.min(height,bottom+6);}
-      areaBounds={x,y,w:right-x,h:bottom-y};areaApplied=true;
-      areaKeys=new Set(points.filter(point=>point.x>=x && point.x<=right && point.y>=y && point.y<=bottom).map(point=>runKey(point.run)));
-      brush=null;refreshArea();schedule();
+      volume=volumeFromBrush({x,y,w:right-x,h:bottom-y},rows,yaw,pitch,magnification,width,height);areaApplied=true;
+      brush=null;areaMode=false;canvas.style.cursor='grab';refreshArea();volumeView();schedule();
     }
     const regionAnalysis = () => regionData ||= regionsFor(rows);
     const visibleRegions = () => highlight === 'none' ? [] : regionAnalysis().regions.filter(r => highlight === 'both' || r.label.toLowerCase() === highlight);
@@ -279,7 +321,7 @@
       }
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);
       ctx.fillStyle='#f8faf5';ctx.fillRect(0,0,width,height);
-      const box=brush ? {x:Math.min(brush[0][0],brush[1][0]),y:Math.min(brush[0][1],brush[1][1]),w:Math.abs(brush[1][0]-brush[0][0]),h:Math.abs(brush[1][1]-brush[0][1])} : areaBounds;
+      const box=brush ? {x:Math.min(brush[0][0],brush[1][0]),y:Math.min(brush[0][1],brush[1][1]),w:Math.abs(brush[1][0]-brush[0][0]),h:Math.abs(brush[1][1]-brush[0][1])} : null;
       if(box){ctx.fillStyle='rgba(23,44,33,.07)';ctx.fillRect(box.x,box.y,box.w,box.h);}
       const regionPoints=visibleRegions().map(region=>({...region,...project(region.xyz,yaw,pitch,magnification,width,height)})).sort((a,b)=>b.depth-a.depth);
       for (const region of regionPoints) {
@@ -312,7 +354,7 @@
       const labelRegions=highlight==='both'
         ? Array.from({length:width<600?2:3},(_,i)=>[successes[i],failures[i]]).flat().filter(Boolean)
         : rankedRegions.slice(0,6);
-      for (const region of labelRegions) {
+      for (const region of volume ? [] : labelRegions) {
         if (region.x<0 || region.x>width || region.y<0 || region.y>height) continue;
         ctx.font='600 12px system-ui';
         const text=`${region.label}: ${region[region.label]}/${region.total}`, countWidth=ctx.measureText(text).width;
@@ -342,7 +384,7 @@
         lines.forEach((line,index)=>ctx.fillText(line,x+7,y+32+index*16));
       }
       ctx.font='13px system-ui';
-      for (const point of labels) {
+      for (const point of volume ? [] : labels) {
         if (boxes.length>=14) break;
         const text=point.run.prompt.length>64?point.run.prompt.slice(0,61)+'…':point.run.prompt;
         const length=Math.min(ctx.measureText(text).width+12,width-12);
@@ -350,13 +392,51 @@
         if(boxes.some(b=>x<b.x+b.w && x+length>b.x && y<b.y+b.h && y+24>b.y)) continue;
         boxes.push({x,y,w:length,h:24});ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,length,24);ctx.fillStyle='#172c21';ctx.fillText(text,x+6,y+17,length-12);
       }
+      if(volume)drawVolume(width,height);
       if(box){ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.setLineDash(brush?[5,4]:[]);ctx.strokeRect(box.x,box.y,box.w,box.h);ctx.setLineDash([]);}
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
       canvas.dataset.highlightRegions=String(regionPoints.length);
       canvas.dataset.regionMode=highlight;
       canvas.dataset.areaSelected=String(areaKeys.size);
+      canvas.dataset.volumeBox=volume?JSON.stringify({center:volume.center,half:volume.half,axes:volume.axes}):'';
+      canvas.dataset.volumeHandles=JSON.stringify(handles);
     }
+    function drawVolume(width,height) {
+      const corners=volumeCorners(volume).map(xyz=>project(xyz,yaw,pitch,magnification,width,height));
+      const center=project(volume.center,yaw,pitch,magnification,width,height);
+      // Far edges are dashed; all twelve edges are projected from the same actual 3D box.
+      for(let a=0;a<8;a++)for(let axis=0;axis<3;axis++) {
+        const b=a^(1<<axis);if(b<a)continue;
+        const far=(corners[a].depth+corners[b].depth)/2>center.depth;
+        ctx.beginPath();ctx.moveTo(corners[a].x,corners[a].y);ctx.lineTo(corners[b].x,corners[b].y);
+        ctx.strokeStyle=far?'#728579':'#172c21';ctx.lineWidth=far?1.25:2;ctx.setLineDash(far?[5,4]:[]);ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      handles=volume.axes.map((axis,i)=>{
+        const p=project(volume.center.map((v,j)=>v+axis[j]*volume.half[i]),yaw,pitch,magnification,width,height);
+        return {x:p.x,y:p.y,axis:i,name:['W','H','D'][i]};
+      });
+      for(const handle of handles) {
+        ctx.fillStyle='#f8faf5';ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.fillRect(handle.x-8,handle.y-8,16,16);ctx.strokeRect(handle.x-8,handle.y-8,16,16);
+        ctx.font='600 11px system-ui';ctx.fillStyle='#172c21';ctx.fillText(handle.name,handle.x-4,handle.y+4);
+      }
+      const top=Math.min(...corners.map(p=>p.y)),right=Math.max(...corners.map(p=>p.x)),left=Math.min(...corners.map(p=>p.x)),bottom=Math.max(...corners.map(p=>p.y));
+      const w=Math.min(282,width-16),h=areaStats.medianPrompt?92:72;
+      const x=Math.max(8,Math.min(width-w-8,right+14+w<=width-8?right+14:left-w-14>=8?left-w-14:left));
+      const y=Math.max(8,Math.min(height-h-8,right+14+w<=width-8 || left-w-14>=8?top:top-h-14>=8?top-h-14:bottom+14));
+      ctx.beginPath();ctx.moveTo(Math.max(x,Math.min(x+w,center.x)),Math.max(y,Math.min(y+h,center.y)));ctx.lineTo(Math.max(left,Math.min(right,center.x)),Math.max(top,Math.min(bottom,center.y)));ctx.strokeStyle='#728579';ctx.lineWidth=1;ctx.stroke();
+      ctx.fillStyle='#f8faf5';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#172c21';ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
+      ctx.fillStyle='#172c21';ctx.font='600 14px system-ui';ctx.fillText(`${areaStats.total} runs · ${areaStats.successRate===null?'No success rate':(areaStats.successRate*100).toFixed(1)+'% success'}`,x+10,y+21,w-20);
+      ctx.font='12px system-ui';ctx.fillText(`${areaStats.Success} Success / ${areaStats.Failure} Failure · ${areaStats.scored} labeled`,x+10,y+41,w-20);
+      ctx.fillText(`${areaStats.Uncertain} Uncertain · ${areaStats.Unscored} unlabeled / excluded`,x+10,y+59,w-20);
+      if(areaStats.medianPrompt) {
+        let prompt='Median: '+areaStats.medianPrompt;
+        while(prompt.length>1 && ctx.measureText(prompt).width>w-20)prompt=prompt.slice(0,-2)+'…';
+        ctx.fillText(prompt,x+10,y+79);
+      }
+    }
+    function handleAt(event) {const [x,y]=canvasPoint(event);return handles.filter(h=>Math.hypot(h.x-x,h.y-y)<(event.pointerType==='touch'?23:16)).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];}
     function hit(event) {
       const rect=canvas.getBoundingClientRect(), x=event.clientX-rect.left,y=event.clientY-rect.top;
       return points.filter(p=>Math.hypot(p.x-x,p.y-y)<13).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
@@ -374,11 +454,17 @@
       last=[event.clientX,event.clientY];moved=false;
       if(pointers.size===2) {dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
       else if(areaMode){const point=canvasPoint(event);brush=[point,point];last=null;notifyArea();schedule();}
+      else if(volume) {const handle=handleAt(event);if(handle){volumeDrag={axis:handle.axis,start:canvasPoint(event),half:volume.half.slice(),center:project(volume.center,yaw,pitch,magnification,canvas.clientWidth,canvas.clientHeight),handle};last=null;moved=true;}}
     });
     canvas.addEventListener('pointermove',event=>{
       if(pointers.has(event.pointerId)) {
         pointers.set(event.pointerId,[event.clientX,event.clientY]);
-        if(brush && pointers.size===1){brush[1]=canvasPoint(event);moved=true;schedule();}
+        if(volumeDrag && pointers.size===1) {
+          const drag=volumeDrag,[x,y]=canvasPoint(event),dx=drag.handle.x-drag.center.x,dy=drag.handle.y-drag.center.y;
+          const fraction=((x-drag.start[0])*dx+(y-drag.start[1])*dy)/Math.max(36,dx*dx+dy*dy);
+          volume.half[drag.axis]=Math.max(volume.baseHalf[drag.axis]*.05,Math.min(volume.baseHalf[drag.axis]*3,drag.half[drag.axis]*(1+fraction)));
+          moved=true;refreshArea();schedule();
+        } else if(brush && pointers.size===1){brush[1]=canvasPoint(event);moved=true;schedule();}
         else if(pointers.size===2) {
           const [a,b]=[...pointers.values()],distance=Math.hypot(a[0]-b[0],a[1]-b[1]);
           if(lastDistance>0) zoom(distance/lastDistance);lastDistance=distance;moved=true;
@@ -389,6 +475,7 @@
         }
       } else {
         if(areaMode){canvas.style.cursor='crosshair';return;}
+        if(volume && handleAt(event)){clearPreview();canvas.style.cursor='ew-resize';return;}
         if (event.pointerType !== 'touch') {
           const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
           onWarm(points.map(p=>({point:p,distance:Math.hypot(p.x-x,p.y-y)})).filter(p=>p.distance<100)
@@ -401,6 +488,7 @@
     canvas.addEventListener('pointerup',event=>{
       if(!pointers.has(event.pointerId))return;
       if(brush){brush[1]=canvasPoint(event);pointers.delete(event.pointerId);last=null;moved=true;applyBrush();return;}
+      if(volumeDrag){volumeDrag=null;pointers.delete(event.pointerId);last=null;moved=true;return;}
       const dragged=moved || pointers.size>1;pointers.delete(event.pointerId);last=null;
       if(!dragged) {
         const hits=hit(event),signature=hits.map(p=>p.run.episode_id).join(',');
@@ -408,7 +496,7 @@
         if(hits.length) {focused=rows.indexOf(hits[hitCycle].run);open();}
       }
     });
-    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;brush=null;clearPreview();notifyArea();schedule();});
+    canvas.addEventListener('pointercancel',()=>{pointers.clear();last=null;brush=null;if(volumeDrag){volume.half=volumeDrag.half;volumeDrag=null;refreshArea();}clearPreview();notifyArea();schedule();});
     canvas.addEventListener('pointerleave',()=>{clearPreview();focus(rows[focused]);schedule();});
     canvas.addEventListener('focus',previewFocused);
     canvas.addEventListener('blur',clearPreview);
@@ -434,9 +522,9 @@
       if(key==='Home') reset();if(key==='[') step(-1);if(key===']') step(1);if(key==='Enter') open();schedule();
     });
     if(typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{clearPreview();dropAreaBox();schedule();}).observe(canvas);
-    return {setRuns(next,id) {clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;areaBounds=brush=null;const keys=new Set(rows.filter(validPosition).map(runKey));areaKeys=new Set([...areaKeys].filter(key=>keys.has(key)));refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
+    return {setRuns(next,id) {clearPreview();const robot=next.find(validPosition)?.robot_id;if(robot!==undefined && areaRobot!==undefined && robot!==areaRobot){areaKeys.clear();areaApplied=false;volume=null;handles=[];}if(robot!==undefined)areaRobot=robot;rows=next;regionData=null;brush=volumeDrag=null;refreshArea();selected=rows.some(run=>run.episode_id===id) ? id : '';focused=Math.max(0,rows.findIndex(run=>run.episode_id===selected));focus(rows[focused]);schedule();},
       setHighlight(mode) {highlight=['both','success','failure'].includes(mode)?mode:'none';focus(rows[focused]);schedule();},highlightSummary,
-      select(id) {selected=id;schedule();},setAreaSelection,clearArea,clearPreview,reset,zoom,step,open};
+      select(id) {selected=id;schedule();},setAreaSelection,clearArea,setVolumeDimension,volumeView,clearPreview,reset,zoom,step,open};
   }
-  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor,summarizeArea,medianPrompt};
+  window.yamTaskCloud={create,createPreview,project,offset,outcome,regionsFor,summarizeArea,medianPrompt,volumeContains,volumeCorners,volumeFromBrush,cameraCoordinates,worldCoordinates};
 })();
