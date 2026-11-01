@@ -58,6 +58,7 @@
     ? run.assessment.label : 'Unscored';
   const outcome = run => window.yamRunLabels?.outcome(run, run.label_source || 'human') || legacyOutcome(run);
   const regionRadius = .08;
+  const successAreaThreshold = .25;
   const validPosition = run => Array.isArray(run.xyz) && run.xyz.length === 3 && run.xyz.every(Number.isFinite);
   const distanceSquared = (a,b) => a.reduce((sum,value,i) => sum+(value-b[i])**2,0);
   const runKey = run => `${run.robot_id || ''}:${run.episode_id}`;
@@ -104,9 +105,10 @@
         }
       }
       nearby.set(key,counts);
-      const total=counts.Success+counts.Failure, share=counts.Success/total;
-      if (!group.Success && !group.Failure || total<5 || (share>1/3 && share<2/3)) continue;
-      candidates.push({xyz:group.xyz,...counts,total,label:share>=2/3?'Success':'Failure',strength:Math.abs(counts.Success-counts.Failure)});
+      const total=counts.Success+counts.Failure;
+      if (!group.Success && !group.Failure || total<5) continue;
+      const margin=counts.Success-total*successAreaThreshold;
+      candidates.push({xyz:group.xyz,...counts,total,label:margin>0?'Success':'Failure',strength:Math.abs(margin)});
     }
     candidates.sort((a,b)=>b.strength-a.strength || b.total-a.total || a.xyz.join(',').localeCompare(b.xyz.join(',')));
     const regions=[];
@@ -363,7 +365,7 @@
       if (!showOutcomeColors) return 'Autolabels hidden. Hover a point to preview its video.';
       if (highlight === 'none') return 'Region highlights off. Individual run colors remain visible.';
       const regions=visibleRegions(), success=regions.filter(r=>r.label==='Success').length, failure=regions.length-success;
-      return `${regions.length ? `Highlighting ${success} success-heavy / ${failure} failure-heavy areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby and two-thirds of one outcome. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Click an area label to open its median run. Labels hide when you zoom close.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
+      return `${regions.length ? `Highlighting ${success} success areas / ${failure} failure areas.` : 'No areas meet the highlight threshold for this selection.'} Tints need at least 5 Success/Failure labels nearby. Success areas have more than 25% Success; failure areas have 25% or less. Uncertain and unlabeled runs are not counted. Areas can overlap; hover or focus a run for nearby counts. ${showAreaLabels?'Click an area label to open its median run. Labels hide when you zoom close.':'Area labels hidden; hover or focus a run for details below the cloud.'}`;
     }
     const pointers = new Map();
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(draw); };

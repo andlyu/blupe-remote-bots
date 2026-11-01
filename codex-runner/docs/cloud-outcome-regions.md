@@ -49,12 +49,14 @@ rules to runs with exactly three finite persisted `xyz` coordinates:
    Screen position, camera rotation, zoom and the small display offsets used to
    separate repeated attempts do not affect these counts.
 3. A candidate center must itself have a Success or Failure label. Its
-   neighborhood must contain at least five Success/Failure labels, with at
-   least two-thirds of them sharing one outcome. Exactly two-thirds qualifies.
+   neighborhood must contain at least five Success/Failure labels. More than
+   25% Success classifies it as a Success area; 25% or less classifies it as a
+   Failure area. Exactly 25% is not a Success area. This is an area-display
+   cutoff; it does not change any individual run label.
    Uncertain and Unscored runs do not enter that denominator or establish a
    candidate center, but their separate nearby counts are retained.
-4. Rank candidates by the absolute difference between Success and Failure
-   counts, then by the binary-label total, then by the coordinate key for a
+4. Rank candidates by the absolute margin from the cutoff (`Success - 0.25 ×
+   binary-label total`), then by the binary-label total, then by the coordinate key for a
    deterministic tie break. Keep at most 12 areas for each outcome. Centers
    with the same outcome must be at least `0.12` apart (`1.5 × 0.08`); centers
    with different outcomes may be closer.
@@ -179,8 +181,8 @@ resolver is absent, recognizes only included runner Success/Failure labels.
 
 ## Counts and interaction
 
-The status text reports how many success-heavy and failure-heavy areas pass the
-current selection, explains the five-label/two-thirds rule, and explains when
+The status text reports how many Success and Failure areas pass the
+current selection, explains the five-label/25% rule, and explains when
 none qualify or highlights are off. With highlights enabled, it reports whether area labels are hidden or include
 a median task prompt. It is a `role="status"`
 paragraph associated with the canvas through `aria-describedby`.
