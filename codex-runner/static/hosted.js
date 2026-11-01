@@ -337,8 +337,8 @@ function createRunLaunchGuard() {
   let regionHighlight = 'both';
   try { const saved = localStorage.getItem('yam-cloud-highlight'); if (['both','success','failure','none'].includes(saved)) regionHighlight = saved; } catch (_) {}
   if ($('taskCloudHighlight')) $('taskCloudHighlight').value = regionHighlight;
-  let showAreaLabels = false;
-  try { showAreaLabels = localStorage.getItem('yam-cloud-area-labels') === 'true'; } catch (_) {}
+  let showAreaLabels = true;
+  try { showAreaLabels = localStorage.getItem('yam-cloud-area-labels') !== 'false'; } catch (_) {}
   if ($('taskCloudShowLabels')) $('taskCloudShowLabels').checked = showAreaLabels;
   let historyModels = [], historyView = 'table', catalogRows = [], cloud = null, cloudTimer = null;
   try { historyView = localStorage.getItem('yam-past-runs-view') === 'cloud' ? 'cloud' : 'table'; } catch (_) {}

@@ -105,13 +105,13 @@ test('ready catalog hints start media immediately without a hover-detail request
  assert.equal(c.loads.length,0);assert.equal(c.videos[0].src,detail('ep_a').video_url);assert.equal(c.videos[0].plays,1);
  assert.equal(c.layouts[0].layout,'observer-focus');
 });
-test('hosted area captions default off and an explicit toggle is remembered without fetching more runs',async()=>{
+test('hosted area captions default on and an explicit toggle is remembered without fetching more runs',async()=>{
  const c=require('./helpers/past-runs.cjs')('','cloud'),choices=[];c.cloud.setAreaLabels=value=>choices.push(value);
  c.events['blupe-robot-selected']({detail:'yam-1'});c.answer(c.requests[0],[{episode_id:'ep_a',prompt:'Task',xyz:[0,0,0]}]);await c.flush();
- assert.equal(c.nodes.get('taskCloudShowLabels').checked,false);assert.equal(choices.at(-1),false);
- const count=c.requests.length;c.nodes.get('taskCloudShowLabels').checked=true;c.nodes.get('taskCloudShowLabels').emit('change');
- assert.equal(choices.at(-1),true);assert.equal(c.storage.get('yam-cloud-area-labels'),'true');assert.equal(c.requests.length,count);
- c.nodes.get('taskCloudShowLabels').checked=false;c.nodes.get('taskCloudShowLabels').emit('change');assert.equal(choices.at(-1),false);
+ assert.equal(c.nodes.get('taskCloudShowLabels').checked,true);assert.equal(choices.at(-1),true);
+ const count=c.requests.length;c.nodes.get('taskCloudShowLabels').checked=false;c.nodes.get('taskCloudShowLabels').emit('change');
+ assert.equal(choices.at(-1),false);assert.equal(c.storage.get('yam-cloud-area-labels'),'false');assert.equal(c.requests.length,count);
+ c.nodes.get('taskCloudShowLabels').checked=true;c.nodes.get('taskCloudShowLabels').emit('change');assert.equal(choices.at(-1),true);
 });
 
 test('Custom end-point becomes the active provider and focuses its input without navigating',()=>{
