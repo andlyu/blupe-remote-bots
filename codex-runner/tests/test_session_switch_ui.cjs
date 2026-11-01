@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '../static/hosted.js'), 'utf8');
 function launchContext(properties) {
-  const context = vm.createContext(properties);
+  const context = vm.createContext({liveViewers:null, ...properties});
   const begin=source.indexOf('function createRunLaunchGuard(');
   const end=source.indexOf("(() => {\n  'use strict';",begin);
   vm.runInContext(source.slice(begin,end)+'\nconst runLaunchGuard=createRunLaunchGuard();',context);

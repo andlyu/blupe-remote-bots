@@ -356,6 +356,8 @@ main{padding-top:14px}
 .watchLayout>.watchToolbar{grid-column:1/-1;margin-bottom:0}
 .watchToolbar .conversationModes{margin:0}
 .watchToolbar #videoDelayNotice{margin:0;font-size:11px}
+.liveViewerCount{display:inline-flex;align-items:center;gap:5px;margin-inline-start:8px;padding-inline-start:10px;border-inline-start:1px solid var(--line);color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
+.liveViewerCount svg{flex:none}
 .videoPanel{position:relative;min-width:0;isolation:isolate}
 .watchLayout .videoPanel .cameras{max-width:none;margin:0}
 .videoOverlays{position:absolute;left:12px;right:12px;bottom:48px;z-index:3;display:flex;flex-direction:column;gap:6px;max-height:calc(100% - 64px);pointer-events:none}

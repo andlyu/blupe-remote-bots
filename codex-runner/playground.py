@@ -37,6 +37,7 @@ from remote_yam.reactions import Reactions, EMOJIS
 
 ACTIVE = {"queued", "preparing", "running"}
 COOKIE = "__Host-yam-visitor"
+LIVE_VIEWER_SECONDS = 30
 
 
 def model_display_name(provider):
@@ -108,6 +109,7 @@ class Visitor:
     last_chat: float = -float("inf")
     last_reaction: float = -float("inf")
     last_stream_report: float = -float("inf")
+    last_watched: float = -float("inf")
     runner_task: str = ""
     runner_name: str = "Anonymous"
     runner_session_id: str | None = None
@@ -533,7 +535,7 @@ class HostedRunner:
                 raise RequestError(503, 'Task suggestions are unavailable. You can still write your own task.') from None
             await self.json(send, 200, {'robot_id': self.robot_id, 'suggestions': suggestions})
             return
-        if method == "GET" and path in {"/", "/static/meeting.js", "/static/meeting.css", "/static/hosted.js", "/static/run-assessments.js", "/static/run-labels.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
+        if method == "GET" and path in {"/", "/static/meeting.js", "/static/meeting.css", "/static/hosted.js", "/static/run-assessments.js", "/static/run-labels.js", "/static/task-cloud.js", "/static/replay-history.js", "/static/replay-progress.js", "/static/replay-email.js", "/static/reactions.js", "/static/model-picker.js", "/static/system-prompt.js", "/static/hosted.css", "/static/stream-health.js", "/static/live-viewers.js", "/static/hls.light.min.js", "/static/hls.min.js", "/static/robot-audio.js", "/static/robot-audio.css", "/static/observer-enhancement-worker.js"}:
             asset = ROOT / "static" / ("hosted.html" if path == "/" else path.rsplit("/", 1)[1])
             kind = "image/png" if path.endswith(".png") else "text/html" if path == "/" else "text/javascript" if path.endswith(".js") else "text/css"
             await self.respond(send, 200, (self.page() if path == "/" else asset.read_bytes()), kind if kind == "image/png" else kind + "; charset=utf-8")
@@ -843,12 +845,20 @@ class HostedRunner:
         if path == "/api/chat":
             await self.json(send, 200, await self.chat_snapshot(visitor))
         elif path == "/api/status":
+            now = time.monotonic()
+            if headers.get('x-yam-watching') == '1':
+                visitor.last_watched = now
             controller = visitor.controller
             if self.observation is not None:
                 controller.update_monitor_observation(self.observation)
             if self.queue is not None:
                 controller.update_queue_snapshot(self.queue)
             state = controller.status()
+            # A browser's existing session deduplicates its tabs. Hidden tabs
+            # must not clear a heartbeat sent by another visible tab.
+            state['live_viewer_count'] = sum(
+                not item.retired and now - item.last_watched < LIVE_VIEWER_SECONDS
+                for item in self.visitors.values())
             # Only the owner receives local setup instructions after a login expires
             # during a run. No subprocess or live request is made by status polling.
             state['subscription_setup'] = None
