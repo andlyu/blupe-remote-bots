@@ -15,7 +15,8 @@ merges any available public pre-publication receipts with archive rows taking
 precedence, then applies the same search/filter implementation as the library. It separately
 computes all-collection, current-library and requested-focus aggregates. A box
 must contain existing IDs that match the current robot/filters; an empty box stays
-empty. Opened replays are robot-validated. Client-supplied labels, counts, model
+empty. Opened replays are robot-validated. Recorded station names accompany robot IDs in model context and evidence links;
+task text is not used to infer execution identity. Client-supplied labels, counts, model
 providers and replay URLs are never trusted.
 
 Success rate is Success/(Success+Failure); Uncertain and unlabeled/excluded runs
@@ -92,7 +93,12 @@ do not spend robot guest-run allowances or create a robot policy/session.
 
 ## Verification status
 
-Implementation and focused checks are recorded in [CHECKLIST.md](CHECKLIST.md).
-Public-source CI and production compatibility/deployment proof will be appended
-there. Local visual fixtures use actual public metadata and explicitly say when
-the answer is a fixture. A fixture is not live model verification.
+The feature is live in the [public run library](https://playground.blupe.io/#past-runs).
+[CHECKLIST.md](CHECKLIST.md) records the complete applicable acceptance evidence,
+exact validated source/pin/CI links, screenshots, transcripts and explicit N/A
+research-hardware requirements. No user name/email is required.
+
+Public Chrome verification covered complete collection versus current filters,
+preserved follow-ups, independent opened-replay context, a decoded/played cited
+recording, explicit last-replay focus and the 390px phone layout. Model statements
+remain predictions to inspect against their supporting runs, not verified causes.

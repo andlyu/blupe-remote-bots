@@ -1,0 +1,21 @@
+You
+
+Compare all public runs with this current library, with exact sample counts. Cite one replay from the current Robo-house YAM robot.
+
+All public runs · Library context: Robo-house YAM · Current filters · Auto-labeled · All models
+Data chat
+
+Across all public robots, there are 1,365 runs: 324 labeled Success, 655 Failure, 282 Uncertain and 104 Unscored. The success rate is 33.09% (324 of 979 Success-or-Failure runs).
+
+The current Robo-house YAM library contains 722 runs: 147 Success, 381 Failure, 152 Uncertain and 42 Unscored. Its success rate is 27.84% (147 of 528 Success-or-Failure runs). The current library is included in the all-public total. Both rates exclude Uncertain and Unscored runs, and the automated labels are predictions, not verified outcomes.
+
+For one current-library example, the automated annotation for ep_9b5600302aac4bf1 predicts Success on a paper-cup pickup and says the cup was gripped and lifted.
+
+Would you like to compare the two scopes by model or repeated task?
+
+All public runs · Library context: Robo-house YAM · Current filters · Auto-labeled · All models
+1365 runs across all public robots · 324 Success, 655 Failure, 282 Uncertain, 104 unlabeled/excluded · 33.1% of 979 Success/Failure labels · 32 example records supplied
+Current library context: 722 runs · 528 Success/Failure labels.
+Robo-house YAM · Success: pick up the paper cup
+Robo-house YAM paper-cup pickup, labeled Success by an automated annotation.
+ChatGPT subscription · selected gpt-6.1-terra · low reasoning · resolved model ID not exposed

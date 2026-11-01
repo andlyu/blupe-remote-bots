@@ -1,4 +1,4 @@
-# Data conversation — working acceptance evidence
+# Data conversation — verified feature acceptance
 
 User invocation: “Let's add a ChatGPT there, so that they can talk with ChatGPT
 about the data.” The user-adopted AGENTS.md selects the shared harness for this
@@ -21,28 +21,82 @@ this requested task's source pushes and public website delivery.
 - [x] All-runs baseline, separate filtered/box/opened context, explicit focus,
   complete aggregate denominators and bounded evidence are implemented.
 - [x] Conversation persists when library context changes. Each answer retains
-  its input scope, counts, evidence size and requested/returned model IDs.
+  its input scope, counts, evidence size, requested model and any provider-exposed returned identifier.
 - [x] Prediction/human-label provenance, missing labels and text-only limitations
   are persistent. No robot commands, visitor-chat messages, video/model vision
   claims or fabricated attribution are introduced.
-- [x] Focused backend tests: twelve passing, covering cross-robot baseline/context,
+- [x] Focused backend tests: fourteen passing, covering cross-robot baseline/context,
   box/filter isolation, empty scope, human exclusions, privacy, forged citations,
   provider model mismatch, CSRF/rate boundaries and no policy creation.
-- [x] Existing JavaScript suite: 335 passing (0.651s command runtime).
-- [ ] Final desktop/phone/replay and conversation-persistence browser checks.
+- [x] Shared JavaScript suite: 340 passing (0.654s); compatible suite 419 passing (0.774s). Two focused replay-navigation regressions cover real detail loading, foreign/stale responses and unavailable footage.
+- [x] Final public Chrome desktop/phone/replay and conversation-persistence
+  checks passed; [screenshots and transcript](evidence/verification.json).
+  Actual replay decoded (readyState 4), advanced to 34.9s, and retained all-runs
+  scope. Phone 390×844 has 390px scroll width, with viewport restored.
 - [x] Actual OpenAI subscription catalog confirms gpt-6.1-terra/low; Andrew
-  metadata-only verification succeeded in10.412s, with two validated replay IDs.
-  API access probe returned401 expired_secret_key before generation; provider
+  metadata-only verification succeeded in 10.412s, with two validated replay IDs.
+  API access probe returned 401 expired_secret_key before generation; provider
   change was explicit. Selected ID retained; resolved ID not exposed by CLI.
-- [ ] Public source revision, source CI and deployment/hosted-pin evidence.
-- [ ] Deployed public UI end-to-end discussion and evidence navigation verified.
+- [x] Public source PRs[250](https://github.com/andlyu/blupe-remote-bots/pull/250),
+  [251](https://github.com/andlyu/blupe-remote-bots/pull/251) and
+  [252](https://github.com/andlyu/blupe-remote-bots/pull/252) merged. Validated
+  shared code 6f08fdd; hosted-compatible code 1dadf9c; hosted pin
+  [193](https://github.com/andlyu/blupe-evals/pull/193) merged c5ae951.
+  All exact-code source/compatible/hosted CI runs passed; links in verification.json.
+- [x] Deployed normal-UI discussion and cited replay verified. All 1,365 runs
+  remain the baseline; 722 current-library and 99 apple-filtered runs have
+  separate counts and 979/528/80 Success-or-Failure denominators. Four
+  conversation articles remain after filtering; opened paper-cup replay
+  stays separate from the apple subset. No name/email was requested.
 
 Local full Python check: 1,362 passed, 100 skipped, 181 subtests passed; five
 native replay-cache failures with only 265,494,528 free bytes versus its
 536,870,912-byte minimum. That unrelated environment limitation remains explicit;
-no native-history implementation was changed. Current source CI remains pending.
+no native-history implementation was changed. The exact-code Linux source CI passed after these local storage failures;
+all source/compatible/hosted CI results are recorded in evidence/verification.json.
 Design detector findings on inherited hosted.html styles/camera placeholders are
 outside this panel's changes; the new panel is checked visually at shipping sizes.
+
+
+## Final result and evidence
+
+All applicable feature requirements above are verified. No feature requirement
+remains open. This is **not** a claim of completing a physical research-method
+integration. The user explicitly made data chat separate from that harness and
+forbade requiring users to enter a name. Its archival research template below
+retains unchecked physical items as documented N/A scope exceptions.
+
+- [Live run library](https://playground.blupe.io/#past-runs)
+- [Verified public source](https://github.com/andlyu/blupe-remote-bots/commit/6f08fdd7426884f19c8d417c58195a87c1f52081)
+- [Exact feature/CI evidence](evidence/verification.json)
+- [Live answer and replay screenshot](evidence/live-replay.png)
+- [Live phone panel](evidence/live-phone-panel.png)
+- [Follow-up transcript](evidence/live-follow-up.txt)
+
+The source pin retains the hosted app's existing legacy adapter/controller APIs
+and concurrent frozen-UMAP work. Deployment used baseline hash guards, backups,
+idle-run checks and narrow feature patches on the existing service, rather than
+replacing its unrelated deployed application. The separate text-only subscription
+service uses the existing credential owner; no credential is copied or published.
+
+Live checks found and repaired three concrete issues: pending receipts initially
+undercounted the visible library; replay links initially depended on unrelated
+robot-status initialization; station names in task text could be confused with
+recorded robot identity. Regression checks and final public behavior verify the
+repairs. Model answers remain descriptive predictions grounded in text metadata
+and saved annotations. No video/image is supplied to the model, and its CLI does
+not expose a resolved checkpoint ID. The initial API credential access check
+returned 401 expired_secret_key; the explicit subscription transport works, so
+no user credential action is required.
+
+Local hosted validation:431 Python passed/9 skipped/21 subtests (60.48s command
+runtime),45 JavaScript passed (0.086s). Local shared full Python initially had
+five pre-existing native-cache free-space failures; remote exact-code CI passed.
+The in-app browser later stalled/its session expired; final public Chrome proof
+is the acceptance evidence. Only task-owned derived temporary copies were removed
+when disk pressure interrupted file writes. Existing design-sidecar drift and
+inherited detector findings remain outside this feature; Impeccable `document`
+can refresh that older metadata without changing the feature.
 
 ## Explicit scope exceptions to the research template
 

@@ -1,0 +1,66 @@
+{
+  "verified_at_utc": "2026-11-01T07:37:16.807777+00:00",
+  "website": "https://playground.blupe.io/#past-runs",
+  "shared_code_revision": "6f08fdd7426884f19c8d417c58195a87c1f52081",
+  "hosted_compatible_code_revision": "1dadf9c36f49734c3b7a8787e99604c90ae42ea0",
+  "hosted_pin_merge": "c5ae95170464e291a6752185a0c45b4e590c6ced",
+  "selected_model": "gpt-6.1-terra",
+  "reasoning_effort": "low",
+  "provider": "codex_subscription",
+  "resolved_model": null,
+  "model_resolution_note": "Explicit CLI selection; resolved ID is not exposed",
+  "user_name_or_email_required": false,
+  "hardware_commands_submitted": 0,
+  "overall": {
+    "runs": 1365,
+    "Success": 324,
+    "Failure": 655,
+    "Uncertain": 282,
+    "Unscored": 104,
+    "rate_denominator": 979
+  },
+  "library_context": {
+    "robot_id": "robot-ba8413962083809c",
+    "robot_name": "Robo-house YAM",
+    "runs": 722,
+    "rate_denominator": 528
+  },
+  "filtered_context": {
+    "query": "apple",
+    "runs": 99,
+    "Success": 32,
+    "Failure": 48,
+    "Uncertain": 14,
+    "Unscored": 5,
+    "rate_denominator": 80
+  },
+  "conversation_articles_after_filter_followup": 4,
+  "replay": {
+    "episode_id": "ep_9b5600302aac4bf1",
+    "prompt": "pick up the paper cup",
+    "ready_state_observed": 4,
+    "current_time_observed_s": 34.9,
+    "all_runs_scope_retained": true,
+    "explicit_last_replay_focus_selectable": true
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "document_scroll_width": 390,
+    "viewport_reset": true
+  },
+  "ci": {
+    "shared_feature": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41282350795",
+    "shared_count_navigation": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41284139517",
+    "shared_station_context": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41284960346",
+    "compatible_source": "https://github.com/andlyu/blupe-remote-bots/actions/runs/41284751338",
+    "hosted_pin": "https://github.com/andlyu/blupe-evals/actions/runs/41284956277"
+  },
+  "ci_result": "All listed exact-code runs completed successfully",
+  "scope_exceptions": [
+    "No paper or robot-policy integration",
+    "No physical execution, motion/startup timing, GPU provisioning or simulation",
+    "No queue identity collection; user explicitly requires data chat be separate from the harness"
+  ],
+  "remaining_feature_requirements": []
+}

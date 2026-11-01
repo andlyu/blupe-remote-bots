@@ -1,0 +1,46 @@
+You
+
+Compare all public runs with this current library, with exact sample counts. Cite one replay from the current Robo-house YAM robot.
+
+All public runs · Library context: Robo-house YAM · Current filters · Auto-labeled · All models
+Data chat
+
+Across all public robots, there are 1,365 runs: 324 labeled Success, 655 Failure, 282 Uncertain and 104 Unscored. The success rate is 33.09% (324 of 979 Success-or-Failure runs).
+
+The current Robo-house YAM library contains 722 runs: 147 Success, 381 Failure, 152 Uncertain and 42 Unscored. Its success rate is 27.84% (147 of 528 Success-or-Failure runs). The current library is included in the all-public total. Both rates exclude Uncertain and Unscored runs, and the automated labels are predictions, not verified outcomes.
+
+For one current-library example, the automated annotation for ep_9b5600302aac4bf1 predicts Success on a paper-cup pickup and says the cup was gripped and lifted.
+
+Would you like to compare the two scopes by model or repeated task?
+
+All public runs · Library context: Robo-house YAM · Current filters · Auto-labeled · All models
+1365 runs across all public robots · 324 Success, 655 Failure, 282 Uncertain, 104 unlabeled/excluded · 33.1% of 979 Success/Failure labels · 32 example records supplied
+Current library context: 722 runs · 528 Success/Failure labels.
+Robo-house YAM · Success: pick up the paper cup
+Robo-house YAM paper-cup pickup, labeled Success by an automated annotation.
+ChatGPT subscription · selected gpt-6.1-terra · low reasoning · resolved model ID not exposed
+You
+
+How do the filtered apple runs compare with all runs? Keep the overall collection, filtered view, and opened replay separate.
+
+All public runs · Library context: Robo-house YAM · Current filters · Auto-labeled · All models · Search: apple · Replay: ep_9b5600302aac4bf1
+Data chat
+
+Across all public robots, the overall collection has 1,365 runs: 324 Success, 655 Failure, 282 Uncertain and 104 Unscored. Its success rate is 33.09% (324 of 979 Success-or-Failure runs).
+
+The current filtered view is the Robo-house YAM library with the query “apple”: 99 runs, including 32 Success, 48 Failure, 14 Uncertain and 5 Unscored. Its success rate is 40.00% (32 of 80 Success-or-Failure runs), 6.91 percentage points higher than the overall collection. The filtered view is included in the overall collection; the difference is descriptive and may reflect task mix and conditions.
+
+Both rates exclude Uncertain and Unscored runs. Automated labels are predictions, not verified outcomes. For a filtered-view example, the automated annotation for ep_6d82ded67c5d4b46 predicts Success on “Pick up an apple.”
+
+The opened replay, ep_9b5600302aac4bf1, is a separate paper-cup pickup on Robo-house YAM. It does not match the current apple query; its automated annotation predicts Success.
+
+Would you like to examine the apple runs by task or compare their saved annotations?
+
+All public runs · Library context: Robo-house YAM · Current filters · Auto-labeled · All models · Search: apple · Replay: ep_9b5600302aac4bf1
+1365 runs across all public robots · 324 Success, 655 Failure, 282 Uncertain, 104 unlabeled/excluded · 33.1% of 979 Success/Failure labels · 32 example records supplied
+Current library context: 99 runs · 80 Success/Failure labels.
+Robo-house YAM · Success: Pick up an apple
+Apple pickup example from Robo-house YAM, labeled Success by an automated annotation.
+Robo-house YAM · Success: pick up the paper cup
+Opened paper-cup replay, separate from the apple-filtered view.
+ChatGPT subscription · selected gpt-6.1-terra · low reasoning · resolved model ID not exposed
