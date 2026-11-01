@@ -134,23 +134,46 @@ test('neighborhoods require five binary labels, ignore uncertain/unknown outcome
  add(6,'Failure',[0,0,.3]);add(1,'Success',[0,0,.3]);
  add(4,'Success',[.4,0,0]);add(3,'Success',[-.4,0,0]);add(3,'Failure',[-.4,0,0]);
  const result=c.regionsFor(rows);
- assert.equal(result.regions.length,2);
+ assert.equal(result.regions.length,3);
  const green=result.regions.find(r=>r.label==='Success');assert.equal(green.total,8);assert.equal(green.Success,6);assert.equal(green.Uncertain,3);assert.equal(green.Unscored,40);
  assert.equal(green.representativePrompt,'Task');
  const red=result.regions.find(r=>r.label==='Failure');assert.equal(red.total,7);assert.equal(red.Failure,6);
  assert.equal(JSON.stringify(c.regionsFor(rows.slice().reverse()).regions),JSON.stringify(result.regions),'row order must not move regions');
  assert.deepEqual(rows[0].xyz,[0,0,-.3]);
 });
+test('success areas use a strict 25% cutoff among at least five binary labels',()=>{
+ const c=setup(run=>run.testOutcome);
+ const rows=(successes,total)=>Array.from({length:total},(_,i)=>({episode_id:'cutoff_'+i,prompt:'Task',xyz:[0,0,0],testOutcome:i<successes?'Success':'Failure'}));
+ for(const [successes,total,label] of [[0,8,'Failure'],[1,8,'Failure'],[2,8,'Failure'],[3,8,'Success'],[2,5,'Success'],[4,5,'Success'],[5,5,'Success']]){
+  const attempts=rows(successes,total);
+  const unscored=Array.from({length:40},(_,i)=>({episode_id:'unknown_'+i,xyz:[0,0,0],testOutcome:i%2?'Uncertain':'Unscored'}));
+  const result=c.regionsFor([...attempts,...unscored]);
+  assert.equal(result.regions.length,1);assert.equal(result.regions[0].label,label,`${successes}/${total}`);
+  assert.equal(result.regions[0].total,total);assert.equal(result.regions[0].Success,successes);
+  assert.equal(JSON.stringify(attempts),JSON.stringify(rows(successes,total)),'area classification never relabels individual runs');
+ }
+ assert.equal(c.regionsFor(rows(2,4)).regions.length,0);
+ c.cloud.setRuns(rows(3,8));c.cloud.setHighlight('success');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'1');
+ assert.match(c.cloud.highlightSummary(),/more than 25% Success/);assert.match(c.cloud.highlightSummary(),/25% or less/);
+ c.cloud.setRuns(rows(2,8));c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0','exactly 25% is not a success area');
+ c.cloud.setHighlight('failure');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'1');
+});
+test('success area ranking favors supported success above the 25% cutoff',()=>{
+ const c=setup(run=>run.testOutcome),rows=[];
+ for(const [x,successes] of [[0,3],[.13,6]])for(let i=0;i<8;i++)rows.push({episode_id:'rank_'+rows.length,prompt:'Task',xyz:[x,0,0],testOutcome:i<successes?'Success':'Failure'});
+ const regions=c.regionsFor(rows).regions;
+ assert.equal(regions.length,2);assert.equal(regions[0].Success,6);assert.equal(regions[1].Success,3);
+});
 test('highlight controls preserve individual runs, 3D support under rotation, source recalculation and replay selection',()=>{
  const c=setup(),rows=Array.from({length:6},(_,i)=>({episode_id:'ep_h'+i,prompt:'Lift',xyz:[0,0,0],assessment:{label:i===0?'Failure':'Success',eligibility:'included'}}));
  c.cloud.setRuns(rows);c.cloud.setHighlight('both');c.cloud.setAreaLabels(true);c.draw();
- assert.equal(c.canvas.dataset.renderedPoints,'6');assert.equal(c.canvas.dataset.highlightRegions,'1');assert.match(c.cloud.highlightSummary(),/1 success-heavy/);assert.match(c.focused.textContent,/Nearby: 5 Success \/ 1 Failure/);
+ assert.equal(c.canvas.dataset.renderedPoints,'6');assert.equal(c.canvas.dataset.highlightRegions,'1');assert.match(c.cloud.highlightSummary(),/1 success areas/);assert.match(c.focused.textContent,/Nearby: 5 Success \/ 1 Failure/);
  c.events.keydown({key:'ArrowRight',preventDefault(){}});c.draw();assert.equal(c.canvas.dataset.highlightRegions,'1');
  c.cloud.open();assert.equal(c.opened[0].episode_id,'ep_h0');
  c.cloud.setHighlight('failure');c.cloud.setAreaLabels(true);c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0');assert.match(c.cloud.highlightSummary(),/No areas meet/);
  c.cloud.setHighlight('none');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0');assert.match(c.cloud.highlightSummary(),/off/);assert.equal(c.canvas.dataset.renderedPoints,'6');
  c.cloud.setRuns(rows.slice(0,4));c.cloud.setHighlight('both');c.draw();assert.equal(c.canvas.dataset.highlightRegions,'0','filtering to four runs must remove stale highlight');
- c.cloud.setRuns(rows.map(r=>({...r,assessment:{label:'Failure',eligibility:'included'}})));c.draw();assert.match(c.cloud.highlightSummary(),/1 failure-heavy/);
+ c.cloud.setRuns(rows.map(r=>({...r,assessment:{label:'Failure',eligibility:'included'}})));c.draw();assert.match(c.cloud.highlightSummary(),/1 failure areas/);
 });
 test('failure areas show the observed failed prompt nearest the repeated-attempt coordinate median',()=>{
  const c=setup(run=>run.testOutcome),rows=[];
