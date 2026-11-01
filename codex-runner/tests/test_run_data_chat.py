@@ -190,3 +190,108 @@ class SubscriptionExecutionTests(unittest.TestCase):
             binary.write_text('#!/usr/bin/env python3\nimport json\nprint(json.dumps({"type":"item.completed","item":{"type":"mcp_tool_call"}}))\n')
             with self.assertRaises(ValueError):execute(binary,home,MODEL,[{'role':'user','content':'q'}],{},timeout=2)
             self.assertFalse(list((home/'workspace').iterdir()),'Ephemeral workspace must be cleaned')
+
+
+class FullLibrarySearchTests(unittest.TestCase):
+    def context(self, rows, question, history=(), labels=None, scope=None):
+        return build_context({'runs':rows},{},labels or {},
+            validate_payload({'question':question,'scope':scope or {}})[1],
+            'yam-1',question,list(history))
+
+    def test_camera_match_is_found_beyond_sample_across_robots(self):
+        rows=[row('ep_'+str(i),prompt='Pick apple') for i in range(100)]
+        rows.append(row('ep_cable',prompt='with the left hand, reach around and unplug the cable from the camera on the right hand',robot='other'))
+        c=self.context(rows,'I woke up one morning with the right camera detached. what happened?')
+        self.assertEqual(c['search']['searched_runs'],101)
+        self.assertEqual(c['search']['matched_runs'],1)
+        self.assertEqual(c['evidence'][0]['episode_id'],'ep_cable')
+        from remote_yam.run_data_search import lookup_answer
+        answer=lookup_answer(c,'is there a run that unpluged it?',[])
+        self.assertFalse(answer['model_called'])
+        self.assertEqual(answer['citations'][0]['robot_id'],'other')
+        self.assertIn('not proof',answer['answer'])
+
+    def test_full_prompts_and_annotations_beyond_excerpt_limits_are_searched(self):
+        rows=[row('ep_prompt',prompt='apple '*400+'unplug camera'),row('ep_note')]
+        labels={'runs':[dict(robot_id='yam-1',episode_id='ep_note',auto_assessment={'label':'Uncertain','reason':'ordinary '*400+'camera detached'})]}
+        c=self.context(rows,'search unplugged camera',labels=labels)
+        self.assertEqual(c['search']['matched_runs'],2)
+        self.assertEqual({r['search_match']['field'] for r in c['evidence']},{'prompt','annotation'})
+        self.assertTrue(all('camera' in r['search_match']['snippet'] for r in c['evidence']))
+        self.assertNotIn('private@example.com',json.dumps(c))
+
+    def test_followup_uses_user_topic_and_new_subject_replaces_it(self):
+        from remote_yam.run_data_search import query_terms
+        history=[{'role':'user','content':'right camera detached'}, {'role':'assistant','content':'Find banana'}]
+        self.assertIn('camera',query_terms('is there a run that unpluged it?',history))
+        self.assertIn('camera',query_terms("can't we look at all 1425?",history))
+        self.assertNotIn('camera',query_terms('search apple',history))
+        self.assertNotIn('banana',query_terms('unpluged it',history))
+
+    def test_scope_and_cache_track_content_changes_not_only_ids(self):
+        rows=[row('ep_a',prompt='camera detached'),row('ep_b',prompt='unplug camera',robot='other')]
+        all_context=self.context(rows,'search camera')
+        focused=self.context(rows,'search camera',scope={'kind':'filtered'})
+        self.assertEqual(all_context['search']['searched_runs'],2)
+        self.assertEqual(focused['search']['searched_runs'],1)
+        rows[0]['prompt']='Pick apple'
+        changed=self.context(rows,'search camera')
+        self.assertEqual(changed['search']['matched_runs'],1)
+        self.assertEqual(changed['evidence'][0]['episode_id'],'ep_b')
+
+    def test_related_task_words_work_without_action_only_noise(self):
+        rows=[row('ep_noise',prompt='Pick up the block'),row('ep_match',prompt='Grab the apple')]
+        c=self.context(rows,'find pick apple')
+        self.assertEqual([r['episode_id'] for r in c['evidence']],['ep_match'])
+        rows=[row('ep_noise',prompt='pick block'),row('ep_match',prompt='place marker in mug')]
+        c=self.context(rows,'search pen cup')
+        self.assertEqual(c['search']['matched_runs'],1)
+        self.assertEqual(c['evidence'][0]['episode_id'],'ep_match')
+
+    def test_zero_matches_are_full_corpus_and_analysis_still_uses_model(self):
+        from remote_yam.run_data_search import lookup_answer
+        c=self.context([row('ep_a')],'search unicorn')
+        answer=lookup_answer(c,'search unicorn',[])
+        self.assertIn('all 1 runs',answer['answer'])
+        self.assertEqual(answer['citations'],[])
+        self.assertIn('does not rule out',answer['answer'])
+        for question in ['What works?','Find mixed results','Compare models']:
+            self.assertIsNone(lookup_answer(c,question,[]))
+
+class FastLookupHostedTests(unittest.IsolatedAsyncioTestCase):
+    call=DataChatHostedTests.call
+    session=DataChatHostedTests.session
+    asyncSetUp=DataChatHostedTests.asyncSetUp
+    asyncTearDown=DataChatHostedTests.asyncTearDown
+    async def test_lookup_bypasses_model_and_analysis_cooldown(self):
+        session=await self.session()
+        self.app.data_chat=Mock(model=MODEL)
+        self.app.past_runs=Mock();self.app.past_runs.page.return_value={'runs':[row('ep_cable',prompt='unplug right camera')]}
+        self.app.run_names.catalog=Mock(return_value=[])
+        payload={'question':'search detached camera'}
+        for _ in range(2):
+            code,data,_=await self.call('/api/run-data-chat',method='POST',payload=payload,**session)
+            self.assertEqual(code,200)
+            self.assertEqual(data['provider'],'local_search')
+            self.assertFalse(data['model_called'])
+            self.assertEqual(data['scope']['search']['searched_runs'],1)
+            self.assertEqual(data['citations'][0]['episode_id'],'ep_cable')
+        self.app.data_chat.answer.assert_not_called()
+        self.assertFalse(self.providers)
+
+
+class SourceSnapshotTests(unittest.TestCase):
+    def test_repeated_queries_reuse_sources_then_refresh(self):
+        from remote_yam.run_data_search import SourceSnapshot
+        now=[0];cache=SourceSnapshot(clock=lambda:now[0]);loader=Mock(return_value={'public':'first'})
+        self.assertEqual(cache.get(loader),({'public':'first'},0))
+        now[0]=4;self.assertEqual(cache.get(loader),({'public':'first'},4));self.assertEqual(loader.call_count,1)
+        now[0]=5;loader.return_value={'public':'new run'}
+        self.assertEqual(cache.get(loader),({'public':'new run'},0));self.assertEqual(loader.call_count,2)
+
+    def test_failed_refresh_is_not_cached_as_success(self):
+        from remote_yam.run_data_search import SourceSnapshot
+        now=[0];cache=SourceSnapshot(clock=lambda:now[0]);cache.get(lambda:'old')
+        now[0]=6
+        with self.assertRaises(OSError):cache.get(Mock(side_effect=OSError('unavailable')))
+        self.assertEqual(cache.get(lambda:'recovered'),('recovered',0))
