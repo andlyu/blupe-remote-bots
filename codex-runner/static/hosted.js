@@ -648,6 +648,7 @@ function createRunLaunchGuard() {
           if (detail && !signal.aborted && generation === historyGeneration) rememberMedia(detail);
           return detail;
         },
+        onOpen: selectRun,
         source: run => playbackSource(run, false),
         layout: (...args) => window.yamRecordingView?.(...args),
         canPlay: () => historyView === 'cloud' && !document.hidden && !(dialog.open && !dialog.classList?.contains('runSidebar')),

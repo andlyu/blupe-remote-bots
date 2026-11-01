@@ -1,17 +1,17 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-function setup(labeler,interactive=false){
+function setup(labeler,interactive=false,dpr=1){
  const source=fs.readFileSync(path.join(__dirname,'../static/task-cloud.js'),'utf8');
- const window={devicePixelRatio:1,...(labeler?{yamRunLabels:{outcome:labeler,describe:labeler}}:{})},events={},draws=[],focused={};let queued;
+ const window={devicePixelRatio:dpr,...(labeler?{yamRunLabels:{outcome:labeler,describe:labeler}}:{})},events={},draws=[],focused={};let queued,timerId=0;const timers=new Map();
  const ctx=new Proxy({createRadialGradient(){return {addColorStop(){}}},measureText:text=>({width:text.length*7}),fill(){draws.push(['fill',this.fillStyle])},stroke(){draws.push(['stroke',this.strokeStyle])}},{get:(target,key)=>target[key]||((...args)=>draws.push([key,...args]))});
  const canvas={width:1000,height:540,clientWidth:1000,clientHeight:540,dataset:{},style:{},getContext:()=>ctx,
   addEventListener:(name,fn)=>events[name]=fn,setPointerCapture(){},getBoundingClientRect:()=>({left:0,top:0})};
- vm.runInNewContext(source,{window,ResizeObserver:class{observe(){}},requestAnimationFrame:fn=>{queued=fn;return 1}});
+ vm.runInNewContext(source,{window,setTimeout(fn){timers.set(++timerId,fn);return timerId},clearTimeout(id){timers.delete(id)},ResizeObserver:class{observe(){}},requestAnimationFrame:fn=>{queued=fn;return 1}});
  const doc={activeElement:null,createElement(tag){return {tag,children:[],listeners:{},dataset:{},style:{},hidden:false,attributes:{},ownerDocument:doc,
   append(...items){for(const item of items)item.parent=this;this.children.push(...items)},addEventListener(name,fn){this.listeners[name]=fn},emit(name,event={}){this.listeners[name]?.({...event,target:event.target || this})},setAttribute(name,value){this.attributes[name]=value},contains(node){return node===this || this.children.includes(node)},closest(selector){return selector==='button' && this.tag==='button'?this:null},remove(){this.removed=true},focus(){doc.activeElement=this}}}};
  const captionRoot=interactive?doc.createElement('div'):null;canvas.focus=()=>{doc.activeElement=canvas};
  const opened=[],previews=[],areas=[],cloud=window.yamTaskCloud.create(canvas,focused,run=>opened.push(run),(run,point)=>previews.push({run,point}),()=>{},area=>areas.push(area),captionRoot);
  const draw=()=>{queued?.();queued=null};
- return{cloud,canvas,events,opened,draw,focused,areas,captionRoot,doc,volumeContains:window.yamTaskCloud.volumeContains,volumeCorners:window.yamTaskCloud.volumeCorners,worldCoordinates:window.yamTaskCloud.worldCoordinates,cameraCoordinates:window.yamTaskCloud.cameraCoordinates,summarizeArea:window.yamTaskCloud.summarizeArea,project:window.yamTaskCloud.project,offset:window.yamTaskCloud.offset,draws,previews,outcome:window.yamTaskCloud.outcome,regionsFor:window.yamTaskCloud.regionsFor};
+ return{cloud,canvas,events,opened,draw,focused,timers,settle(){const callbacks=[...timers.values()];timers.clear();callbacks.forEach(fn=>fn());},areas,captionRoot,doc,volumeContains:window.yamTaskCloud.volumeContains,volumeCorners:window.yamTaskCloud.volumeCorners,worldCoordinates:window.yamTaskCloud.worldCoordinates,cameraCoordinates:window.yamTaskCloud.cameraCoordinates,summarizeArea:window.yamTaskCloud.summarizeArea,project:window.yamTaskCloud.project,offset:window.yamTaskCloud.offset,draws,previews,outcome:window.yamTaskCloud.outcome,regionsFor:window.yamTaskCloud.regionsFor};
 }
 test('area summary separates unknown outcomes and chooses an actual median task across all selected attempts',()=>{
  const c=setup(run=>run.testOutcome),rows=[
@@ -444,4 +444,44 @@ test('changing the frozen projection clears old geometry while same-map refresh 
  c.cloud.setRuns(rows,null,'umap-map');c.draw();
  assert.equal(c.areas.at(-1).hasSelection,false);assert.equal(c.canvas.dataset.volumeBox,'');
  assert.equal(c.canvas.dataset.mapVersion,'umap-map');assert.equal(c.canvas.dataset.renderedPoints,'1');
+});
+
+test('touch aim acquires a nearby point after settling, keeps preview on lift, and never opens on orbit',()=>{
+ const c=setup(),aim=[500,540*.42],scale=540*2.6/3,id='aimed',delta=c.offset(id);
+ const target=c.worldCoordinates([0,(270-aim[1])/scale,0],-.3,.2).map((v,i)=>v-delta[i]);
+ const run={episode_id:id,prompt:'Targeted task',xyz:target};c.cloud.setRuns([run]);c.draw();
+ const touch={pointerId:1,pointerType:'touch',clientX:100,clientY:100};
+ c.events.pointerdown(touch);c.events.pointermove({...touch,clientX:103});c.draw();
+ assert.equal(c.timers.size,0,'active gesture cannot load a preview');assert.equal(c.opened.length,0);
+ c.events.pointerup({...touch,clientX:103});c.draw();assert.equal(c.timers.size,1);
+ assert.equal(c.previews.at(-1).run,null,'preview waits for the cloud to settle');
+ c.settle();c.draw();assert.equal(c.previews.at(-1).run,run);assert.equal(c.previews.at(-1).point.input,'touch');
+ c.events.pointerleave();assert.equal(c.previews.at(-1).run,run,'lifting a finger cannot immediately dismiss preview');
+ assert.equal(c.opened.length,0);assert.equal(c.canvas.dataset.touchAim,'true');
+ c.events.pointerdown(touch);assert.equal(c.previews.at(-1).run,null);c.draw();assert.equal(c.timers.size,0);
+ c.events.pointercancel();c.draw();c.settle();assert.equal(c.previews.at(-1).run,null);
+});
+test('touch tap previews a dot before replay, while mouse click retains immediate replay',()=>{
+ const c=setup(),run={episode_id:'tap',prompt:'Tap task',xyz:[0,0,0]};c.cloud.setRuns([run]);c.draw();
+ const p=c.project(c.offset(run.episode_id),-.3,.2,1,1000,540),event={pointerId:1,pointerType:'touch',clientX:p.x,clientY:p.y};
+ c.events.pointerdown(event);c.events.pointerup(event);c.draw();
+ assert.equal(c.previews.at(-1).run,run);assert.equal(c.previews.at(-1).point.input,'touch');assert.equal(c.opened.length,0);
+ c.events.pointerdown({...event,pointerType:'mouse'});c.events.pointerup({...event,pointerType:'mouse'});assert.equal(c.opened[0],run);
+});
+test('pending aim is canceled by filters, drawing, reset and external preview cleanup',()=>{
+ for(const action of ['clearPreview','reset','setRuns','setAreaSelection']){
+  const c=setup(),id='aimed',delta=c.offset(id),xyz=c.worldCoordinates([0,.08*540/(540*2.6/3),0],-.3,.2).map((v,i)=>v-delta[i]);
+  c.cloud.setRuns([{episode_id:id,prompt:'Target',xyz}]);c.draw();
+  const touch={pointerId:1,pointerType:'touch',clientX:50,clientY:50};c.events.pointerdown(touch);c.events.pointerup(touch);c.draw();assert.equal(c.timers.size,1);
+  c.cloud[action](action==='setRuns'?[]:true);c.draw();c.settle();assert.equal(c.timers.size,0);assert.equal(c.previews.at(-1).run,null,action);
+ }
+});
+test('retina canvas preserves native three-times resolution and bounds oversized backing stores',()=>{
+ for(const ratio of [1,2,3,4]){const c=setup(null,false,ratio);c.cloud.setRuns([]);c.draw();assert.equal(c.canvas.width,1000*Math.min(ratio,3));assert.equal(c.canvas.height,540*Math.min(ratio,3));}
+});
+
+test('moving focus from canvas to touch replay action preserves the preview until that action runs',()=>{
+ const c=setup(),run={episode_id:'focus',prompt:'Focused task',xyz:[0,0,0]};c.cloud.setRuns([run]);c.draw();c.cloud.step(1);
+ c.events.blur({relatedTarget:{closest:selector=>selector==='.taskCloudPreview'}});assert.equal(c.previews.at(-1).run,run);
+ c.events.blur({relatedTarget:null});assert.equal(c.previews.at(-1).run,null);
 });
