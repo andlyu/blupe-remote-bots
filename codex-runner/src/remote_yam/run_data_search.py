@@ -3,6 +3,7 @@ from collections import defaultdict
 from functools import lru_cache
 import re
 import time
+import threading
 
 from .run_search import _terms, _RELATED_GROUPS
 
@@ -54,11 +55,16 @@ def _index(documents):
     return dict(postings), fields
 
 
+@lru_cache(maxsize=4096)
+def _word_tokens(word):
+    return tokens(word)
+
+
 def _snippet(text, terms):
     # Anchor on the rarest matched concept, even beyond the model's excerpt limit.
     for term in terms:
         for match in re.finditer(r'[^\W_]+', text):
-            if term in tokens(match.group()):
+            if term in _word_tokens(match.group()):
                 start = max(0, match.start() - 75)
                 end = min(len(text), start + 260)
                 return ('…' if start else '') + text[start:end] + ('…' if end < len(text) else '')
@@ -91,7 +97,8 @@ def search_documents(documents, question, history):
         matched = [t for t in ordered_terms if t in fields[number][0] | fields[number][1]]
         source = 'prompt' if any(t in fields[number][0] for t in matched if t not in _MODIFIERS) else 'annotation'
         hits.append(dict(episode_id=eid, robot_id=robot, search_match=dict(
-            terms=matched, field=source, snippet=_snippet(prompt if source == 'prompt' else annotation, matched))))
+            terms=matched, field=source, snippet=_snippet(prompt if source == 'prompt' else annotation,
+                [t for t in matched if t in fields[number][0 if source == 'prompt' else 1]]))))
     meta = dict(query_terms=list(terms), searched_runs=len(documents), matched_runs=len(ordered),
         records_returned=len(hits), match_mode=mode, fields=['full prompt','saved annotation'],
         match_basis='Normalized words, spelling variants and related task terms; not a semantic guarantee',
@@ -126,3 +133,19 @@ def lookup_answer(context, question, history):
         url='/?'+urlencode({'robot_id':r['robot_id'],'run':r['episode_id']})+'#past-runs') for r in rows]
     return dict(answer=answer,citations=citations,provider='local_search',model_called=False,
         requested_model=None,resolved_model=None,visual_evidence_received=False)
+
+
+class SourceSnapshot:
+    """Bound repeated public-source I/O; refresh at most five seconds later."""
+    def __init__(self, ttl=5, clock=time.monotonic):
+        self.ttl, self.clock = ttl, clock
+        self.lock = threading.Lock()
+        self.value, self.loaded_at = None, 0
+
+    def get(self, loader):
+        with self.lock:
+            now = self.clock()
+            if self.value is None or now - self.loaded_at >= self.ttl:
+                value = loader()
+                self.value, self.loaded_at = value, self.clock()
+            return self.value, max(0, self.clock() - self.loaded_at)

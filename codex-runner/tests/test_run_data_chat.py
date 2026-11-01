@@ -278,3 +278,20 @@ class FastLookupHostedTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(data['citations'][0]['episode_id'],'ep_cable')
         self.app.data_chat.answer.assert_not_called()
         self.assertFalse(self.providers)
+
+
+class SourceSnapshotTests(unittest.TestCase):
+    def test_repeated_queries_reuse_sources_then_refresh(self):
+        from remote_yam.run_data_search import SourceSnapshot
+        now=[0];cache=SourceSnapshot(clock=lambda:now[0]);loader=Mock(return_value={'public':'first'})
+        self.assertEqual(cache.get(loader),({'public':'first'},0))
+        now[0]=4;self.assertEqual(cache.get(loader),({'public':'first'},4));self.assertEqual(loader.call_count,1)
+        now[0]=5;loader.return_value={'public':'new run'}
+        self.assertEqual(cache.get(loader),({'public':'new run'},0));self.assertEqual(loader.call_count,2)
+
+    def test_failed_refresh_is_not_cached_as_success(self):
+        from remote_yam.run_data_search import SourceSnapshot
+        now=[0];cache=SourceSnapshot(clock=lambda:now[0]);cache.get(lambda:'old')
+        now[0]=6
+        with self.assertRaises(OSError):cache.get(Mock(side_effect=OSError('unavailable')))
+        self.assertEqual(cache.get(lambda:'recovered'),('recovered',0))
