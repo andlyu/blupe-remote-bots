@@ -23,9 +23,11 @@ MAX_VIDEO_BYTES = 16 * 1024 * 1024
 
 
 class PublicRunSource:
-    def __init__(self, database, replay_root, robot_id):
+    def __init__(self, database, replay_root=None, robot_id=None):
+        if not isinstance(robot_id, str) or not robot_id:
+            raise ValueError('A public history source requires its robot ID')
         self.database = Path(database).resolve()
-        self.replay_root = Path(replay_root).resolve()
+        self.replay_root = Path(replay_root).resolve() if replay_root else None
         self.robot_id = robot_id
 
     def rows(self):
@@ -63,7 +65,7 @@ class PublicRunSource:
             return rows
 
     def clip(self, eid):
-        if not EPISODE.fullmatch(eid or ''):
+        if self.replay_root is None or not EPISODE.fullmatch(eid or ''):
             return None
         try:
             meta = json.loads((self.replay_root / (eid + '.json')).read_text())
