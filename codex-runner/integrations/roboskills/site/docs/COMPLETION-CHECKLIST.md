@@ -731,3 +731,13 @@ are excluded. No new physical run or underlying model selection is part of this
 metadata repair. Existing acceptance checks, owner exceptions and specifically
 excluded historical media retain their recorded status. Broader integration
 qualification remains incomplete; the scoped record tracks delivery separately.
+
+Scoped attribution verification is complete: 35 confirmed RoboSkills runs are
+labeled in the deployed past-runs, table and cloud endpoints, with all 22
+baseline Spotter IDs retained. The public browser model filter, history card and
+replay details show `RoboSkills`; the known retained quick preview plays and
+seeks without a video error. An automatic GET-only metadata refresh runs every
+minute. Shared PR258 is merged, and hosting PR197 retains the existing compatible
+runner base. Evidence, revision hashes, validation and the explicit no-new-run
+scope are in the linked record. Broader acceptance remains 12/15 with items
+7/13/15 open; prior owner exceptions and the excluded old recording are unchanged.
