@@ -602,12 +602,12 @@ function createRunLaunchGuard() {
     const toggle=$('taskCloudSelectArea'), summary=$('taskCloudAreaSummary');
     if(!toggle || !summary)return;
     toggle.setAttribute('aria-pressed',String(area.active));
-    toggle.textContent=area.active?'Cancel footprint':'Redraw footprint';
-    toggle.hidden=!area.hasSelection && !area.active;
-    $('taskCloudAddBox').textContent=area.hasSelection?'Reset 3D box':'Add 3D box';
-    $('taskCloudTransformToolbar').hidden=!area.hasSelection;
-    for(const tool of ['Move','Resize','Rotate'])$('taskCloudTool'+tool).setAttribute('aria-pressed',String(area.tool===tool.toLowerCase()));
-    $('taskCloudToolHelp').textContent=area.tool==='move'?'Drag an arrow to move the whole box along X, Y or Z. Drag empty space to orbit.':area.tool==='rotate'?'Drag a colored ring to rotate the box around its axis. Drag empty space to orbit.':'Drag a colored cube to push or pull one box face. Drag empty space to orbit.';
+    toggle.textContent=area.active?'Cancel drawing':'Draw box';
+    toggle.hidden=false;
+    $('taskCloudAddBox').textContent='Add 3D box';
+    $('taskCloudTransformToolbar').hidden=false;
+    for(const tool of ['Move','Resize','Rotate']){$('taskCloudTool'+tool).disabled=!area.hasSelection;$('taskCloudTool'+tool).setAttribute('aria-pressed',String(area.hasSelection && area.tool===tool.toLowerCase()));}
+    $('taskCloudToolHelp').textContent=!area.hasSelection?'Add or draw a box to use Move, Resize and Rotate. Drag empty space to orbit.':area.tool==='move'?'Drag an arrow to move the whole box along X, Y or Z. Drag empty space to orbit.':area.tool==='rotate'?'Drag a colored ring to rotate the box around its axis. Drag empty space to orbit.':'Drag a colored cube to push or pull one box face. Drag empty space to orbit.';
     $('taskCloudToolHelp').textContent+=' Box axes: X red, Y green, Z blue.';
     $('taskCloudNudgeHelp').textContent=area.tool==='move'?'Move by 10% of box size':area.tool==='rotate'?'Rotate by 15°':'Resize by 10%';
     $('taskCloudClearArea').disabled=!area.hasSelection && !area.drawing;
@@ -729,7 +729,7 @@ function createRunLaunchGuard() {
     if ($('taskCloudRegionStatus')) $('taskCloudRegionStatus').textContent = cloud?.highlightSummary?.() || '';
   });
   $('resetTaskCloud').addEventListener('click', () => cloud?.reset());
-  $('taskCloudAddBox')?.addEventListener('click', () => {cloud?.addVolume?.();$('taskCloudCanvas').focus({preventScroll:true});$('taskCloudCanvas').scrollIntoView?.({block:'center'});});
+  $('taskCloudAddBox')?.addEventListener('click', () => {cloud?.addVolume?.();$('taskCloudCanvas').focus({preventScroll:true});});
   for(const tool of ['Move','Resize','Rotate'])$('taskCloudTool'+tool)?.addEventListener('click',()=>cloud?.setVolumeTool?.(tool.toLowerCase()));
   for(const [suffix,view] of [['Iso','isometric'],['Front','front'],['Top','top'],['Side','side']])$('taskCloudView'+suffix)?.addEventListener('click',()=>cloud?.setView?.(view));
   for(const [axis,name] of ['X','Y','Z'].entries())for(const [suffix,direction] of [['Minus',-1],['Plus',1]])$('taskCloudNudge'+name+suffix)?.addEventListener('click',()=>cloud?.nudgeVolume?.(axis,direction));
