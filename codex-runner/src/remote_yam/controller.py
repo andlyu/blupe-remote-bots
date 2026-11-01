@@ -17,6 +17,7 @@ from .feedback import feedback_decision, feedback_fields
 from .providers import PolicyComplete, ProviderAdapter
 from .interactions import InteractionLog
 from .latency_spans import journal_span
+from .cadence import trajectory_cadence
 from .session import command_budget, MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET, SCHEMA_VERSION, TERMINAL_STATES, SessionAPI, SessionAPIError, SessionEventStream
 
 
@@ -136,11 +137,14 @@ class RunnerController(HomeSceneStartup):
         admission = getattr(provider, 'validate_session_admission', None)
         if callable(admission):
             admission(self._session_api)
-        self._command_limit = command_budget(getattr(provider, 'provider_name', ''), run_duration_s)
+        cadence_hz = trajectory_cadence(getattr(provider, "trajectory_cadence_hz", 10))
+        self._command_limit = command_budget(getattr(provider, 'provider_name', ''), run_duration_s, cadence_hz)
         configure_duration = getattr(provider, 'configure_run_duration', None)
         if getattr(provider, 'provider_name', '') in ('dream', 'dream_flash') and callable(configure_duration):
             configure_duration(run_duration_s)
         duration_options = {}
+        if cadence_hz != 10:
+            duration_options["cadence_hz"] = cadence_hz
         if run_duration_s != 300:
             duration_options['run_duration_s'] = run_duration_s
         # Extended Dream runs carry their provider through admission and the
@@ -1357,12 +1361,13 @@ class RunnerController(HomeSceneStartup):
                     previous = current
             except Exception:
                 path_segments = []
+        cadence_hz = trajectory_cadence(getattr(provider, "trajectory_cadence_hz", 10))
         trajectory_id = f"traj_{episode_id}_{first_step_id}"
         state = {
             "trajectory_id": trajectory_id,
             "path_segments": path_segments,
             "state": "dispatching",
-            "cadence_hz": 10.0,
+            "cadence_hz": cadence_hz,
             "first_step_id": expected_steps[0],
             "last_step_id": expected_steps[-1],
             "waypoint_count": len(expected_steps),
@@ -1386,7 +1391,7 @@ class RunnerController(HomeSceneStartup):
                 raise RuntimeError("A trajectory is already active")
             self._trajectory = state
         self._interactions.add('packet_submit', f'Sending {len(waypoints)} waypoints to AWS',
-                               trajectory_id=trajectory_id, cadence_hz=10, waypoint_count=len(waypoints),
+                               trajectory_id=trajectory_id, cadence_hz=cadence_hz, waypoint_count=len(waypoints),
                                waypoints=waypoints)
         receipt: dict[str, Any] | None = None
         for attempt in range(self._submit_attempts):
@@ -1399,7 +1404,7 @@ class RunnerController(HomeSceneStartup):
                     episode_id,
                     lease_id,
                     trajectory_id,
-                    10.0,
+                    cadence_hz,
                     waypoints,
                 )
                 break
@@ -1447,7 +1452,7 @@ class RunnerController(HomeSceneStartup):
             self._last_model_command = {
                 "type": "joint_trajectory",
                 "trajectory_id": trajectory_id,
-                "cadence_hz": 10.0,
+                "cadence_hz": cadence_hz,
                 "first_step_id": expected_steps[0],
                 "last_step_id": expected_steps[-1],
                 "waypoint_count": len(expected_steps),

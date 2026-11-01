@@ -112,6 +112,18 @@ it sends Stop to release the session.
 }
 ```
 
+Optional `cadence_hz` selects **10, 20 or 30 Hz** for the entire session;
+omitting it preserves **10 Hz**. Put the same value in every trajectory packet.
+A different or unsupported rate is rejected before forwarding motion. The
+selected rate appears in the session snapshot and gateway assignment. Upgrade
+the API, runner and YAM gateway together before selecting 20 or 30 Hz; old
+gateways reject unsupported rates, with no silent fallback. The motor loop's
+internal frequency is separate.
+
+Waypoint and per-minute budgets scale with cadence to preserve their existing
+amount of trajectory time. The 300-waypoint packet cap and selected run deadline
+remain unchanged. Native joint and gripper speed limits apply in seconds.
+
 Ordinary sessions default to **300 seconds**, with a supported range of
 **60–600 seconds**. The live schema also describes conditional extended durations
 for `provider: "dream"` or `"dream_flash"`; those are provider-specific sessions,
@@ -192,7 +204,7 @@ recipe. Compute targets from fresh feedback and the selected robot's profile.
 
 - Use finite degree values and the exact arm lengths for your robot. Independent
   grippers are optional, from `0` (closed) to `1` (open).
-- Cadence is exactly `10.0` Hz. Each packet contains **1–300 waypoints**.
+- Cadence is **10, 20 or 30 Hz**, and must match the session’s selected `cadence_hz`. Each packet contains **1–300 waypoints**.
 - Start waypoint IDs at `0`, keep them contiguous within a packet, and continue
   across packets. Only one packet may be active at a time.
 - Give new packets unique trajectory IDs. Retrying requires the **same ID and
@@ -742,3 +754,24 @@ the public playground** before Run, or launch with `--no-share-conversation`, to
 keep those messages local. This does not disable robot recordings or remove task
 information already published through the playground/archive. Raw local model
 logs and the opt-in public plain-text snapshot are separate artifacts.
+
+
+### Dream-1 playback cadence
+
+The playground's existing launch API accepts `cadence_hz: 10`, `20` or `30`
+for a Dream-1/Dream-1 Flash run. It defaults to 10; other model adapters retain
+their existing fixed timing. Set the value before preparation, or call
+`DreamAdapter.configure_cadence(hz)` before joining programmatically.
+
+| Cadence | Targets retained from a 48-row reply | Nominal chunk duration |
+| --- | --- | --- |
+| 10 Hz (default) | 24, every second target | 2.4 s |
+| 20 Hz | All 48 | 2.4 s |
+| 30 Hz | All 48 | 1.6 s |
+
+20 Hz provides more targets at the existing playback speed. 30 Hz selects the
+model's native action timebase and increases nominal playback speed. These are
+target dispatch rates, not inference frequency or guaranteed achieved hardware
+rates. Existing joint/gripper limits, retiming, inference holds and scheduling
+can extend these durations. Run configuration retains packet `cadence_hz`, SDK
+playback `model_action_hz` and `native_action_hz`; worker recovery preserves them.

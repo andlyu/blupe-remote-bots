@@ -59,9 +59,11 @@ class LoggedSessionAPI:
         except Exception as exc:
             print('[queue-log-error] '+type(exc).__name__, flush=True)
 
-    def create_session(self, prompt, run_duration_s=300, *, provider=""):
+    def create_session(self, prompt, run_duration_s=300, *, provider="", cadence_hz=10.0):
         self.note('queue_request', {'prompt': prompt, 'run_duration_s': run_duration_s})
         options = dict(self.queue_identity)
+        if cadence_hz != 10:
+            options["cadence_hz"] = cadence_hz
         if provider:
             options['provider'] = provider
         try:
