@@ -137,7 +137,7 @@ class TaskCloud:
                 'SELECT task_id,xyz FROM task_coordinates WHERE version=?', (version,))} if version else {}
         missing = sum(task_key(r['prompt']) not in coordinates for r in rows)
         return {'version': version, 'representation': REPRESENTATION, 'projection': ALGORITHM,
-                'status': 'error' if self.error else 'indexing' if missing else 'ready',
+                'status': 'error' if self.error and missing else 'indexing' if missing else 'ready',
                 'missing': missing, 'coordinates': coordinates}
 
     def schedule(self, rows):
@@ -213,31 +213,43 @@ class TaskCloud:
                     embeddings[key] = vector.tolist()
                     db.execute('INSERT OR IGNORE INTO task_embeddings VALUES(?,?,?)',
                                (REPRESENTATION, key, json.dumps(embeddings[key])))
-        with closing(self.database()) as db, db:
-            # Serialize only publication. UMAP work is background-only; shared
-            # index users see either complete prior or complete new coordinates.
-            db.execute('BEGIN IMMEDIATE')
+        # Read the canonical projection and perform CPU/model work without a
+        # database write transaction. Other catalog requests/index users must
+        # remain responsive while a transform imports/JIT-compiles or runs.
+        with closing(self.database()) as db:
             projection = db.execute('SELECT version,basis FROM task_projections WHERE representation=? AND algorithm=?',
                                     (REPRESENTATION, ALGORITHM)).fetchone()
             if projection:
-                import numpy as np
                 version, basis = projection[0], json.loads(projection[1])
                 model = self.load_projector(db, version, basis)
-                coordinates = {}
-                for key in pending:
-                    # Transform separately so a task's position does not depend
-                    # on the number/order of other arrivals in the same batch.
-                    vector = normalized_vectors([embeddings[key]])
-                    point = np.asarray(model.transform(vector), dtype=float)
-                    if point.shape != (1, 3) or not np.isfinite(point).all():
-                        raise ValueError('Invalid transformed task coordinates')
-                    coordinates[key] = ((point[0] - basis['center']) * basis['scale']).tolist()
+        blob = None
+        if projection:
+            import numpy as np
+            coordinates = {}
+            for key in pending:
+                # One task per transform makes arrival batches irrelevant.
+                vector = normalized_vectors([embeddings[key]])
+                point = np.asarray(model.transform(vector), dtype=float)
+                if point.shape != (1, 3) or not np.isfinite(point).all():
+                    raise ValueError('Invalid transformed task coordinates')
+                coordinates[key] = ((point[0] - basis['center']) * basis['scale']).tolist()
+        else:
+            keys = sorted(tasks)[:4096]
+            version, basis, coordinates, blob = fit_projection(keys, [embeddings[k] for k in keys])
+        retry = False
+        with closing(self.database()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            current = db.execute('SELECT version FROM task_projections WHERE representation=? AND algorithm=?',
+                                 (REPRESENTATION, ALGORITHM)).fetchone()
+            if current and current[0] != version:
+                # Another initializer published first. Use that frozen model
+                # after releasing the transaction; never mix coordinate systems.
+                retry = True
             else:
-                keys = sorted(tasks)[:4096]
-                version, basis, coordinates, blob = fit_projection(keys, [embeddings[k] for k in keys])
-                db.execute('INSERT INTO task_projections VALUES(?,?,?,?)',
-                           (REPRESENTATION, ALGORITHM, version, json.dumps(basis)))
-                db.execute('INSERT INTO task_projection_models VALUES(?,?)', (version, blob))
-            db.executemany('INSERT OR IGNORE INTO task_coordinates VALUES(?,?,?)',
-                           ((version, key, json.dumps(xyz)) for key, xyz in coordinates.items()))
-        return self.snapshot(rows)
+                if not current:
+                    db.execute('INSERT INTO task_projections VALUES(?,?,?,?)',
+                               (REPRESENTATION, ALGORITHM, version, json.dumps(basis)))
+                    db.execute('INSERT INTO task_projection_models VALUES(?,?)', (version, blob))
+                db.executemany('INSERT OR IGNORE INTO task_coordinates VALUES(?,?,?)',
+                               ((version, key, json.dumps(xyz)) for key, xyz in coordinates.items()))
+        return self.index(rows) if retry else self.snapshot(rows)
