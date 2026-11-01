@@ -1,0 +1,25 @@
+[Unit]
+Description=BluPe private read-only run discussion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blupe-codex
+Group=blupe-codex-ipc
+Environment=PYTHONPATH=/opt/blupe-data-chat/source
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/blupe-subscription-brokers/venv/bin/python -m remote_yam.run_data_chat_subscription --socket /run/blupe-data-chat/discussion.sock --binary /home/blupe-codex/bin/codex --home /home/blupe-codex --model gpt-6.1-terra --client-uid 1000
+RuntimeDirectory=blupe-data-chat
+RuntimeDirectoryMode=0750
+UMask=0007
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/blupe-codex/.codex /home/blupe-codex/workspace
+
+[Install]
+WantedBy=multi-user.target

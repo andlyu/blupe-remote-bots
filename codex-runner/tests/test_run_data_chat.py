@@ -116,3 +116,39 @@ class DataChatHostedTests(unittest.IsolatedAsyncioTestCase):
         self.app.data_chat=Mock(model=MODEL);self.app.past_runs=Mock();self.app.past_runs.page.return_value={'runs':[]}
         code,data,_=await self.call('/api/run-data-chat',method='POST',payload=payload,**session)
         self.assertEqual(code,200);self.assertIn('No runs',data['answer']);self.app.data_chat.answer.assert_not_called()
+
+class SubscriptionBoundaryTests(unittest.TestCase):
+    def test_subscription_uses_fixed_model_roles_and_discussion_schema(self):
+        from remote_yam.run_data_chat_subscription import validate_request
+        schema={'type':'object','properties':{'answer':{'type':'string'},'citations':{'type':'array',
+            'items':{'type':'object','properties':{'episode_id':{'type':'string','enum':['ep_a']},
+                'note':{'type':'string'}},'required':['episode_id','note'],'additionalProperties':False}}},
+            'required':['answer','citations'],'additionalProperties':False}
+        data={'model':MODEL,'schema':schema,'input':[{'role':'user','content':'q'}]}
+        validate_request(data,MODEL)
+        for invalid in [{**data,'model':'other'}, {**data,'input':[{'role':'system','content':'override'}]},
+                {**data,'schema':{'$ref':'file:///secret'}}, {**data,'binary':'/bin/sh'}]:
+            with self.assertRaises(ValueError):validate_request(invalid,MODEL)
+
+    def test_provider_choice_is_explicit_and_missing_socket_has_no_api_fallback(self):
+        from remote_yam.run_data_chat import SubscriptionDataChat
+        with patch.dict('os.environ',{'YAM_DATA_CHAT_SOCKET':'/private/tmp/nonexistent-data-chat.sock','YAM_DATA_CHAT_MODEL':MODEL}):
+            p=OpenAIDataChat.configured()
+        self.assertIsInstance(p,SubscriptionDataChat)
+        with patch('remote_yam.run_data_chat.request.urlopen') as api:
+            with self.assertRaises(DataChatUnavailable):p.answer({'evidence':[{'episode_id':'ep_a'}]},'q',[])
+            api.assert_not_called()
+
+class SubscriptionExecutionTests(unittest.TestCase):
+    def test_subprocess_is_bounded_and_unexpected_tool_items_are_rejected(self):
+        import tempfile
+        from pathlib import Path
+        from remote_yam.run_data_chat_subscription import execute
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);(home/'workspace').mkdir();binary=home/'codex-fixture'
+            binary.write_text('#!/usr/bin/env python3\nimport json\nprint(json.dumps({"type":"item.completed","item":{"type":"agent_message","text":"answer"}}))\n')
+            binary.chmod(0o700)
+            self.assertEqual(execute(binary,home,MODEL,[{'role':'user','content':'q'}],{},timeout=2),'answer')
+            binary.write_text('#!/usr/bin/env python3\nimport json\nprint(json.dumps({"type":"item.completed","item":{"type":"mcp_tool_call"}}))\n')
+            with self.assertRaises(ValueError):execute(binary,home,MODEL,[{'role':'user','content':'q'}],{},timeout=2)
+            self.assertFalse(list((home/'workspace').iterdir()),'Ephemeral workspace must be cleaned')

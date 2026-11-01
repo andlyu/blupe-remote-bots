@@ -746,14 +746,14 @@ function createRunLaunchGuard() {
     finally { if (generation === historyGeneration) { loading = false; $('morePastRuns').disabled = $('refreshPastRuns').disabled = false; } }
   }
   window.yamReplayHistory = {openRun, selectRun, refresh: () => load(true), dataScope(requested) {
-    if (!historyRobot || requested === 'run' && (!selectedRun || !dialog.open)) return null;
+    if (!historyRobot || requested === 'run' && (!selectedRun || selectedRun.robot_id !== historyRobot)) return null;
     const libraryKind = historyView === 'cloud' && dataChatBoxSelected ? 'box' : 'filtered';
     const kind = requested === 'all' ? 'all' : requested === 'run' ? 'run' : libraryKind;
     const boxIds = libraryKind === 'box' ? (cloud?.getSelectedRuns?.() || []).map(r=>r.episode_id) : null;
     return {robot_id:historyRobot, robot_name:$('robotSelector')?.selectedOptions?.[0]?.textContent || historyRobot,
       models:historyModels.slice(), query:historySearch, label_source:labelSource, kind,
       episode_ids:kind === 'run' ? [selectedRun.episode_id] : kind === 'box' ? boxIds : null,
-      library_context:{episode_ids:boxIds}, opened_episode_id:dialog.open ? selectedRun?.episode_id || null : null};
+      library_context:{episode_ids:boxIds}, opened_episode_id:selectedRun?.robot_id === historyRobot ? selectedRun.episode_id : null, replay_open:!!dialog.open};
   }};
   $('refreshPastRuns').addEventListener('click', () => load(true));
   window.addEventListener('yam-assessment-changed', () => load(true));

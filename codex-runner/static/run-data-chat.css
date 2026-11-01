@@ -36,3 +36,5 @@
 .runDataChat button:disabled { opacity:.55; }
 @media(max-width:1000px) { .runDiscussionLayout[data-chat-open="true"] { grid-template-columns:minmax(0,1fr) minmax(300px,340px); gap:16px; } }
 @media(max-width:800px) { .runDiscussionLayout[data-chat-open="true"] { display:flex; flex-direction:column; } .runDiscussionData {width:100%;} .runDataChat { position:static; width:100%; box-sizing:border-box; max-height:850px; } .runDataChatForm textarea {font-size:16px;} }
+
+@media (min-width:801px) and (max-width:1200px) { body.runSidebarOpen .runDiscussionLayout[data-chat-open="true"] {display:block;} body.runSidebarOpen .runDataChat {position:static; margin-top:20px;} }

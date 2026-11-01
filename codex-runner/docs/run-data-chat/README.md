@@ -32,21 +32,46 @@ while cross-robot links use the normal robot/run deep link.
 ## Model decision and configuration
 
 The user explicitly delegated: “Choose a suitable OpenAI model that fits BluPe’s
-existing setup.” Selected `gpt-6.1-terra`, OpenAI Responses API, low reasoning,
-maximum 2,200 output tokens, `store:false`, no model tools and no fallback. The
+existing setup.” Selected `gpt-6.1-terra`, low reasoning, no model tools and no fallback. The optional API transport uses
+the Responses API, maximum 2,200 output tokens and `store:false`. Production uses
+the explicitly configured ChatGPT subscription transport described below. The
 model suits short evidence-grounded synthesis and structured outputs. Current
 capability documentation was fetched November 1 UTC / October 31 local:
 [model](https://developers.openai.com/api/docs/models/gpt-6.1-terra),
 [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
 [Responses migration](https://developers.openai.com/api/docs/guides/migrate-to-responses).
-Requested and returned IDs appear with each answer. This provider ID is an alias;
+Requested and provider-returned IDs appear with each API answer. The subscription
+CLI receives the exact selected ID but does not expose a resolved ID; the UI
+reports that limit without inventing a returned model. This provider ID is an alias;
 no immutable checkpoint resolution is claimed.
+
+`YAM_DATA_CHAT_SOCKET` explicitly selects a separate private text-only ChatGPT
+subscription socket. It takes precedence over optional API configuration. The
+existing credential owner runs `remote_yam.run_data_chat_subscription`, with
+`--socket`, `--binary`, `--home`, `--model` and `--client-uid`. The service accepts
+only the existing web service UID, fixed discussion schema and bounded message
+history. It executes Codex with the exact model, low effort, ephemeral sessions,
+read-only sandbox, approval never, disabled shell/apps/hooks/multi-agent/web,
+and a 55-second deadline. The environment excludes API/robot credentials. Each
+connection is independent, with only the supplied conversation history. There
+is no browser-selectable executable, home, endpoint, schema or CLI flag. The
+robot decision broker and protocol remain unchanged. See the provided
+[systemd example](../../deploy/data-chat/blupe-data-chat.service).
+
+Production access verification found the configured API credential expired
+(`401 expired_secret_key`), before any paid generation. The existing subscription
+was ready and its account catalog explicitly listed `gpt-6.1-terra`/low. After
+reporting the access constraint, selection stayed on that model through the
+separate subscription transport. Andrew's live metadata-only test completed
+in 10.412 seconds and returned validated citations. A resolved model ID is not
+exposed by this CLI. No API key is requested for subscription use, and no login
+credentials are copied.
 
 `YAM_DATA_CHAT_CONFIG` opts the feature into a private server-side JSON file with
 `api_key` or `model_key`. `YAM_DATA_CHAT_MODEL` overrides the model; otherwise the
 optional `data_chat_model` setting or the documented default is used. The existing
 hosted server has an OpenAI credential configuration and a separate subscription
-broker limited to robot decisions. Reuse the API configuration explicitly for
+broker limited to robot decisions. An API installation must opt its configuration into
 this text feature; do not send discussion prompts through robot-decision adapters,
 copy credentials or ask subscription users for an API key. Standalone installations
 without this optional configuration show a clear unavailable state.
