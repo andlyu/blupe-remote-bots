@@ -30,12 +30,12 @@
     article.append(title, body);
     if (label) { const context = document.createElement('small'); context.textContent = label; article.append(context); }
     panel.classList.add('hasConversation');
-    $('runDataChatMessages').append(article); article.scrollIntoView?.({block:'nearest'}); return article;
+    $('runDataChatMessages').append(article); $('runDataChatMessages').scrollTop=$('runDataChatMessages').scrollHeight; return article;
   }
   function open(value) {
     panel.hidden = !value; $('runDiscussionLayout').dataset.chatOpen = String(value);
     $('openRunDataChat').setAttribute('aria-expanded', String(value));
-    if (value) { sync(); input.focus({preventScroll:true}); if (matchMedia('(max-width: 800px)').matches) panel.scrollIntoView({block:'nearest'}); }
+    if (value) { sync(); input.focus({preventScroll:true}); panel.scrollIntoView({block:'nearest'}); }
     else $('openRunDataChat').focus({preventScroll:true});
   }
   async function ask(event) {
@@ -55,7 +55,7 @@
         const list = document.createElement('ul'); list.className = 'runDataChatEvidence';
         for (const citation of data.citations) {
           const li = document.createElement('li'), link = document.createElement('a'), note = document.createElement('span');
-          link.href = citation.url; link.textContent = `${citation.label}: ${citation.prompt}`;
+          link.href = citation.url; link.target='_blank'; link.rel='noopener noreferrer'; link.title=citation.prompt; link.textContent = `${citation.label}: ${citation.prompt.length>160 ? citation.prompt.slice(0,157)+'…' : citation.prompt}`;
           link.addEventListener('click', event => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !window.yamReplayReview?.openEpisode || window.yamReplayHistory?.dataScope?.('filtered')?.robot_id !== citation.robot_id) return;
             event.preventDefault(); window.yamReplayReview?.openEpisode(citation.episode_id, {robot_id:citation.robot_id});
@@ -65,7 +65,7 @@
         article.append(list);
       }
       const model = document.createElement('small');
-      model.textContent = data.resolved_model ? `OpenAI · requested ${data.requested_model} · returned ${data.resolved_model} · low reasoning` : 'No model call needed for an empty scope.'; article.append(model);
+      model.textContent = data.provider === 'codex_subscription' ? `ChatGPT subscription · selected ${data.requested_model} · low reasoning · resolved model ID not exposed` : data.resolved_model ? `OpenAI · requested ${data.requested_model} · returned ${data.resolved_model} · low reasoning` : 'No model call needed for an empty scope.'; article.append(model); $('runDataChatMessages').scrollTop=$('runDataChatMessages').scrollHeight;
       history = [...previous, {role:'user',content:question}, {role:'assistant',content:data.answer}].slice(-12);
       input.value = ''; status.textContent = 'Ask a follow-up, or open a supporting replay to inspect it.';
     } catch (error) {

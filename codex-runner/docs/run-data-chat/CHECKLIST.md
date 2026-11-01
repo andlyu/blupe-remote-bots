@@ -22,13 +22,15 @@ this requested task's source pushes and public website delivery.
 - [x] Prediction/human-label provenance, missing labels and text-only limitations
   are persistent. No robot commands, visitor-chat messages, video/model vision
   claims or fabricated attribution are introduced.
-- [x] Focused backend tests: nine passing, covering cross-robot baseline/context,
+- [x] Focused backend tests: twelve passing, covering cross-robot baseline/context,
   box/filter isolation, empty scope, human exclusions, privacy, forged citations,
   provider model mismatch, CSRF/rate boundaries and no policy creation.
-- [x] Existing JavaScript suite: 334 passing (0.736s command runtime).
+- [x] Existing JavaScript suite: 335 passing (0.651s command runtime).
 - [ ] Final desktop/phone/replay and conversation-persistence browser checks.
-- [ ] Actual OpenAI model availability and successful answer verified as Andrew;
-  record requested/returned model, counts, runtime and evidence.
+- [x] Actual OpenAI subscription catalog confirms gpt-6.1-terra/low; Andrew
+  metadata-only verification succeeded in10.412s, with two validated replay IDs.
+  API access probe returned401 expired_secret_key before generation; provider
+  change was explicit. Selected ID retained; resolved ID not exposed by CLI.
 - [ ] Public source revision, source CI and deployment/hosted-pin evidence.
 - [ ] Deployed public UI end-to-end discussion and evidence navigation verified.
 
