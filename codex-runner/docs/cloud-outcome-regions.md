@@ -77,37 +77,54 @@ connector in its outcome color back to the region center. These placement rules
 do not alter the 3D analysis, outcome counts, region ranking or median prompt;
 the existing offscreen checks, colors and interactions remain in effect.
 
-## Select an arbitrary area
+## Select a 3D volume
 
-**Select area** switches the canvas from rotating/opening runs to drawing a
-selection box. Drag over point centers and release to apply; the box includes
-centers at all depths, including overlapping points, using the current projected
-positions and display offsets. It is a screen-space selection, not a 3D volume
-or an automatic neighborhood. In selection mode, arrow keys start or move a box,
-Shift+arrows resize it,
-and Enter applies it. Escape cancels an in-progress box; with no box being drawn,
-Escape leaves selection mode. **Clear selection** removes the selected set.
+**Draw 3D box** starts an outline in the current view. Release to create a
+finite, oriented cuboid in persisted map coordinates. Its width and height come
+from the outline at the median depth of matching projected runs. Its initial
+depth is half the candidate depth span, bounded to a full depth of `0.08–0.8`.
+An empty outline uses center depth zero and full depth `0.24`. The box's axes
+match the camera at creation and then stay fixed in map space. Drawing turns
+the camera by `0.65` radians horizontally and `0.16` vertically to expose depth;
+it immediately restores normal drag-to-rotate interaction.
 
-The summary reports total selected runs and separate Success, Failure, Uncertain
-and unlabeled or excluded counts. Its success rate is `Success / (Success +
-Failure)` under the current Auto/Human label source; Uncertain and Unscored runs
-are excluded from that denominator. Empty selections and selections with no
-Success/Failure labels explicitly say that a rate is unavailable.
+Membership tests all six faces using the original, unjittered `xyz` coordinates,
+including boundaries. Runs that overlap on screen can therefore be excluded
+when outside the box's depth. Display offsets only separate repeated markers;
+they do not change membership. Invalid/unmapped runs do not contribute.
 
-**Median prompt** chooses an actual prompt nearest the coordinatewise median,
-as the automatic captions do, but includes every selected mapped attempt across
-all outcomes. It is not restricted to the successful or failed subset. A blank
-prompt contributes coordinates but cannot be the displayed representative; when
-no selected prompt is available, the summary says so.
+Drag the projected **W**, **H** or **D** face handle to resize width, height or
+depth symmetrically about the fixed center. Native range controls below the
+canvas offer the same dimensions from `5%` to `300%` of the original size.
+**Depth position** translates the center along the box's original depth axis,
+over the catalog's depth span plus `0.1` at each end. It does not rotate the box
+or move the camera. **Front view** restores the creation view; **Depth view**
+restores the angled view. Rotation, zoom, reset and responsive resizing retain
+the volume and its membership. Filter/catalog changes recalculate membership
+within that same volume; a robot change clears it. Selection is memory-only.
 
-Applied membership is retained by the combined robot and episode key. Camera rotation, zoom,
-reset and resizing remove the old screen box while preserving membership and
-dimming unselected points. Changing label source recomputes counts without
-changing membership. Catalog/model/search changes prune runs that are no longer
-mapped in the current catalog; switching to another robot clears selection.
-Selection and summaries stay in memory and do not load more runs, write labels
-or issue robot commands. Leaving selection mode restores the usual camera,
-preview and replay interactions while retaining the applied set.
+When drawing, arrow keys start/move the outline, Shift+arrows resize it and
+Enter creates the box. Escape cancels drawing; a second Escape exits drawing
+mode. After creation, arrow keys again rotate the camera. Sliders support native
+keyboard adjustments, including Home/End. Pinching cancels an unfinished outline
+and zooms without committing it. Pointer cancellation restores an in-progress
+handle resize. **Draw new 3D box** replaces the volume; **Clear selection**
+removes it and restores all markers.
+
+An anchored canvas label beside the projected box reports total runs, binary
+success percentage, Success/Failure counts, usable-label denominator, uncertain
+and unknown coverage, and an ellipsized actual median prompt. It stays within
+the canvas as the box rotates. The complete, accessible summary and median are
+below the canvas with the resize controls. Automatic region captions and
+per-point task captions yield while a volume is active; their underlying tints
+and point colors remain visible. Clearing the box restores those captions.
+
+The success rate is `Success / (Success + Failure)` under the current Auto/Human
+label source. Uncertain and unlabeled/excluded runs are reported separately.
+An empty selection or one with no binary labels has no success percentage.
+Median prompt uses the existing actual task nearest the coordinatewise median
+across every selected mapped attempt, including all outcomes. Full summary
+text stays associated with the canvas and masked from analytics capture.
 
 ## Label source, robot and filter scope
 
@@ -158,9 +175,9 @@ the selected areas. Switching highlight mode reuses the analysis. This avoids
 an unconditional pairwise search over all attempts, but a densely packed set of
 many distinct positions can still require quadratic work. Selecting a median
 prompt additionally scans the supplied runs for each retained outcome region
-(at most 12 per outcome) and sorts that region's matching attempts. Applying an
-arbitrary selection filters projected point centers, then sorts the selected
-mapped attempts for its median prompt. No browser timing or
+(at most 12 per outcome) and sorts that region's matching attempts. Applying or resizing a
+volume tests persisted coordinates against its three orthonormal axes and six
+faces, then sorts selected mapped attempts for the median prompt. No browser timing or
 large-catalog performance result is claimed by this documentation review.
 
 The map expresses similarity between task descriptions. Nearby points do not
@@ -172,25 +189,12 @@ individual run descriptions and replay evidence when interpreting an area.
 
 ## Design conformance evidence
 
-This is a narrow Operate extension of the incumbent playground's canvas and
-native controls. This documentation pass inspected the uncommitted changes in
-`static/task-cloud.js`, `static/hosted.html`, `static/hosted.css`,
-`static/hosted.js` and `tests/test_task_cloud_ui.cjs`. Automatic labels retain the
-stronger count above regular-weight prompt text, paper background and existing
-outcome colors. The selection toggle has pressed and focus states; visible help
-explains keyboard controls and depth inclusion. Counts use a polite status
-region, and the full summary is associated with the focusable canvas.
-
-**Verdict: conforms at the inspected source scope.** The test definitions cover
-all-outcome selected-area medians, separate unknown counts and binary-label
-rates, pointer and keyboard selection, cancellation, retained membership under
-camera/source changes, filter pruning, robot clearing, empty states, and both
-Success and Failure captions. Existing caption tests cover stable median choice,
-blank fallback, rendering and bounded two-line text. The added combined-mode
-`320 × 360` canvas regression checks that both Success and Failure captions are
-drawn when their default positions collide, that label boxes remain within the
-canvas, and that region and run counts are preserved. This documentation pass
-executed no tests, browser, backend, network or hardware action. It makes no
-rendered-layout, screen-reader, playback or measured-performance claim; those
-require the parent task's verification. No product or design-system file was
-created or modified by this pass.
+The3D selection follows the incumbent Operate canvas, paper background,
+native controls, palette and focus treatment. Width/height/depth handles use
+the same projection as all twelve box edges. A neutral label attached to the
+box keeps counts distinct from outcome colors; dashed far edges convey depth.
+Full counts and median remain in accessible DOM text, with two-column controls
+at phone widths. Geometry tests cover six-face boundaries, screen-overlapping
+runs at distinct depths, stable box membership under camera/source changes,
+dimension and depth-position changes, handle drag, cancellation and robot reset.
+Rendered desktop/phone and deployed evidence are recorded in the task checklist.
