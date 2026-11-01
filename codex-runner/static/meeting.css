@@ -294,7 +294,6 @@
 .meetingConsole .meetingRoom #yourQueue.meetingQueueEmpty { display:none; }
 .meetingConsole .meetingRoom .cameraStatusLine { text-align:left; }
 .meetingConsole .meetingRoom #liveViewer.cameras>figure>figcaption { top:auto; right:auto; width:max-content; height:auto; }
-.meetingConsole .meetingRoom .conversationModes [data-conversation-mode="visitor"] { display:none; }
 .meetingConsole .meetingRoom .watchInteraction>.visitorChat { position:static; inset:auto; flex:1; min-height:0; width:100%; height:auto; margin:0; padding:12px 16px; border:0; background:#f8fafd; }
 .meetingConsole .meetingRoom .watchInteraction>.visitorChat[hidden] { display:none; }
 .meetingConsole .meetingRoom .watchInteraction.visitorChatSelected>#liveConversationPanel { display:none; }
@@ -376,7 +375,26 @@
   .meetingConsole #meetingNotes .meetingControlLabel { font-size:10px; line-height:13px; }
 }
 
-@media(max-width:600px) and (max-height:700px) {
-  .meetingConsole .meetingPanelOpen .watchInteraction { top:110px; }
+/* Keep Observer's size independent of Safari's remaining viewport height.
+   When the meeting no longer fits, its supporting content scrolls below it. */
+@media(max-width:600px) {
+  .meetingRoom { --meeting-phone-camera-height:calc((100vw - 24px)*.5625); height:auto; min-height:var(--meeting-viewport-height,100dvh); }
+  .meetingPreviewNotice + main .meetingRoom { height:auto; min-height:calc(var(--meeting-viewport-height,100dvh) - 32px); }
+  .meetingConsole .meetingRoom .watchLayout,.meetingConsole .meetingRoom .watchLayout.conversationClosed { height:auto!important; min-height:0; flex:1 0 auto; grid-template-rows:auto; }
+  .meetingConsole .meetingRoom .watchVisuals { height:auto; align-self:stretch; grid-template-rows:auto auto auto; align-content:start; }
+  .meetingConsole .meetingRoom #liveViewer.cameras { height:auto; grid-template-rows:var(--meeting-phone-camera-height) 64px; }
+  .meetingConsole .meetingPanelOpen .watchLayout,.meetingConsole .meetingPanelOpen .watchLayout.conversationClosed { grid-template-areas:"video" "chat"; grid-template-rows:auto auto; }
+  .meetingConsole .meetingPanelOpen #liveViewer.cameras,.meetingConsole .meetingCamerasHidden #liveViewer.cameras,.meetingConsole .meetingRoom #liveViewer.cameras[data-meeting-count="1"] { grid-template-rows:var(--meeting-phone-camera-height); }
+  .meetingConsole .meetingPanelOpen .watchInteraction { position:relative; inset:auto; width:100%; height:clamp(180px,28dvh,320px); min-height:180px; box-shadow:none; }
   .meetingConsole .meetingRoom .watchInteraction>.visitorChat { overflow-y:auto; }
+  .meetingConsole .meetingKeyboardOpen #liveViewer.cameras { grid-template-rows:min(120px,var(--meeting-phone-camera-height)) 64px; }
+  .meetingConsole .meetingKeyboardOpen.meetingPanelOpen #liveViewer.cameras,.meetingConsole .meetingKeyboardOpen.meetingCamerasHidden #liveViewer.cameras { grid-template-rows:min(120px,var(--meeting-phone-camera-height)); }
+}
+
+@media(max-height:500px) and (min-width:601px) and (max-width:1000px) {
+  .meetingRoom.meetingPanelOpen,.meetingPreviewNotice + main .meetingRoom.meetingPanelOpen { height:auto; min-height:var(--meeting-viewport-height,100dvh); }
+  .meetingConsole .meetingPanelOpen .watchLayout,.meetingConsole .meetingPanelOpen .watchLayout.conversationClosed { height:auto!important; min-height:0; flex:1 0 auto; grid-template-columns:minmax(0,1fr); grid-template-areas:"video" "chat"; grid-template-rows:auto auto; }
+  .meetingConsole .meetingPanelOpen .watchVisuals { height:auto; grid-template-rows:auto auto auto; align-content:start; }
+  .meetingConsole .meetingPanelOpen .watchVisuals>.videoPanel { height:clamp(120px,calc((100vw - 538px)*.5625),240px); }
+  .meetingConsole .meetingPanelOpen .watchInteraction { position:relative; inset:auto; width:100%; height:180px; min-height:180px; box-shadow:none; }
 }

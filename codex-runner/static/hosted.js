@@ -1509,9 +1509,9 @@ function createRunLaunchGuard() {
     // A run names its own model; with none showing, name the one this runner will use.
     liveModelName = recordedModel(live) ? modelLabel(recordedModel(live)) : live?.model_name || (live ? 'Model not recorded' : selectedModelName());
     const reasoningButton = document.querySelector('[data-conversation-mode="reasoning"]');
-    const label = liveModelName + ' decision notes';
+    const label = liveModelName + ' notes';
     if (reasoningButton && reasoningButton.textContent !== label) reasoningButton.textContent = label;
-    if ($('liveConversationPanel').dataset.mode !== 'conversation' && $('conversationModeTitle').textContent !== label)
+    if ($('conversationModeTitle').textContent !== label)
       $('conversationModeTitle').textContent = label;
   }
   function modelRequestProgress(live, modelName, now = Date.now()) {
@@ -1758,8 +1758,8 @@ function createRunLaunchGuard() {
       if (mode !== 'visitor') panel.dataset.mode = mode;
       panel.hidden = mode === 'hide' || mode === 'visitor';
       panel.closest('.watchLayout').classList.toggle('conversationClosed', mode === 'hide');
-      $('conversationModeTitle').textContent = mode === 'reasoning' ? liveModelName + ' decision notes' : 'Convo mode';
-      $('sideConversationTitle').textContent = mode === 'reasoning' ? 'Response notes' : 'Conversation with ' + liveModelName;
+      $('conversationModeTitle').textContent = liveModelName + ' notes';
+      $('sideConversationTitle').textContent = 'Response notes';
       document.querySelectorAll('[data-conversation-mode]').forEach(item => {
         item.setAttribute('aria-pressed', String(item === button));
       });

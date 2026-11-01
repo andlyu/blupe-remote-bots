@@ -76,3 +76,14 @@ underlying robot registry and recordings. Standalone configured choices remain
 available; hosted-only exclusions belong to the application's configuration.
 
 Mobile interaction references: Google Meet [chat](https://support.google.com/meet/answer/9308979) and [call controls](https://support.google.com/meet/answer/12562325). These inform explicit chat access and a primary reaction picker; they do not add browser microphone capture.
+
+The task chat offers two views: `<current model> notes` and `Visitor chat`. The
+model label follows the active run or selected model; Convo mode is removed.
+The meeting visitor shortcut opens the same Visitor chat view.
+
+On phones, Observer retains a full-width 16:9 camera row independently of the
+remaining viewport height. Browser toolbars, run status and suggestions must not
+collapse that row. Open chat follows the camera in normal document flow instead
+of covering it. Short screens scroll to supporting content and controls; the
+Observer remains uncropped. The keyboard may use a compact camera row while
+editing a task. Desktop composition is unchanged.
