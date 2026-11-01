@@ -95,10 +95,13 @@ the existing offscreen checks, colors and interactions remain in effect.
 
 **Draw box** is the selection action. Drag an outline and release, or use
 arrows/Shift+arrows and Enter, to create a finite 3D volume at the median candidate
-depth. Drawing preserves the current camera, zoom and page position. Camera
-presets change the view only when explicitly selected. The transform toolbar
-stays in place, with tools disabled before selection, so drawing does not shift
-the canvas. Drawing again replaces the current selection.
+depth. Drawing preserves the current camera, zoom and page position. **Reset
+view** sits beside **Draw box** in the main toolbar. Zoom uses scrolling,
+pinching or +/− keys; camera presets and the separate zoom/legend rows are not
+shown. Outcome colors and drawing instructions remain in the canvas's accessible
+description. Move/Resize/Rotate tools appear with the selected-box summary below
+the canvas, so revealing them does not shift it. Drawing again replaces the
+current selection.
 
 The toolbar adopts the familiar interaction patterns in
 [Three.js TransformControls](https://threejs.org/examples/misc_controls_transform.html),
@@ -127,8 +130,8 @@ Escape and pointer cancellation restore a transform being dragged. Pinching
 cancels an unfinished outline and zooms without applying it.
 
 Dragging empty space or using arrow keys orbits the camera while retaining the
-box in map space. **3D**, **Front**, **Top** and **Side** are camera presets;
-camera orientation, zoom/reset and responsive resizing do not alter selection.
+box in map space. Camera orientation, zoom/reset and responsive resizing do
+not alter selection.
 **Depth position** translates along the current box Z axis. **Clear selection**
 removes the volume. Hover/focus details stay below the cloud, and clicking a run opens its replay.
 Clearing restores the full cloud; region captions follow the Area labels choice.

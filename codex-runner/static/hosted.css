@@ -1006,3 +1006,5 @@ body.cameraExpanded{overflow:hidden}
 .cloudAreaToggle{min-width:140px}
 
 .cloudAreaLabelsControl{min-height:44px;cursor:pointer}.cloudAreaLabelsControl input{width:16px;height:16px;margin:0;accent-color:#246744}
+
+.cloudDrawActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
