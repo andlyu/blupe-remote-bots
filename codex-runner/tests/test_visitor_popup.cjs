@@ -9,7 +9,7 @@ function harness() {
   const footer={classList:classes(),append(node){node.parent=this;}};
   const panel={hidden:false,classList:classes(),focus(){focus.push('panel');}};
   const button=id=>({hidden:false,setAttribute(name,value){expanded[id]=value;},focus(){focus.push(id);},addEventListener(_,callback){callbacks[id]=callback;}});
-  const nodes={visitorChatPanel:panel,openVisitorChat:button('open'),closeVisitorChat:button('close'),chatPaneTitle:{textContent:'Task chat'},chatMessages:{scrollTop:0,scrollHeight:1200}};
+  const nodes={visitorChatPanel:panel,openVisitorChat:button('open'),closeVisitorChat:button('close'),chatPaneTitle:{textContent:'Activity'},chatMessages:{scrollTop:0,scrollHeight:1200}};
   const choose=mode=>events['yam:conversation-mode']({detail:{mode}});
   vm.runInNewContext(popup,{document:{getElementById:id=>nodes[id],querySelector(selector){if(selector==='.watchInteraction')return pane;if(selector==='.cameraFooter')return footer;return {click(){choose(selector.match(/="(.+)"/)[1]);}};},addEventListener(name,callback){events[name]=callback;}},MutationObserver:class{constructor(callback){observe=callback;}observe(){}},localStorage:{getItem(){storageReads++;return 'true';},setItem(){}}});
   return {panel,pane,footer,nodes,expanded,focus,callbacks,choose,escape(){events.keydown({key:'Escape',preventDefault(){}});},reposition(){observe();},reads:()=>storageReads};
@@ -22,7 +22,7 @@ test('camera shortcut opens the people view and Escape returns focus without los
   assert.equal(h.panel.parent,h.pane);assert.equal(h.nodes.chatMessages.scrollTop,1200);
   h.callbacks.close();assert.equal(h.panel.hidden,true);
   h.choose('conversation');h.callbacks.open();h.escape();assert.equal(h.panel.hidden,true);assert.equal(h.expanded.open,'false');assert.equal(h.focus.at(-1),'open');
-  assert.equal(h.nodes.chatPaneTitle.textContent,'Task chat');
+  assert.equal(h.nodes.chatPaneTitle.textContent,'Activity');
 });
 test('the same visitor panel follows camera expansion and returns to the conversation pane',()=>{
   const h=harness();h.footer.classList.toggle('expandedCameraFooter',true);h.callbacks.open();

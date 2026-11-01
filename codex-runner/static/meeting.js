@@ -94,7 +94,7 @@
   const visitors = $('openVisitorChat'); visitors.classList.add('meetingControl');
   visitors.title = 'Visitor chat'; visitors.setAttribute('aria-label', 'Visitor chat');
   visitors.innerHTML = icon('people') + '<span class="meetingControlLabel">Visitors</span>';
-  const notes = button('meetingNotes', 'Task chat', 'notes');
+  const notes = button('meetingNotes', 'Activity', 'notes');
   notes.querySelector('span').textContent = 'Chat';
   notes.setAttribute('aria-controls', panel.id); notes.setAttribute('aria-expanded', 'false');
   const social = document.querySelector('.cameraSocialControls');
@@ -282,7 +282,8 @@
       && $('leaveQueue').hidden && $('position').closest('.queuePlace').hidden;
     $('yourQueue').classList.toggle('meetingQueueEmpty', emptyQueue);
     const timer = $('runTimer'), stopwatch = timer?.closest('.liveStopwatch');
-    if (stopwatch) stopwatch.hidden = !timer.textContent.trim() || /^[—–\-:]+$/.test(timer.textContent.trim());
+    if (stopwatch) stopwatch.hidden = !$('liveTaskTitle')?.textContent.trim()
+      && (!timer.textContent.trim() || /^[—–\-:]+$/.test(timer.textContent.trim()));
   }
   new MutationObserver(updateQuietStatus).observe($('yourQueue'), {childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden']});
   new MutationObserver(updateQuietStatus).observe($('liveViewer'), {childList:true,characterData:true,subtree:true});
