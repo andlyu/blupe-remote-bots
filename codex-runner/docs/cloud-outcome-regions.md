@@ -17,9 +17,7 @@ include an actual matching median prompt. The choice is remembered under
 `yam-cloud-area-labels`; an explicit off preference is honored on later visits.
 Hover/focus details remain below the canvas and in playing video previews;
 per-run canvas captions are not added when zooming.
-Each caption keeps **View** and the close button together in its compact count
-row, with 26px-high native targets and no separate action footer. Caption height
-is 34px plus 16px per prompt line (up to 66px for two lines). View
+Each caption has a top-right **Dismiss** button and a **View** button. View
 opens its actual matching-outcome median run in the existing video sidebar.
 Dismiss hides only that caption, preserving its tint and all dots. Dismissals
 survive camera changes and unchanged data refreshes; changing the run dataset
@@ -240,3 +238,5 @@ The control bar groups Highlight and Area labels separately from selection actio
 The control icons use local CSS shapes and text glyphs, so they render under the hosted Content Security Policy without embedded image URLs. Reset and Clear retain explicit accessible names.
 
 After drawing a box, **View runs in the box** opens its full selected set in the video sidebar; similarity ranking and the related-video limit do not filter that collection. **Hide box** hides the outline, handles, badge and selection dimming while retaining the box geometry and selected runs. **Show box** restores it without moving the camera. Drawing a new box makes that box visible. These actions stay in the main cloud toolbar so they remain usable when the old adjustment form is hidden.
+
+The in-cloud display panel stacks Autolabels, Area labels, and independent Success/Failure highlight checkboxes vertically. Autolabels defaults on and remembers an explicit off choice. Turning it off hides AI colors, tints and captions while preserving positions, recordings, labels and box statistics; re-enabling restores the saved display choices. Human-labeled views keep their own outcome colors.
