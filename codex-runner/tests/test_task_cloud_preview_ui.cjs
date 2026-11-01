@@ -6,18 +6,19 @@ function setup(){
   addEventListener(name,fn){this.events[name]=fn},emit(name){this.events[name]?.()},
   setAttribute(name,value){this.attributes[name]=value},removeAttribute(name){delete this.attributes[name];if(name==='src')this.src=''},
   pause(){this.pauses++},load(){},play(){this.plays++;return this.playFailure?Promise.reject(Error()):Promise.resolve()}});
- const media=make(),title={},status={},root={hidden:true,dataset:{},style:{},offsetWidth:260,offsetHeight:250,
-  querySelector(selector){return selector.endsWith('Media')?media:selector.endsWith('Title')?title:status}};
+ const opened=[],openButton=make(),media=make(),title={},status={},root={hidden:true,dataset:{},style:{},offsetWidth:260,offsetHeight:250,
+  querySelector(selector){return selector.endsWith('Open')?openButton:selector.endsWith('Media')?media:selector.endsWith('Title')?title:status}};
  const window={},document={createElement(){const video=make();videos.push(video);return video}};
  vm.runInNewContext(source,{window,document,AbortController,setTimeout(fn){timers.set(++timerId,fn);return timerId},clearTimeout(id){timers.delete(id)}});
  let allowed=true,reduced=false;
  const preview=window.yamTaskCloud.createPreview(root,{
   loadRun(run,signal){return new Promise((resolve,reject)=>loads.push({run,signal,resolve,reject}))},
+  onOpen:run=>opened.push(run),
   source:run=>({url:run.video_url,rate:run.compressed?1:10}),
   layout(video,roles,layout){const call={video,roles,layout,disposed:false};layouts.push(call);return()=>call.disposed=true},
   canPlay:()=>allowed,reducedMotion:()=>reduced});
  const point={x:980,y:530,width:1000,height:540};
- return{preview,root,media,title,status,videos,loads,layouts,timers,point,allow:v=>allowed=v,reduce:v=>reduced=v,flush:()=>new Promise(setImmediate)};
+ return{preview,root,media,title,status,opened,openButton,videos,loads,layouts,timers,point,allow:v=>allowed=v,reduce:v=>reduced=v,flush:()=>new Promise(setImmediate)};
 }
 const run=id=>({episode_id:id,prompt:'Task '+id});
 const detail=id=>({...run(id),video_url:'https://example.com/previews/'+id+'.mp4',camera_order:['observer','left','top','right'],video_layout:'observer-focus',compressed:true});
@@ -131,4 +132,15 @@ test('Custom end-point becomes the active provider and focuses its input without
  const html=fs.readFileSync(path.join(__dirname,'../static/hosted.html'),'utf8');
  assert.match(html, /id="customEndpoint"[^]*?id="customEndpointHelp"[^]*?docs\/API\.md#custom-end-point/);
  assert.match(full,/payload\.endpoint = \$\('customEndpoint'\)\.value\.trim\(\)/);
+});
+
+test('touch preview docks below aim with an explicit replay action and cancels stale actions',async()=>{
+ const c=setup(),target=run('ep_touch');let showing=c.preview.show(target,{...c.point,input:'touch'});
+ c.loads[0].resolve(detail('ep_touch'));await showing;
+ assert.equal(c.root.dataset.input,'touch');assert.equal(c.openButton.hidden,false);
+ assert.equal(c.root.style.left,'8px');assert.equal(parseInt(c.root.style.top)+c.root.offsetHeight,c.point.height-8);
+ c.openButton.emit('click');assert.equal(c.opened[0],target);
+ c.preview.hide();c.openButton.emit('click');assert.equal(c.opened.length,1,'hidden/stale action cannot open the previous run');assert.equal(c.openButton.hidden,true);
+ showing=c.preview.show(run('ep_mouse'),c.point);c.loads.at(-1).resolve(detail('ep_mouse'));await showing;assert.equal(c.openButton.hidden,true);
+ await c.preview.show(run('ep_mouse'),{...c.point,input:'touch'});assert.equal(c.openButton.hidden,false,'same buffered video can switch input method');
 });

@@ -126,9 +126,10 @@
   }
   // Three paused players at most: the active preview plus nearby/recent points.
   // Keep their buffers on pointer exit; explicit hide releases the entire cache.
-  function createPreview(root, {loadRun, source, layout, canPlay = () => true, reducedMotion = () => false}) {
+  function createPreview(root, {loadRun, source, layout, onOpen = () => {}, canPlay = () => true, reducedMotion = () => false}) {
     const media = root.querySelector('.taskCloudPreviewMedia'), title = root.querySelector('.taskCloudPreviewTitle');
-    const status = root.querySelector('.taskCloudPreviewState');
+    const status = root.querySelector('.taskCloudPreviewState'), openButton = root.querySelector('.taskCloudPreviewOpen');
+    openButton?.addEventListener('click', () => {if (current) onOpen(current.run);});
     const cache = new Map(), key = run => `${run.robot_id || ''}:${run.episode_id}`;
     let current = null, generation = 0, request = null, video = null, dispose = null, anchor = null;
     const state = (entry, message) => {if (current === entry) {status.textContent = message; position();}};
@@ -190,6 +191,9 @@
     function position() {
       if (!anchor) return;
       const width = root.offsetWidth, height = root.offsetHeight;
+      if (anchor.input === 'touch') {
+        root.style.left = '8px'; root.style.top = Math.max(8, anchor.height-height-8)+'px'; return;
+      }
       const x = anchor.x + 18 + width <= anchor.width - 8 ? anchor.x + 18 : anchor.x - width - 18;
       root.style.left = Math.max(8, Math.min(anchor.width-width-8, x))+'px';
       root.style.top = Math.max(8, Math.min(anchor.height-height-8, anchor.y-24))+'px';
@@ -200,14 +204,24 @@
       current = null; anchor = null;
       if (video) {video.pause(); dispose?.();}
       video = null; dispose = null; media.replaceChildren(); root.hidden = true;
-      delete root.dataset.episodeId;
+      delete root.dataset.episodeId; delete root.dataset.input;
+      root.setAttribute?.('aria-hidden','true');
+      if (openButton) openButton.hidden = true;
     }
     function hide() {park(); for (const entry of cache.values()) release(entry);}
     async function show(run, point) {
       if (!canPlay()) {hide(); return;}
       if (!run) {park(); return;}
-      if (current?.key === key(run)) {anchor = point; position(); return;}
-      park(); current = entryFor(run); anchor = point;
+      const same = current?.key === key(run);
+      if (!same) {park(); current = entryFor(run);}
+      anchor = point;
+      root.dataset.input = point.input || 'mouse';
+      root.setAttribute?.('aria-hidden',point.input === 'touch' ? 'false' : 'true');
+      if (openButton) {
+        openButton.hidden = point.input !== 'touch';
+        openButton.setAttribute('aria-label','Open run: '+run.prompt);
+      }
+      if (same) {position(); return;}
       const entry = current;
       const version = generation;
       request = new AbortController();
@@ -255,6 +269,37 @@
     let frame = null, moved = false, last = null, lastDistance = 0, hitCycle = 0, lastHits = '';
     let highlight = 'none', regionData = null, showAreaLabels=false, showOutcomeColors=true;
     let captionBoxes=[], pressedCaption=null, captionContext='';
+    let touchInput=window.matchMedia?.('(pointer: coarse)').matches || false, aimEnabled=false, aimTimer=null, aimKey='';
+    const aimRadius=20;
+    function cancelAim() {if(aimTimer!==null)clearTimeout(aimTimer);aimTimer=null;aimKey='';}
+    function aimLocation() {return {x:canvas.clientWidth/2,y:canvas.clientHeight*.42};}
+    function updateAim() {
+      if(!touchInput || !aimEnabled || areaMode || brush || volumeDrag || pointers.size)return;
+      const aim=aimLocation();
+      const candidates=points.filter(p=>Math.hypot(p.x-aim.x,p.y-aim.y)<=aimRadius)
+        .sort((a,b)=>Math.hypot(a.x-aim.x,a.y-aim.y)-Math.hypot(b.x-aim.x,b.y-aim.y) || a.depth-b.depth);
+      // Retain the acquired point until another is clearly closer, avoiding jitter in dense regions.
+      const previous=candidates.find(p=>runKey(p.run)===aimKey), nearest=candidates[0];
+      const point=previous && nearest && Math.hypot(previous.x-aim.x,previous.y-aim.y)<=Math.hypot(nearest.x-aim.x,nearest.y-aim.y)+4 ? previous : nearest;
+      const key=point ? runKey(point.run) : '';
+      if(key===aimKey)return;
+      cancelAim();aimKey=key;
+      if(!point){hover=null;preview(null);return;}
+      aimTimer=setTimeout(()=>{
+        aimTimer=null;
+        if(!aimEnabled || pointers.size || areaMode || brush || volumeDrag)return;
+        focused=rows.indexOf(point.run);hover=point.run.episode_id;focus(point.run);
+        preview({...point,input:'touch'});schedule();
+      },180);
+    }
+    function drawAim() {
+      if(!touchInput || areaMode || brush || volumeDrag || !points.length)return;
+      const {x,y}=aimLocation();
+      ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ctx.moveTo(x+dx*16,y+dy*16);ctx.lineTo(x+dx*22,y+dy*22);}
+      ctx.strokeStyle='#f8faf5';ctx.lineWidth=4;ctx.stroke();
+      ctx.strokeStyle=hover?'#214e39':'#43564a';ctx.lineWidth=1.5;ctx.stroke();
+    }
     const captionNodes=new Map(), dismissedCaptions=new Set();
     const captionKey=region=>[region.label,...region.xyz,runKey(region.representativeRun || {})].join('|');
     function syncCaptions() {
@@ -386,22 +431,22 @@
     }
     function marker(point) {
       ctx.globalAlpha=areaApplied && boxVisible && !areaKeys.has(runKey(point.run)) ? .22 : 1;
-      const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 7 : 4.5;
+      const radius = selected === point.run.episode_id || hover === point.run.episode_id ? 4.5 : 2.75;
       const state = showOutcomeColors ? outcome(point.run) : 'Unscored', color = state === 'Success' ? '#246744' : state === 'Failure' ? '#b2352c' : state === 'Uncertain' ? '#946000' : '#607064';
       ctx.beginPath();
       ctx.arc(point.x,point.y,radius,0,Math.PI*2);
       ctx.fillStyle = state === 'Unscored' ? '#f8faf5' : color;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = state === 'Unscored' ? 1.75 : 1;
+      ctx.strokeStyle = state === 'Unscored' ? color : '#f8faf5';
+      ctx.lineWidth = state === 'Unscored' ? 1.25 : .75;
       ctx.fill();ctx.stroke();
-      if (selected === point.run.episode_id || hover === point.run.episode_id) {
+      if (selected === point.run.episode_id || !touchInput && hover === point.run.episode_id) {
         ctx.beginPath();ctx.arc(point.x,point.y,11,0,Math.PI*2);ctx.strokeStyle='#172c21';ctx.lineWidth=1.5;ctx.stroke();
       }
       ctx.globalAlpha=1;
     }
     function draw() {
       frame = null;
-      const width = canvas.clientWidth || 1000, height = canvas.clientHeight || 540, dpr = Math.min(window.devicePixelRatio || 1,2);
+      const width = canvas.clientWidth || 1000, height = canvas.clientHeight || 540, dpr = Math.min(window.devicePixelRatio || 1,3);
       if (canvas.width !== Math.round(width*dpr) || canvas.height !== Math.round(height*dpr)) {
         canvas.width = Math.round(width*dpr);canvas.height = Math.round(height*dpr);
       }
@@ -418,7 +463,7 @@
         if (region.x+radius<0 || region.x-radius>width || region.y+radius<0 || region.y-radius>height) continue;
         const rgb=region.label==='Success'?'36,103,68':'178,53,44';
         const field=ctx.createRadialGradient(region.x,region.y,0,region.x,region.y,radius*1.4);
-        field.addColorStop(0,`rgba(${rgb},.30)`);field.addColorStop(.55,`rgba(${rgb},.15)`);field.addColorStop(1,`rgba(${rgb},0)`);
+        field.addColorStop(0,`rgba(${rgb},.14)`);field.addColorStop(.55,`rgba(${rgb},.06)`);field.addColorStop(1,`rgba(${rgb},0)`);
         ctx.fillStyle=field;ctx.beginPath();ctx.arc(region.x,region.y,radius*1.4,0,Math.PI*2);ctx.fill();
       }
       // Rotation reference: three real perspective axes, with no outcome meaning.
@@ -433,9 +478,11 @@
         const delta=offset(run.episode_id), xyz=run.xyz.map((value,i)=>value+delta[i]);
         return {...project(xyz,yaw,pitch,magnification,width,height),run};
       }).sort((a,b)=>b.depth-a.depth);
+      updateAim();
       for (const point of points) if (point.x>-15 && point.x<width+15 && point.y>-15 && point.y<height+15) marker(point);
       const boxes=[];captionBoxes=[];
       const layerBounds=captionRoot?.parentElement?.querySelector('.cloudLayers')?.getBoundingClientRect();
+      if(touchInput && !areaMode){const aim=aimLocation();boxes.push({x:aim.x-28,y:aim.y-28,w:56,h:56});}
       if(layerBounds){const bounds=canvas.getBoundingClientRect();boxes.push({x:layerBounds.left-bounds.left,y:layerBounds.top-bounds.top,w:layerBounds.width,h:layerBounds.height});}
       ctx.font='600 12px system-ui';
       const rankedRegions=regionPoints.slice().sort((a,b)=>b.strength-a.strength);
@@ -485,6 +532,8 @@
       handles=[];badgeBounds=null;
       if(volume && boxVisible)drawVolume(width,height);
       if(box){ctx.strokeStyle='#172c21';ctx.lineWidth=2;ctx.setLineDash(brush?[5,4]:[]);ctx.strokeRect(box.x,box.y,box.w,box.h);ctx.setLineDash([]);}
+      drawAim();
+      canvas.dataset.touchAim=String(touchInput && !areaMode && !!points.length);
       canvas.dataset.renderedPoints=String(points.length);
       canvas.dataset.cloudCamera=[yaw,pitch,magnification].join(',');
       canvas.dataset.highlightRegions=String(regionPoints.length);
@@ -600,8 +649,8 @@
       if(volume && badgeBounds && x>=badgeBounds.x && x<=badgeBounds.x+badgeBounds.w && y>=badgeBounds.y && y<=badgeBounds.y+badgeBounds.h)return [];
       return points.filter(p=>Math.hypot(p.x-x,p.y-y)<13).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
     }
-    function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight} : null);}
-    function clearPreview() {hover=null;preview(null);}
+    function preview(point) {onPreview(point?.run || null, point ? {x:point.x,y:point.y,width:canvas.clientWidth,height:canvas.clientHeight,input:point.input || 'mouse'} : null);}
+    function clearPreview() {cancelAim();aimEnabled=false;hover=null;preview(null);}
     function previewFocused() {if(brush || volumeDrag || pointers.size)return;const point=points.find(p=>p.run===rows[focused]);hover=point?.run.episode_id;onWarm([rows[focused],rows[(focused+1)%rows.length]].filter(Boolean));preview(point);schedule();}
     function zoom(factor) {captionBoxes=[];clearPreview();dropAreaBox();magnification=Math.max(.4,Math.min(8,magnification*factor));schedule();}
     function reset() {captionBoxes=[];clearPreview();dropAreaBox();yaw=-.3;pitch=.2;magnification=1;schedule();}
@@ -609,7 +658,7 @@
     function step(delta) {if(rows.length) {focused=(focused+delta+rows.length)%rows.length;focus(rows[focused]);previewFocused();}}
     function pointerDown(event) {
       const caption=captionAt(event);pressedCaption=caption ? runKey(caption.run) : null;
-      clearPreview();
+      clearPreview();touchInput=event.pointerType==='touch';aimEnabled=touchInput;schedule();
       pointers.set(event.pointerId,[event.clientX,event.clientY]);canvas.setPointerCapture(event.pointerId);
       last=[event.clientX,event.clientY];moved=false;
       if(pointers.size===2) {pressedCaption=null;dropAreaBox();const [a,b]=[...pointers.values()];lastDistance=Math.hypot(a[0]-b[0],a[1]-b[1]);moved=true;}
@@ -631,6 +680,8 @@
           dropAreaBox();yaw+=dx*.008;pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*.008));last=[event.clientX,event.clientY];schedule();
         }
       } else {
+        if(event.pointerType==='touch')return;
+        if(touchInput){touchInput=false;clearPreview();schedule();}
         if(volume && !areaMode && handleAt(event)){clearPreview();canvas.style.cursor=volumeTool==='rotate'?'grab':'ew-resize';return;}
         const caption=captionAt(event);
         if(caption){
@@ -651,9 +702,10 @@
     canvas.addEventListener('pointermove',pointerMove);
     canvas.addEventListener('pointerup',event=>{
       if(!pointers.has(event.pointerId))return;
-      if(brush){brush[1]=canvasPoint(event);pointers.delete(event.pointerId);last=null;moved=true;applyBrush();return;}
-      if(volumeDrag){volumeDrag=null;pointers.delete(event.pointerId);last=null;moved=true;return;}
+      if(brush){brush[1]=canvasPoint(event);pointers.delete(event.pointerId);last=null;moved=true;aimEnabled=false;applyBrush();return;}
+      if(volumeDrag){volumeDrag=null;pointers.delete(event.pointerId);last=null;moved=true;aimEnabled=false;return;}
       const dragged=moved || pointers.size>1, captionKey=pressedCaption;pressedCaption=null;pointers.delete(event.pointerId);last=null;
+      if(event.pointerType==='touch' && !pointers.size){aimEnabled=true;schedule();}
       if(!dragged) {
         if(captionKey){
           const caption=captionAt(event);
@@ -664,13 +716,18 @@
         }
         const hits=hit(event),signature=hits.map(p=>p.run.episode_id).join(',');
         hitCycle=signature===lastHits?(hitCycle+1)%Math.max(1,hits.length):0;lastHits=signature;
-        if(hits.length) {focused=rows.indexOf(hits[hitCycle].run);open();}
+        if(hits.length) {
+          const point=hits[hitCycle];focused=rows.indexOf(point.run);
+          if(event.pointerType==='touch') {
+            cancelAim();aimEnabled=false;hover=point.run.episode_id;focus(point.run);preview({...point,input:'touch'});schedule();
+          } else open();
+        }
       }
     });
     canvas.addEventListener('pointercancel',()=>{pressedCaption=null;pointers.clear();last=null;brush=null;cancelVolumeDrag();clearPreview();notifyArea();schedule();});
-    canvas.addEventListener('pointerleave',()=>{clearPreview();focus(rows[focused]);schedule();});
+    canvas.addEventListener('pointerleave',()=>{if(touchInput)return;clearPreview();focus(rows[focused]);schedule();});
     canvas.addEventListener('focus',previewFocused);
-    canvas.addEventListener('blur',clearPreview);
+    canvas.addEventListener('blur',event=>{if(!event.relatedTarget?.closest?.('.taskCloudPreview'))clearPreview();});
     canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(Math.exp(-event.deltaY*.001));},{passive:false});
     canvas.addEventListener('keydown',event=>{
       const key=event.key;
