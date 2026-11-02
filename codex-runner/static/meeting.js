@@ -39,6 +39,11 @@
   const roomContext = document.createElement('span');
   roomContext.className = 'meetingRoomContext'; roomContext.textContent = 'Robot room';
   header.querySelector('.intro').append(roomContext);
+  const apiLink = document.createElement('a');
+  apiLink.className = 'meetingApiLink'; apiLink.textContent = 'API';
+  apiLink.href = 'https://blupe.io/docs/robot-api/';
+  apiLink.target = '_blank'; apiLink.rel = 'noopener noreferrer';
+  header.querySelector('.intro').append(apiLink);
   const presenting = document.createElement('div'); presenting.className = 'meetingPresenting';
   presenting.innerHTML = icon('presentation') + '<span id="meetingPresentationName">Connecting to camera…</span><span class="meetingPinned">' + icon('pin') + 'Pinned view</span>';
   room.append(presenting, workspace); workspace.id = 'meetingWorkspace';
