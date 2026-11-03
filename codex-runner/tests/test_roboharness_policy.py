@@ -163,7 +163,8 @@ class PolicyTests(unittest.TestCase):
             packet=p.build_trajectory('Actual offline task after initialization',self.obs,0)
             self.assertTrue(packet);outbound.assert_not_called()
         self.assertEqual(len(requests),2);self.assertEqual(p._calls,1)
-        self.assertFalse(any('input_image' in str(item) for item in requests[0]['input']))
+        self.assertEqual(requests[0]['input'][1]['content'][1]['type'],'input_image')
+        self.assertIn('synthetic',requests[0]['instructions'])
         self.assertIn('Actual offline task after initialization',str(requests[1]['input']))
         config=p.public_config()['model_preparation']
         self.assertEqual(config['state'],'ready');self.assertEqual(config['runner_name'],'Synthetic offline runner')
@@ -180,7 +181,10 @@ class PolicyTests(unittest.TestCase):
         def executor(**request):
             requests.append(request)
             if len(requests)==1:
-                self.assertEqual(request['images'],());self.assertIsNone(request['thread_id'])
+                self.assertEqual(len(request['images']),1);self.assertIsNone(request['thread_id'])
+                import hashlib
+                self.assertEqual(hashlib.sha256(request['images'][0]).hexdigest(),'5fc031e7b497a6cf7c4cb65d5685c12649ad48013f1a22a91200b764d3378225')
+                self.assertIn('not robot footage',request['prompt'])
                 target={**decision(),'action':'give_up','reason':'non_actuating_session_ready'}
             else:
                 self.assertEqual(len(request['images']),3);self.assertEqual(request['thread_id'],thread)

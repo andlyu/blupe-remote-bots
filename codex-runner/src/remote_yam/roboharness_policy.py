@@ -27,6 +27,10 @@ from .roboharness_tracking import KeypointTracker, StaleTrackingDepth
 from .yam_gripper_reference import reference_for_model, nominal_tool_pose
 
 
+INITIALIZATION_CARD_PNG_BASE64='iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAI0lEQVR4nGNsaGhgIAUwkaSaYVQDcYCJSHVwMKqBGEByKAEAyUwBoHKcrY0AAAAASUVORK5CYII='
+INITIALIZATION_CARD_SHA256='5fc031e7b497a6cf7c4cb65d5685c12649ad48013f1a22a91200b764d3378225'
+
+
 class RoboHarnessAdapter(RoboCurveResponsesAdapter):
     provider_name='roboharness'
     response_speed='standard'
@@ -57,7 +61,9 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
     def start_preparation(self,cancelled):
         """Initialize the same model transport during normal queue admission.
 
-        No images, robot state, target or command is supplied. Actual policy
+        One explicitly synthetic non-robot initialization card is supplied to
+        satisfy the existing broker protocol. No robot image/state/target or
+        command is supplied. Actual policy
         observation and command construction wait for this single initialization.
         Queue/Home clocks remain the controller's original measured clocks.
         """
@@ -69,22 +75,26 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._preparation_done=threading.Event()
         self._model_preparation=dict(state='starting',started_at=time.time(),model=self.model,
             runner_name=name,execution_mode=getattr(self,'execution_mode','interactive'),model_calls=0,
-            images=0,robot_targets=0,actuator_submissions=0)
+            images=1,robot_images=0,initialization_card_sha256=INITIALIZATION_CARD_SHA256,robot_targets=0,actuator_submissions=0)
         self._interaction('model_preparation','Initializing the planning session while normal queue admission proceeds',
             preparation=dict(self._model_preparation))
         def initialize():
             started=time.monotonic();camera_count=self._expected_camera_count;inference_started=None
             try:
                 if cancelled():raise RuntimeError('Planning session initialization cancelled')
-                payload={'model':self.model,'tools':[],'store':False,'input':[
+                payload={'model':self.model,'tools':[],'store':False,
+                    'instructions':'NON-ACTUATING TRANSPORT INITIALIZATION ONLY. The single solid-gray16x16PNG is a synthetic initialization card, not robot footage or state. Do not select a target or command movement. Return only give_up with all targets null and reason=non_actuating_session_ready.',
+                    'input':[
                     {'role':'system','content':'Initialize model transport only. Do not command robot movement.'},
-                    {'role':'user','content':'This is non-actuating session initialization, not a robot task. There are no images or robot targets. Return action=give_up with all targets null, reason=non_actuating_session_ready, and empty summary/hindsight.'}]}
+                    {'role':'user','content':[
+                        {'type':'input_text','text':'This synthetic solid-gray initialization card carries no robot observation or target. Acknowledge transport readiness only: action=give_up, all targets null, reason=non_actuating_session_ready, empty summary/hindsight.'},
+                        {'type':'input_image','image_url':'data:image/png;base64,'+INITIALIZATION_CARD_PNG_BASE64,'detail':'low'}]}]}
                 self._record('model_preparation_request',runner_name=name,
                     execution_mode=getattr(self,'execution_mode','interactive'),request=payload)
                 # The initialization acknowledgement has no robot observation.
                 # The real policy waits for completion and still requires three
                 # fresh images; restore this guard even on failure/cancellation.
-                self._expected_camera_count=0
+                self._expected_camera_count=1
                 self._model_preparation={**self._model_preparation,'model_calls':1}
                 inference_started=time.monotonic()
                 raw=self._post_json(payload)
