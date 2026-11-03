@@ -21,7 +21,7 @@ from .mujoco_ik import ROBOT_SHA256
 from .providers import PolicyComplete, ResponsesAdapter
 from .robocurve_policy import RoboCurveResponsesAdapter
 from .roboharness_contract import SCHEMA, NAMES, INSTRUCTIONS, decision_response
-from .roboharness_control import RoboHarnessControl, InputRejected
+from .roboharness_control import RoboHarnessControl, InputRejected, vector
 from .roboharness_tracking import KeypointTracker
 
 
@@ -236,5 +236,13 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
 
     def measured_step_displacement(self,start,end):
         import numpy as np
-        a=self._geometry.pose_summary(start);b=self._geometry.pose_summary(end)
-        return {arm+'_displacement_m':float(np.linalg.norm(np.array(b[arm]['position_m'])-a[arm]['position_m'])) for arm in ('left','right')}
+        # Controller path/elapsed telemetry also uses historical samples and
+        # planned waypoints. FK must not establish or mutate motion authority.
+        ik=self._geometry.ik
+        def positions(sample):
+            q=np.deg2rad(np.concatenate([vector(sample.get(arm+'_joints_deg'),6,arm+' telemetry joints') for arm in ('left','right')]))
+            if np.any(q<ik.low) or np.any(q>ik.high):raise InputRejected('Telemetry joints outside calibrated limits')
+            ik._forward(q)
+            return [position.copy() for position,_ in ik._poses()]
+        a=positions(start);b=positions(end)
+        return {arm+'_displacement_m':float(np.linalg.norm(b[i]-a[i])) for i,arm in enumerate(('left','right'))}
