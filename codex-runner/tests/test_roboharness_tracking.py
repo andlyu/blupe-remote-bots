@@ -1,9 +1,11 @@
+from pathlib import Path
 from copy import deepcopy
 import time
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 import numpy as np
+import cv2
 
 from remote_yam.roboharness_tracking import KeypointTracker
 from remote_yam.roboharness_control import InputRejected
@@ -49,6 +51,25 @@ class TrackingTests(unittest.TestCase):
             if sample.age()>2:
                 with self.assertRaises(InputRejected):t.measure()
             else:self.assertEqual(t.measure(),{});self.assertIn('No calibrated arm-base',t.errors['point_0'])
+
+    def test_actual_low_texture_block_survives_camera_codec_variation(self):
+        fixtures=Path(__file__).parent/'fixtures'
+        before=snapshot();before.rgb=cv2.cvtColor(cv2.imread(str(fixtures/'roboharness-hover003-initial.png')),cv2.COLOR_BGR2RGB)
+        after=snapshot(captured_at=101);after.rgb=cv2.cvtColor(cv2.imread(str(fixtures/'roboharness-hover003-near-rejection.png')),cv2.COLOR_BGR2RGB)
+        t=KeypointTracker();t.update(before);t.register('point_0',454,647)
+        original=t.points['point_0'].copy();t.update(after)
+        self.assertIn('point_0',t.points)
+        np.testing.assert_allclose(t.points['point_0'],original,atol=1.)
+        self.assertIn('point_0',t.measure())
+
+    def test_occluded_actual_block_is_rejected_without_reacquisition(self):
+        fixtures=Path(__file__).parent/'fixtures'
+        before=snapshot();before.rgb=cv2.cvtColor(cv2.imread(str(fixtures/'roboharness-hover003-initial.png')),cv2.COLOR_BGR2RGB)
+        after=snapshot(captured_at=101);after.rgb=before.rgb.copy();after.rgb[250:370,230:350]=0
+        t=KeypointTracker();t.update(before);t.register('point_0',454,647);t.update(after)
+        self.assertEqual(t.points,{})
+        self.assertEqual(t.measure(),{})
+        self.assertIn('point_0',t.errors)
 
     def test_invalid_point_ids_and_pixels_are_strict(self):
         t=KeypointTracker();t.update(snapshot())
