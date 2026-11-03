@@ -89,7 +89,7 @@ class PlaygroundTests(unittest.TestCase):
             query('../../other');self.assertEqual(app.json.call_args.args[1],404)
 
     def test_preflight_requires_clean_pass_and_complete_unchanged_source_inventory(self):
-        receipt=dict(status='passed',tests_run=53,dirty_source=False,
+        receipt=dict(status='passed',tests_run=57,dirty_source=False,
             source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in source_inventory()})
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'receipt.json'

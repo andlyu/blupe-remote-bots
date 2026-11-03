@@ -21,7 +21,7 @@ from roboharness_preflight import source_inventory
 def verify_release(receipt_path):
     receipt=json.loads(Path(receipt_path).read_text())
     root=Path(__file__).parent
-    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<53 or receipt.get('dirty_source') is not False:
+    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<57 or receipt.get('dirty_source') is not False:
         raise ValueError('A clean-source RoboHarness command-contract preflight is required')
     hashes=receipt.get('source_sha256',{})
     if set(hashes)!=set(source_inventory()):raise ValueError('Preflight source inventory is incomplete')
@@ -59,7 +59,7 @@ class RoboHarnessPlayground(HostedRunner):
             config=self.calibration_config[self.robot_id]
             provider=RoboHarnessAdapter(self.camera_origin,self.robot_id,report,
                 expected_calibration_id=config['calibration_id'],expected_model_calibration_id=config['model_calibration_id'],
-                model=self.underlying_model,recording_root=directory)
+                model=self.underlying_model,recording_root=directory,warm_model_session=True)
             return self.attach_model(provider)
         except (ValueError,RuntimeError,OSError,KeyError) as exc:
             raise RequestError(503,'RoboHarness is not ready: '+str(exc)) from None

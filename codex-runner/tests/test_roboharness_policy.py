@@ -119,6 +119,101 @@ class PolicyTests(unittest.TestCase):
                     self.assertTrue(packet)
                     self.assertEqual(packet[-1]['right_joints_deg'],obs['right_joints_deg'])
 
+    def test_model_observation_reacquires_depth_aged_during_feedback_once_before_inference(self):
+        from remote_yam.roboharness_tracking import StaleTrackingDepth
+        for always_stale in (False,True):
+            with self.subTest(always_stale=always_stale):
+                p,source=adapter();p._episode=tuple(self.obs[k] for k in ('episode_id','lease_id'))
+                source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(self.obs).items()}
+                original=source.capture_for_policy
+                def capture(observation,**kwargs):
+                    frames=original(observation,**kwargs)
+                    if always_stale or source.calls==1:
+                        # Actual cup-run age after processing: 2.003347 seconds.
+                        source.snapshots['top'].metadata['captured_at']-=2.003347158432007
+                    return frames
+                source.capture_for_policy=capture;p._post_json=Mock()
+                with patch('remote_yam.session.request.urlopen') as outbound:
+                    if always_stale:
+                        with self.assertRaises(StaleTrackingDepth):p._observation_message('Offline fresh model view',self.obs,0)
+                    else:
+                        message=p._observation_message('Offline fresh model view',self.obs,0)
+                        self.assertEqual(message['role'],'user')
+                    self.assertEqual(source.calls,2);p._post_json.assert_not_called();outbound.assert_not_called()
+
+    def test_queue_model_initialization_has_no_robot_targets_and_preserves_real_task_context(self):
+        p,source=adapter();p._warm_model_session=True;p.runner_name='Synthetic offline runner';p.execution_mode='offline_contract'
+        source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(self.obs).items()}
+        requests=[]
+        def model(payload):
+            requests.append(deepcopy(payload))
+            if len(requests)==1:
+                self.assertEqual(source.calls,0);p._sent_items=2
+                target={**decision(),'action':'give_up','reason':'non_actuating_session_ready'}
+            else:
+                self.assertEqual(p._sent_items,0)
+                target=decision(primitive=6,arm=1,gripper=.5)
+            return decision_response(target)
+        p._post_json=Mock(side_effect=model);p.refresh_observation=lambda:dict(self.obs)
+        with patch('remote_yam.session.request.urlopen') as outbound:
+            p.start_preparation(lambda:False);p._await_preparation()
+            p.start_preparation(lambda:False) # The same queue hook cannot initialize twice.
+            self.assertEqual(p._post_json.call_count,1);self.assertEqual(p._calls,0)
+            self.assertIsNone(p._outcome);self.assertEqual(p._history,[])
+            packet=p.build_trajectory('Actual offline task after initialization',self.obs,0)
+            self.assertTrue(packet);outbound.assert_not_called()
+        self.assertEqual(len(requests),2);self.assertEqual(p._calls,1)
+        self.assertFalse(any('input_image' in str(item) for item in requests[0]['input']))
+        self.assertIn('Actual offline task after initialization',str(requests[1]['input']))
+        config=p.public_config()['model_preparation']
+        self.assertEqual(config['state'],'ready');self.assertEqual(config['runner_name'],'Synthetic offline runner')
+        self.assertEqual(config['robot_targets'],0);self.assertEqual(config['actuator_submissions'],0)
+        self.assertEqual(packet[-1]['left_gripper'],self.obs['left_gripper'])
+
+    def test_model_initialization_and_three_image_policy_use_actual_codex_transport_parser(self):
+        import uuid
+        from remote_yam.codex_policy import use_codex_executor
+        p,source=adapter();p._warm_model_session=True;p.runner_name='Synthetic offline runner'
+        source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(self.obs).items()}
+        p.refresh_observation=lambda:dict(self.obs)
+        thread=str(uuid.uuid4());requests=[]
+        def executor(**request):
+            requests.append(request)
+            if len(requests)==1:
+                self.assertEqual(request['images'],());self.assertIsNone(request['thread_id'])
+                target={**decision(),'action':'give_up','reason':'non_actuating_session_ready'}
+            else:
+                self.assertEqual(len(request['images']),3);self.assertEqual(request['thread_id'],thread)
+                self.assertIn('Actual task through transport',request['prompt'])
+                target=decision(primitive=6,arm=1,gripper=.5)
+            return [{'type':'thread.started','thread_id':thread},
+                {'type':'item.completed','item':{'type':'agent_message','text':json.dumps(target)}},
+                {'type':'turn.completed'}]
+        use_codex_executor(p,executor);self.addCleanup(p.close_transport)
+        with patch('remote_yam.session.request.urlopen') as outbound:
+            p.start_preparation(lambda:False);p._await_preparation()
+            self.assertEqual(p._expected_camera_count,3)
+            self.assertTrue(p.build_trajectory('Actual task through transport',self.obs,0))
+            outbound.assert_not_called()
+        self.assertEqual(len(requests),2);self.assertEqual(p._calls,1)
+        self.assertIsNone(p._outcome)
+
+    def test_failed_cancelled_or_unattributed_model_initialization_never_retries_or_dispatches(self):
+        for fault in ('transport','cancelled','identity'):
+            with self.subTest(fault=fault):
+                p,source=adapter();p._warm_model_session=True
+                if fault!='identity':p.runner_name='Synthetic offline runner'
+                p._post_json=Mock(side_effect=TimeoutError('Offline synthetic model timeout'))
+                with patch('remote_yam.session.request.urlopen') as outbound:
+                    if fault=='identity':
+                        with self.assertRaisesRegex(RuntimeError,'attribution'):p.start_preparation(lambda:False)
+                    else:
+                        p.start_preparation(lambda:fault=='cancelled')
+                        with self.assertRaisesRegex(RuntimeError,'initialization failed'):p._await_preparation()
+                        p.start_preparation(lambda:False)
+                    self.assertEqual(p._post_json.call_count,1 if fault=='transport' else 0)
+                    self.assertEqual(source.calls,0);self.assertIsNone(p._pending);self.assertEqual(p._expected_camera_count,3);outbound.assert_not_called()
+
     def test_changed_tool_mount_has_no_nominal_reference_or_hidden_tcp_shift(self):
         from remote_yam.yam_gripper_reference import reference_for_model
         p,_=adapter();ik=p._geometry.ik;body=ik.body_ids[0]
