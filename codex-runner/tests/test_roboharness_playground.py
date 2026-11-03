@@ -38,6 +38,19 @@ class PlaygroundTests(unittest.TestCase):
         event=controller.status()['run_summary']['events'][-1]
         self.assertEqual(event,dict(type='lifecycle',timestamp=123.25,state='queued',reason='unit_test',position=2))
 
+    def test_queue_entry_source_time_is_retained_once_for_the_owned_session_only(self):
+        controller=RunnerController(MockSessionAPI());controller._session_id='synthetic';controller._status='queued'
+        response=dict(schema_version=SCHEMA_VERSION,type='queue_snapshot',generated_at=125,stations=[],entries=[
+            dict(position=1,session_id='synthetic',status='queued',created_at=123.25,email='synthetic@example.invalid',session_capability='synthetic-secret'),
+            dict(position=2,session_id='other',status='queued',created_at=124)])
+        controller.update_queue_snapshot(response)
+        first=controller.status()['run_summary']['events']
+        self.assertEqual(first,[dict(type='queue_entry',timestamp=123.25,state='queued',position=1,source='queue_snapshot')])
+        response['entries'][0]['created_at']=999
+        controller.update_queue_snapshot(response)
+        self.assertEqual(controller.status()['run_summary']['events'],first)
+        self.assertNotIn('synthetic-secret',json.dumps(first));self.assertNotIn('synthetic@example.invalid',json.dumps(first))
+
     def test_run_snapshot_keeps_models_runner_and_execution_mode_separate(self):
         config=dict(model='RoboHarness',provider='roboharness',underlying_models=dict(planning='gpt-6-astra',vision='gpt-6-astra',resolved=None),runner_name='Synthetic runner',execution_mode='automated_verification',email='synthetic@example.invalid',api_key='synthetic-secret')
         stored=snapshot(SimpleNamespace(public_config=lambda:config),'offline task',60)
@@ -60,7 +73,7 @@ class PlaygroundTests(unittest.TestCase):
             query('../../other');self.assertEqual(app.json.call_args.args[1],404)
 
     def test_preflight_requires_clean_pass_and_complete_unchanged_source_inventory(self):
-        receipt=dict(status='passed',tests_run=27,dirty_source=False,
+        receipt=dict(status='passed',tests_run=33,dirty_source=False,
             source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in source_inventory()})
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'receipt.json'

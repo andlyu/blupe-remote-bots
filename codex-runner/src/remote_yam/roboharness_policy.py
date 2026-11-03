@@ -15,7 +15,7 @@ import tempfile
 import time
 from types import MethodType
 
-from .api_depth_set import ApiDepthSet
+from .roboharness_cameras import RoboHarnessCameras
 from .codex_policy import CodexAdapter, codex_binary, codex_status
 from .mujoco_ik import ROBOT_SHA256
 from .providers import PolicyComplete, ResponsesAdapter
@@ -38,7 +38,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._depth_joint_offsets_rad=None
         self._verify_calibration(report,expected_calibration_id,expected_model_calibration_id)
         self.model=model;self._api_key=''
-        self._initialize_observation(camera_source or ApiDepthSet(api_origin,api_origin,robot_id=robot_id))
+        self._initialize_observation(camera_source or RoboHarnessCameras(api_origin,robot_id=robot_id))
         self._initialize_policy(recording_root)
         self._decision_schema=deepcopy(SCHEMA);self._decision_response=decision_response
         self._decision_instructions=INSTRUCTIONS;self._system_prompt=INSTRUCTIONS
@@ -106,21 +106,37 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             'calibration_id':self._bound_calibration_id,'model_calibration_id':self._model_calibration_id,
             'calibration_quality':self._calibration_warnings,
             'controller_workspace':self._geometry.profile.summary(),
-            'tracking':self.tracker.summary(),'recording_path':str(self._recorder.path) if self._recorder else None,
+            'tracking':self.tracker.summary(),'vision_roles':['top','left','right'],'depth_grounding_roles':['top'],'recording_path':str(self._recorder.path) if self._recorder else None,
             'command_contract':'roboharness_yam_v1','simulation_rollout':False,
             'prompt_sha256':hashlib.sha256(INSTRUCTIONS.encode()).hexdigest()}
 
     def _capture(self,observation):
+        started=time.monotonic()
+        self._interaction('camera_capture','Reading current overhead depth and wrist camera views')
         frames=self._capture_frames(observation)
         snapshots=getattr(self._camera_source,'snapshots',{})
-        if set(snapshots)!={'top','left','right'}:raise RuntimeError('RoboHarness requires three fresh paired RGB-D captures')
+        if 'top' not in snapshots or len(frames)!=3 or {f.name for f in frames}!={'top','left','right'}:
+            raise RuntimeError('RoboHarness requires paired overhead RGB-D and both wrist RGB views')
         if any(s.metadata.get('calibration_id')!=self._bound_calibration_id for s in snapshots.values()):
             raise RuntimeError('Camera calibration changed after model binding; stop and review')
         self.tracker.update(snapshots['top'])
+        self._interaction('camera_captured','Current robot camera views received',elapsed_s=time.monotonic()-started,overhead_depth_age_s=snapshots['top'].age())
         return {f.name:f for f in frames}
+
+    def _refresh_feedback(self,observation,first_step_id):
+        if callable(self.refresh_observation):
+            observation=self.refresh_observation()
+        if (not isinstance(observation,dict) or
+                (observation.get('episode_id'),observation.get('lease_id'))!=self._episode or
+                type(observation.get('step_id')) is not int or observation['step_id']!=first_step_id):
+            raise RuntimeError('Run/lease/cursor identity changed during camera capture')
+        return observation
 
     def _observation_message(self,prompt,observation,first_step_id):
         frames=self._capture(observation)
+        # Camera reads can outlive the 2s motor-feedback age limit. Read actual
+        # measured feedback again; never rewrite its timestamp or Home clock.
+        observation=self._refresh_feedback(observation,first_step_id)
         poses=self._geometry.pose_summary(observation)
         points=self.tracker.measure()
         content=[{'type':'input_text','text':json.dumps(dict(task=prompt,robot=self.robot_id,
@@ -129,8 +145,10 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._vision_frames=[]
         for name in ('top','left','right'):
             frame=frames[name];self._vision_frames.append(frame.summary())
+            mime='image/png' if frame.jpeg.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if frame.jpeg.startswith(b'\xff\xd8') else None
+            if mime is None:raise RuntimeError('Unsupported camera image encoding')
             content.extend([{'type':'input_text','text':f'{name} camera; overhead selection coordinates 0..1000'},
-                {'type':'input_image','image_url':'data:image/png;base64,'+base64.b64encode(frame.jpeg).decode(),'detail':'high'}])
+                {'type':'input_image','image_url':'data:'+mime+';base64,'+base64.b64encode(frame.jpeg).decode(),'detail':'high'}])
         return {'role':'user','content':content}
 
     def build_trajectory(self,prompt,observation,first_step_id):
@@ -168,16 +186,15 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             try:
                 registration=args.pop('register',None)
                 if registration is not None:self.tracker.register(args['point_ids'][0],**registration)
-                if callable(self.refresh_observation):observation=self.refresh_observation()
+                observation=self._refresh_feedback(observation,first_step_id)
                 self._capture(observation)
+                observation=self._refresh_feedback(observation,first_step_id)
                 if name=='track_object':
                     result={'ok':True,'tracking':self.tracker.summary(),'points':self.tracker.measure()}
                     self._tool_result(call['call_id'],result)
-                    if callable(self.refresh_observation):observation=self.refresh_observation()
                     continue
-                # Reconcile fresh feedback/images after inference. Track image
-                # points into the new frames before resolving any robot target.
-                if callable(self.refresh_observation):observation=self.refresh_observation()
+                # Resolve only newly tracked pixels and measured post-capture
+                # feedback under the same lease/cursor; never retime a sample.
                 if self.steering.pending():
                     self._tool_result(call['call_id'],{'ok':False,'error':'New run-owner guidance superseded this unsent decision'})
                     continue
@@ -191,7 +208,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                 self._tool_result(call['call_id'],{'ok':False,'stage':'local_validation','error':str(exc),'steps':0,'dispatched':False})
                 self._failures+=1
                 if self._failures>=3:raise RuntimeError('Three local input rejections; stop and review') from exc
-                if callable(self.refresh_observation):observation=self.refresh_observation()
+                observation=self._refresh_feedback(observation,first_step_id)
         raise RuntimeError('RoboHarness model call budget exhausted')
 
     def trajectory_failed(self,*args,**kwargs):

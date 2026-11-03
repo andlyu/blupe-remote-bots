@@ -1,0 +1,43 @@
+{
+  "source_run": "ep_d758914999e442e6",
+  "runner_name": "Andrew",
+  "model": "RoboHarness",
+  "execution_mode": "offline_regression_from_failed_run",
+  "checked_at": 1793732673.318688,
+  "camera_acquisition_s": 3.598,
+  "observation": {
+    "source": "hardware",
+    "robot_id": "robot-ba8413962083809c",
+    "jetson_id": "robot-ba8413962083809c",
+    "episode_id": "ep_offline",
+    "lease_id": "lease_offline",
+    "step_id": 0,
+    "observed_at": 1793732672.6810071,
+    "homed": true,
+    "settled": true,
+    "mode": "API_ACTIVE",
+    "safety": {
+      "ok": true,
+      "estop_engaged": false
+    },
+    "left_joints_deg": [
+      -1.322344800694642,
+      45.58264598097707,
+      35.37545553594403,
+      -21.474442424507203,
+      -0.7103505127697548,
+      -0.5136380630798161
+    ],
+    "right_joints_deg": [
+      -1.322344800694642,
+      45.45150434785031,
+      35.572167985634174,
+      -21.605584057634168,
+      -1.1693462287136238,
+      -0.6010658184976571
+    ],
+    "left_gripper": 0.999351351351352,
+    "right_gripper": 0.9992794869947409
+  },
+  "privacy": "Actual public hardware feedback; offline session/lease identifiers are synthetic. No email, credentials or capability."
+}
