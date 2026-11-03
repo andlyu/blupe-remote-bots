@@ -85,6 +85,7 @@ class PublicRunSource:
                 video_status='ready', video_sha256=digest, video_duration_s=duration,
                 camera_order=cameras, compressed=True, preview_speed=speed,
                 video_layout=info.get('layout'), original_available=meta.get('original_available') is True,
+                capture_source=meta.get('capture_source'), capture_partial=meta.get('capture_partial') is True,
                 original_video_url=f'https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/videos/{eid}.mp4')
         except (OSError, ValueError, KeyError, TypeError):
             return None

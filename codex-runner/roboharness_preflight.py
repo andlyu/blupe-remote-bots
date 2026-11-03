@@ -4,6 +4,7 @@ import hashlib
 import importlib.metadata
 import io
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -37,10 +38,11 @@ def main():
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]='not installed under this distribution name'
     sources=source_inventory()
-    status='passed' if result.wasSuccessful() and result.testsRun>=35 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=35 else 'failed'
+    status='passed' if result.wasSuccessful() and result.testsRun>=41 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=41 else 'failed'
     receipt=dict(status=status,scope='offline command contract; no physical execution',started_at=started,
         duration_s=time.perf_counter()-tick,source_revision=revision,dirty_source=dirty,tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),dependencies=versions,
+        external_programs={'ffmpeg':subprocess.check_output([shutil.which('ffmpeg'),'-version'],text=True).splitlines()[0]} if shutil.which('ffmpeg') else {},
         source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in sources},
         command='PYTHONPATH=codex-runner/src:codex-runner python codex-runner/roboharness_preflight.py --output <receipt.json>',
         output=output.getvalue(),robot_sessions=0,actuator_submissions=0)
