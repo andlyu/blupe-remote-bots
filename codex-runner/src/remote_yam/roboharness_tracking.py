@@ -35,9 +35,11 @@ class KeypointTracker:
                 raise InputRejected('Tracking calibration/sensor changed; start a new run')
         gray=cv2.cvtColor(snapshot.rgb,cv2.COLOR_RGB2GRAY)
         if self._gray is not None and self.points and snapshot.metadata['captured_at']!=self.snapshot.metadata['captured_at']:
+            # Include the boundary of a flat block instead of relying on its
+            # untextured center. Keep both flow directions and the 1.5px gate.
             names=list(self.points);before=np.array([self.points[k] for k in names],dtype=np.float32).reshape(-1,1,2)
-            after,status,_=cv2.calcOpticalFlowPyrLK(self._gray,gray,before,None,winSize=(21,21),maxLevel=3)
-            back,back_status,_=cv2.calcOpticalFlowPyrLK(gray,self._gray,after,None,winSize=(21,21),maxLevel=3) if after is not None else (None,None,None)
+            after,status,_=cv2.calcOpticalFlowPyrLK(self._gray,gray,before,None,winSize=(41,41),maxLevel=3)
+            back,back_status,_=cv2.calcOpticalFlowPyrLK(gray,self._gray,after,None,winSize=(41,41),maxLevel=3) if after is not None else (None,None,None)
             for i,name in enumerate(names):
                 valid=(after is not None and back is not None and bool(status[i,0]) and bool(back_status[i,0])
                     and np.isfinite(after[i]).all() and np.linalg.norm(back[i]-before[i])<=1.5)

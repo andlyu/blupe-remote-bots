@@ -1,0 +1,13 @@
+{
+  "episode_id": "ep_50f5ac7aad85417a",
+  "selected_normalized_pixel": [
+    454,
+    647
+  ],
+  "initial_source": "Exact top PNG supplied to model call 1",
+  "later_source": "Actual public top-camera replay, decoded 14.48 s frame, 640x480 camera area only",
+  "later_source_captured_at": 1793738870.9782894,
+  "later_received_at": 1793738871.1079614,
+  "video_sha256": "70d18146bbfaf155c911e0471e0bfba5f3d413352c87fa7191ec6a53d0d78106",
+  "limitation": "The exact RGB-D frame at the local rejection was not retained. This regression reproduces low-texture flow instability with nearby actual camera footage after JPEG/H264 compression; it is not that exact rejected input, depth validation or a physical task success."
+}

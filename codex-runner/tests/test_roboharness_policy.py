@@ -3,6 +3,7 @@ import io
 import json
 from pathlib import Path
 import time
+import tempfile
 import unittest
 from unittest.mock import patch,Mock
 
@@ -54,6 +55,23 @@ class PolicyTests(unittest.TestCase):
         p,_=adapter();cfg=p.public_config()
         self.assertEqual(cfg['model'],'RoboHarness');self.assertEqual(cfg['underlying_models']['planning'],'gpt-6-astra')
         self.assertIsNone(cfg['underlying_models']['resolved']);self.assertFalse(cfg['api_key_configured'])
+
+    def test_every_tracking_capture_retains_exact_image_and_source_clock(self):
+        from remote_yam.robocurve_policy import CallRecorder
+        with tempfile.TemporaryDirectory() as directory:
+            p,source=adapter();p._recorder=CallRecorder(directory)
+            p._capture(self.obs);p.tracker.register('point_0',500,500);p._capture(self.obs)
+            rows=[json.loads(line) for line in (p._recorder.path/'calls.jsonl').read_text().splitlines()]
+            self.assertEqual([r['kind'] for r in rows],['tracking_frame','tracking_frame'])
+            for row in rows:
+                self.assertEqual(row['camera'],'top')
+                self.assertEqual(row['calibration_id'],REPORT['calibration_id'])
+                self.assertIn('captured_at',row)
+                digest=row['image_url'].split('$blob:')[1]
+                raw=(p._recorder.path/'blobs'/digest).read_bytes()
+                self.assertEqual(raw,source.snapshots['top'].image())
+            self.assertIn('point_0',rows[1]['tracking_before']['pixels'])
+            self.assertEqual(rows[1]['tracking_after']['captured_at'],source.snapshots['top'].metadata['captured_at'])
 
     def test_calibration_changes_native_double_offsets_and_optical_scope_reject(self):
         for change in ({'calibration_id':'changed'},{'robot_id':'other'},{'measurement_scope':'camera_optical_only'}):

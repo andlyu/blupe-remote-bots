@@ -18,7 +18,7 @@ SOURCES=['roboharness_playground.py','roboharness_preflight.py','playground.py',
 
 def source_inventory():
     return SOURCES+[str(p.relative_to(ROOT)) for pattern in
-        ('src/remote_yam/*.py','config/controller-workspaces/*.json','tests/test_roboharness_*.py','tests/fixtures/roboharness-*.json')
+        ('src/remote_yam/*.py','config/controller-workspaces/*.json','tests/test_roboharness_*.py','tests/fixtures/roboharness-*.json','tests/fixtures/roboharness-*.png')
         for p in sorted(ROOT.glob(pattern))]
 
 
@@ -38,7 +38,7 @@ def main():
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]='not installed under this distribution name'
     sources=source_inventory()
-    status='passed' if result.wasSuccessful() and result.testsRun>=41 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=41 else 'failed'
+    status='passed' if result.wasSuccessful() and result.testsRun>=44 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=44 else 'failed'
     receipt=dict(status=status,scope='offline command contract; no physical execution',started_at=started,
         duration_s=time.perf_counter()-tick,source_revision=revision,dirty_source=dirty,tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),dependencies=versions,

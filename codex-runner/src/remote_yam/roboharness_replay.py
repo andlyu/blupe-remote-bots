@@ -153,10 +153,10 @@ class PublicCameraReplay:
             rows.append('duration ' + str(duration))
         rows.append("file '" + frames[-1]['file'] + "'")
         (work / 'frames.ffconcat').write_text('\n'.join(rows) + '\n')
-        subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', '1',
+        subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', '1',
             '-i', 'frames.ffconcat', '-fps_mode', 'vfr', '-c:v', 'libx264', '-threads', '1',
             '-preset', 'fast', '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', 'clip.mp4'],
-            cwd=work, check=True, timeout=30, capture_output=True)
+            cwd=work, check=True, timeout=30, capture_output=True, stdin=subprocess.DEVNULL)
         data = (work / 'clip.mp4').read_bytes()
         if not 0 < len(data) <= MAX_VIDEO_BYTES:
             raise ValueError('Encoded replay exceeds public media limit')

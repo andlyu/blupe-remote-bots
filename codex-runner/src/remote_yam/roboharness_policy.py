@@ -119,7 +119,15 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             raise RuntimeError('RoboHarness requires paired overhead RGB-D and both wrist RGB views')
         if any(s.metadata.get('calibration_id')!=self._bound_calibration_id for s in snapshots.values()):
             raise RuntimeError('Camera calibration changed after model binding; stop and review')
+        tracking_before=self.tracker.summary()
         self.tracker.update(snapshots['top'])
+        if self._recorder is not None:
+            top=next(frame for frame in frames if frame.name=='top')
+            snapshot=snapshots['top']
+            self._record('tracking_frame',camera='top',captured_at=snapshot.metadata['captured_at'],
+                calibration_id=snapshot.metadata['calibration_id'],sensor_serial=snapshot.metadata['sensor_serial'],
+                image_url='data:image/png;base64,'+base64.b64encode(top.jpeg).decode(),
+                tracking_before=tracking_before,tracking_after=self.tracker.summary())
         self._interaction('camera_captured','Current robot camera views received',elapsed_s=time.monotonic()-started,overhead_depth_age_s=snapshots['top'].age())
         return {f.name:f for f in frames}
 
