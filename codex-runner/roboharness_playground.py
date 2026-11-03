@@ -3,9 +3,13 @@
 Hosting owns the subscription executor and its existing IPC access; this shared
 runner never reads or moves provider credentials.
 """
+from contextlib import closing
 import hashlib
 import json
+import re
+import sqlite3
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from playground import HostedRunner,RequestError
 from remote_yam.api_depth import ApiDepth
@@ -16,7 +20,7 @@ from roboharness_preflight import source_inventory
 def verify_release(receipt_path):
     receipt=json.loads(Path(receipt_path).read_text())
     root=Path(__file__).parent
-    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<21 or receipt.get('dirty_source') is not False:
+    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<27 or receipt.get('dirty_source') is not False:
         raise ValueError('A clean-source RoboHarness command-contract preflight is required')
     hashes=receipt.get('source_sha256',{})
     if set(hashes)!=set(source_inventory()):raise ValueError('Preflight source inventory is incomplete')
@@ -77,6 +81,23 @@ class RoboHarnessPlayground(HostedRunner):
             'help':'Visual keypoints, optical-flow tracking, calibrated depth and geometric tools. Run uses the normal BluPe queue; Stop cancels the run.'}}},headers
 
     async def public_extension(self,scope,receive,send,headers):
+        if scope['method']=='GET' and scope['path']=='/api/roboharness/run-config':
+            episode=parse_qs(scope.get('query_string',b'').decode()).get('episode_id',[''])[0]
+            result=None
+            if re.fullmatch(r'ep_[A-Za-z0-9_-]{1,100}',episode) and self.run_names.path.exists():
+                try:
+                    with closing(sqlite3.connect(self.run_names.path)) as db:
+                        row=db.execute('SELECT c.configuration FROM run_configuration c JOIN run_metadata m USING(episode_id) WHERE episode_id=? AND m.robot_id=?',(episode,self.robot_id)).fetchone()
+                    if row:
+                        config=json.loads(row[0])
+                        if config.get('model')=='RoboHarness':
+                            keys=('model','provider','underlying_models','runner_name','execution_mode','reasoning',
+                                  'code_revision','duration_s','calibration_id','model_calibration_id','prompt_sha256')
+                            result={'episode_id':episode,'robot_id':self.robot_id,
+                                    'configuration':{k:config[k] for k in keys if k in config}}
+                except (sqlite3.Error,ValueError):pass
+            await self.json(send,200 if result else 404,result or {'error':'No RoboHarness configuration is recorded for this episode and station.'})
+            return True
         if scope['method']=='GET' and scope['path']=='/api/roboharness/readiness':
             try:
                 receipt=verify_release(self.preflight_receipt);status=self.model_status()

@@ -15,7 +15,7 @@ SOURCES=['src/remote_yam/roboharness_control.py','src/remote_yam/roboharness_con
     'src/remote_yam/roboharness_tracking.py','src/remote_yam/roboharness_policy.py',
     'src/remote_yam/session.py','src/remote_yam/mujoco_ik.py','src/remote_yam/controller_workspace.py',
     'src/remote_yam/api_depth.py','src/remote_yam/api_depth_set.py','roboharness_playground.py',
-    'src/remote_yam/controller.py','roboharness_preflight.py','requirements-roboharness.txt',
+    'src/remote_yam/controller.py','src/remote_yam/run_changes.py','roboharness_preflight.py','requirements-roboharness.txt',
     'models/yam_bimanual/scene.xml','models/yam_bimanual/yam_bimanual.xml']
 
 
@@ -41,7 +41,7 @@ def main():
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]='not installed under this distribution name'
     sources=source_inventory()
-    status='passed' if result.wasSuccessful() and result.testsRun>=21 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=21 else 'failed'
+    status='passed' if result.wasSuccessful() and result.testsRun>=27 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=27 else 'failed'
     receipt=dict(status=status,scope='offline command contract; no physical execution',started_at=started,
         duration_s=time.perf_counter()-tick,source_revision=revision,dirty_source=dirty,tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),dependencies=versions,

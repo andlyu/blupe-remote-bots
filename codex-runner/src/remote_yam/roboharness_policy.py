@@ -101,6 +101,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             'underlying_models':{'planning':self.model,'vision':self.model,'resolved':self._resolved_model,
                                  'reasoning_effort':self.reasoning_effort},
             'runner_name':getattr(self,'runner_name',None),'execution_mode':getattr(self,'execution_mode','interactive'),
+            'reasoning_effort':self.reasoning_effort,
             'api_key_configured':False,'model_calls':self._calls,'note':self._note,'outcome':self._outcome,
             'calibration_id':self._bound_calibration_id,'model_calibration_id':self._model_calibration_id,
             'calibration_quality':self._calibration_warnings,

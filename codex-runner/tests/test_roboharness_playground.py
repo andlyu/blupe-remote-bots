@@ -1,11 +1,13 @@
 """Admission and release gates use the production wrapper without robot traffic."""
+import asyncio
 import hashlib
 import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,AsyncMock
+from types import SimpleNamespace
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from playground import RequestError
@@ -13,6 +15,8 @@ from roboharness_playground import RoboHarnessPlayground,verify_release
 from roboharness_preflight import ROOT,source_inventory
 from remote_yam.controller import RunnerController
 from remote_yam.session import MockSessionAPI,SCHEMA_VERSION
+from remote_yam.run_changes import snapshot
+from remote_yam.past_runs import RunNames
 
 
 class PlaygroundTests(unittest.TestCase):
@@ -34,8 +38,29 @@ class PlaygroundTests(unittest.TestCase):
         event=controller.status()['run_summary']['events'][-1]
         self.assertEqual(event,dict(type='lifecycle',timestamp=123.25,state='queued',reason='unit_test',position=2))
 
+    def test_run_snapshot_keeps_models_runner_and_execution_mode_separate(self):
+        config=dict(model='RoboHarness',provider='roboharness',underlying_models=dict(planning='gpt-6-astra',vision='gpt-6-astra',resolved=None),runner_name='Synthetic runner',execution_mode='automated_verification',email='synthetic@example.invalid',api_key='synthetic-secret')
+        stored=snapshot(SimpleNamespace(public_config=lambda:config),'offline task',60)
+        self.assertEqual(stored['underlying_models'],config['underlying_models'])
+        self.assertEqual(stored['runner_name'],'Synthetic runner')
+        self.assertEqual(stored['execution_mode'],'automated_verification')
+        self.assertNotIn('synthetic@example.invalid',json.dumps(stored));self.assertNotIn('synthetic-secret',json.dumps(stored))
+
+    def test_public_episode_config_filters_station_approach_and_private_fields(self):
+        with tempfile.TemporaryDirectory() as d:
+            names=RunNames(Path(d)/'runs.sqlite3')
+            names.remember_metadata('ep_synthetic','yam-1','offline task',123,dict(model='RoboHarness',runner_name='Synthetic runner',underlying_models={'planning':'gpt-6-astra','resolved':None},email='synthetic@example.invalid',session_capability='synthetic-secret'))
+            app=object.__new__(RoboHarnessPlayground);app.run_names=names;app.robot_id='yam-1';app.json=AsyncMock()
+            def query(episode):
+                return asyncio.run(app.public_extension(dict(method='GET',path='/api/roboharness/run-config',query_string=('episode_id='+episode).encode()),None,None,{}))
+            self.assertTrue(query('ep_synthetic'));body=app.json.call_args.args[2]
+            self.assertEqual(body['configuration']['underlying_models']['planning'],'gpt-6-astra')
+            self.assertNotIn('synthetic@example.invalid',json.dumps(body));self.assertNotIn('synthetic-secret',json.dumps(body))
+            app.robot_id='robot-ba8413962083809c';query('ep_synthetic');self.assertEqual(app.json.call_args.args[1],404)
+            query('../../other');self.assertEqual(app.json.call_args.args[1],404)
+
     def test_preflight_requires_clean_pass_and_complete_unchanged_source_inventory(self):
-        receipt=dict(status='passed',tests_run=21,dirty_source=False,
+        receipt=dict(status='passed',tests_run=27,dirty_source=False,
             source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in source_inventory()})
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'receipt.json'

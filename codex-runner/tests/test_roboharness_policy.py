@@ -80,6 +80,23 @@ class PolicyTests(unittest.TestCase):
                 final={**self.obs,**packet[-1],'step_id':packet[-1]['step_id']+1,'observed_at':time.time()}
                 p.trajectory_completed(final,len(packet));self.assertIsNone(p._pending)
 
+    def test_yam1_native_calibration_has_no_second_offset_and_both_grippers_validate(self):
+        report=json.loads((Path(__file__).parent/'fixtures/roboharness-yam1-calibration.json').read_text())
+        p=RoboHarnessAdapter(API,'yam-1',report,expected_calibration_id=report['calibration_id'],expected_model_calibration_id=report['native_joint_calibration']['calibration_id'])
+        self.assertIsNone(p._depth_joint_offsets_rad)
+        obs={**observation(),'robot_id':'yam-1'}
+        for arm in ('left','right'):
+            for target in (0,1,.37):
+                packet=p._geometry.build(dict(kind='gripper',arm=arm,value=target),obs,0)
+                api=HttpSessionAPI('https://offline.invalid',supports_trajectories=True,robot_id='yam-1')
+                api._session_capabilities['offline']='synthetic';sent=[]
+                def wire(req,**kwargs):sent.append(json.loads(req.data));return io.BytesIO(b'{"accepted":true}')
+                with patch('remote_yam.session.request.urlopen',side_effect=wire):api.submit_trajectory('offline','ep_offline','lease_offline','traj_offline',10,packet)
+                self.assertEqual(sent[0]['waypoints'][-1][arm+'_gripper'],target)
+        changed=deepcopy(report);changed['native_joint_calibration']['additional_offsets_rad']['left'][0]=.1
+        with self.assertRaisesRegex(ValueError,'twice'):
+            RoboHarnessAdapter(API,'yam-1',changed,expected_calibration_id=report['calibration_id'],expected_model_calibration_id=report['native_joint_calibration']['calibration_id'])
+
     def test_timeout_requires_stop_without_model_or_packet_retry(self):
         p,_=adapter()
         with patch.object(p,'_post_json') as model,patch('remote_yam.session.request.urlopen') as wire:
