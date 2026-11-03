@@ -42,26 +42,7 @@ MAX_TRACKING_OFFSET_M = .008  # Existing per-axis matched-feedback correction ca
 JAW_OPENING_AXIS = 1  # Physical linear_4310 jaw travel is tool-Y, not proxy-X.
 # Extracted from the hash-verified installed reference, not the simplified
 # canonical model's visual finger boxes. No runtime mesh/vision dependency.
-YAM1_TOOL_REFERENCE = dict(
-    available=True,model='linear_4310',station='yam-1',frame='same tool frame as move_to rotation',
-    jaw_opening_axis='Y',approach_axis='Z',physical_contact_calibration_measured=False,
-    source_xml_sha256='1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652',
-    tip_mesh_sha256=['03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7',
-                    '8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f'],
-    closed_nominal_gap_m=-.001,opening_travel_m=.095,per_jaw_travel_m=.0475,
-    pad_opening_signs=[1,-1],pad_center_z_m=.0016706879354441567,
-    pad_opening_axes_tool=[[-3.999999999948489e-6,.9999999999920002,7.99987853739026e-12],
-                           [0.,-.9999999999910001,-4.242642374197025e-6]],
-    max_tip_z_m=.010020504348689839,
-    closed_pad_bounds_tool_m=[
-        [[-.012440560852250203,-.0005197222644821231,-.006358460493411655],
-         [.012629385470384388,-.0005038660947302822,.009498190908815318]],
-        [[-.01263007267358724,.0005164451832254027,-.005955405143516168],
-         [.012450771308468573,.0005194518015411266,.009498426469889132]]],
-    scope='Nominal installed-reference CAD, not measured current gap/contact/force or a collision certificate. '
-          'Fixed native grasp origin is retained; distal tip extends about10mm along tool+Z. '
-          'max_tip_z includes the reference1micrometre arithmetic guard. '
-          'Do not substitute upstream changed attachment/TCP or infer geometry from visual proxies.')
+from .yam_gripper_reference import YAM1_TOOL_REFERENCE
 
 
 def _tracking_offset(history, axes):

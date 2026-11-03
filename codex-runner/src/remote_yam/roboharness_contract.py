@@ -24,7 +24,7 @@ in OVERHEAD. u/v are normalized 0..1000 from left/top; 1000 is the last pixel.
 Keep every unused target field null. arm=0 means left; arm=1 means right.
 For action=move_to, primitive selects ONE tool:
 1 track_object: point_a=integer 0..15 and u,v. Registers or replaces one image point.
-2 touch: arm, point_a, x,y,z. Move gripper center to that tracked scene point plus
+2 touch: arm, point_a, x,y,z. Move the fixed native grasp origin to that tracked scene point plus
   explicit arm-base offset [x,y,z] metres; orientation stays unchanged. If u,v
   are also provided, select/update point_a in this image before resolving touch.
 3 align_line: arm, point_a,point_b,axis. Align intrinsic gripper axis (0=x,1=y,2=z)
@@ -39,7 +39,19 @@ These are geometric tools; move_to is only the decision envelope, not proof of
 motion. A measured surface point is NOT a safe grasp pose: account for gripper
 approach direction, object dimensions, finger clearance and surface clearance.
 Review all camera views, measured poses and tracking/depth warnings. The pose
-rotation matrix gives the actual gripper-frame axes in the selected arm base.
+rotation matrix gives the actual fixed grasp-frame axes in the selected arm base:
+tool+Z is finger approach, tool-Y is jaw opening. The target is the native
+installed grasp_site, not the palm/camera or exact distal fingertip ends. Do not
+shift this API/calibration origin. tool_geometry_reference and nominal_tool_pose
+provide nominal installed-reference CAD bounds and pad positions; distal tips
+extend about 10 mm along tool+Z beyond the origin. These are reference geometry,
+not measured contact/force or a live calibration/collision certificate. For a
+local reference point v, base position is grasp_position + R@v. Before closing,
+check pad-side overlap and complete finger/body clearance against fresh object
+and support measurements, including calibration uncertainty; closing above an
+object is an empty grasp. Jaw gap is only nominal, not force or verified contact.
+Keep scene features visible; a safe measured-pose inspection/retreat may restore
+visibility before re-grounding lost points. Never guess occluded object geometry.
 Stay inside existing YAM workspace/limits; unsupported mobile-base/torso actions
 are unavailable. Plan short, useful bounded task motion promptly after Home.
 Observe after every motion. Verify grasp retention, lift, transfer, release and

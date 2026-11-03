@@ -73,6 +73,54 @@ class PolicyTests(unittest.TestCase):
             self.assertIn('point_0',rows[1]['tracking_before']['pixels'])
             self.assertEqual(rows[1]['tracking_after']['captured_at'],source.snapshots['top'].metadata['captured_at'])
 
+    def test_planner_receives_station_bound_nominal_tip_geometry_and_actual_axes(self):
+        p,source=adapter();source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(self.obs).items()}
+        p._episode=tuple(self.obs[k] for k in ('episode_id','lease_id'))
+        message=p._observation_message('Offline gripper geometry context',self.obs,0)
+        context=json.loads(message['content'][0]['text'])
+        ref=context['tool_geometry_reference']
+        self.assertTrue(ref['available']);self.assertFalse(ref['physical_contact_calibration_measured'])
+        self.assertEqual(ref['jaw_opening_axis'],'Y');self.assertEqual(ref['approach_axis'],'Z')
+        self.assertGreater(ref['max_tip_z_m'],.010)
+        self.assertTrue(context['nominal_tool_pose']['available'])
+        for arm in ('left','right'):
+            pose=context['poses'][arm];tool=context['nominal_tool_pose']['arms'][arm]
+            np.testing.assert_allclose(tool['approach_axis_base'],np.array(pose['rotation_matrix'])[:,2])
+            np.testing.assert_allclose(tool['opening_axis_base'],np.array(pose['rotation_matrix'])[:,1])
+            self.assertIn('whole_tool_bounds_base_m',tool)
+
+    def test_stale_acquisition_reacquires_only_needed_depth_without_another_model_call(self):
+        for primitive in (2,5,6):
+            with self.subTest(primitive=primitive):
+                clock=[1000.]
+                with patch('time.time',side_effect=lambda:clock[0]):
+                    p,source=adapter();p._geometry.clock=lambda:clock[0]
+                    obs={**self.obs,'observed_at':clock[0]}
+                    source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(obs).items()}
+                    capture=source.capture_for_policy
+                    def delayed_capture(observation,**kwargs):
+                        frames=capture(observation,**kwargs)
+                        if source.calls==2:source.snapshots['top'].metadata['captured_at']-=2.1
+                        return frames
+                    source.capture_for_policy=delayed_capture
+                    p.refresh_observation=lambda:{**obs,'observed_at':clock[0]}
+                    target=decision(primitive=2,arm=0,point_a=0,u=500,v=500,x=0,y=0,z=.005) if primitive==2 else decision(primitive=5,arm=0,x=0,y=0,z=.005,rx=0,ry=0,rz=0) if primitive==5 else decision(primitive=6,arm=0,gripper=0)
+                    def model(payload):clock[0]+=3;return decision_response(target)
+                    p._post_json=Mock(side_effect=model)
+                    packet=p.build_trajectory('Offline stale acquisition',obs,0)
+                    self.assertEqual(p._post_json.call_count,1)
+                    self.assertEqual(source.calls,3 if primitive==2 else 2)
+                    self.assertTrue(packet)
+                    self.assertEqual(packet[-1]['right_joints_deg'],obs['right_joints_deg'])
+
+    def test_changed_tool_mount_has_no_nominal_reference_or_hidden_tcp_shift(self):
+        from remote_yam.yam_gripper_reference import reference_for_model
+        p,_=adapter();ik=p._geometry.ik;body=ik.body_ids[0]
+        original=ik.model.body_pos[body].copy();ik.model.body_pos[body,2]-=.001
+        self.assertFalse(reference_for_model(ik,p.robot_id)['available'])
+        np.testing.assert_allclose(ik.model.body_pos[body],original+[0,0,-.001])
+        self.assertFalse(reference_for_model(ik,'another-robot')['available'])
+
     def test_calibration_changes_native_double_offsets_and_optical_scope_reject(self):
         for change in ({'calibration_id':'changed'},{'robot_id':'other'},{'measurement_scope':'camera_optical_only'}):
             r={**deepcopy(REPORT),**change}

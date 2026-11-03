@@ -1,5 +1,6 @@
 """Synthetic offline video artifacts; no hardware footage or motor/model requests."""
 import io
+import fcntl
 import asyncio
 import json
 from pathlib import Path
@@ -101,9 +102,58 @@ class ReplayTests(unittest.TestCase):
 
     def test_encoder_failure_publishes_no_media_and_fixed_inline_diagnostic(self):
         failure=subprocess.CalledProcessError(1,['ffmpeg'],stderr=b'private diagnostic must not be exposed')
-        with patch('remote_yam.roboharness_replay.subprocess.run',side_effect=failure):self.follow()
+        with patch('remote_yam.roboharness_replay.StreamingCameraEncoder.finish',side_effect=failure):self.follow()
         self.assertFalse(list(self.publisher.root.rglob('*.mp4')));self.assertFalse(list(self.publisher.root.glob('ep_*.json')))
         events=self.controller._interactions.add.call_args_list
         self.assertTrue(any(e.args[0]=='replay_failed' for e in events));self.assertNotIn('private diagnostic',str(events))
+        # Failed video preparation must retain the actual capture for recovery.
+        self.assertTrue(list(self.publisher.root.rglob('*.jpg')))
+        self.assertTrue(list(self.publisher.root.glob('.pending-*/*.json')))
+
+
+    def test_long_clip_is_encoded_during_capture_with_actual_wall_clock_duration(self):
+        import remote_yam.roboharness_replay as module
+        original=module.StreamingCameraEncoder;writes=[]
+        class ObservedEncoder(original):
+            def write(encoder,data):writes.append(self.clock[0]);return super().write(data)
+        def long_status():
+            t=self.clock[0]-1000
+            return dict(attempt_id='offline_attempt',status='queued' if t<.3 else 'preparing' if t<.6 else 'running' if t<33.6 else 'completed',episode_id=EPISODE if t>=.6 else None,run_started_at=1000.6)
+        self.controller.status.side_effect=long_status
+        with patch.object(module,'StreamingCameraEncoder',ObservedEncoder):self.follow()
+        meta=json.loads((self.publisher.root/(EPISODE+'.json')).read_text())
+        self.assertGreater(len(writes),60);self.assertLess(writes[0],1001.)
+        self.assertEqual(meta['preview']['encoder_mode'],'streaming')
+        video=self.publisher.root/EPISODE/(meta['preview']['sha256']+'.mp4')
+        actual=float(json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','json',str(video)],text=True))['format']['duration'])
+        self.assertGreater(actual,30);self.assertAlmostEqual(actual,meta['preview']['duration_s'],places=2)
+        self.assertTrue(all(0<=f['video_at']-f['source_captured_at']<=2 for f in meta['frames'] if f['actual_image']))
+        self.assertFalse(list(self.publisher.root.glob('.pending-*')))
+
+    def test_failed_finalize_retains_frames_and_recovery_never_reads_camera(self):
+        with patch('remote_yam.roboharness_replay.StreamingCameraEncoder.finish',side_effect=subprocess.TimeoutExpired(['ffmpeg'],30)):
+            self.follow()
+        pending=list(self.publisher.root.glob('.pending-*'));self.assertEqual(len(pending),1)
+        job=json.loads((pending[0]/'capture.json').read_text());self.assertEqual(job['capture_status'],'finished')
+        self.assertEqual(job['preparation_status'],'retained_for_recovery')
+        self.publisher.source.fetch.reset_mock()
+        self.assertEqual(self.publisher.recover_pending(),[EPISODE]);self.publisher.source.fetch.assert_not_called()
+        meta=json.loads((self.publisher.root/(EPISODE+'.json')).read_text())
+        self.assertEqual(meta['preview']['encoder_mode'],'recovered_batch')
+        self.assertFalse(meta['capture_partial']);self.assertFalse(pending[0].exists())
+
+    def test_active_or_out_of_scope_recovery_manifest_is_not_consumed(self):
+        self.publisher.root.mkdir(parents=True)
+        work=self.publisher.root/'.pending-offline';work.mkdir()
+        job=dict(episode_id=EPISODE,robot_id=ROBOT,model='RoboHarness',frames=[dict(file='000000.jpg',received_at=1000,actual_image=True,source_captured_at=1000)],capture_status='finished')
+        (work/'capture.json').write_text(json.dumps(job))
+        with (work/'.encode-lock').open('a+b') as lock,patch.object(self.publisher,'publish') as publish:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self.assertEqual(self.publisher.recover_pending(),[]);publish.assert_not_called()
+        for change in (dict(robot_id='another-robot'),dict(model='another-method'),dict(frames=[dict(file='../outside.jpg')])):
+            (work/'capture.json').write_text(json.dumps({**job,**change}))
+            with patch.object(self.publisher,'publish') as publish:
+                self.assertEqual(self.publisher.recover_pending(),[]);publish.assert_not_called()
+        self.publisher.source.fetch.assert_not_called()
 
 if __name__=='__main__':unittest.main()

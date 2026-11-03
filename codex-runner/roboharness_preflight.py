@@ -13,7 +13,7 @@ import unittest
 
 ROOT=Path(__file__).resolve().parent
 SOURCES=['roboharness_playground.py','roboharness_preflight.py','playground.py','multi_robot.py',
-    'requirements-roboharness.txt','models/yam_bimanual/scene.xml','models/yam_bimanual/yam_bimanual.xml']
+    'requirements-roboharness.txt','config/roboharness-linear4310-reference.json','models/yam_bimanual/scene.xml','models/yam_bimanual/yam_bimanual.xml']
 
 
 def source_inventory():
@@ -38,7 +38,7 @@ def main():
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]='not installed under this distribution name'
     sources=source_inventory()
-    status='passed' if result.wasSuccessful() and result.testsRun>=47 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=47 else 'failed'
+    status='passed' if result.wasSuccessful() and result.testsRun>=53 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=53 else 'failed'
     receipt=dict(status=status,scope='offline command contract; no physical execution',started_at=started,
         duration_s=time.perf_counter()-tick,source_revision=revision,dirty_source=dirty,tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),dependencies=versions,
