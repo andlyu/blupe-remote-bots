@@ -72,6 +72,7 @@ class RoboHarnessControl:
         if profile is None:
             raise InputRejected('RoboHarness supports only registered YAM stations')
         self.robot_id, self.profile, self.clock = robot_id, profile, clock
+        self._home_identity=None;self._completed_cursor=0
         # Model/camera spacing is distinct from the guard's common-frame origin.
         spacing = .50 if robot_id == 'yam-1' else .62
         safety = profile._safety()  # Hash-pinned canonical controller snapshot.
@@ -82,8 +83,33 @@ class RoboHarnessControl:
         self.bounds = [np.array([np.maximum(LOW_M,profile.bounds(a)[0]),np.minimum(HIGH_M,profile.bounds(a)[1])]) for a in ARMS]
 
     def observe(self, observation):
+        identity=tuple(observation.get(k) for k in ('episode_id','lease_id'))
+        # `homed` reports the current pose, not historical startup readiness.
+        # Leaving Home is permitted only after this instance checked Home and
+        # received matched measured completion at this exact lease/cursor.
+        after_motion=(self._home_identity is not None and identity==self._home_identity
+            and type(observation.get('step_id')) is int
+            and observation['step_id']==self._completed_cursor and self._completed_cursor>0)
+        result=self._observe(observation,require_home=not after_motion)
+        if (observation.get('homed') is True and observation.get('step_id')==0
+                and all(isinstance(v,str) and v for v in identity)):
+            self._home_identity=identity
+        return result
+
+    def confirm_completed_trajectory(self,observation,*,first_step_id,waypoint_count):
+        identity=tuple(observation.get(k) for k in ('episode_id','lease_id'))
+        if (self._home_identity is None or identity!=self._home_identity
+                or type(first_step_id) is not int or first_step_id!=self._completed_cursor
+                or type(waypoint_count) is not int or not 1<=waypoint_count<=MAX_WAYPOINTS_PER_PACKET
+                or type(observation.get('step_id')) is not int
+                or observation['step_id']!=first_step_id+waypoint_count):
+            raise InputRejected('Measured completion does not match confirmed Home/lease/cursor; no motion sent')
+        self._observe(observation,require_home=False)
+        self._completed_cursor=observation['step_id']
+
+    def _observe(self,observation,*,require_home):
         if (observation.get('source') != 'hardware' or observation.get('settled') is not True
-                or observation.get('homed') is not True or observation.get('safety', {}).get('ok') is not True
+                or (require_home and observation.get('homed') is not True) or observation.get('safety', {}).get('ok') is not True
                 or observation.get('robot_id', observation.get('jetson_id')) != self.robot_id):
             raise InputRejected('Fresh, homed, settled hardware feedback with safety OK is required; no motion sent')
         observed = number(observation.get('observed_at'), 'feedback timestamp', 0)

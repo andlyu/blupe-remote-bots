@@ -1,0 +1,73 @@
+{
+  "source_episode": "ep_086edc7217e040a3",
+  "scope": "Measured hover-002 feedback; offline identity placeholders; no capabilities or private contacts",
+  "home": {
+    "step_id": 0,
+    "observed_at": 1793734994.0334089,
+    "left_joints_deg": [
+      -1.2130601064227478,
+      45.58264598097707,
+      35.37545553594403,
+      -21.474442424507203,
+      -0.7322074516244186,
+      -0.5354950019340727
+    ],
+    "right_joints_deg": [
+      -1.2130601064227478,
+      45.45150434785031,
+      35.572167985634174,
+      -21.605584057633966,
+      -1.1693462287138274,
+      -1.191203167568084
+    ],
+    "left_gripper": 0.9993513045985303,
+    "right_gripper": 0.9992794350771005,
+    "source": "hardware",
+    "robot_id": "robot-ba8413962083809c",
+    "mode": "API_ACTIVE",
+    "homed": true,
+    "settled": true,
+    "safety": {
+      "ok": true,
+      "estop_engaged": false
+    },
+    "episode_id": "ep_offline",
+    "lease_id": "lease_offline"
+  },
+  "post_motion": {
+    "step_id": 67,
+    "observed_at": 1793735004.0489593,
+    "left_joints_deg": [
+      -69.16628300493969,
+      79.76689834935301,
+      47.79019680527756,
+      -30.87292613192532,
+      -49.8010351798879,
+      -55.593123976319866
+    ],
+    "right_joints_deg": [
+      -1.2130601064227478,
+      45.45150434785031,
+      35.572167985634174,
+      -21.649297935342886,
+      -1.1693462287138274,
+      -1.2349170452770046
+    ],
+    "left_gripper": 0.9992792273316996,
+    "right_gripper": 0.9992073785848105,
+    "source": "hardware",
+    "robot_id": "robot-ba8413962083809c",
+    "mode": "API_ACTIVE",
+    "homed": false,
+    "settled": true,
+    "safety": {
+      "ok": true,
+      "estop_engaged": false
+    },
+    "episode_id": "ep_offline",
+    "lease_id": "lease_offline"
+  },
+  "waypoint_count": 67,
+  "clock_home": 1793734994.233409,
+  "clock_post": 1793735004.2489593
+}
