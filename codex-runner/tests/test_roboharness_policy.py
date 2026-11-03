@@ -44,11 +44,17 @@ def adapter():
     source=Cameras()
     p=RoboHarnessAdapter(API,'robot-ba8413962083809c',REPORT,
         expected_calibration_id=REPORT['calibration_id'],expected_model_calibration_id=REPORT['model_joint_calibration']['calibration_id'],camera_source=source)
+    p._geometry.clock=lambda:time.time()
     return p,source
 
 
 class PolicyTests(unittest.TestCase):
     def setUp(self):
+        # Synthetic feedback/cameras use a controlled clock, independent of
+        # model initialization and CPU speed. Freshness tests advance their own
+        # nested clock explicitly; production still uses the real clock.
+        clock=patch('time.time',return_value=1000.)
+        clock.start();self.addCleanup(clock.stop)
         self.obs={**observation(),'episode_id':'ep_offline','lease_id':'lease_offline','step_id':0}
 
     def test_public_approach_and_underlying_model_are_separate(self):
@@ -149,6 +155,7 @@ class PolicyTests(unittest.TestCase):
     def test_yam1_native_calibration_has_no_second_offset_and_both_grippers_validate(self):
         report=json.loads((Path(__file__).parent/'fixtures/roboharness-yam1-calibration.json').read_text())
         p=RoboHarnessAdapter(API,'yam-1',report,expected_calibration_id=report['calibration_id'],expected_model_calibration_id=report['native_joint_calibration']['calibration_id'])
+        p._geometry.clock=lambda:time.time()
         self.assertIsNone(p._depth_joint_offsets_rad)
         obs={**observation(),'robot_id':'yam-1'}
         for arm in ('left','right'):
