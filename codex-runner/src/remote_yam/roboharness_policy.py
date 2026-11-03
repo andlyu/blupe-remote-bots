@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import tempfile
 import time
+import threading
 from types import MethodType
 
 from .roboharness_cameras import RoboHarnessCameras
@@ -33,7 +34,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
 
     def __init__(self, api_origin, robot_id, report, *, expected_calibration_id,
                  expected_model_calibration_id, model='gpt-6-astra', recording_root=None,
-                 camera_source=None):
+                 camera_source=None, warm_model_session=False):
         if not isinstance(model,str) or not model.strip():raise ValueError('Select an exact underlying planning/vision model')
         self.robot_id=robot_id
         self._depth_joint_offsets_rad=None
@@ -50,6 +51,82 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._model_calibration_id=expected_model_calibration_id
         self._calibration_warnings=deepcopy(report.get('quality',{}))
         self._timeout_s=120
+        self._warm_model_session=bool(warm_model_session)
+        self._preparation_done=None;self._preparation_error=None;self._model_preparation=None
+
+    def start_preparation(self,cancelled):
+        """Initialize the same model transport during normal queue admission.
+
+        No images, robot state, target or command is supplied. Actual policy
+        observation and command construction wait for this single initialization.
+        Queue/Home clocks remain the controller's original measured clocks.
+        """
+        if not self._warm_model_session:return
+        if self._preparation_done is not None:return
+        name=getattr(self,'runner_name',None)
+        if not isinstance(name,str) or not name.strip():
+            raise RuntimeError('Confirmed runner attribution is required before model initialization')
+        self._preparation_done=threading.Event()
+        self._model_preparation=dict(state='starting',started_at=time.time(),model=self.model,
+            runner_name=name,execution_mode=getattr(self,'execution_mode','interactive'),model_calls=0,
+            images=0,robot_targets=0,actuator_submissions=0)
+        self._interaction('model_preparation','Initializing the planning session while normal queue admission proceeds',
+            preparation=dict(self._model_preparation))
+        def initialize():
+            started=time.monotonic();camera_count=self._expected_camera_count;inference_started=None
+            try:
+                if cancelled():raise RuntimeError('Planning session initialization cancelled')
+                payload={'model':self.model,'tools':[],'store':False,'input':[
+                    {'role':'system','content':'Initialize model transport only. Do not command robot movement.'},
+                    {'role':'user','content':'This is non-actuating session initialization, not a robot task. There are no images or robot targets. Return action=give_up with all targets null, reason=non_actuating_session_ready, and empty summary/hindsight.'}]}
+                self._record('model_preparation_request',runner_name=name,
+                    execution_mode=getattr(self,'execution_mode','interactive'),request=payload)
+                # The initialization acknowledgement has no robot observation.
+                # The real policy waits for completion and still requires three
+                # fresh images; restore this guard even on failure/cancellation.
+                self._expected_camera_count=0
+                self._model_preparation={**self._model_preparation,'model_calls':1}
+                inference_started=time.monotonic()
+                raw=self._post_json(payload)
+                output=raw.get('output',[])
+                if len(output)!=1 or output[0].get('type')!='function_call' or output[0].get('name')!='give_up':
+                    raise RuntimeError('Model initialization did not return the non-actuating acknowledgement')
+                if cancelled():raise RuntimeError('Planning session initialization cancelled')
+                # Warm-up is not part of the policy's message list. Send the
+                # complete real task context on the resumed, same transport.
+                self._sent_items=0
+                self._record('model_preparation_response',response=raw)
+                self._model_preparation={**self._model_preparation,'state':'ready','model_calls':1,
+                    'ready_at':time.time(),'duration_s':time.monotonic()-started}
+                self._interaction('model_preparation_ready','Planning session initialized; fresh robot observations remain required',
+                    preparation=dict(self._model_preparation))
+            except Exception as exc:
+                self._preparation_error=exc
+                self._model_preparation={**self._model_preparation,'state':'failed',
+                    'failed_at':time.time(),'duration_s':time.monotonic()-started,'error_type':type(exc).__name__}
+                self._interaction('model_preparation_failed','Planning session initialization failed; stop this run before another attempt',
+                    preparation=dict(self._model_preparation))
+            finally:
+                self._expected_camera_count=camera_count
+                try:
+                    if inference_started is not None:
+                        self._interaction('model_timing','Planning session initialization inference completed',
+                            elapsed_s=time.monotonic()-inference_started,phase='non_actuating_initialization')
+                except Exception as exc:
+                    self._preparation_error=exc
+                    self._model_preparation={**self._model_preparation,'state':'failed','error_type':type(exc).__name__}
+                finally:self._preparation_done.set()
+        threading.Thread(target=initialize,daemon=True,name='roboharness-model-initialization').start()
+
+    def _await_preparation(self):
+        if self._preparation_done is None:return
+        deadline=time.monotonic()+self._timeout_s
+        while not self._preparation_done.wait(.05):
+            if self.cancelled():raise RuntimeError('RoboHarness stopped during planning session initialization')
+            if time.monotonic()>=deadline:raise RuntimeError('Planning session initialization timed out; stop without retry')
+        if self._preparation_error is not None:
+            raise RuntimeError('Planning session initialization failed; stop without retry') from self._preparation_error
+        if self.cancelled():raise RuntimeError('RoboHarness stopped after planning session initialization')
 
     def _verify_calibration(self,report,expected,model_expected):
         if (not isinstance(report,dict) or report.get('robot_id')!=self.robot_id
@@ -104,7 +181,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                                  'reasoning_effort':self.reasoning_effort},
             'runner_name':getattr(self,'runner_name',None),'execution_mode':getattr(self,'execution_mode','interactive'),
             'reasoning_effort':self.reasoning_effort,
-            'api_key_configured':False,'model_calls':self._calls,'note':self._note,'outcome':self._outcome,
+            'api_key_configured':False,'model_preparation':deepcopy(self._model_preparation),'warm_model_session':self._warm_model_session,'model_calls':self._calls,'note':self._note,'outcome':self._outcome,
             'calibration_id':self._bound_calibration_id,'model_calibration_id':self._model_calibration_id,
             'calibration_quality':self._calibration_warnings,
             'controller_workspace':self._geometry.profile.summary(),
@@ -142,13 +219,24 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             raise RuntimeError('Run/lease/cursor identity changed during camera capture')
         return observation
 
+    def _fresh_view(self,observation,first_step_id,*,metric=True):
+        for attempt in range(2):
+            frames=self._capture(observation)
+            observation=self._refresh_feedback(observation,first_step_id)
+            try:
+                points=self.tracker.measure() if metric else None
+                return frames,observation,points
+            except StaleTrackingDepth:
+                if attempt:raise
+                self._interaction('camera_reacquire','Depth aged during observation preparation; reading fresh cameras before inference or dispatch')
+        raise RuntimeError('No fresh RoboHarness observation')
+
     def _observation_message(self,prompt,observation,first_step_id):
-        frames=self._capture(observation)
-        # Camera reads can outlive the 2s motor-feedback age limit. Read actual
-        # measured feedback again; never rewrite its timestamp or Home clock.
-        observation=self._refresh_feedback(observation,first_step_id)
+        self._await_preparation()
+        # Reacquire only the read-only view if tracker/feedback processing aged
+        # it; neither model inference nor an actuator request is retried.
+        frames,observation,points=self._fresh_view(observation,first_step_id)
         poses=self._geometry.pose_summary(observation)
-        points=self.tracker.measure()
         content=[{'type':'input_text','text':json.dumps(dict(task=prompt,robot=self.robot_id,
             poses=poses,tracked_points=points,tracking=self.tracker.summary(),
             tool_geometry_reference=self._tool_geometry_reference,nominal_tool_pose=nominal_tool_pose(poses,self._tool_geometry_reference),
@@ -199,17 +287,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                 if registration is not None:self.tracker.register(args['point_ids'][0],**registration)
                 observation=self._refresh_feedback(observation,first_step_id)
                 metric=name in ('track_object','touch','align_line','plane_parallel')
-                # A source frame can age during real feedback reconciliation.
-                # Reacquire observation only, before constructing any packet.
-                for capture_attempt in range(2):
-                    self._capture(observation)
-                    observation=self._refresh_feedback(observation,first_step_id)
-                    try:
-                        measured_points=self.tracker.measure() if metric else None
-                        break
-                    except StaleTrackingDepth:
-                        if capture_attempt:raise
-                        self._interaction('camera_reacquire','Depth aged during feedback; reading fresh cameras before any dispatch')
+                _,observation,measured_points=self._fresh_view(observation,first_step_id,metric=metric)
                 if name=='track_object':
                     result={'ok':True,'tracking':self.tracker.summary(),'points':measured_points}
                     self._tool_result(call['call_id'],result)
