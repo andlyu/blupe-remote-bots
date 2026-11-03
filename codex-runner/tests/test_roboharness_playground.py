@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch,AsyncMock
+from unittest.mock import patch,AsyncMock,Mock
 from types import SimpleNamespace
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -28,6 +28,22 @@ class PlaygroundTests(unittest.TestCase):
                        {'provider':'codex'},{'model':'gpt-6-astra'},{'execution_mode':'invented'},
                        {'api_key':'synthetic'},{'endpoint':'https://other.invalid'},{'executor':'other'},{'system_prompt':'override'}):
             with self.subTest(change=change),self.assertRaises(RequestError):app.validate_launch(None,{**good,**change},False)
+
+    def test_replay_observer_starts_only_after_acceptance_and_cannot_cancel_accepted_run(self):
+        app=object.__new__(RoboHarnessPlayground);app.public_replays=Mock()
+        visitor=SimpleNamespace(controller=Mock());payload={'runner_name':'Synthetic runner'}
+        receipt={'ok':True,'attempt_id':'offline_attempt','status':'queued'}
+        with patch('playground.HostedRunner.launch',return_value=receipt):
+            self.assertEqual(app.launch(visitor,payload),receipt)
+            app.public_replays.start.assert_called_once_with(visitor.controller)
+        app.public_replays.reset_mock();app.public_replays.start.side_effect=RuntimeError('synthetic private diagnostic')
+        with patch('playground.HostedRunner.launch',return_value=receipt):
+            self.assertEqual(app.launch(visitor,payload),receipt)
+        self.assertNotIn('synthetic private diagnostic',str(visitor.controller._interactions.add.call_args))
+        app.public_replays.reset_mock()
+        with patch('playground.HostedRunner.launch',side_effect=RequestError(503,'Synthetic admission failure')):
+            with self.assertRaises(RequestError):app.launch(visitor,payload)
+        app.public_replays.start.assert_not_called()
 
     def test_lifecycle_source_timing_retains_only_evidence_fields(self):
         controller=RunnerController(MockSessionAPI())
@@ -73,7 +89,7 @@ class PlaygroundTests(unittest.TestCase):
             query('../../other');self.assertEqual(app.json.call_args.args[1],404)
 
     def test_preflight_requires_clean_pass_and_complete_unchanged_source_inventory(self):
-        receipt=dict(status='passed',tests_run=35,dirty_source=False,
+        receipt=dict(status='passed',tests_run=41,dirty_source=False,
             source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in source_inventory()})
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'receipt.json'

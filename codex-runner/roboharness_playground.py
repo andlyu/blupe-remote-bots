@@ -20,7 +20,7 @@ from roboharness_preflight import source_inventory
 def verify_release(receipt_path):
     receipt=json.loads(Path(receipt_path).read_text())
     root=Path(__file__).parent
-    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<35 or receipt.get('dirty_source') is not False:
+    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<41 or receipt.get('dirty_source') is not False:
         raise ValueError('A clean-source RoboHarness command-contract preflight is required')
     hashes=receipt.get('source_sha256',{})
     if set(hashes)!=set(source_inventory()):raise ValueError('Preflight source inventory is incomplete')
@@ -31,18 +31,26 @@ def verify_release(receipt_path):
 
 class RoboHarnessPlayground(HostedRunner):
     def __init__(self,*,attach_model,model_status,calibration_config,preflight_receipt,
-                 underlying_model='gpt-6-astra',**kwargs):
+                 underlying_model='gpt-6-astra',public_replay_root=None,**kwargs):
         self.attach_model=attach_model;self.model_status=model_status
         self.calibration_config=calibration_config;self.preflight_receipt=preflight_receipt
         self.underlying_model=underlying_model
         self.camera_origin=kwargs['camera_origin']
         super().__init__(**kwargs,default_provider='roboharness')
         self.extra_providers={'roboharness':self.roboharness_provider}
+        self.public_replays=None
+        if public_replay_root is not None:
+            from remote_yam.roboharness_replay import PublicCameraReplay
+            from remote_yam.integration_runs import IntegrationRuns
+            self.public_replays=PublicCameraReplay(public_replay_root,robot_id=self.robot_id,origin=self.camera_origin)
+            self.past_runs=IntegrationRuns(self.past_runs,[dict(database=str(self.run_names.path),
+                replay_root=str(self.public_replays.root),robot_id=self.robot_id)])
 
     def roboharness_provider(self,model,directory):
         if model!='RoboHarness':raise RequestError(400,'Model must identify the executed approach: RoboHarness')
         try:
             verify_release(self.preflight_receipt)
+            if self.public_replays is not None and not self.public_replays.ready():raise ValueError('Public camera replay encoder unavailable')
             if not self.model_status().get('ready'):raise ValueError('The selected Codex subscription model is unavailable')
             report=json.loads(ApiDepth(self.camera_origin,robot_id=self.robot_id).read('/calibration',256000))
             config=self.calibration_config[self.robot_id]
@@ -72,7 +80,12 @@ class RoboHarnessPlayground(HostedRunner):
             provider.runner_name=payload['runner_name'].strip()
             provider.execution_mode=payload.get('execution_mode','interactive')
             return provider
-        return super().launch(visitor,payload,provider_transform=context,**kwargs)
+        result=super().launch(visitor,payload,provider_transform=context,**kwargs)
+        if self.public_replays is not None:
+            try:self.public_replays.start(visitor.controller)
+            except Exception as exc:
+                visitor.controller._interactions.add('replay_failed','Public camera recording could not start; the accepted run remains active.',cause_type=type(exc).__name__)
+        return result
 
     async def session_extension(self,cookies,visitor):
         data,headers=await super().session_extension(cookies,visitor)
@@ -81,6 +94,19 @@ class RoboHarnessPlayground(HostedRunner):
             'help':'Visual keypoints, optical-flow tracking, calibrated depth and geometric tools. Run uses the normal BluPe queue; Stop cancels the run.'}}},headers
 
     async def public_extension(self,scope,receive,send,headers):
+        if scope['method']=='GET' and scope['path']=='/api/roboharness/replay-evidence':
+            episode=parse_qs(scope.get('query_string',b'').decode()).get('episode_id',[''])[0]
+            result=None
+            if self.public_replays is not None and re.fullmatch(r'ep_[A-Za-z0-9_-]{1,100}',episode):
+                from remote_yam.integration_runs import PublicRunSource
+                source=PublicRunSource(self.run_names.path,self.public_replays.root,self.robot_id)
+                if source.rows().get(episode,{}).get('model')=='RoboHarness' and source.clip(episode):
+                    metadata=json.loads((self.public_replays.root/(episode+'.json')).read_text())
+                    result={k:metadata[k] for k in ('episode_id','robot_id','capture_source','capture_partial') if k in metadata}
+                    result['preview']={k:v for k,v in source.clip(episode).items() if k in ('video_url','video_sha256','video_duration_s','camera_order')}
+                    result['frames']=[{k:f[k] for k in ('received_at','source_captured_at','actual_image') if k in f} for f in metadata.get('frames',[])[:1220] if isinstance(f,dict)]
+            await self.json(send,200 if result else 404,result or {'error':'No retained camera evidence is ready for this episode and station.'})
+            return True
         if scope['method']=='GET' and scope['path']=='/api/roboharness/run-config':
             episode=parse_qs(scope.get('query_string',b'').decode()).get('episode_id',[''])[0]
             result=None
@@ -101,10 +127,12 @@ class RoboHarnessPlayground(HostedRunner):
         if scope['method']=='GET' and scope['path']=='/api/roboharness/readiness':
             try:
                 receipt=verify_release(self.preflight_receipt);status=self.model_status()
-                await self.json(send,200,{'ready':status.get('ready') is True,'model':'RoboHarness',
+                replay_ready=self.public_replays is None or self.public_replays.ready()
+                await self.json(send,200,{'ready':status.get('ready') is True and replay_ready,'model':'RoboHarness',
                     'underlying_model':self.underlying_model,'reasoning_effort':'low',
                     'source_revision':receipt['source_revision'],'preflight_tests':receipt['tests_run'],
-                    'reason':None if status.get('ready') else 'The selected subscription model is unavailable. No run has been submitted.'})
+                    'retained_camera_capture':self.public_replays is not None,'replay_encoder_ready':replay_ready,
+                    'reason':('Public camera replay encoder is unavailable. No run has been submitted.' if not replay_ready else None if status.get('ready') else 'The selected subscription model is unavailable. No run has been submitted.')})
             except Exception:
                 await self.json(send,200,{'ready':False,'model':'RoboHarness','reason':'The release preflight is missing or stale. No run has been submitted.'})
             return True
