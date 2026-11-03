@@ -11,6 +11,10 @@ import numpy as np
 from .roboharness_control import InputRejected, number
 
 
+class StaleTrackingDepth(InputRejected):
+    """Only a read-only capture may be reacquired; no movement has been sent."""
+
+
 class KeypointTracker:
     def __init__(self):
         self.snapshot=None;self.points={};self.errors={};self._gray=None
@@ -53,7 +57,7 @@ class KeypointTracker:
 
     def measure(self):
         if self.snapshot is None:raise InputRejected('No paired RGB-D frame')
-        if not 0<=self.snapshot.age()<=2:raise InputRejected('Tracked depth is stale; capture a fresh paired frame')
+        if not 0<=self.snapshot.age()<=2:raise StaleTrackingDepth('Tracked depth is stale; capture a fresh paired frame')
         result={}
         for name,uv in self.points.items():
             try:

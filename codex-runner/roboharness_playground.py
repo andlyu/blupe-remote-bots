@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import threading
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -20,7 +21,7 @@ from roboharness_preflight import source_inventory
 def verify_release(receipt_path):
     receipt=json.loads(Path(receipt_path).read_text())
     root=Path(__file__).parent
-    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<47 or receipt.get('dirty_source') is not False:
+    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<53 or receipt.get('dirty_source') is not False:
         raise ValueError('A clean-source RoboHarness command-contract preflight is required')
     hashes=receipt.get('source_sha256',{})
     if set(hashes)!=set(source_inventory()):raise ValueError('Preflight source inventory is incomplete')
@@ -43,6 +44,8 @@ class RoboHarnessPlayground(HostedRunner):
             from remote_yam.roboharness_replay import PublicCameraReplay
             from remote_yam.integration_runs import IntegrationRuns
             self.public_replays=PublicCameraReplay(public_replay_root,robot_id=self.robot_id,origin=self.camera_origin)
+            threading.Thread(target=self.public_replays.recover_pending,daemon=True,
+                name='roboharness-recording-recovery').start()
             self.past_runs=IntegrationRuns(self.past_runs,[dict(database=str(self.run_names.path),
                 replay_root=str(self.public_replays.root),robot_id=self.robot_id)])
 
@@ -104,7 +107,7 @@ class RoboHarnessPlayground(HostedRunner):
                     metadata=json.loads((self.public_replays.root/(episode+'.json')).read_text())
                     result={k:metadata[k] for k in ('episode_id','robot_id','capture_source','capture_partial') if k in metadata}
                     result['preview']={k:v for k,v in source.clip(episode).items() if k in ('video_url','video_sha256','video_duration_s','camera_order')}
-                    result['frames']=[{k:f[k] for k in ('received_at','source_captured_at','actual_image') if k in f} for f in metadata.get('frames',[])[:1220] if isinstance(f,dict)]
+                    result['frames']=[{k:f[k] for k in ('received_at','source_captured_at','actual_image','video_at','presentation_hold') if k in f} for f in metadata.get('frames',[])[:1220] if isinstance(f,dict)]
             await self.json(send,200 if result else 404,result or {'error':'No retained camera evidence is ready for this episode and station.'})
             return True
         if scope['method']=='GET' and scope['path']=='/api/roboharness/run-config':
@@ -118,7 +121,7 @@ class RoboHarnessPlayground(HostedRunner):
                         config=json.loads(row[0])
                         if config.get('model')=='RoboHarness':
                             keys=('model','provider','underlying_models','runner_name','execution_mode','reasoning',
-                                  'code_revision','duration_s','calibration_id','model_calibration_id','prompt_sha256')
+                                  'code_revision','duration_s','calibration_id','model_calibration_id','prompt_sha256','tool_geometry_reference')
                             result={'episode_id':episode,'robot_id':self.robot_id,
                                     'configuration':{k:config[k] for k in keys if k in config}}
                 except (sqlite3.Error,ValueError):pass

@@ -22,7 +22,8 @@ from .providers import PolicyComplete, ResponsesAdapter
 from .robocurve_policy import RoboCurveResponsesAdapter
 from .roboharness_contract import SCHEMA, NAMES, INSTRUCTIONS, decision_response
 from .roboharness_control import RoboHarnessControl, InputRejected, vector
-from .roboharness_tracking import KeypointTracker
+from .roboharness_tracking import KeypointTracker, StaleTrackingDepth
+from .yam_gripper_reference import reference_for_model, nominal_tool_pose
 
 
 class RoboHarnessAdapter(RoboCurveResponsesAdapter):
@@ -44,6 +45,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._decision_instructions=INSTRUCTIONS;self._system_prompt=INSTRUCTIONS
         self._tools=[];self._names=NAMES;self._expected_camera_count=3
         self.tracker=KeypointTracker();self._resolved_model=None
+        self._tool_geometry_reference=reference_for_model(self._geometry.ik,self.robot_id)
         self._bound_calibration_id=expected_calibration_id
         self._model_calibration_id=expected_model_calibration_id
         self._calibration_warnings=deepcopy(report.get('quality',{}))
@@ -106,7 +108,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             'calibration_id':self._bound_calibration_id,'model_calibration_id':self._model_calibration_id,
             'calibration_quality':self._calibration_warnings,
             'controller_workspace':self._geometry.profile.summary(),
-            'tracking':self.tracker.summary(),'vision_roles':['top','left','right'],'depth_grounding_roles':['top'],'recording_path':str(self._recorder.path) if self._recorder else None,
+            'tracking':self.tracker.summary(),'tool_geometry_reference':self._tool_geometry_reference,'vision_roles':['top','left','right'],'depth_grounding_roles':['top'],'recording_path':str(self._recorder.path) if self._recorder else None,
             'command_contract':'roboharness_yam_v1','simulation_rollout':False,
             'prompt_sha256':hashlib.sha256(INSTRUCTIONS.encode()).hexdigest()}
 
@@ -149,6 +151,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         points=self.tracker.measure()
         content=[{'type':'input_text','text':json.dumps(dict(task=prompt,robot=self.robot_id,
             poses=poses,tracked_points=points,tracking=self.tracker.summary(),
+            tool_geometry_reference=self._tool_geometry_reference,nominal_tool_pose=nominal_tool_pose(poses,self._tool_geometry_reference),
             calibration_quality=self._calibration_warnings,waypoint_cursor=first_step_id),allow_nan=False)}]
         self._vision_frames=[]
         for name in ('top','left','right'):
@@ -195,10 +198,20 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                 registration=args.pop('register',None)
                 if registration is not None:self.tracker.register(args['point_ids'][0],**registration)
                 observation=self._refresh_feedback(observation,first_step_id)
-                self._capture(observation)
-                observation=self._refresh_feedback(observation,first_step_id)
+                metric=name in ('track_object','touch','align_line','plane_parallel')
+                # A source frame can age during real feedback reconciliation.
+                # Reacquire observation only, before constructing any packet.
+                for capture_attempt in range(2):
+                    self._capture(observation)
+                    observation=self._refresh_feedback(observation,first_step_id)
+                    try:
+                        measured_points=self.tracker.measure() if metric else None
+                        break
+                    except StaleTrackingDepth:
+                        if capture_attempt:raise
+                        self._interaction('camera_reacquire','Depth aged during feedback; reading fresh cameras before any dispatch')
                 if name=='track_object':
-                    result={'ok':True,'tracking':self.tracker.summary(),'points':self.tracker.measure()}
+                    result={'ok':True,'tracking':self.tracker.summary(),'points':measured_points}
                     self._tool_result(call['call_id'],result)
                     continue
                 # Resolve only newly tracked pixels and measured post-capture
@@ -207,7 +220,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                     self._tool_result(call['call_id'],{'ok':False,'error':'New run-owner guidance superseded this unsent decision'})
                     continue
                 command={'kind':name,**args}
-                points=self._geometry.build(command,observation,first_step_id,points=self.tracker.measure())
+                points=self._geometry.build(command,observation,first_step_id,points=measured_points)
                 self._pending={'call_id':call['call_id'],'waypoint_count':len(points),'last_step_id':points[-1]['step_id']}
                 self._record('joint_packet',command=command,waypoints=points,tracking=self.tracker.summary())
                 self._interaction('packet_ready',f'Validated {name}: {len(points)} waypoints at 10 Hz',command=command)

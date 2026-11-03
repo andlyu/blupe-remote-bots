@@ -1,0 +1,102 @@
+{
+  "model": "linear_4310",
+  "source_xml_sha256": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652",
+  "source_repository": "https://github.com/i2rt-robotics/i2rt",
+  "source_commit": "120c3c81400171174604e503943f8d1ebc891058",
+  "reference_date": "2026-10-01",
+  "reference_station": "robot-ba8413962083809c",
+  "frame": "fixed installed grasp_site",
+  "T_root_grasp": [
+    [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      -1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      -1.0,
+      -0.1347
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "parts": {
+    "gripper": {
+      "closed_bounds_tool_m": [
+        [
+          -0.03250000023841858,
+          -0.050999973190307614,
+          -0.14519999830722807
+        ],
+        [
+          0.03250000110268593,
+          0.051000026299327615,
+          -0.07119999735355376
+        ]
+      ],
+      "opening_axis_tool": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "travel_m": 0,
+      "mesh_sha256": "d949c401186197d842ca8f9b23bfcbf24bed8461b421df06093c65e4ead21f5d"
+    },
+    "tip_left": {
+      "closed_bounds_tool_m": [
+        [
+          -0.03390565782446488,
+          -0.04834791905713552,
+          -0.08382351524078943
+        ],
+        [
+          0.03409439629496355,
+          0.023223099420520636,
+          0.010019279251116814
+        ]
+      ],
+      "opening_axis_tool": [
+        -3.999999999948489e-06,
+        0.9999999999920002,
+        7.999906292965875e-12
+      ],
+      "travel_m": 0.0475,
+      "mesh_sha256": "03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7"
+    },
+    "tip_right": {
+      "closed_bounds_tool_m": [
+        [
+          -0.034095099552965163,
+          -0.023222953241750305,
+          -0.08382309060484064
+        ],
+        [
+          0.033904900417232514,
+          0.0483478504023853,
+          0.010019505210817958
+        ]
+      ],
+      "opening_axis_tool": [
+        0.0,
+        -0.9999999999910001,
+        -4.242642374197025e-06
+      ],
+      "travel_m": 0.0475,
+      "mesh_sha256": "8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f"
+    }
+  },
+  "physical_contact_calibration_measured": false,
+  "scope": "Nominal installed-reference CAD, not a live installation/contact/force or collision certificate. All original hashes were rechecked. Keep the fixed native grasp origin; do not substitute the changed current-upstream attachment."
+}
