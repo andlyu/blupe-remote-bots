@@ -38,7 +38,7 @@ def main():
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]='not installed under this distribution name'
     sources=source_inventory()
-    status='passed' if result.wasSuccessful() and result.testsRun>=44 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=44 else 'failed'
+    status='passed' if result.wasSuccessful() and result.testsRun>=47 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=47 else 'failed'
     receipt=dict(status=status,scope='offline command contract; no physical execution',started_at=started,
         duration_s=time.perf_counter()-tick,source_revision=revision,dirty_source=dirty,tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),dependencies=versions,

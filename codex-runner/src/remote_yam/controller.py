@@ -1062,7 +1062,12 @@ class RunnerController(HomeSceneStartup):
         if trajectory is not None:
             self._trajectory_final_observation(provider, provider_observation, observation_step)
             with self._lock:
-                self._trajectory["final_payload"] = dict(payload)
+                # The policy completion callback needs the same hardware context
+                # that passed reconciliation, not the context-free wire sample.
+                # Keep the original gateway payload separately for diagnostics;
+                # its observed_at/lease/cursor are not rewritten.
+                self._trajectory["raw_final_payload"] = dict(payload)
+                self._trajectory["final_payload"] = dict(provider_observation)
             return
         reconciled_observation = getattr(provider, 'reconciled_observation', None)
         if callable(reconciled_observation):

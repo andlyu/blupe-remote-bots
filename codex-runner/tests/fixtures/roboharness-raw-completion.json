@@ -1,0 +1,74 @@
+{
+  "provenance": "ep_c849eb57993c4147 / sess_d5537645efc643b2; actual completion joints from visible packet-completed event, raw completion clock/booleans and station context from reconciliation evidence. Episode/lease replaced by non-capability offline placeholders. Station encoder values in the test are the recorded completed joints, not a separate measured station encoder sample.",
+  "home": {
+    "step_id": 0,
+    "left_joints_deg": [
+      -1.2130601064225444,
+      45.626359858685994,
+      35.37545553594403,
+      -21.474442424507405,
+      -0.6447796962067811,
+      -0.49178112422515224
+    ],
+    "right_joints_deg": [
+      -1.322344800694642,
+      45.45150434785031,
+      35.572167985634174,
+      -21.605584057634168,
+      -1.1693462287136238,
+      -1.191203167568084
+    ],
+    "left_gripper": 0.9993513980974351,
+    "right_gripper": 0.9992075498883359,
+    "source": "hardware",
+    "safety": {
+      "ok": true,
+      "estop_engaged": false
+    },
+    "jetson_id": "robot-ba8413962083809c",
+    "episode_id": "ep_offline",
+    "lease_id": "lease_offline",
+    "homed": true,
+    "settled": true,
+    "observed_at": 1793740349.444623
+  },
+  "raw_completion": {
+    "left_joints_deg": [
+      -69.90941892599155,
+      79.65761365508071,
+      48.29290639893014,
+      -32.271770218610776,
+      -50.21631701812244,
+      -56.46740153049828
+    ],
+    "right_joints_deg": [
+      -1.322344800694642,
+      45.45150434785031,
+      35.572167985634174,
+      -21.649297935342886,
+      -1.1693462287136238,
+      -1.2349170452770046
+    ],
+    "left_gripper": 0.9992793312193716,
+    "right_gripper": 0.9991355089690938,
+    "episode_id": "ep_offline",
+    "lease_id": "lease_offline",
+    "step_id": 68,
+    "observed_at": 1793740371.1398807,
+    "homed": false,
+    "settled": true
+  },
+  "station": {
+    "observed_at": 1793740371.412081,
+    "homed": false,
+    "settled": true,
+    "source": "hardware",
+    "mode": "API_ACTIVE",
+    "safety": {
+      "ok": true,
+      "estop_engaged": false
+    },
+    "jetson_id": "robot-ba8413962083809c"
+  },
+  "checked_at": 1793740371.8389807
+}

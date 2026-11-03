@@ -20,7 +20,7 @@ from roboharness_preflight import source_inventory
 def verify_release(receipt_path):
     receipt=json.loads(Path(receipt_path).read_text())
     root=Path(__file__).parent
-    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<44 or receipt.get('dirty_source') is not False:
+    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<47 or receipt.get('dirty_source') is not False:
         raise ValueError('A clean-source RoboHarness command-contract preflight is required')
     hashes=receipt.get('source_sha256',{})
     if set(hashes)!=set(source_inventory()):raise ValueError('Preflight source inventory is incomplete')
