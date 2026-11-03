@@ -788,6 +788,13 @@ class RunnerController(HomeSceneStartup):
                 summary["step_id"] = event_step
             if isinstance(payload.get("replayed"), bool):
                 summary["replayed"] = payload["replayed"]
+            # Preserve source lifecycle timing without exposing capabilities,
+            # contact details or commands. Used to distinguish queue admission
+            # from post-Home method latency in physical verification.
+            if event_type in {"lifecycle", "queue_update"}:
+                for key in ("state", "previous_state", "reason", "position", "depth"):
+                    if isinstance(payload.get(key), (str, int, float)):
+                        summary[key] = payload[key]
             self._run_events.append(summary)
             self._run_events = self._run_events[-512:]
         if event_type == "snapshot":

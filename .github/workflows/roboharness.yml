@@ -1,0 +1,20 @@
+name: RoboHarness command contract
+on: [push, pull_request]
+jobs:
+  command-contract:
+    runs-on: ubuntu-24.04
+    env:
+      MUJOCO_GL: osmesa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y libosmesa6
+      - run: python -m pip install -r codex-runner/requirements-roboharness.txt
+      - run: PYTHONPATH=codex-runner/src:codex-runner python codex-runner/roboharness_preflight.py --output /tmp/roboharness-preflight.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: roboharness-command-contract
+          path: /tmp/roboharness-preflight.json
