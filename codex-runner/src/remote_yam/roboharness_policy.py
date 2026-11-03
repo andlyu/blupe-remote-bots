@@ -211,6 +211,16 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                 observation=self._refresh_feedback(observation,first_step_id)
         raise RuntimeError('RoboHarness model call budget exhausted')
 
+    def trajectory_completed(self,observation,waypoint_count):
+        pending=self._pending
+        if (pending is None or waypoint_count!=pending['waypoint_count']
+                or observation.get('step_id')!=pending['last_step_id']+1
+                or tuple(observation.get(k) for k in ('episode_id','lease_id'))!=self._episode):
+            raise RuntimeError('Measured completion does not match the pending RoboHarness packet')
+        self._geometry.confirm_completed_trajectory(observation,
+            first_step_id=pending['last_step_id']+1-waypoint_count,waypoint_count=waypoint_count)
+        return super().trajectory_completed(observation,waypoint_count)
+
     def trajectory_failed(self,*args,**kwargs):
         # Even a settled-timeout recovery in the generic policy must not replay
         # a movement here. The explicit harness timeout rule takes precedence.

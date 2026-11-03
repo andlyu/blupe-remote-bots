@@ -136,6 +136,47 @@ class PolicyTests(unittest.TestCase):
                     with self.assertRaises((ValueError,RuntimeError)):p.build_trajectory('Synthetic invalid refresh',obs,0)
                     model.assert_not_called();wire.assert_not_called()
 
+    def completed_hover(self, *, establish_home=True):
+        f=json.loads((Path(__file__).parent/'fixtures/roboharness-post-home-feedback.json').read_text())
+        clock=[f['clock_home']];p,source=adapter();p._geometry.clock=lambda:clock[0]
+        if establish_home:p._geometry.pose_summary(f['home'])
+        p._episode=('ep_offline','lease_offline');p._prompt='Post-Home measured feedback regression'
+        p._history=[{'role':'system','content':'Offline regression'}]
+        p._pending={'call_id':'fixture_hover','waypoint_count':67,'last_step_id':66}
+        clock[0]=f['clock_post']
+        return p,source,f
+
+    def test_measured_completed_hover_can_leave_home_before_next_real_packet(self):
+        p,source,f=self.completed_hover()
+        with patch('time.time',return_value=f['clock_post']):
+            p.trajectory_completed(f['post_motion'],67)
+            source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(f['post_motion']).items()}
+            p.refresh_observation=lambda:deepcopy(f['post_motion'])
+            p._post_json=Mock(return_value=decision_response(decision(primitive=5,arm=0,x=0,y=0,z=.03,rx=0,ry=0,rz=0)))
+            packet=p.build_trajectory(p._prompt,f['post_motion'],67)
+            self.assertEqual(packet[0]['step_id'],67)
+            self.assertEqual(packet[-1]['right_joints_deg'],f['post_motion']['right_joints_deg'])
+            api=HttpSessionAPI('https://offline.invalid',supports_trajectories=True);api._session_capabilities['offline']='synthetic'
+            sent=[]
+            def wire(req,**kwargs):sent.append(json.loads(req.data));return io.BytesIO(b'{"accepted":true}')
+            with patch('remote_yam.session.request.urlopen',side_effect=wire):api.submit_trajectory('offline','ep_offline','lease_offline','traj_next',10,packet)
+            self.assertEqual(len(sent),1)
+
+    def test_non_home_feedback_requires_exact_confirmed_home_and_completion(self):
+        for change in ({'lease_id':'other'},{'episode_id':'other'},{'step_id':68},{'settled':False},
+                       {'safety':{'ok':False}},{'source':'simulated'},{'observed_at':1.}):
+            with self.subTest(change=change):
+                p,source,f=self.completed_hover()
+                with patch.object(p,'_post_json') as model,patch('remote_yam.session.request.urlopen') as wire:
+                    with self.assertRaises((RuntimeError,ValueError)):p.trajectory_completed({**f['post_motion'],**change},67)
+                    with self.assertRaises(ValueError):p._geometry.pose_summary(f['post_motion'])
+                    model.assert_not_called();wire.assert_not_called()
+        p,_,f=self.completed_hover(establish_home=False)
+        with self.assertRaises((RuntimeError,ValueError)):p.trajectory_completed(f['post_motion'],67)
+        p,_,f=self.completed_hover()
+        with self.assertRaises((RuntimeError,ValueError)):p.trajectory_completed(f['post_motion'],66)
+        with self.assertRaises(ValueError):p._geometry.pose_summary(f['post_motion'])
+
     def test_timeout_requires_stop_without_model_or_packet_retry(self):
         p,_=adapter()
         with patch.object(p,'_post_json') as model,patch('remote_yam.session.request.urlopen') as wire:
