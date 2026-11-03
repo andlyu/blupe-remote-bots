@@ -12,7 +12,7 @@ import time
 import unittest
 
 ROOT=Path(__file__).resolve().parent
-SOURCES=['roboharness_playground.py','roboharness_preflight.py','playground.py','multi_robot.py',
+SOURCES=['roboharness_playground.py','roboharness_preflight.py','roboharness_broker_preflight.py','playground.py','multi_robot.py',
     'requirements-roboharness.txt','config/roboharness-linear4310-reference.json','models/yam_bimanual/scene.xml','models/yam_bimanual/yam_bimanual.xml']
 
 

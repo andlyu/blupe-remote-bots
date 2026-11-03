@@ -112,17 +112,22 @@ class ReplayTests(unittest.TestCase):
 
 
     def test_long_clip_is_encoded_during_capture_with_actual_wall_clock_duration(self):
+        import time
         import remote_yam.roboharness_replay as module
-        original=module.StreamingCameraEncoder;writes=[]
+        original=module.StreamingCameraEncoder;writes=[];started=time.time()
         class ObservedEncoder(original):
-            def write(encoder,data):writes.append(self.clock[0]);return super().write(data)
+            def write(encoder,data):writes.append(time.time());return super().write(data)
         def long_status():
-            t=self.clock[0]-1000
-            return dict(attempt_id='offline_attempt',status='queued' if t<.3 else 'preparing' if t<.6 else 'running' if t<33.6 else 'completed',episode_id=EPISODE if t>=.6 else None,run_started_at=1000.6)
+            elapsed=time.time()-started
+            return dict(attempt_id='offline_attempt',status='queued' if elapsed<.2 else 'preparing' if elapsed<.4 else 'running' if elapsed<33.4 else 'completed',episode_id=EPISODE if elapsed>=.4 else None,run_started_at=started+.4)
         self.controller.status.side_effect=long_status
-        with patch.object(module,'StreamingCameraEncoder',ObservedEncoder):self.follow()
+        self.publisher.source.fetch.side_effect=lambda *args:CameraFrame('top',self.jpeg,time.time(),source_captured_at=time.time()-.01)
+        # Exercise real two-Hz pacing. A synthetic burst of67 frames followed
+        # by an artificial instant stop is not the deployed capture workload.
+        with patch.object(module,'StreamingCameraEncoder',ObservedEncoder):
+            self.publisher.follow(self.controller,'offline_attempt')
         meta=json.loads((self.publisher.root/(EPISODE+'.json')).read_text())
-        self.assertGreater(len(writes),60);self.assertLess(writes[0],1001.)
+        self.assertGreater(len(writes),60);self.assertLess(writes[0]-started,5)
         self.assertEqual(meta['preview']['encoder_mode'],'streaming')
         video=self.publisher.root/EPISODE/(meta['preview']['sha256']+'.mp4')
         actual=float(json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','json',str(video)],text=True))['format']['duration'])
