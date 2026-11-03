@@ -737,6 +737,13 @@ class RunnerController(HomeSceneStartup):
                 })
         entries.sort(key=lambda entry: entry["position"])
         with self._lock:
+            # Keep the actual backend queue-entry time for this owned request.
+            # Never substitute a poll/Run timestamp or another person's entry.
+            own = next((entry for entry in entries if entry['session_id'] == self._session_id), None)
+            if (own and math.isfinite(own['created_at']) and own['created_at'] > 0
+                    and not any(event.get('type') == 'queue_entry' for event in self._run_events)):
+                self._run_events.append(dict(type='queue_entry', timestamp=own['created_at'],
+                    state=own['status'], position=own['position'], source='queue_snapshot'))
             self._queue_snapshot = {
                 "schema_version": SCHEMA_VERSION, "type": "queue_snapshot",
                 "generated_at": float(response.get("generated_at", 0)),
@@ -967,7 +974,7 @@ class RunnerController(HomeSceneStartup):
         if step_id >= self._command_limit:
             raise RuntimeError(f"Session command limit of {self._command_limit} reached")
         readiness = getattr(provider, 'wait_ready', None)
-        timing_sink = self._interactions.add if getattr(provider, 'provider_name', '') in {'dream', 'dream_flash'} else None
+        timing_sink = self._interactions.add if getattr(provider, 'provider_name', '') in {'dream', 'dream_flash', 'roboharness'} else None
         if timing_sink and step_id == 0:
             observed = payload.get('observed_at')
             timing_sink('policy_timing', 'Home observation received', stage='home_observation_received',

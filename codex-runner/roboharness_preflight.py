@@ -11,17 +11,13 @@ import time
 import unittest
 
 ROOT=Path(__file__).resolve().parent
-SOURCES=['src/remote_yam/roboharness_control.py','src/remote_yam/roboharness_contract.py',
-    'src/remote_yam/roboharness_tracking.py','src/remote_yam/roboharness_policy.py',
-    'src/remote_yam/session.py','src/remote_yam/mujoco_ik.py','src/remote_yam/controller_workspace.py',
-    'src/remote_yam/api_depth.py','src/remote_yam/api_depth_set.py','roboharness_playground.py',
-    'src/remote_yam/controller.py','src/remote_yam/run_changes.py','roboharness_preflight.py','requirements-roboharness.txt',
-    'models/yam_bimanual/scene.xml','models/yam_bimanual/yam_bimanual.xml']
+SOURCES=['roboharness_playground.py','roboharness_preflight.py','playground.py','multi_robot.py',
+    'requirements-roboharness.txt','models/yam_bimanual/scene.xml','models/yam_bimanual/yam_bimanual.xml']
 
 
 def source_inventory():
     return SOURCES+[str(p.relative_to(ROOT)) for pattern in
-        ('config/controller-workspaces/*.json','tests/test_roboharness_*.py','tests/fixtures/roboharness-*.json')
+        ('src/remote_yam/*.py','config/controller-workspaces/*.json','tests/test_roboharness_*.py','tests/fixtures/roboharness-*.json')
         for p in sorted(ROOT.glob(pattern))]
 
 
@@ -41,7 +37,7 @@ def main():
         try:versions[name]=importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:versions[name]='not installed under this distribution name'
     sources=source_inventory()
-    status='passed' if result.wasSuccessful() and result.testsRun>=27 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=27 else 'failed'
+    status='passed' if result.wasSuccessful() and result.testsRun>=33 and not dirty else 'draft_passed' if result.wasSuccessful() and result.testsRun>=33 else 'failed'
     receipt=dict(status=status,scope='offline command contract; no physical execution',started_at=started,
         duration_s=time.perf_counter()-tick,source_revision=revision,dirty_source=dirty,tests_run=result.testsRun,
         failures=len(result.failures),errors=len(result.errors),dependencies=versions,

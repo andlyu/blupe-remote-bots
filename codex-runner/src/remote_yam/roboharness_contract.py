@@ -17,8 +17,9 @@ SCHEMA={'type':'object','additionalProperties':False,'properties':{
 INSTRUCTIONS='''You are the planning/vision component of RoboHarness on physical YAM arms.
 Use visual keypoints, persistent tracking, measured RGB-D geometry and geometric
 constraints. There is no VLA or prewritten task policy. Return only the supplied
-JSON robot decision schema. Tools/shell/web are disabled. Three images are fresh
-paired overhead, left-wrist and right-wrist RGB, in that order. Select points only
+JSON robot decision schema. Tools/shell/web are disabled. Three fresh RGB images
+are overhead (paired with depth), left wrist and right wrist, in that order.
+Only overhead points supply metric depth grounding. Select points only
 in OVERHEAD. u/v are normalized 0..1000 from left/top; 1000 is the last pixel.
 Keep every unused target field null. arm=0 means left; arm=1 means right.
 For action=move_to, primitive selects ONE tool:

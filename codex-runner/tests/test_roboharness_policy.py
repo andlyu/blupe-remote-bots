@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 
 import numpy as np
 from PIL import Image
@@ -96,6 +96,45 @@ class PolicyTests(unittest.TestCase):
         changed=deepcopy(report);changed['native_joint_calibration']['additional_offsets_rad']['left'][0]=.1
         with self.assertRaisesRegex(ValueError,'twice'):
             RoboHarnessAdapter(API,'yam-1',changed,expected_calibration_id=report['calibration_id'],expected_model_calibration_id=report['native_joint_calibration']['calibration_id'])
+
+    def test_camera_delay_refreshes_actual_feedback_before_model_and_wire(self):
+        # Reproduces the 3.598 s capture span from failed run ep_d758914999e442e6.
+        fixture=json.loads((Path(__file__).parent/'fixtures/roboharness-stale-home-feedback.json').read_text())
+        clock=[fixture['checked_at']]
+        with patch('time.time',side_effect=lambda:clock[0]):
+            p,source=adapter();p._geometry.clock=lambda:clock[0]
+            obs=fixture['observation']
+            source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(obs).items()}
+            original=source.capture_for_policy
+            def delayed(observation,**kwargs):
+                clock[0]+=fixture['camera_acquisition_s']
+                return original(observation,**kwargs)
+            source.capture_for_policy=delayed
+            p.refresh_observation=Mock(side_effect=lambda:{**obs,'observed_at':clock[0]})
+            p._post_json=Mock(return_value=decision_response(decision(primitive=6,arm=0,gripper=0)))
+            packet=p.build_trajectory('Synthetic delayed camera regression',obs,0)
+            self.assertGreaterEqual(p.refresh_observation.call_count,3)
+            self.assertEqual(packet[-1]['left_gripper'],0)
+            api=HttpSessionAPI('https://offline.invalid',supports_trajectories=True);api._session_capabilities['offline']='synthetic'
+            sent=[]
+            def wire(req,**kwargs):sent.append(json.loads(req.data));return io.BytesIO(b'{"accepted":true}')
+            with patch('remote_yam.session.request.urlopen',side_effect=wire):api.submit_trajectory('offline','ep_offline','lease_offline','traj_offline',10,packet)
+            self.assertEqual(len(sent),1)
+
+    def test_post_capture_refresh_cannot_forge_freshness_or_change_session(self):
+        for change in ({'observed_at':1000.},{'lease_id':'different-lease'}):
+            clock=[1000.]
+            with self.subTest(change=change),patch('time.time',side_effect=lambda:clock[0]):
+                p,source=adapter();p._geometry.clock=lambda:clock[0]
+                obs={**self.obs,'observed_at':clock[0]}
+                source.position={a:v['position_m'] for a,v in p._geometry.pose_summary(obs).items()}
+                original=source.capture_for_policy
+                def delayed(observation,**kwargs):clock[0]+=3.598;return original(observation,**kwargs)
+                source.capture_for_policy=delayed
+                p.refresh_observation=lambda:{**obs,'observed_at':clock[0],**change}
+                with patch.object(p,'_post_json') as model,patch('remote_yam.session.request.urlopen') as wire:
+                    with self.assertRaises((ValueError,RuntimeError)):p.build_trajectory('Synthetic invalid refresh',obs,0)
+                    model.assert_not_called();wire.assert_not_called()
 
     def test_timeout_requires_stop_without_model_or_packet_retry(self):
         p,_=adapter()
