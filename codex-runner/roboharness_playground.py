@@ -21,7 +21,7 @@ from roboharness_preflight import source_inventory
 def verify_release(receipt_path):
     receipt=json.loads(Path(receipt_path).read_text())
     root=Path(__file__).parent
-    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<57 or receipt.get('dirty_source') is not False:
+    if receipt.get('status')!='passed' or receipt.get('tests_run',0)<63 or receipt.get('dirty_source') is not False:
         raise ValueError('A clean-source RoboHarness command-contract preflight is required')
     hashes=receipt.get('source_sha256',{})
     if set(hashes)!=set(source_inventory()):raise ValueError('Preflight source inventory is incomplete')
@@ -77,9 +77,12 @@ class RoboHarnessPlayground(HostedRunner):
             raise RequestError(400,'Use the configured RoboHarness model and geometric tools')
         if payload.get('execution_mode','interactive') not in ('interactive','automated_verification'):
             raise RequestError(400,'Choose an explicit supported execution mode')
+        if payload.get('grounding_camera','top') not in ('top','left','right'):
+            raise RequestError(400,'Select overhead, left wrist or right wrist depth')
 
     def launch(self,visitor,payload,**kwargs):
         def context(provider):
+            provider.select_grounding_camera(payload.get('grounding_camera','top'))
             provider.runner_name=payload['runner_name'].strip()
             provider.execution_mode=payload.get('execution_mode','interactive')
             return provider
@@ -121,7 +124,7 @@ class RoboHarnessPlayground(HostedRunner):
                         config=json.loads(row[0])
                         if config.get('model')=='RoboHarness':
                             keys=('model','provider','underlying_models','runner_name','execution_mode','reasoning',
-                                  'code_revision','duration_s','calibration_id','model_calibration_id','prompt_sha256','tool_geometry_reference')
+                                  'code_revision','duration_s','calibration_id','model_calibration_id','prompt_sha256','tool_geometry_reference','grounding_camera','depth_grounding_roles')
                             result={'episode_id':episode,'robot_id':self.robot_id,
                                     'configuration':{k:config[k] for k in keys if k in config}}
                 except (sqlite3.Error,ValueError):pass
@@ -134,6 +137,7 @@ class RoboHarnessPlayground(HostedRunner):
                 await self.json(send,200,{'ready':status.get('ready') is True and replay_ready,'model':'RoboHarness',
                     'underlying_model':self.underlying_model,'reasoning_effort':'low',
                     'source_revision':receipt['source_revision'],'preflight_tests':receipt['tests_run'],
+                    'grounding_cameras':['top','left','right'],
                     'retained_camera_capture':self.public_replays is not None,'replay_encoder_ready':replay_ready,
                     'reason':('Public camera replay encoder is unavailable. No run has been submitted.' if not replay_ready else None if status.get('ready') else 'The selected subscription model is unavailable. No run has been submitted.')})
             except Exception:

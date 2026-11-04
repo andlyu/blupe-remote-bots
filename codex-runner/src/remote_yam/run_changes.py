@@ -28,7 +28,7 @@ def snapshot(provider, prompt, duration):
             **({'controller_workspace': config['controller_workspace']}
                if config.get('controller_workspace') else {}),
             **{key: config[key] for key in ('underlying_models','runner_name','execution_mode',
-                'calibration_id','model_calibration_id','prompt_sha256') if key in config},
+                'calibration_id','model_calibration_id','prompt_sha256','grounding_camera','depth_grounding_roles') if key in config},
             'trajectory_speed': getattr(getattr(provider, '_geometry', None), 'speed_multiplier', None),
             'task_prompt': prompt, 'system_prompt': getattr(provider, '_system_prompt', None),
             'duration_s': duration, 'code_revision': BUILD_HISTORY[0]['revision'] if BUILD_HISTORY else None,
@@ -42,7 +42,8 @@ def changes(previous, current):
         return ['First recorded configuration; no earlier configuration available to compare.']
     notes = []
     for key, label in [('model', 'Model'), ('provider', 'Provider'), ('reasoning', 'Reasoning effort'),
-                       ('response_speed', 'Inference speed'), ('trajectory_speed', 'Trajectory speed'), ('duration_s', 'Run time limit')]:
+                       ('response_speed', 'Inference speed'), ('trajectory_speed', 'Trajectory speed'), ('duration_s', 'Run time limit'),
+                       ('grounding_camera','Depth camera')]:
         old, new = previous.get(key), current.get(key)
         if old != new:
             notes.append(f'{label}: {old if old is not None else "not recorded"} → {new if new is not None else "not recorded"}.')

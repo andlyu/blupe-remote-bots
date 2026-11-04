@@ -1,6 +1,6 @@
 """Persistent image points, bidirectional optical flow and calibrated depth.
 
-Tracking uses only the overhead camera. Coordinates returned for actuation are
+Tracking uses the run's explicitly selected paired camera. Coordinates returned for actuation are
 fresh shared RGB-D measurements in the explicitly calibrated arm-base frames.
 Lost/occluded points never become guessed robot targets.
 """
@@ -16,7 +16,9 @@ class StaleTrackingDepth(InputRejected):
 
 
 class KeypointTracker:
-    def __init__(self):
+    def __init__(self, camera='top'):
+        if camera not in ('top','left','right'):raise InputRejected('Select a registered grounding camera')
+        self.camera=camera
         self.snapshot=None;self.points={};self.errors={};self._gray=None
 
     def register(self, point_id, u, v):
@@ -30,7 +32,7 @@ class KeypointTracker:
         self.errors.pop(point_id,None)
 
     def update(self,snapshot):
-        if snapshot.metadata.get('camera')!='top':raise InputRejected('RoboHarness tracking requires the overhead RGB-D camera')
+        if snapshot.metadata.get('camera')!=self.camera:raise InputRejected('Tracking requires the selected paired RGB-D camera')
         if self.snapshot is not None:
             if (snapshot.metadata.get('calibration_id')!=self.snapshot.metadata.get('calibration_id')
                     or snapshot.metadata.get('sensor_serial')!=self.snapshot.metadata.get('sensor_serial')
@@ -55,15 +57,18 @@ class KeypointTracker:
                 else:self.points[name]=after[i,0].copy()
         self.snapshot=snapshot;self._gray=gray
 
-    def measure(self):
+    def measure(self, *, camera_poses=None):
         if self.snapshot is None:raise InputRejected('No paired RGB-D frame')
         if not 0<=self.snapshot.age()<=2:raise StaleTrackingDepth('Tracked depth is stale; capture a fresh paired frame')
+        if self.camera!='top' and (not isinstance(camera_poses,dict) or set(camera_poses)!={'left','right'}):
+            raise InputRejected('Wrist depth requires both current measured arm-base camera poses')
         result={}
         for name,uv in self.points.items():
             try:
                 item={}
                 for arm in ('left','right'):
-                    value=self.snapshot.measure(int(round(float(uv[0]))),int(round(float(uv[1]))),arm=arm)
+                    kwargs={} if self.camera=='top' else {'T_base_camera':camera_poses[arm]}
+                    value=self.snapshot.measure(int(round(float(uv[0]))),int(round(float(uv[1]))),arm=arm,**kwargs)
                     if 'point_base_m' not in value:raise InputRejected('No calibrated arm-base transform; camera coordinates are not robot targets')
                     item[arm]=value['point_base_m']
                 result[name]=item
@@ -72,5 +77,5 @@ class KeypointTracker:
         return result
 
     def summary(self):
-        return dict(camera='top',captured_at=self.snapshot.metadata['captured_at'] if self.snapshot else None,
+        return dict(camera=self.camera,captured_at=self.snapshot.metadata['captured_at'] if self.snapshot else None,
                     pixels={k:v.tolist() for k,v in self.points.items()},errors=dict(self.errors))

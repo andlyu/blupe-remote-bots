@@ -15,13 +15,15 @@ import tempfile
 import time
 import threading
 from types import MethodType
+import numpy as np
 
+from .api_depth import rigid
 from .roboharness_cameras import RoboHarnessCameras
 from .codex_policy import CodexAdapter, codex_binary, codex_status
 from .mujoco_ik import ROBOT_SHA256
 from .providers import PolicyComplete, ResponsesAdapter
 from .robocurve_policy import RoboCurveResponsesAdapter
-from .roboharness_contract import SCHEMA, NAMES, INSTRUCTIONS, decision_response
+from .roboharness_contract import SCHEMA, NAMES, INSTRUCTIONS, decision_response, instructions_for_camera
 from .roboharness_control import RoboHarnessControl, InputRejected, vector
 from .roboharness_tracking import KeypointTracker, StaleTrackingDepth
 from .yam_gripper_reference import reference_for_model, nominal_tool_pose
@@ -38,7 +40,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
 
     def __init__(self, api_origin, robot_id, report, *, expected_calibration_id,
                  expected_model_calibration_id, model='gpt-6-astra', recording_root=None,
-                 camera_source=None, warm_model_session=False):
+                 camera_source=None, warm_model_session=False, grounding_camera='top'):
         if not isinstance(model,str) or not model.strip():raise ValueError('Select an exact underlying planning/vision model')
         self.robot_id=robot_id
         self._depth_joint_offsets_rad=None
@@ -57,6 +59,16 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._timeout_s=120
         self._warm_model_session=bool(warm_model_session)
         self._preparation_done=None;self._preparation_error=None;self._model_preparation=None
+        self.select_grounding_camera(grounding_camera)
+
+    def select_grounding_camera(self,camera):
+        if camera not in ('top','left','right'):raise ValueError('Select overhead, left wrist or right wrist depth')
+        if self._history or self._calls or self._pending is not None or self._preparation_done is not None or self.tracker.snapshot is not None:
+            raise ValueError('Changing the grounding camera requires a new run')
+        self.grounding_camera=camera
+        self._camera_source.grounding_camera=camera
+        self.tracker=KeypointTracker(camera)
+        self._decision_instructions=self._system_prompt=instructions_for_camera(camera)
 
     def start_preparation(self,cancelled):
         """Initialize the same model transport during normal queue admission.
@@ -195,30 +207,52 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             'calibration_id':self._bound_calibration_id,'model_calibration_id':self._model_calibration_id,
             'calibration_quality':self._calibration_warnings,
             'controller_workspace':self._geometry.profile.summary(),
-            'tracking':self.tracker.summary(),'tool_geometry_reference':self._tool_geometry_reference,'vision_roles':['top','left','right'],'depth_grounding_roles':['top'],'recording_path':str(self._recorder.path) if self._recorder else None,
+            'tracking':self.tracker.summary(),'tool_geometry_reference':self._tool_geometry_reference,'vision_roles':['top','left','right'],'grounding_camera':self.grounding_camera,'depth_grounding_roles':[self.grounding_camera],'recording_path':str(self._recorder.path) if self._recorder else None,
             'command_contract':'roboharness_yam_v1','simulation_rollout':False,
-            'prompt_sha256':hashlib.sha256(INSTRUCTIONS.encode()).hexdigest()}
+            'prompt_sha256':hashlib.sha256(self._system_prompt.encode()).hexdigest()}
 
     def _capture(self,observation):
         started=time.monotonic()
-        self._interaction('camera_capture','Reading current overhead depth and wrist camera views')
+        role=self.grounding_camera
+        self._interaction('camera_capture','Reading current '+role+' depth and all three camera views')
         frames=self._capture_frames(observation)
         snapshots=getattr(self._camera_source,'snapshots',{})
-        if 'top' not in snapshots or len(frames)!=3 or {f.name for f in frames}!={'top','left','right'}:
-            raise RuntimeError('RoboHarness requires paired overhead RGB-D and both wrist RGB views')
+        if role not in snapshots or len(frames)!=3 or {f.name for f in frames}!={'top','left','right'}:
+            raise RuntimeError('RoboHarness requires selected paired RGB-D and two RGB context views')
         if any(s.metadata.get('calibration_id')!=self._bound_calibration_id for s in snapshots.values()):
             raise RuntimeError('Camera calibration changed after model binding; stop and review')
         tracking_before=self.tracker.summary()
-        self.tracker.update(snapshots['top'])
+        self.tracker.update(snapshots[role])
         if self._recorder is not None:
-            top=next(frame for frame in frames if frame.name=='top')
-            snapshot=snapshots['top']
-            self._record('tracking_frame',camera='top',captured_at=snapshot.metadata['captured_at'],
+            selected=next(frame for frame in frames if frame.name==role)
+            snapshot=snapshots[role]
+            self._record('tracking_frame',camera=role,captured_at=snapshot.metadata['captured_at'],
                 calibration_id=snapshot.metadata['calibration_id'],sensor_serial=snapshot.metadata['sensor_serial'],
-                image_url='data:image/png;base64,'+base64.b64encode(top.jpeg).decode(),
+                image_url='data:image/png;base64,'+base64.b64encode(selected.jpeg).decode(),
                 tracking_before=tracking_before,tracking_after=self.tracker.summary())
-        self._interaction('camera_captured','Current robot camera views received',elapsed_s=time.monotonic()-started,overhead_depth_age_s=snapshots['top'].age())
+        self._interaction('camera_captured','Current robot camera views received',elapsed_s=time.monotonic()-started,grounding_camera=role,selected_depth_age_s=snapshots[role].age())
         return {f.name:f for f in frames}
+
+    def _measure_points(self,observation):
+        if self.grounding_camera=='top':return self.tracker.measure()
+        role=self.grounding_camera
+        # The mounting transform is never mistaken for a base pose. This uses
+        # the same registered native grasp origin and selected joint offsets
+        # as command FK. The capture must follow settled feedback; refresh is
+        # bound to this lease/cursor, and observe validates current hardware.
+        poses=self._geometry.pose_summary(observation)
+        camera=self.tracker.snapshot.calibration['cameras'][role]
+        if camera.get('parent_frame')!=role+'_grasp':
+            raise InputRejected('Wrist mounting transform must name the registered native grasp frame')
+        mount=rigid(camera['T_grasp_camera'])
+        index=('left','right').index(role)
+        position=np.array(poses[role]['position_m'])+self._geometry.bases[index]
+        transforms={}
+        for i,arm in enumerate(('left','right')):
+            grasp=np.eye(4);grasp[:3,:3]=poses[role]['rotation_matrix']
+            grasp[:3,3]=position-self._geometry.bases[i]
+            transforms[arm]=grasp@mount
+        return self.tracker.measure(camera_poses=transforms)
 
     def _refresh_feedback(self,observation,first_step_id):
         if callable(self.refresh_observation):
@@ -234,7 +268,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             frames=self._capture(observation)
             observation=self._refresh_feedback(observation,first_step_id)
             try:
-                points=self.tracker.measure() if metric else None
+                points=self._measure_points(observation) if metric else None
                 return frames,observation,points
             except StaleTrackingDepth:
                 if attempt:raise
@@ -250,13 +284,14 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         content=[{'type':'input_text','text':json.dumps(dict(task=prompt,robot=self.robot_id,
             poses=poses,tracked_points=points,tracking=self.tracker.summary(),
             tool_geometry_reference=self._tool_geometry_reference,nominal_tool_pose=nominal_tool_pose(poses,self._tool_geometry_reference),
-            calibration_quality=self._calibration_warnings,waypoint_cursor=first_step_id),allow_nan=False)}]
+            calibration_quality=self._calibration_warnings,grounding_camera=self.grounding_camera,waypoint_cursor=first_step_id),allow_nan=False)}]
         self._vision_frames=[]
         for name in ('top','left','right'):
             frame=frames[name];self._vision_frames.append(frame.summary())
             mime='image/png' if frame.jpeg.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if frame.jpeg.startswith(b'\xff\xd8') else None
             if mime is None:raise RuntimeError('Unsupported camera image encoding')
-            content.extend([{'type':'input_text','text':f'{name} camera; overhead selection coordinates 0..1000'},
+            label='SELECT METRIC POINTS HERE; normalized coordinates 0..1000' if name==self.grounding_camera else 'RGB context only; do not select metric points here'
+            content.extend([{'type':'input_text','text':f'{name} camera; {label}'},
                 {'type':'input_image','image_url':'data:'+mime+';base64,'+base64.b64encode(frame.jpeg).decode(),'detail':'high'}])
         return {'role':'user','content':content}
 
@@ -267,7 +302,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         identity=(observation.get('episode_id'),observation.get('lease_id'))
         if not self._history:
             self._prompt=prompt;self._episode=identity
-            self._history=[{'role':'system','content':INSTRUCTIONS}]
+            self._history=[{'role':'system','content':self._system_prompt}]
         elif self._prompt!=prompt or self._episode!=identity:raise RuntimeError('New task/lease needs a fresh RoboHarness conversation')
         while self._calls<64:
             if self.cancelled():raise RuntimeError('RoboHarness stopped; no new motion sent')

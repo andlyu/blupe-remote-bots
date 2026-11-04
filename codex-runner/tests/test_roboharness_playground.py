@@ -26,7 +26,8 @@ class PlaygroundTests(unittest.TestCase):
         app.validate_launch(None,good,False)
         for change in ({'runner_name':'Automated'},{'runner_name':''},{'email':''},{'email':'a b@example.invalid'},
                        {'provider':'codex'},{'model':'gpt-6-astra'},{'execution_mode':'invented'},
-                       {'api_key':'synthetic'},{'endpoint':'https://other.invalid'},{'executor':'other'},{'system_prompt':'override'}):
+                       {'api_key':'synthetic'},{'endpoint':'https://other.invalid'},{'executor':'other'},{'system_prompt':'override'},
+                       {'grounding_camera':'external'},{'grounding_camera':None},{'grounding_camera':True}):
             with self.subTest(change=change),self.assertRaises(RequestError):app.validate_launch(None,{**good,**change},False)
 
     def test_replay_observer_starts_only_after_acceptance_and_cannot_cancel_accepted_run(self):
@@ -89,12 +90,12 @@ class PlaygroundTests(unittest.TestCase):
             query('../../other');self.assertEqual(app.json.call_args.args[1],404)
 
     def test_preflight_requires_clean_pass_and_complete_unchanged_source_inventory(self):
-        receipt=dict(status='passed',tests_run=57,dirty_source=False,
+        receipt=dict(status='passed',tests_run=63,dirty_source=False,
             source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in source_inventory()})
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'receipt.json'
             path.write_text(json.dumps(receipt));self.assertEqual(verify_release(path)['status'],'passed')
-            variants=[{**receipt,'dirty_source':True},{**receipt,'status':'draft_passed'},
+            variants=[{**receipt,'tests_run':62},{**receipt,'dirty_source':True},{**receipt,'status':'draft_passed'},
                 {**receipt,'source_sha256':{}},{**receipt,'source_sha256':{**receipt['source_sha256'],'src/remote_yam/roboharness_control.py':'stale'}}]
             for value in variants:
                 path.write_text(json.dumps(value))
