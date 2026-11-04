@@ -63,6 +63,20 @@ state; a timeout, unknown dispatch or safety stop must never be automatically re
 '''
 
 
+def instructions_for_camera(camera):
+    if camera not in ('top','left','right'):raise InputRejected('Select a registered grounding camera')
+    if camera=='top':return INSTRUCTIONS
+    label=camera.upper()+' WRIST'
+    return INSTRUCTIONS.replace(
+        'are overhead (paired with depth), left wrist and right wrist, in that order.\n'
+        'Only overhead points supply metric depth grounding. Select points only\n'
+        'in OVERHEAD.',
+        'are overhead, left wrist and right wrist, in that order.\n'
+        'Only '+label+' is paired with metric depth. Select points only in '+label+'.\n'
+        'Wrist projection uses current measured settled FK and the registered mounting transform.\n'
+        'The other two images provide RGB context, not metric samples.')
+
+
 def integer(v,label,low,high):
     value=number(v,label,low,high)
     if not value.is_integer():raise InputRejected(label+' must be an integer')
