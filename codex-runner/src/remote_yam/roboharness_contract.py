@@ -33,6 +33,8 @@ For action=move_to, primitive selects ONE tool:
   the scene plane normal, choosing the nearest normal sign; keep center position.
 5 adjust_pose: arm,x,y,z,rx,ry,rz. Increment arm-base translation in metres and
   apply arm-base rotation-vector radians. Max 10 cm and 0.5 rad per command.
+  Supply all six numeric components, using 0 for unchanged axes. touch likewise
+  needs all three numeric offsets; null is only for fields unused by that tool.
 6 gripper: arm,gripper. Normalized fraction 0=closed,1=open; joints are held exactly.
 For done/give_up all targets must be null. Use summary/reason and hindsight.
 These are geometric tools; move_to is only the decision envelope, not proof of
