@@ -86,6 +86,27 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
         code, _, _ = await self.call('/static/run-labels.js')
         self.assertEqual(code, 200)
 
+    async def test_cloud_label_summary_preserves_outcomes_and_scoped_replay_evidence(self):
+        code, full, _ = await self.call('/api/run-labels')
+        self.assertEqual(code, 200)
+        code, compact, _ = await self.call('/api/run-labels', query='summary=1')
+        self.assertEqual(code, 200)
+        self.assertEqual(len(compact['runs']), len(full['runs']))
+        self.assertLess(len(json.dumps(compact)), len(json.dumps(full)) / 4)
+        for original, row in zip(full['runs'], compact['runs']):
+            self.assertEqual(row['episode_id'], original['episode_id'])
+            self.assertEqual(row['robot_id'], original['robot_id'])
+            self.assertEqual(row['auto_assessment'], {key:original['auto_assessment'][key] for key in ('label', 'model')})
+            self.assertEqual(row['human_review'], {'label':original['human_review']['label']} if original['human_review'] else None)
+        run = full['runs'][0]
+        from urllib.parse import urlencode
+        query = urlencode({key:run[key] for key in ('episode_id', 'robot_id')})
+        self.assertEqual((await self.call('/api/run-labels', query=query))[1]['runs'], [run])
+        self.assertEqual((await self.call('/api/run-labels', query=query+'&robot_id=wrong'))[0], 400)
+        self.assertEqual((await self.call('/api/run-labels', query='episode_id='+run['episode_id']+'&robot_id=other'))[1]['runs'], [])
+        self.assertFalse(self.app.visitors)
+        self.assertEqual(self.app.run_assessments.summaries(), {})
+
     async def test_model_catalog_requires_session_csrf_and_keeps_keys_private(self):
         with patch('remote_yam.model_catalog.discover_models', return_value={
                 'models':[{'id':'gpt-6.1-sol','label':'Sol 6.1'}], 'source':'provider'}) as discover:
@@ -286,11 +307,11 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.gather(*self.app.cleanups)
         shutil.rmtree(self.app.root, ignore_errors=True)
 
-    async def call(self, path, *, method="GET", payload=None, cookie="", csrf="", origin="https://robot.example", extra=None, raw=None):
+    async def call(self, path, *, method="GET", payload=None, cookie="", csrf="", origin="https://robot.example", extra=None, raw=None, query=""):
         headers = {"host": "robot.example", "origin": origin, "content-type": "application/json",
                    "cookie": cookie, "x-yam-runner-token": csrf}
         headers.update(extra or {})
-        scope = {"type": "http", "method": method, "path": path,
+        scope = {"type": "http", "method": method, "path": path, "query_string": query.encode(),
                  "headers": [(k.encode(), v.encode()) for k, v in headers.items()]}
         received = False
         async def receive():

@@ -2,9 +2,9 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../static/run-labels.js'), 'utf8');
 const data = JSON.parse(fs.readFileSync(path.join(__dirname, '../annotations/run-labels.json'), 'utf8'));
-function setup(fetch) {
+function setup(fetch, document = {}) {
   const window = {};
-  vm.runInNewContext(source, {window, fetch, document:{}});
+  vm.runInNewContext(source, {window, fetch, document});
   return window.yamRunLabels;
 }
 test('published export is complete, scoped and contains no raw identities or provider billing metadata', async () => {
@@ -60,4 +60,60 @@ test('source selector recolors the existing Cloud without refetching or changing
   assert.equal(c.nodes.get('pastRunsLabelSummary').textContent, 'human');
   assert.equal(c.storage.get('yam-run-label-source'), 'human');
   assert.equal(c.requests.length, 1);
+});
+
+
+test('cloud startup fetches compact labels and replay fetches only the selected full evidence', async () => {
+  const requests = [], panels = [];
+  const run = data.runs.find(row => row.auto_assessment.evidence?.length);
+  const compact = {version:1,runs:data.runs.map(row => ({episode_id:row.episode_id,robot_id:row.robot_id,
+    auto_assessment:{label:row.auto_assessment.label,model:row.auto_assessment.model},
+    human_review:row.human_review ? {label:row.human_review.label} : null}))};
+  const document = {getElementById(){return null},createElement(tag){return {tag,children:[],append(...items){this.children.push(...items)}}}};
+  const api = setup(async url => {requests.push(url);return {ok:true,json:async()=>url.includes('summary=1') ? compact : {version:1,runs:[run]}}}, document);
+  await Promise.all([api.load(),api.load()]);
+  assert.deepEqual(requests, ['/api/run-labels?summary=1']);
+  assert.equal(api.outcome(run,'auto'),run.auto_assessment.label);
+  assert.doesNotMatch(api.describe(run,'auto'), /undefined/);
+  assert.match(api.summary(data.runs,'auto'), /416 of 416 shown/);
+  const anchor = {after(panel){panels.push(panel)}};
+  await api.showReplay(run,anchor);
+  assert.equal(requests[1],`/api/run-labels?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(run.robot_id)}`);
+  assert.ok(panels[0].children.some(child=>child.textContent===run.auto_assessment.reason));
+  assert.ok(panels[0].children.some(child=>child.textContent?.includes(run.auto_assessment.evidence[0].observation)));
+  await api.showReplay(run,anchor);
+  assert.equal(requests.length,2,'A replay revisit reuses full evidence');
+});
+
+test('failed replay evidence stays explicit and retries without discarding cloud colors', async () => {
+  const run = data.runs[0], panels = []; let fail = true;
+  const compact = {version:1,runs:[{...run,auto_assessment:{label:run.auto_assessment.label,model:run.auto_assessment.model}}]};
+  const document = {getElementById(){return null},createElement(){return {children:[],append(...items){this.children.push(...items)}}}};
+  const api = setup(async url=>({ok:url.includes('summary=1') || !fail,json:async()=>url.includes('summary=1') ? compact : {version:1,runs:[run]}}),document);
+  await api.load();
+  await api.showReplay(run,{after(panel){panels.push(panel)}});
+  assert.ok(panels[0].children.some(child=>/temporarily unavailable.*retry/i.test(child.textContent || '')));
+  assert.equal(api.outcome(run,'auto'),run.auto_assessment.label);
+  assert.ok(panels[0].children.every(child=>!String(child.textContent).includes('undefined')));
+  fail=false;
+  await api.showReplay(run,{after(panel){panels.push(panel)}});
+  assert.ok(panels[1].children.some(child=>child.textContent===run.auto_assessment.reason));
+});
+
+
+test('replay evidence has immediate inline progress and an older request cannot replace the current run', async () => {
+  const [one,two] = data.runs, panels = [], pending = new Map();
+  const document = {getElementById(){return null},createElement(){return {children:[],append(...items){this.children.push(...items)}}}};
+  const api = setup(url => url.includes('summary=1') ? Promise.resolve({ok:true,json:async()=>data}) : new Promise(resolve=>pending.set(url,resolve)),document);
+  await api.load();
+  const anchor = {after(panel){panels.push(panel)}};
+  const first = api.showReplay(one,anchor), second = api.showReplay(two,anchor);
+  assert.equal(panels.length,2);
+  assert.match(panels[1].children[0].textContent,/Loading label evidence/);
+  await new Promise(setImmediate);
+  const answer = run => pending.get(`/api/run-labels?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(run.robot_id)}`)({ok:true,json:async()=>({version:1,runs:[run]})});
+  answer(two); await second;
+  answer(one); await first;
+  assert.ok(panels[1].children.some(child=>child.textContent===two.auto_assessment.reason));
+  assert.equal(panels[0].children.length,1,'Stale completion never inserts evidence');
 });
