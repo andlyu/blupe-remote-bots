@@ -44,6 +44,11 @@ def check(broker_source,runner_name):
             except broker.BrokerError:pass
             else:raise ValueError('Actual broker image-count guard changed')
         result=dict(action='give_up',targets={name:None for name in NAMES},note='',summary='',reason='non_actuating_session_ready',hindsight='')
+        if count==3:
+            result['action']='move_to'
+            result['targets'].update(primitive=1,point_a=0,u=0,v=1000,
+                                    point_b=1,x=500,y=250,point_c=2,rx=1000,ry=0)
+            result['reason']='Offline three-point inspection parser check; no robot state or dispatch.'
         return [{'type':'thread.started','thread_id':thread},{'type':'item.completed','item':{'type':'agent_message','text':json.dumps(result)}},{'type':'turn.completed'}]
     with patch.object(socket,'socket',side_effect=AssertionError('Offline broker preflight attempted network')) as network:
         policy=RoboHarnessAdapter('https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com','robot-ba8413962083809c',report,expected_calibration_id=report['calibration_id'],expected_model_calibration_id=report['model_joint_calibration']['calibration_id'],warm_model_session=True)
@@ -59,11 +64,13 @@ def check(broker_source,runner_name):
                 if 'three fresh' not in str(exc):raise
             else:raise ValueError('Physical policy accepted fewer than three images')
             probe['input'][0]['content'] += [image,image]
-            policy._post_json(probe)
+            response=policy._post_json(probe)
+            inspected=json.loads(response['output'][0]['arguments']).get('registrations',[])
+            if len(inspected)!=3 or policy._pending is not None:raise ValueError('Read-only batch inspection parser contract changed')
             if requests!=[1,3]:raise ValueError('Initialization/policy protocol sequence changed')
             network.assert_not_called()
         finally:policy.close_transport()
-    return dict(status='passed',scope='actual Codex parser, hosting client serializer and broker validator; synthetic executor only',runner_name=runner_name,execution_mode='offline_broker_protocol_validation',duration_s=time.perf_counter()-started,policy_source_sha256=hashlib.sha256(Path(sys.modules[RoboHarnessAdapter.__module__].__file__).read_bytes()).hexdigest(),broker_source_sha256=hashlib.sha256(broker_source.read_bytes()).hexdigest(),client_source_sha256=hashlib.sha256(client_source.read_bytes()).hexdigest(),initialization_images=1,initialization_robot_images=0,policy_images=3,card_sha256=INITIALIZATION_CARD_SHA256,zero_and_excess_images_rejected=True,policy_three_image_guard_preserved=True,same_transport_resume=True,network_connections=0,actual_model_calls=0,robot_sessions=0,actuator_submissions=0)
+    return dict(status='passed',scope='actual Codex parser, hosting client serializer and broker validator; synthetic executor only',runner_name=runner_name,execution_mode='offline_broker_protocol_validation',duration_s=time.perf_counter()-started,policy_source_sha256=hashlib.sha256(Path(sys.modules[RoboHarnessAdapter.__module__].__file__).read_bytes()).hexdigest(),broker_source_sha256=hashlib.sha256(broker_source.read_bytes()).hexdigest(),client_source_sha256=hashlib.sha256(client_source.read_bytes()).hexdigest(),initialization_images=1,initialization_robot_images=0,policy_images=3,card_sha256=INITIALIZATION_CARD_SHA256,zero_and_excess_images_rejected=True,policy_three_image_guard_preserved=True,batch_inspection_points=len(inspected),same_transport_resume=True,network_connections=0,actual_model_calls=0,robot_sessions=0,actuator_submissions=0)
 
 
 def main():

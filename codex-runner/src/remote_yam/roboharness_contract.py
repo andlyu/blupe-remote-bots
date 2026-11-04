@@ -23,7 +23,15 @@ Only overhead points supply metric depth grounding. Select points only
 in OVERHEAD. u/v are normalized 0..1000 from left/top; 1000 is the last pixel.
 Keep every unused target field null. arm=0 means left; arm=1 means right.
 For action=move_to, primitive selects ONE tool:
-1 track_object: point_a=integer 0..15 and u,v. Registers or replaces one image point.
+1 track_object: select one to three image points, all from this SAME metric image.
+  First: point_a=integer 0..15 and normalized u,v. Optionally add point_b with
+  normalized pixel coordinates x,y; optionally add point_c with normalized rx,ry.
+  In this read-only tool only, x,y and rx,ry are pixel coordinates 0..1000,
+  not translation or rotation. IDs must be distinct; point_c requires point_b.
+  Keep all other fields null, including arm,z,rz. Prefer one batch for related
+  cube/edge/support samples instead of separate model calls for each point.
+  Registration and fresh depth measurement send no arm movement. Lost or missing
+  depth stays an explicit error; never infer an unmeasured point from its neighbors.
 2 touch: arm, point_a, x,y,z. Move the fixed native grasp origin to that tracked scene point plus
   explicit arm-base offset [x,y,z] metres; orientation stays unchanged. If u,v
   are also provided, select/update point_a in this image before resolving touch.
@@ -104,7 +112,22 @@ def decision_response(result):
             count=3 if primitive==4 else 2 if primitive==3 else 1
             ids=['point_'+str(integer(args.pop(k,None),k,0,15)) for k in ('point_a','point_b','point_c')[:count]]
             arguments['point_ids']=ids
-        if primitive==1 or primitive==2 and ('u' in args or 'v' in args):
+        if primitive==1:
+            first={'point_id':ids[0],'u':number(args.pop('u',None),'u',0,1000),
+                   'v':number(args.pop('v',None),'v',0,1000)}
+            if 'point_b' in args or 'point_c' in args:
+                registrations=[first]
+                for key,horizontal,vertical in (('point_b','x','y'),('point_c','rx','ry')):
+                    if key=='point_c' and key not in args:break
+                    point_id='point_'+str(integer(args.pop(key,None),key,0,15))
+                    if point_id in ids:raise InputRejected('Inspection point IDs must be distinct')
+                    ids.append(point_id)
+                    registrations.append({'point_id':point_id,
+                        'u':number(args.pop(horizontal,None),horizontal,0,1000),
+                        'v':number(args.pop(vertical,None),vertical,0,1000)})
+                arguments['registrations']=registrations
+            else:arguments['register']={'u':first['u'],'v':first['v']}
+        elif primitive==2 and ('u' in args or 'v' in args):
             arguments['register']={'u':number(args.pop('u',None),'u',0,1000),'v':number(args.pop('v',None),'v',0,1000)}
         if primitive in (2,5):arguments['offset_m' if primitive==2 else 'delta_m']=[number(args.pop(k,None),k) for k in ('x','y','z')]
         if primitive==5:arguments['rotation_vector_rad']=[number(args.pop(k,None),k) for k in ('rx','ry','rz')]
