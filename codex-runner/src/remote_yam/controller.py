@@ -1997,8 +1997,23 @@ class RunnerController(HomeSceneStartup):
                         self._lifecycle({}, {"state": "timed_out", "reason": "session_timeout"})
                         self._close_events()
                         return
+                    if terminal.get("status") == "safety_aborted":
+                        # A controller-local policy blocks event consumption while
+                        # polling. Its native abort can close the lease before the
+                        # next poll; recover the saved cause instead of reporting
+                        # the secondary inactive-session response.
+                        try:
+                            trace = self._session_api.get_episode_trace(failed_session)
+                            errors = trace.get("errors") or []
+                            if errors:
+                                self._handle_error(dict(errors[-1], category="hardware_safety", terminal=True))
+                        except Exception:
+                            pass
+                        self._lifecycle({}, {"state": "safety_aborted"})
+                        self._close_events()
+                        return
                 except Exception:
-                    pass  # No authoritative timeout: retain the original error.
+                    pass  # No authoritative terminal state: retain the original error.
             with self._lock:
                 session_id = self._session_id
                 self._error = f"{type(exc).__name__}: {exc}"

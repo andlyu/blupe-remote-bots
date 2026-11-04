@@ -285,6 +285,25 @@ class DreamControllerExecutor:
                         native_status=result.get('status') if result.get('status') in
                             {'rejected', 'aborted', 'completed'} else None,
                         native_code=result.get('code') if result.get('code') in NATIVE_FAILURE_CODES else None)
+                    # Only fixed local checks become public diagnostics. Never
+                    # retain arbitrary exception text, images or model payloads.
+                    reasons = {
+                        'Invalid native Dream receipt order': 'invalid_receipt_order',
+                        'Incomplete native Dream execution evidence': 'incomplete_execution_evidence',
+                        'Invalid native workspace replacement': 'invalid_workspace_replacement',
+                        'Missing finite native final joints': 'missing_final_joints',
+                        'Native controller rejected Dream packet': 'native_packet_rejected',
+                        'Native Dream completion timed out': 'native_completion_timeout',
+                    }
+                    reason = reasons.get(str(error)) if type(error) is RuntimeError else None
+                    if reason:
+                        row = self.trajectory or {}
+                        points = (row.get('payload') or {}).get('waypoints') or []
+                        self.failure.update(reason=reason, accepted=row.get('accepted') is True,
+                            progress=row.get('progress', 0), expected=len(points),
+                            final_observation=bool(row.get('observation')))
+                        if isinstance(row.get('error'), str):
+                            self.failure['receipt_error'] = row['error']
                     if self.provider_failure is not None:
                         self.failure['provider'] = deepcopy(self.provider_failure)
                     self.state = 'failed'
@@ -328,7 +347,8 @@ class DreamControllerExecutor:
                 if payload.get('step_id') == row['payload']['waypoints'][-1]['step_id'] + 1:
                     played = row['accepted'] and row['progress'] == len(row['payload']['waypoints'])
                     if (not (played or workspace_held(row)) or payload.get('settled') is not True):
-                        row['error'] = True
+                        row['error'] = ('premature_final_observation' if not (played or workspace_held(row))
+                                        else 'unsettled_final_observation')
                     row['observation'] = deepcopy(payload)
             if (same and kind in {'trajectory_progress', 'trajectory_result'}
                     and payload.get('trajectory_id') == row['payload']['trajectory_id']):
@@ -336,7 +356,7 @@ class DreamControllerExecutor:
                 if kind == 'trajectory_progress':
                     i = row['progress']
                     if not row['accepted'] or i >= len(points) or payload.get('step_id') != points[i]['step_id']:
-                        row['error'] = True
+                        row['error'] = 'unexpected_progress'
                     else:
                         row['progress'] += 1
                 elif payload.get('status') == 'accepted':
@@ -344,12 +364,12 @@ class DreamControllerExecutor:
                     details = payload.get('details') or {}
                     if details.get('workspace_recovery') == 'adjusted':
                         if row['adjustment'] is not None and row['adjustment'] != details:
-                            row['error'] = True
+                            row['error'] = 'conflicting_workspace_adjustment'
                         row['adjustment'] = deepcopy(details)
                 else:
                     if payload.get('status') == 'completed' and (
                             not row['accepted'] or row['progress'] != len(points) or not row['observation']):
-                        row['error'] = True
+                        row['error'] = 'incomplete_completion_receipt'
                     row['result'] = deepcopy(payload)
                 return
             if kind in {'trajectory_progress', 'trajectory_result'} and (
