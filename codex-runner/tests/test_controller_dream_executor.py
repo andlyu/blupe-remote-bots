@@ -190,7 +190,9 @@ def test_native_rejection_retains_only_bounded_diagnostics(code, expected):
     assert finish(executor) == 'failed'
     failure = executor.status()['failure']
     assert failure == dict(stage='executing', error_type='RuntimeError',
-                           native_status='rejected', native_code=expected)
+                           native_status='rejected', native_code=expected,
+                           reason='native_packet_rejected', accepted=False, progress=0,
+                           expected=1, final_observation=False)
     assert sent[-1]['details'] == failure
     assert 'private' not in str(failure)
     assert not op.api_authorized
@@ -287,3 +289,17 @@ def test_installed_operator_constructs_before_api_client_is_attached():
     operator.attach_api_client(client)
     assert operator.dream_executor is executor
     assert operator.stop() == 'native stop'
+
+
+def test_native_completion_failure_retains_bounded_check_and_receipt_counts():
+    def incomplete(op, payload):
+        return [dict(payload, type='trajectory_result', status='completed', step_id=0)]
+    op, executor, request, submitted, sent, adapters = setup(native_handler=incomplete)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    failure = executor.status()['failure']
+    assert failure['reason'] == 'invalid_receipt_order'
+    assert failure['progress'] == 0 and failure['expected'] == 1
+    assert failure['accepted'] is False and failure['final_observation'] is False
+    assert sent[-1]['details'] == failure
+    assert not op.api_authorized and adapters[0].completed == 0
