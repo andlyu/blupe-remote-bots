@@ -96,6 +96,12 @@ def public_runner_diagnostic(state):
     ):
         if error in {message, 'ValueError: ' + message}:
             return message
+    # Object labels are provider text. Publish only the fixed reason, including
+    # on the second pass through a hosted policy's public diagnostic filter.
+    if re.fullmatch(
+            r'(?:ValueError: |RuntimeError: )?(?:No depth for selected object|'
+            r'No valid depth for [^\r\n]{1,200})', error):
+        return 'No depth for selected object'
     # CameraFrameSource emits a fixed diagnostic without response bodies/URLs.
     # Retain it in the live banner and saved result instead of hiding the cause.
     camera = r'left|right|top|observer|overhead|side|front|wrist'
