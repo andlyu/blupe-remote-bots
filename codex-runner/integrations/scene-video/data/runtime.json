@@ -1,0 +1,16 @@
+{
+  "runner_revision": "7ba2427ba960ad30af99c8fedd05c5196685295a",
+  "controller_revision": "d1f9e8d588b18810d13c0edbe34646763dc8f257",
+  "files": {
+    "src/remote_yam/session.py": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb",
+    "src/remote_yam/mujoco_ik.py": "86fb73e0adbe8c52ab72b41f2ab0af5abcb8e7737c1332c0a6fd5b1ea5c80298",
+    "src/remote_yam/controller_workspace.py": "90345c129837a1b822c84a94fbaefc59726cec3700701abb9f0c6e6ce4d8c9be"
+  },
+  "controller_files": {
+    "YAM_control/hardware_safety.py": "877cb98b3d091fa7d684bae2e0991e4c2ed35c546ea95bb8cd235a2deed17361",
+    "YAM_control/ruckig_waypath.py": "1a6c87210c06da7d1f7356dc4dcc900668ee21d37888ebf4e4cde049d63a3401",
+    "config/yam_hardware_safety.json": "0fd0100b3908d307ed116bf7ba3ff69468412734f5891d58511c578476e77384",
+    "assets/yam_bimanual/scene.xml": "7f82c3ff37df703978064b74c0dfb637449613640211e2e27a25dc6b10072f1b",
+    "assets/yam_bimanual/yam_bimanual.xml": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c"
+  }
+}
