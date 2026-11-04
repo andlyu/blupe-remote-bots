@@ -351,3 +351,25 @@ def test_operator_stop_and_provider_replacement_do_not_record_deadline_cancellat
     controller._stop_event.clear()
     assert controller._provider_cancelled(object())
     assert controller._deadline_cancelled_session is None
+
+
+def test_native_abort_during_blocking_policy_preserves_recorded_cause():
+    from unittest.mock import Mock
+    from remote_yam.controller import RunnerController
+    from remote_yam.session import MockSessionAPI, SessionAPIError
+    controller = RunnerController(MockSessionAPI(), share_conversation=False)
+    controller._session_id = 'native-session'
+    controller._status = 'running'
+    controller._session_api.get_session = Mock(return_value={'status': 'safety_aborted'})
+    controller._session_api.get_episode_trace = Mock(return_value={'errors': [dict(
+        code='controller_executor_failed', message='Controller Dream execution failed',
+        details=dict(reason='invalid_receipt_order', progress=23, expected=24))]})
+    controller._session_api.stop_session = Mock()
+    controller.process_next_event = Mock(side_effect=SessionAPIError('session is not active'))
+    controller._run_loop(None)
+    state = controller.status()
+    assert state['status'] == 'safety_aborted'
+    assert state['safety_error']['code'] == 'controller_executor_failed'
+    assert state['safety_error']['details']['reason'] == 'invalid_receipt_order'
+    assert 'session is not active' not in state['error']
+    controller._session_api.stop_session.assert_not_called()
