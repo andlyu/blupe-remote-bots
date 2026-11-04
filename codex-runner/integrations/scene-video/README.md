@@ -1,72 +1,65 @@
-# Forward scene video
+# One-minute scene video
 
-Both YAM-1 arms advance 12 cm over 12 seconds while preserving their measured
-wrist attitude and gripper fractions. The calibrated wrist optical axes must
-point down over the tabletop throughout the route. This is a deterministic IK
-capture method, with no foundation model or policy inference.
+Both YAM-1 wrist cameras advance, move sideways and change aim across the shared
+scene. The planned trajectory is 60 seconds: 600 points at 10 Hz in two validated
+300-point packets. Grippers hold their initial measured fractions. This is
+deterministic calibrated IK with no model inference or GPU startup.
 
-**Current status: incomplete.** The initial normal-playground physical run
-`ep_11d0dcff60b448ba` executed 120 waypoints, then hit a local completion-check
-bug. That check is repaired and covered offline. Raw images and feedback are
-durably saved; the observer-only quick preview is available. The full retained
-wrist-camera movie, dataset publication and final normal-UI acceptance are still
-open. See the [working checklist](docs/COMPLETION-CHECKLIST.md). A quick preview
-does not establish complete scene capture, synchronization or training quality.
+One normal playground UI run completed all 600 points, with both packets accepted
+and settled. Hardware pacing and settling produced 73.81 seconds of reported
+execution and an 84.6-second full recording. The episode retained 844 samples and
+2,991 images, with zero capture errors, one missed capture tick and 812 aligned
+training-valid rows. The full movie retains two ticks with missing imagery and
+labels held frames. Both arms parked with torque disabled; no movement retry.
 
-## Reproduce the offline gate
+- [Physical scene movie](https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/videos/ep_47151c9fe197419d.mp4)
+- [Motion design](docs/ONE-MINUTE-SIMULATION.md)
+- [Physical evidence](docs/evidence/minute-physical.json)
+- [Launch preflight](docs/evidence/minute-launch-preflight.json)
+- [Working harness checklist](docs/COMPLETION-CHECKLIST.md)
 
-Use the shared runner at `7ba2427ba960ad30af99c8fedd05c5196685295a` and the public
-controller at `d1f9e8d588b18810d13c0edbe34646763dc8f257`. Check out those revisions
-in separate directories; existing working changes need not be moved. Their
-public repositories are [blupe-remote-bots](https://github.com/andlyu/blupe-remote-bots)
-and [blupe-playground-robot-controller](https://github.com/andlyu/blupe-playground-robot-controller).
-The controller's runtime is `src/blupe_controller/runtime`.
+The capture task executed. Broader harness certification remains incomplete:
+continuous timed UI screen recording, public deployment of this specific launch
+page and remaining checklist-wide acceptance are not claimed. A saved video does
+not certify reconstruction accuracy or complete physical scene coverage.
 
-Install the runner requirements plus NumPy, SciPy, OpenCV and pytest in a Python
-environment. FFmpeg is required. On a headless Linux host use OSMesa and
-`MUJOCO_GL=osmesa`; macOS rendering needs normal CoreGraphics access.
+## Verify and launch
+
+Use the shared runner at `7ba2427ba960ad30af99c8fedd05c5196685295a` and public
+controller runtime at `d1f9e8d588b18810d13c0edbe34646763dc8f257` in separate
+checkouts. `minute.py` checks pinned file hashes before verifying and serving.
+Install the runner requirements plus NumPy, SciPy, OpenCV and pytest. FFmpeg is
+required. Headless Linux uses OSMesa and `MUJOCO_GL=osmesa`; macOS needs normal
+CoreGraphics access.
 
 ```sh
-python codex-runner/integrations/scene-video/run.py verify \
+python codex-runner/integrations/scene-video/minute.py verify \
   --runner-root /path/to/pinned-runner/codex-runner \
   --hardware-root /path/to/pinned-controller/src/blupe_controller/runtime \
-  --output /path/to/scene-video-evidence
-```
+  --output /path/to/capture-evidence
 
-This command sends no physical command. It runs completion regressions, generates
-the actual fixed route, exercises the canonical serializer/validator with a wire
-spy, tests fractional held grippers/endpoints/invalid zero-dispatch cases, checks
-camera geometry and a collision-enabled controller snapshot, and renders and
-decodes/seeks a labelled three-view simulation MP4. The final receipt retains
-source/calibration/validator hashes and separate command runtimes. The live
-station's gateway guards remain mandatory for every physical packet.
-
-The `Forward scene video preflight` GitHub Actions job runs this gate. A release
-must retain a passing receipt for the exact policy source, verify the matching
-calibration and run the existing hardware queue/lease path. Changing control code
-reopens physical acceptance; offline passes never certify physical capture.
-
-## Connect after simulation verification
-
-```sh
-python codex-runner/integrations/scene-video/run.py serve \
+python codex-runner/integrations/scene-video/minute.py serve \
   --runner-root /path/to/pinned-runner/codex-runner \
-  --output /path/to/scene-video-evidence --port 8796
+  --hardware-root /path/to/pinned-controller/src/blupe_controller/runtime \
+  --output /path/to/capture-evidence --port 8797
 ```
 
-Open `http://127.0.0.1:8796/`. Use normal Run setup with the actual runner's editable
-name/email. The fixed method uses a 60-second maximum admitted session, normal
-queue/readiness/startup Home, real packet validation and Stop. No API key is
-needed. The policy plans from fresh leased measured Home feedback; it never
-replays saved simulation joint targets. A changed camera calibration or policy
-source rejects launch until verification is repeated. Completion keeps the
-existing controller's 0.05 rad measured joint tolerance; this does not change
-hardware limits or settling checks. Never replay an uncertain/timed-out move.
+Open `http://127.0.0.1:8797/`. Confirm the actual runner's editable name and email,
+then use normal Run. An optional private `--identity-file` containing `name` and
+`email` prefills those editable local fields. Never commit that file. The method
+uses a 120-second maximum session allowance for Home/setup plus capture and stops
+on completion. Queue/lease, fresh measured feedback, Home, hardware limits,
+collision validation, Stop and normal release remain enabled. Never replay an
+uncertain or timed-out movement.
 
-The station retains this method's camera/feedback recording in its existing
-dataset workflow. Match replay and dataset artifacts to the exact episode ID;
-wait for real publication and verify playback/seek. Preserve missing-frame and
-quality labels. The [harness authorization contract](docs/BLUPE-HARNESS-CONTRACT.md)
-and [control contract](docs/CONTROL-CONTRACT.md) apply; fill in actual scope before
-physical side effects. Do not claim integration completion while checklist items
-remain open.
+The required preflight runs 25 regressions and generates the real route. It tests
+both serialized packets, fractional grippers, numeric endpoints, invalid starts
+with zero dispatch, fresh chunk joins, completion cursors and Stop. It applies
+the controller snapshot guard, renders 600 frames and verifies decoding/seeking.
+The launch factory binds that receipt to the exact motion source and calibration.
+The GitHub Actions scene-video job uses the same preflight.
+
+The older 12-second experiment remains in `scene_video.py` and `run.py` as history;
+it is not the current minute entry point. Its earlier capture had gaps and a
+completion-check bug, repaired before this minute run. The current run's saved
+outcome is `policy_complete`; historical results are preserved.

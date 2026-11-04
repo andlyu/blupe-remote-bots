@@ -176,10 +176,10 @@ below; underlying model/checkpoint selections remain separate metadata.
   were checked. Configuration and run details retain the selected and actually
   resolved models/settings, with baseline/replacement variants labelled and no
   silent fallback. Record evidence below, or a justified no-model explanation.
-- [ ] When a human joins, collect or confirm their name and email. Prefill known
+- [x] When a human joins, collect or confirm their name and email. Prefill known
   identity/default values where available and let the runner edit both fields
   before joining.
-- [ ] Run context includes the actual approach and confirmed runner identity;
+- [x] Run context includes the actual approach and confirmed runner identity;
   the website makes clear which method is running and whose run it is.
 - [x] Policy/model tests initiated by a person retain that actual user's
   confirmed name as runner. Use available identity and editable name/email
@@ -188,24 +188,24 @@ below; underlying model/checkpoint selections remain separate metadata.
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
-- [ ] Every advertised control primitive passes the offline command-contract
+- [x] Every advertised control primitive passes the offline command-contract
   gate through the actual parser/generator/serializer and canonical validator,
   including measured fractional starts, numeric endpoints, invalid-input and
   zero-dispatch failure tests. A required CI/release-preflight result and exact
   source/dependency revisions are retained. Follow [the control contract](CONTROL-CONTRACT.md).
-- [ ] Task acceptance matches the advertised capability and tested deployment.
+- [x] Task acceptance matches the advertised capability and tested deployment.
   A representative physical task exercises the required primitives and verifies
   the requested object/result state; a narrower smoke test is labelled as such.
   Relevant failures or changed control code reopen affected requirements and
   the current passed/total display, preserving earlier results as history.
-- [ ] A person can use the website to run the integrated paper's method on
+- [x] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
-- [ ] The actual physical arms are visible live on the website while the method
+- [x] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
 - [ ] Immediately after a run finishes, the person can replay that just-completed
   physical YAM execution through the website, with retained footage showing the
   actual arms executing the integrated method.
-- [ ] The person can browse/select previous runs on the website and replay their
+- [x] The person can browse/select previous runs on the website and replay their
   retained physical arm footage, associated with the executed method and run.
   Mock animations do not satisfy either replay requirement.
 - [ ] If the integrated method executes anything in simulation, those executions
@@ -556,7 +556,73 @@ before any completion claim.
 
 
 
-## Scene-video verification record — 2026-11-04
+## Current one-minute capture result — 2026-11-04
+
+The user accepted the minute simulation and explicitly requested integrating this
+motion with the playground and obtaining its video. That invocation resumes the
+requested work after the prior pause; no additional physical permission was
+requested. Model choice remains not applicable: deterministic calibrated IK.
+No visibility exception was requested. Public source is the existing
+[scene-video draft](https://github.com/andlyu/blupe-remote-bots/pull/283).
+
+The current local deployment is http://127.0.0.1:8797/ using `minute.py serve`.
+Its Run dialog prefilled the actual confirmed name/email; both fields were
+editable. The normal UI Run at21:17:21.709UTC submitted the named minute method
+with a120-second maximum session, preserving queue/Home/lease/validation/Stop.
+Private email remained operational only. The exact launch preflight passed25
+regressions and the600-frame simulation before physical access. Current source,
+calibration and canonical runtime/controller hashes are retained in
+[evidence/minute-launch-preflight.json](evidence/minute-launch-preflight.json).
+
+Both actual gateway packets accepted and all600points completed with settled
+feedback in one physical run. No uncertain or timed-out movement retry occurred.
+The planned60-second path took73.81seconds of reported physical execution with
+settling. The84.6-second full recording retains real setup/packet timing, both
+wrist views and the top camera:844samples,2991images,812aligned training-valid
+rows,zero captureerrors and one missed tick. Export retains two missing-image
+ticks and labelled held frames. Normal parking and torque-off were verified.
+
+- [Physical scene movie](https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/videos/ep_47151c9fe197419d.mp4)
+- [Capture/progress/timing evidence](evidence/minute-physical.json)
+- [Movie metadata](evidence/minute-video.json)
+- [Decoded seeking](evidence/minute-playback.json)
+- [Dataset publication and normal history playback](evidence/minute-publication.json)
+- [Motion design and simulation](ONE-MINUTE-SIMULATION.md)
+
+Dataset commit554a4f99e057d1cf5b198edb797cfaab56ef8302 contains the full movie and
+honest capture receipt; the source samples hash matches the finalized USB
+recording. No full training archive publication is claimed. The separate normal
+four-camera preview is10×. The full movie was selected from normal run history
+and observed playing at1× with duration84.6s/readyState4, named method and actual
+runner. All846frames decode; seeks at1,20,45,75seconds pass. No assessment vote,
+email notification or result relabeling was submitted by this task.
+
+The first reported physical progress was4.66seconds after matched Home completion.
+Live UI screenshot observations bound actual onset by11.63seconds after Home and
+24.31seconds after Run. Queue join/admission and original Run times are retained.
+A continuous timed UI screen recording was not retained, so strict harness timing
+certification remains unchecked rather than inferred from backend events alone.
+
+| Current requirement | Evidence / remaining limitation |
+| --- | --- |
+| Public website and exact source deployment | Existing public viewer/history and public source; this specific launch page is local, not publicly deployed |
+| All demo materials public | Physical full movie/preview public; source/simulation publication retained in draft branch; no public launch-page deployment claim |
+| Actual method, confirmed human and editable defaults | Verified normal Run setup and replay/history |
+| Model selection | Not applicable; no learned model or GPU |
+| Command-contract/release gate |25passed; exact generator, two serializers, fractional holds, invalid zero-dispatch, chunk join/cursors, collision snapshot and launch hash gates |
+| Representative scene capture |600actual waypoints, changing camera views, saved full-speed movie; reconstruction quality is not advertised or certified |
+| Runnable method and live physical visibility | Verified current local deployment through normal UI, actual live arms observed |
+| Immediate replay | Processing stage shown; quick replay saved, but immediate post-finish playback timing was not fully measured |
+| Historical selection/full playback | Verified normal library selection and full84.6s movie playback |
+| Simulation review on website | Embedded labelled minute simulation; chat preview reviewed, in-site playback/seek not separately certified |
+|15s/30s onset | Observations meet bounds above; continuous UI recording requirement remains unverified |
+| Persistent wait/failure stages | Queue/readiness and replay-processing messages observed; full checklist-wide lifecycle/recovery audit incomplete |
+| Final end-to-end | Current local UI physical run and history playback verified; public deployment and remaining broad certification stay open |
+
+Status: **capture task executed and video delivered; full integration checklist
+incomplete**. No explicit exception removes the unchecked requirements.
+
+## Historical initial 12-second verification record — 2026-11-04
 
 Status: **incomplete**. The physical capture executed; retained full dataset video,
 publication, complete normal-UI acceptance and strict timing remain open. Do not
@@ -659,3 +725,51 @@ verify the final deployment and strict UI/physical timing. Keep all affected
 boxes open until corresponding current evidence exists.
 
 2026-11-04 source-package update: the full `run.py verify` gate now executes the seven completion regressions and the simulation/serializer/guard/video checks together. Inputs include exact public runner/controller revision hashes. A dedicated GitHub Actions workflow is prepared; its remote CI result remains unverified until published/executed. Local completion regressions passed7/7 in0.39s; exact-controller simulation passed in2.931s. Captured source/API diagnostic shows stale source roles plus incomplete RGBD transfers; API-only JPEG success did not establish healthy sustained capture. Sanitized evidence is in docs/evidence.
+
+Public source: [draft PR283](https://github.com/andlyu/blupe-remote-bots/pull/283), commit `b872495242254b43dee73be33b887c45afe97afd`. No default-branch merge or public integration deployment is claimed. Camera recovery restarted only yam-playground-cameras.service after idle/empty-queue/torque-off and calibration identity checks: PID2169→2042012; source fresh ages23/39/58ms and all4HD views live at8fps after recovery. The normal uploader resumed backlog processing. A240s bounded task supervisor (unit yam-scene-video-upload-01a1a7cc.service,PID2044383) now selects only this saved episode through unchanged normal eligibility/readiness/video/resource/session gates. Its ExecStopPost restores the normal backlog service. This is not a new arm run.
+
+
+### Latest scope and evidence — one-minute iteration
+
+The user clarified the priority is a straightforward scene video and requested
+exactly one minute of trajectory, farther forward reach, and camera aim toward
+the shared center and other scene regions. The native goal was paused before
+this explicitly requested simulation iteration. No revised physical run occurred.
+
+The new offline-only `viewpoint_sim.py` passes600 points/60 seconds at10Hz,
+two real serialized packets, and1076 controller snapshot swept samples.
+Maximum joint change0.02859rad per100ms stays below0.035rad. Camera position
+ranges are about21cm forward,16cm sideways and11cm vertically. The rendered
+60.000-second video has600 decoded frames and verified seeks. Representative
+left/right views were visually inspected. See
+[minute trajectory](ONE-MINUTE-SIMULATION.md),
+[verification](evidence/one-minute-simulation.json) and
+[comparison](evidence/one-minute-comparison.json).
+Projected synthetic-grid coverage improved from75%/62% to100%/100%; projection
+ignores occlusion and does not certify actual physical coverage/reconstruction.
+Rejected IK/pacing candidates were never dispatched; hardware limits unchanged.
+
+The earlier physical run now has a full-speed20.3s movie published at
+https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/videos/ep_11d0dcff60b448ba.mp4
+in commit e75888ae02406fbc9be0efeae469cc0d5d3cfe35, with an honest capture receipt.
+It includes left/top/right and retains held/missing-frame labels. Browser history
+selection and playback were observed with the actual approach and confirmed
+human name; decoded seeking passes, but explicit browser seek was interrupted.
+This corrects the earlier pending-publication notes. The failed targeted uploader
+never processed data; normal uploader restoration succeeded. Actual original
+name/configuration were projected to the public attribution DB without email
+or changes to outcome. The normal four-camera preview uploaded in c63b9006.
+The public quick-replay API still reports model=null/original_available=false;
+the normal browser library nevertheless displays the named method and plays
+the full dataset movie. API reconciliation is not claimed.
+
+The existing draft source package has green Shared runner, RoboHarness command
+contract and Forward scene video preflight checks at b8724952 (Actions runs
+41908344366,41908344323,41908344316). This minute-long local revision is not yet
+published or wired into that CI. It does not inherit physical acceptance.
+
+Current acceptance remains INCOMPLETE. The new full-minute physical capture,
+clean camera continuity, current-version deployed Run path and visual onset
+measurements remain unchecked. No timing exception or complete integration
+claim is made. The existing live launcher is the old12-second method; simulation
+results cannot cause automatic physical movement.
