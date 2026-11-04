@@ -558,7 +558,21 @@ class HostedRunner:
             # Public, read-only model predictions and imported human reviews.
             # Never write these into runner-owned assessments or revision votes.
             labels = ROOT / 'annotations' / 'run-labels.json'
-            await self.json(send, 200, json.loads(labels.read_text()) if labels.exists() else {'version': 1, 'runs': []})
+            data = json.loads(labels.read_text()) if labels.exists() else {'version': 1, 'runs': []}
+            query = parse_qs(scope.get('query_string', b'').decode())
+            if any(len(query.get(key, [])) > 1 for key in ('summary', 'episode_id', 'robot_id')) or query.get('summary', ['1'])[0] != '1':
+                raise RequestError(400, 'Invalid label query')
+            rows = data['runs']
+            for key in ('episode_id', 'robot_id'):
+                if key in query:
+                    rows = [row for row in rows if row.get(key) == query[key][0]]
+            if query.get('summary') == ['1']:
+                # Cloud colors need outcomes/provenance, not every video's evidence.
+                rows = [{'episode_id':row['episode_id'], 'robot_id':row['robot_id'],
+                         'auto_assessment':{key:row['auto_assessment'][key] for key in ('label', 'model')},
+                         'human_review':{'label':row['human_review']['label']} if row.get('human_review') else None}
+                        for row in rows]
+            await self.json(send, 200, dict(data, runs=rows))
             return
         if method == 'GET' and path == '/api/run-catalog':
             from remote_yam.run_assessments import RunAssessments, score_models
