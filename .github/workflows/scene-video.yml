@@ -1,0 +1,43 @@
+name: Forward scene video preflight
+on:
+  pull_request:
+    paths: ['codex-runner/integrations/scene-video/**', '.github/workflows/scene-video.yml']
+  push:
+    paths: ['codex-runner/integrations/scene-video/**', '.github/workflows/scene-video.yml']
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MUJOCO_GL: osmesa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: source
+      - uses: actions/checkout@v4
+        with:
+          repository: andlyu/blupe-remote-bots
+          ref: 7ba2427ba960ad30af99c8fedd05c5196685295a
+          path: runner
+      - uses: actions/checkout@v4
+        with:
+          repository: andlyu/blupe-playground-robot-controller
+          ref: d1f9e8d588b18810d13c0edbe34646763dc8f257
+          path: controller
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libosmesa6
+      - run: python -m pip install -r runner/codex-runner/requirements.txt numpy scipy opencv-python-headless pytest
+      - run: >-
+          python source/codex-runner/integrations/scene-video/minute.py verify
+          --runner-root runner/codex-runner
+          --hardware-root controller/src/blupe_controller/runtime
+          --output evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scene-video-offline-evidence
+          path: evidence

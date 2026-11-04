@@ -1,0 +1,15 @@
+{
+  "episode_id": "ep_11d0dcff60b448ba",
+  "status": "finalized_and_durable",
+  "source": "operator status verified through existing SSH at18:35UTC; current parked/readiness and uploader state reconfirmed20:26UTC",
+  "path": "/home/andrew/maxone-offload/yam-training-direct/ep_11d0dcff60b448ba",
+  "rows": 139,
+  "image_count": 496,
+  "capture_errors": 60,
+  "training_valid_rows": 0,
+  "upload": "pending_normal_video_gate",
+  "original_available": false,
+  "public_preview_camera": "observer",
+  "preview_speed": 10,
+  "preview_duration_s": 1.7333333333333334
+}

@@ -1,0 +1,205 @@
+{
+  "episode_id": "ep_47151c9fe197419d",
+  "session_id": "sess_6aa2dc36a65a4eaa",
+  "user_invocation": "Accepted one-minute simulation; requested integration with playground and saved video",
+  "method": "Scene video \u00b7 60-second multi-view sweep",
+  "run_click": 1793827041.709,
+  "home_complete": 1793827054.3957515,
+  "first_progress": 1793827059.055839,
+  "first_ui_motion_observed_by": 1793827066.022,
+  "ui_motion_upper_bound_after_home_s": 11.626248598098755,
+  "ui_motion_upper_bound_after_run_s": 24.312999963760376,
+  "first_progress_after_home_s": 4.660087585449219,
+  "executed_waypoints": 600,
+  "packet_completions": 2,
+  "planned_motion_s": 60,
+  "reported_execution_s": 73.80731415748596,
+  "physical_capture_s": 84.56745719909668,
+  "capture_errors": 0,
+  "rows": 844,
+  "training_valid_rows": 812,
+  "images": 2991,
+  "missed_ticks": 1,
+  "samples_sha256": "a5c1dc33e591351d0b73c20f35fd97e4fa506cab91fa61cad5e18c595f0d56e0",
+  "historical_outcome": "policy_complete",
+  "normal_parking_verified": true,
+  "physical_run_retries": 0,
+  "timing_limitation": "Live UI screenshot observations and lifecycle correlation retained; no continuous UI screen recording, strict harness timing acceptance left open.",
+  "events": [
+    {
+      "timestamp": 1793827043.03309,
+      "kind": "joined",
+      "message": "Joined the policy queue",
+      "details": {
+        "session_id": "sess_6aa2dc36a65a4eaa",
+        "task": "Record a one-minute multi-view video of the scene.",
+        "provider": "scene_video_minute"
+      }
+    },
+    {
+      "timestamp": 1793827043.0334039,
+      "kind": "runner",
+      "message": "Run submitted by Andrew Lyubovsky",
+      "details": {
+        "runner_name": "Andrew Lyubovsky"
+      }
+    },
+    {
+      "timestamp": 1793827054.375628,
+      "kind": "lifecycle",
+      "message": "Session preparing",
+      "details": {
+        "reason": "jetson_leased",
+        "episode_id": "ep_47151c9fe197419d"
+      }
+    },
+    {
+      "timestamp": 1793827054.376742,
+      "kind": "lifecycle",
+      "message": "Session preparing",
+      "details": {
+        "reason": null,
+        "episode_id": "ep_47151c9fe197419d"
+      }
+    },
+    {
+      "timestamp": 1793827054.978338,
+      "kind": "lifecycle",
+      "message": "Session running",
+      "details": {
+        "reason": "first_observation",
+        "episode_id": "ep_47151c9fe197419d"
+      }
+    },
+    {
+      "timestamp": 1793827058.8585012,
+      "kind": "packet_accepted",
+      "message": "Gateway safety checks passed; executing packet",
+      "details": {
+        "trajectory_id": "traj_ep_47151c9fe197419d_0"
+      }
+    },
+    {
+      "timestamp": 1793827096.5158489,
+      "kind": "execution_timing",
+      "message": "Robot execution: 36.73s",
+      "details": {
+        "elapsed_s": 36.731934547424316,
+        "trajectory_id": "traj_ep_47151c9fe197419d_0"
+      }
+    },
+    {
+      "timestamp": 1793827096.5160792,
+      "kind": "step_timing",
+      "message": "Step 1: 40.66s",
+      "details": {
+        "step": 1,
+        "planning_s": 0.37809054204262793,
+        "model_s": null,
+        "execution_robot_s": 36.731934547424316,
+        "path_m": null,
+        "arm_motion_s": 37.65710841602413,
+        "movement_feedback_s": 40.28439895797055,
+        "total_s": 40.66248950001318,
+        "gap_s": null,
+        "outcome": "completed",
+        "left_displacement_m": null,
+        "right_displacement_m": null
+      }
+    },
+    {
+      "timestamp": 1793827096.516226,
+      "kind": "packet_completed",
+      "message": "Completed 300 waypoints; arms settled",
+      "details": {
+        "trajectory_id": "traj_ep_47151c9fe197419d_0",
+        "waypoint_count": 300,
+        "feedback": {
+          "left_joints_deg": [
+            22.458004672958015,
+            66.41800863788988,
+            66.68462814918021,
+            -41.530620592515476,
+            49.64975924747926,
+            -0.01092846942723013
+          ],
+          "right_joints_deg": [
+            -29.05880020700491,
+            60.57196887674119,
+            63.755023130282396,
+            -44.81498123909775,
+            -53.07892434535232,
+            -6.589867064619767
+          ],
+          "left_gripper": 0.9997113163972287,
+          "right_gripper": 0.9987747747747748
+        }
+      }
+    },
+    {
+      "timestamp": 1793827098.5935519,
+      "kind": "packet_accepted",
+      "message": "Gateway safety checks passed; executing packet",
+      "details": {
+        "trajectory_id": "traj_ep_47151c9fe197419d_300"
+      }
+    },
+    {
+      "timestamp": 1793827136.5810602,
+      "kind": "execution_timing",
+      "message": "Robot execution: 37.08s",
+      "details": {
+        "elapsed_s": 37.075379610061646,
+        "trajectory_id": "traj_ep_47151c9fe197419d_300"
+      }
+    },
+    {
+      "timestamp": 1793827136.5812092,
+      "kind": "step_timing",
+      "message": "Step 2: 40.06s",
+      "details": {
+        "step": 2,
+        "planning_s": 0.0032724160118959844,
+        "model_s": null,
+        "execution_robot_s": 37.075379610061646,
+        "path_m": null,
+        "arm_motion_s": 37.98719391704071,
+        "movement_feedback_s": 40.060439667024184,
+        "total_s": 40.06371208303608,
+        "gap_s": 0.0009352089837193489,
+        "outcome": "completed",
+        "left_displacement_m": null,
+        "right_displacement_m": null
+      }
+    },
+    {
+      "timestamp": 1793827136.581347,
+      "kind": "packet_completed",
+      "message": "Completed 300 waypoints; arms settled",
+      "details": {
+        "trajectory_id": "traj_ep_47151c9fe197419d_300",
+        "waypoint_count": 300,
+        "feedback": {
+          "left_joints_deg": [
+            11.96667402281699,
+            108.03362021678242,
+            127.92777081937815,
+            -80.50154257001832,
+            34.87446858186403,
+            9.081558094028237
+          ],
+          "right_joints_deg": [
+            -10.414831364150313,
+            82.82233263058183,
+            84.36611647003852,
+            -34.91378793802705,
+            -28.511725072938784,
+            2.480762559981239
+          ],
+          "left_gripper": 0.9997113163972287,
+          "right_gripper": 0.9987747747747748
+        }
+      }
+    }
+  ]
+}
