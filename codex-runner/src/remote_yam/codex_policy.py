@@ -401,6 +401,11 @@ class CodexAdapter(RoboCurveResponsesAdapter):
             raise RuntimeError(stream_errors[-1])
         if not completed or not thread_id or not isinstance(final, str):
             raise RuntimeError('Codex did not complete a structured decision; no motion sent')
+        # Opt-in task recorder: retain the final structured answer, never raw
+        # stream reasoning/diagnostics, before syntax or tool validation can
+        # reject it. Other adapters retain their existing behavior.
+        observe_final=getattr(self,'_record_structured_decision',None)
+        if callable(observe_final):observe_final(final)
         try:
             result = getattr(self, "_decision_response", decision_response)(json.loads(final))
         except (ValueError, TypeError):

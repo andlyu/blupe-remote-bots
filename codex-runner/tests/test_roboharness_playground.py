@@ -90,12 +90,12 @@ class PlaygroundTests(unittest.TestCase):
             query('../../other');self.assertEqual(app.json.call_args.args[1],404)
 
     def test_preflight_requires_clean_pass_and_complete_unchanged_source_inventory(self):
-        receipt=dict(status='passed',tests_run=63,dirty_source=False,
+        receipt=dict(status='passed',tests_run=66,dirty_source=False,
             source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in source_inventory()})
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'receipt.json'
             path.write_text(json.dumps(receipt));self.assertEqual(verify_release(path)['status'],'passed')
-            variants=[{**receipt,'tests_run':62},{**receipt,'dirty_source':True},{**receipt,'status':'draft_passed'},
+            variants=[{**receipt,'tests_run':65},{**receipt,'dirty_source':True},{**receipt,'status':'draft_passed'},
                 {**receipt,'source_sha256':{}},{**receipt,'source_sha256':{**receipt['source_sha256'],'src/remote_yam/roboharness_control.py':'stale'}}]
             for value in variants:
                 path.write_text(json.dumps(value))

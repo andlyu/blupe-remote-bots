@@ -14,6 +14,7 @@ import re
 import tempfile
 import time
 import threading
+import uuid
 from types import MethodType
 import numpy as np
 
@@ -48,7 +49,7 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self.model=model;self._api_key=''
         self._initialize_observation(camera_source or RoboHarnessCameras(api_origin,robot_id=robot_id))
         self._initialize_policy(recording_root)
-        self._decision_schema=deepcopy(SCHEMA);self._decision_response=decision_response
+        self._decision_schema=deepcopy(SCHEMA);self._decision_response=self._parse_decision
         self._decision_instructions=INSTRUCTIONS;self._system_prompt=INSTRUCTIONS
         self._tools=[];self._names=NAMES;self._expected_camera_count=3
         self.tracker=KeypointTracker();self._resolved_model=None
@@ -60,6 +61,22 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
         self._warm_model_session=bool(warm_model_session)
         self._preparation_done=None;self._preparation_error=None;self._model_preparation=None
         self.select_grounding_camera(grounding_camera)
+
+    def _record_structured_decision(self,text):
+        self._record('structured_decision',call=self._calls,final_text=text,
+            sha256=hashlib.sha256(text.encode()).hexdigest())
+
+    def _parse_decision(self,result):
+        try:return decision_response(result)
+        except InputRejected as exc:
+            # Syntactically decoded but invalid fields have sent no movement.
+            # Preserve strict validation and feed its rejection through the
+            # existing bounded tool-feedback loop, not through motor dispatch.
+            self._record('decision_validation_rejected',call=self._calls,error=str(exc))
+            args=dict(ok=False,stage='decision_validation',error=str(exc),steps=0,dispatched=False,
+                note='Planning decision failed validation; no movement sent.')
+            return {'output':[dict(type='function_call',call_id='roboharness_'+uuid.uuid4().hex,
+                name='decision_rejected',arguments=json.dumps(args,allow_nan=False))]}
 
     def select_grounding_camera(self,camera):
         if camera not in ('top','left','right'):raise ValueError('Select overhead, left wrist or right wrist depth')
@@ -324,6 +341,12 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
             self._note=note
             self._interaction('model_response',note or name,tools=[{'name':name,'arguments':args}])
             if self.cancelled():raise RuntimeError('RoboHarness stopped during inference; no motion sent')
+            if name=='decision_rejected':
+                self._tool_result(call['call_id'],args)
+                self._failures+=1
+                if self._failures>=3:raise RuntimeError('Three local input rejections; stop and review')
+                observation=self._refresh_feedback(observation,first_step_id)
+                continue
             if name in ('done','give_up'):
                 self._outcome={'status':name,**args};self._tool_result(call['call_id'],self._outcome)
                 raise PolicyComplete(name)
