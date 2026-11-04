@@ -16,4 +16,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test codex-runner/tests/test_path_studio.cjs
+      - run: node --test codex-runner/tests/test_path_studio.cjs codex-runner/tests/test_scene_capture_cameras.cjs

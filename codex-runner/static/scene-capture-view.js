@@ -25,3 +25,32 @@ export function createCaptureView(viewport){
       const g=sim.cameras[index][i],r=g.rotation,camera=cameras[i];camera.position.set(...g.position_m);const matrix=new T.Matrix4().set(r[0][0],-r[0][1],-r[0][2],0,r[1][0],-r[1][1],-r[1][2],0,r[2][0],-r[2][1],-r[2][2],0,0,0,0,1);camera.quaternion.setFromRotationMatrix(matrix);const intr=sim.intrinsics[side];camera.userData.sensorAspect=intr.image_size[0]/intr.image_size[1];camera.fov=2*Math.atan(intr.image_size[1]/(2*intr.K[1][1]))*180/Math.PI;rays[i].position.copy(camera.position);rays[i].setDirection(new T.Vector3(...g.optical_axis));});render();}
   return {load(value){sim=value;frame(0);},frame};
 }
+
+
+// Independent image requests avoid aborting a slow frame on every timer tick.
+export function connectCameraPreviews(panels,{setTimer=setTimeout,clearTimer=clearTimeout,now=()=>Date.now(),delay=1000,timeout=7000,onHealthChange=()=>{}}={}){
+  let stopped=false;
+  const states=panels.map(({image,label,empty,role})=>({image,label,empty,role,timer:null,deadline:null,pending:false,received:null,unavailable:false}));
+  function refresh(state){
+    if(stopped||state.pending)return;
+    state.pending=true;
+    state.deadline=setTimer(()=>failed(state),timeout);
+    state.image.src=`./api/path-studio/cameras/${state.role}.jpg?station=yam-1&t=${now()}`;
+  }
+  function schedule(state){if(!stopped)state.timer=setTimer(()=>refresh(state),delay);}
+  function failed(state){
+    if(!state.pending||stopped)return;
+    clearTimer(state.deadline);state.pending=false;state.image.hidden=true;state.empty.hidden=false;
+    state.empty.textContent='Camera unavailable. Retrying…';state.label.textContent='Unavailable · retrying';if(!state.unavailable){state.unavailable=true;onHealthChange(states.filter(s=>s.unavailable).map(s=>s.role));}schedule(state);
+  }
+  states.forEach(state=>{
+    state.image.onload=()=>{
+      if(stopped||!state.pending)return;
+      clearTimer(state.deadline);state.pending=false;state.received=now();state.image.hidden=false;state.empty.hidden=true;
+      state.label.textContent='Updated '+new Date(state.received).toLocaleTimeString();if(state.unavailable){state.unavailable=false;onHealthChange(states.filter(s=>s.unavailable).map(s=>s.role));}schedule(state);
+    };
+    state.image.onerror=()=>failed(state);
+    refresh(state);
+  });
+  return{stop(){stopped=true;states.forEach(s=>{clearTimer(s.timer);clearTimer(s.deadline);s.image.onload=null;s.image.onerror=null;});}};
+}
