@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r codex-runner/path-studio-requirements.txt pytest
-      - run: PYTHONPATH=codex-runner/src pytest -q codex-runner/tests/test_scene_capture.py codex-runner/tests/test_scene_capture_packets.py codex-runner/tests/test_path_studio_api.py codex-runner/tests/test_path_studio_hosting.py
+      - run: PYTHONPATH=codex-runner/src pytest -q codex-runner/tests/test_scene_capture.py codex-runner/tests/test_scene_capture_packets.py codex-runner/tests/test_scene_capture_upload.py codex-runner/tests/test_path_studio_api.py codex-runner/tests/test_path_studio_hosting.py
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

@@ -1,0 +1,14 @@
+{
+  "source_episode": "ep_dd26bde0692743af",
+  "rows": 836,
+  "stream": {
+    "width": 640,
+    "height": 360,
+    "r_frame_rate": "10/1",
+    "nb_read_frames": "836"
+  },
+  "elapsed_s": 27.718075507786125,
+  "filter_threads": 1,
+  "unit_memory_max": "768M",
+  "unit_cpu_quota": "80%"
+}

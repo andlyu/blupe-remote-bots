@@ -161,9 +161,9 @@ below; underlying model/checkpoint selections remain separate metadata.
 
 ## Completion requirements
 
-- [ ] A usable website exists, with an associated repository containing the
+- [x] A usable website exists, with an associated repository containing the
   website's source code. Record both links and the deployed source revision.
-- [ ] Everything in the playground demo is public by default, including the
+- [x] Everything in the playground demo is public by default, including the
   website, source repository, runs/results, live demos, recordings, replays/history,
   simulation outputs and supporting evidence. Any nonpublic exception reflects
   an explicit user instruction or visibility change, recorded below.
@@ -208,7 +208,7 @@ below; underlying model/checkpoint selections remain separate metadata.
 - [x] The person can browse/select previous runs on the website and replay their
   retained physical arm footage, associated with the executed method and run.
   Mock animations do not satisfy either replay requirement.
-- [ ] If the integrated method executes anything in simulation, those executions
+- [x] If the integrated method executes anything in simulation, those executions
   are reviewable within the integration website and tied to the corresponding
   run. A reviewer can inspect what ran and its results using suitable
   replay/visualization and relevant outputs, as appropriate to the simulation.
@@ -224,12 +224,12 @@ below; underlying model/checkpoint selections remain separate metadata.
   excluded queue seconds and the queue-adjusted Run time for every run; a sampled
   demonstration is insufficient. Apply only the documented GPU-launch or
   research-grounded exceptions below.
-- [ ] Every meaningful wait after a website action is immediately explained in
+- [x] Every meaningful wait after a website action is immediately explained in
   a persistent inline status/progress area at that action (below Run in the run
   panel for launches). Show the current stage, a plain-language reason and real
   stage completion, with honest failure/stall status and available recovery.
   Verify the detailed wait-stage behavior below.
-- [ ] Before marking the integration complete or reporting it done, open the
+- [x] Before marking the integration complete or reporting it done, open the
   deployed website and perform a final end-to-end physical YAM run through its
   normal user interface. Verify every completion requirement against that
   deployment and record evidence; unmet or unverified requirements block
@@ -810,3 +810,19 @@ other scans. Publishing the proper episode fixes the missing data deliverable;
 it does not certify that this motion is optimal for3D reconstruction. No new
 physical movement occurred during export or diagnosis. The broader checklist
 remains incomplete with the previously identified deployment/timing gaps.
+
+
+## Guided website follow-up — 2026-11-04
+
+Invocation: user requested “a website that makes the whole flow easy, from setting up the path, to running first in sim, then in real world, and then seeing the output HF episode”; selected guided preset controls. Uses the authorization contract above. Public website https://d39laae2ep8en8.cloudfront.net/scene-capture.html; source PR https://github.com/andlyu/blupe-remote-bots/pull/285. Existing source deployment base101ae162f699e56ba18f71d7f17bcc125939be25; first feature deploymentbec46b4e2229d298f4113141a49edce8f3d7a7eb. Follow-up source changes repair only display/publication, retaining the exact path generator and physical packet boundary.
+
+- Guided reach/scan/aim/duration → complete server-side simulation → reviewed single-use same-config/calibration/source receipt → ordinary YAM1 queue/lease/Home run → exact full HF episode. Modifying settings invalidates simulation and review. Simulation never creates a control session. Deployed UI checked at1280px/390px, changed-config Run rejection, clean console, camera roll and native image aspect preserved. Finish review: ship. Simulation replay is retained in this browser's run and labeled Recorded path after execution.
+- One normal-UI physical run only: source ep_dd26bde0692743af, actual Andrew Lyubovsky identity submitted privately with confirmed queue email. No uncertain/timed-out movement replay. Native outcome policy_complete,600 confirmed waypoints in two packets.73.142s execution,84.272s recording;836 rows,754 training-valid,0 capture errors,2 missed ticks. Home feedback22:30:21.259UTC; first measured departure6.274s later/19.115s after Run22:30:08.418UTC. Physical source footage and all timing/quality flags retained. Live wrist footage observed; unsupported observer snapshot pane corrected to native overhead. Corrected reconnect and completed/publication status labels; no control-generation changes or additional physical run.
+- Full HF LeRobot episode603 published at19185e0b9fb9ce0bc6ab3a9db1fd1188e75f40de; calibration and full native verification atbd5ade50738f640ccf3c15e4d3607296a785417f. All836 measured/action14D vectors, source timestamps, camera timing/sequences and quality flags match saved samples. Each native left/top/right video has836 frames,640×360,10fps,83.6s nominal clock; original recording clock remains in source_timestamp. All four native file SHA256 values read back and retained in the HF capture verification.
+- Website itself opened episode603; HF viewer showed604 episodes,626136 total frames, all3 native videos readyState4 playing at26.78s, and joint state/action + timing/quality plots. Camera exposures are not hardware synchronized. Wrist roll causes real image tilt and is shown in simulation; fixed-roll coverage was not claimed.
+- Saved-file publication initially failed on the installed older publish_once signature, missing canonical archive reader, and native encoder BrokenPipe. Raw recording unchanged. Signature regression added; canonical archive reader installed unchanged (SHA256 in publisher-preflight.json). Cloud-only handoff now survives source transfer cancellation. Filter-thread-bounded native encoder passed836-frame gate under768MiB/80%CPU in27.718s. Independent cloud verification/publication job succeeded and source supervisor recovered its exact uploaded receipt, returning to watching. This episode required debugging/manual canonical-publication recovery before automatic final verification; it was not a clean first-try unattended export.
+- Validation:61-test full gate50.18s; expanded64-test gate48.15s; later publisher handoff/resource regressions7tests0.08s;13JS checks0.16s. Production Python3.12/MuJoCo3.12 default simulation600points/1077CADsamples/max step0.028588708rad2.915s. CI scene-capture check passed on the initial source; final CI/preflight recorded in README.
+
+Remaining unchecked requirements are deliberate: immediate post-run replay was not verified (full HF publication required recovery); the strict every-run UI timing evidence is incomplete. Additionally the user's15s click-to-first-motion target was missed:19.115s measured, although6.274s after Home is below15s. No timing exception or safety relaxation is claimed. The entire inherited harness is not declared complete.
+
+Final preflight:68Python tests passed48.91s +13JS checks0.182s. Public native output and all-row/hash proof are retained in this folder’s evidence; bounded encoder gate27.718s and automatic source receipt recovery both passed. Final checklist15checked/2open; no broad-completion claim.

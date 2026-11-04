@@ -1,0 +1,14 @@
+{
+  "publisher_signature": "(root, api=None, *, repo='andlyu/Public-YAM-runs')",
+  "files_sha256": {
+    "scripts.publish_yam_training": "ae1f202d4ca1a54ebfb07db11dd876697e6de793cdeb88441d1af7c5a2638365",
+    "YAM_control.lerobot_dataset": "78cf1d5856115f63ab11f8d252bd7a56df52c90702fccf9d08f975f9700ca3c4",
+    "YAM_control.direct_episode_storage": "3c576d59cc79fb51b2eb12f493285d819d1f45289a8d938465da2cf7643bc0fe"
+  },
+  "versions": {
+    "datasets": "4.8.5",
+    "pyarrow": "25.0.1",
+    "Pillow": "12.3.0",
+    "huggingface-hub": "1.15.0"
+  }
+}
