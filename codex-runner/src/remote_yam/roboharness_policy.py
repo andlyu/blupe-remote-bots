@@ -351,6 +351,10 @@ class RoboHarnessAdapter(RoboCurveResponsesAdapter):
                 self._outcome={'status':name,**args};self._tool_result(call['call_id'],self._outcome)
                 raise PolicyComplete(name)
             try:
+                registrations=args.pop('registrations',None)
+                if registrations is not None:
+                    if name!='track_object':raise InputRejected('Batch inspection is read-only')
+                    self.tracker.register_many(registrations)
                 registration=args.pop('register',None)
                 if registration is not None:self.tracker.register(args['point_ids'][0],**registration)
                 observation=self._refresh_feedback(observation,first_step_id)

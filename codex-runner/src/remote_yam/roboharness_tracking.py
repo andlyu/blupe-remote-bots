@@ -21,15 +21,35 @@ class KeypointTracker:
         self.camera=camera
         self.snapshot=None;self.points={};self.errors={};self._gray=None
 
-    def register(self, point_id, u, v):
+    def _registered_pixel(self, point_id, u, v):
         if self.snapshot is None:raise InputRejected('Capture paired RGB-D before selecting a point')
         if not isinstance(point_id,str) or not re.fullmatch(r'point_(?:[0-9]|1[0-5])',point_id):
             raise InputRejected('Point ID must be point_0 through point_15')
         u=number(u,'normalized u',0,1000);v=number(v,'normalized v',0,1000)
         h,w=self.snapshot.rgb.shape[:2]
         # 1000 names the last pixel, rather than an out-of-bounds image edge.
-        self.points[point_id]=np.array([u*(w-1)/1000,v*(h-1)/1000],dtype=np.float32)
+        return np.array([u*(w-1)/1000,v*(h-1)/1000],dtype=np.float32)
+
+    def register(self, point_id, u, v):
+        self.points[point_id]=self._registered_pixel(point_id,u,v)
         self.errors.pop(point_id,None)
+
+    def register_many(self, registrations):
+        if not isinstance(registrations,list) or not 1<=len(registrations)<=3:
+            raise InputRejected('Inspect one to three points from the same image')
+        staged={}
+        for item in registrations:
+            if not isinstance(item,dict) or set(item)!={'point_id','u','v'}:
+                raise InputRejected('Inspection requires a point ID and both image coordinates')
+            point_id=item['point_id']
+            pixel=self._registered_pixel(point_id,item['u'],item['v'])
+            if point_id in staged:raise InputRejected('Inspection point IDs must be distinct')
+            staged[point_id]=pixel
+        # Validate the complete batch before changing any selected point/error.
+        # Every pixel refers to this existing model-view snapshot; update/measure
+        # still require fresh paired depth and current registered camera poses.
+        self.points.update(staged)
+        for point_id in staged:self.errors.pop(point_id,None)
 
     def update(self,snapshot):
         if snapshot.metadata.get('camera')!=self.camera:raise InputRejected('Tracking requires the selected paired RGB-D camera')
