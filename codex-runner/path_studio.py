@@ -17,6 +17,10 @@ from remote_yam.path_studio_service import PathStudioService, StudioVisitors, AP
 
 STATIC = Path(__file__).resolve().parent / "static"
 ASSETS = {
+    "scene-capture.html": "text/html; charset=utf-8",
+    "scene-capture.css": "text/css; charset=utf-8",
+    "scene-capture.js": "text/javascript; charset=utf-8",
+    "scene-capture-view.js": "text/javascript; charset=utf-8",
     "path-studio.html": "text/html; charset=utf-8",
     "path-studio.css": "text/css; charset=utf-8",
     "path-studio-yam-model.js": "text/javascript; charset=utf-8",
@@ -158,6 +162,23 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
                 if path.endswith('/config'):
                     service, token = self._context(create=True)
                     self._respond(200, dict(csrf_token=token, api_origin=API_ORIGIN, identity=service.identity))
+                elif path.endswith('/capture/simulation'):
+                    service,_=self._context()
+                    self._respond(200,service.capture['simulation'])
+                elif path.endswith('/capture/receipt'):
+                    import re
+                    eid=parse_qs(urlsplit(self.path).query).get('id',[''])[0]
+                    if not re.fullmatch(r'ep_[A-Za-z0-9_-]{1,80}',eid): raise ValueError('Invalid episode')
+                    self._respond(200,json.loads((self.server.service.capture_public_root/(eid+'.json')).read_text()))
+                elif path.endswith('/episode'):
+                    from remote_yam.scene_capture_episode import episode_status
+                    eid=parse_qs(urlsplit(self.path).query).get('id',[''])[0]
+                    result=episode_status(eid)
+                    state_path=self.server.service.capture_public_root/(eid+'.status.json')
+                    if result['status']!='ready' and state_path.exists():
+                        progress=json.loads(state_path.read_text())
+                        result={**result, 'publication_stage':progress.get('status'), 'message':progress.get('message',result['message'])}
+                    self._respond(200,result)
                 elif path.endswith('/status'):
                     service, _ = self._context()
                     self._respond(200, service.status(station))
@@ -206,7 +227,11 @@ LOGIN_ERROR<form method="post" action="./login"><label>Username<input name="user
                 raise ValueError('Send a JSON request smaller than 256 KB')
             body = json.loads(self.rfile.read(size))
             path = urlsplit(self.path).path
-            if path == '/api/path-studio/run':
+            if path == '/api/path-studio/capture/simulate':
+                result = service.simulate_capture(body)
+            elif path == '/api/path-studio/capture/run':
+                result = service.run_capture(body)
+            elif path == '/api/path-studio/run':
                 result = service.run(body)
             elif path == '/api/path-studio/simulate':
                 result = service.simulate(body)

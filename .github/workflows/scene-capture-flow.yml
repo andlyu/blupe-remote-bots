@@ -1,0 +1,19 @@
+name: Scene capture flow preflight
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/scene-capture-flow']
+jobs:
+  scene-capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r codex-runner/path-studio-requirements.txt pytest
+      - run: PYTHONPATH=codex-runner/src pytest -q codex-runner/tests/test_scene_capture.py codex-runner/tests/test_scene_capture_packets.py codex-runner/tests/test_path_studio_api.py codex-runner/tests/test_path_studio_hosting.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test codex-runner/tests/test_path_studio.cjs

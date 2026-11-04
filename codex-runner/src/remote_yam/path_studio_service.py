@@ -58,7 +58,10 @@ class StudioSessionAPI(HttpSessionAPI):
         return result
 
 
-class PathStudioService:
+from .scene_capture_flow import CaptureFlow
+
+
+class PathStudioService(CaptureFlow):
     def __init__(self, api_factory=None, poll_s=.5, identity_path=None, default_identity=None, monitor_service=None):
         self.api_factory = api_factory or (lambda robot_id: StudioSessionAPI(
             API_ORIGIN, timeout_s=5, supports_trajectories=True, robot_id=robot_id))
@@ -76,6 +79,7 @@ class PathStudioService:
             self.identity = validate_identity(json.loads(self.identity_path.read_text()))
         except (OSError,ValueError,TypeError):
             self.identity = dict(default_identity or dict(runner_name='Andrew', email=''))
+        self._init_capture()
 
     def _monitor(self, station):
         if self.monitor_service is not None:
@@ -131,13 +135,13 @@ class PathStudioService:
             return None
         raw = self.controller.status()
         keys = ('status', 'queue_position', 'session_id', 'next_step_id', 'packets_submitted',
-                'run_elapsed_s', 'error', 'execution_blocked_reason', 'feedback_warning', 'trajectory', 'run_metrics')
+                'episode_id', 'run_elapsed_s', 'error', 'execution_blocked_reason', 'feedback_warning', 'trajectory', 'run_metrics')
         result = {k: raw.get(k) for k in keys}
         result.update(station=self.run_station, progress=self.policy.public_config()['path_progress'],
                       stop_error=self.stop_error)
         step = (raw.get('trajectory') or {}).get('last_progress_step_id')
-        result['drawing'] = dict(step_id=step, arms=self.policy.step_phases.get(step, {}),
-                               paths_m={a:path.tolist() for a,path in self.policy.active.items()})
+        result['drawing'] = dict(step_id=step, arms=getattr(self.policy,'step_phases',{}).get(step, {}),
+                               paths_m={a:path.tolist() for a,path in getattr(self.policy,'active',{}).items()})
         if getattr(self.controller._session_api, 'stop_unconfirmed', False):
             result['stop_error'] = 'Stop acknowledgement unavailable. Retry Stop; check the station.'
         # Explicit allowlist above excludes session capabilities and interaction logs.
@@ -152,7 +156,7 @@ class PathStudioService:
     def status(self, station):
         state = self._monitor(station)
         with self.lock:
-            return dict(station=station, robot_id=STATIONS[station], **state, run=self._run_status())
+            return dict(station=station, robot_id=STATIONS[station], **state, run=self._run_status(), capture=self.capture_status())
 
     def run(self, data):
         sketch = validate_sketch(data)
@@ -162,6 +166,7 @@ class PathStudioService:
                                     or self.controller.status()['status'] in ACTIVE
                                     or (self.controller._worker and self.controller._worker.is_alive())):
                 raise ValueError('A run is already active. Stop it before starting another.')
+            self.capture['run_kind']='drawing'
             self.policy = PathStudioPolicy(sketch)
             self.identity = identity
             if 'identity' in data:
