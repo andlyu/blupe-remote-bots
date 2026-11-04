@@ -27,30 +27,133 @@ export function createCaptureView(viewport){
 }
 
 
-// Independent image requests avoid aborting a slow frame on every timer tick.
-export function connectCameraPreviews(panels,{setTimer=setTimeout,clearTimer=clearTimeout,now=()=>Date.now(),delay=1000,timeout=7000,onHealthChange=()=>{}}={}){
-  let stopped=false;
-  const states=panels.map(({image,label,empty,role})=>({image,label,empty,role,timer:null,deadline:null,pending:false,received:null,unavailable:false}));
-  function refresh(state){
-    if(stopped||state.pending)return;
-    state.pending=true;
-    state.deadline=setTimer(()=>failed(state),timeout);
-    state.image.src=`./api/path-studio/cameras/${state.role}.jpg?station=yam-1&t=${now()}`;
+// Same atlas layout as the local playground: decode once, crop all views from
+// one immutable frame. The four-camera fallback order is observer/left/top/right.
+export function cameraCrop(role,width,height){
+  if(width===2560&&height===1080)return{left:[1920,0,640,360],top:[1920,360,640,360],right:[1920,720,640,360]}[role];
+  const index={left:1,top:2,right:3}[role];
+  return[(index%2)*width/2,Math.floor(index/2)*height/2,width/2,height/2];
+}
+
+export function connectCameraPreviews(panels,{
+  Hls=globalThis.Hls,document=globalThis.document,
+  createVideo=()=>document.createElement('video'),createCanvas=()=>document.createElement('canvas'),createImage=()=>new Image(),
+  setTimer=setTimeout,clearTimer=clearTimeout,requestFrame=requestAnimationFrame,cancelFrame=cancelAnimationFrame,
+  now=()=>Date.now(),onHealthChange=()=>{}
+}={}){
+  const video=createVideo(),atlas=createCanvas(),context=atlas.getContext('2d');
+  const states=panels.map(p=>({...p,context:p.canvas.getContext('2d'),received:null,source:null,snapshot:null,timer:null,deadline:null}));
+  let stopped=false,hls=null,retry=null,watchdog=null,animation=null,generation=0,failures=0;
+  let attemptStarted=now(),lastAdvance=now(),lastMediaTime=-1,lastPaint=-Infinity,frame=0,health='connecting';
+  video.muted=true;video.autoplay=true;video.playsInline=true;video.className='camera-source';
+  video.setAttribute('aria-hidden','true');video.setAttribute('tabindex','-1');
+  document.body.append(video);
+  const hidden=()=>document.hidden;
+  function announce(value){if(health!==value){health=value;onHealthChange(value);}}
+  function labels(){
+    for(const state of states){
+      const age=state.received===null?null:Math.max(0,Math.floor((now()-state.received)/1000));
+      const freshVideo=state.source==='video'&&health==='live'&&now()-lastAdvance<4000;
+      state.label.textContent=freshVideo?'Live video · delayed':age===null?(health==='paused'?'Preview paused':'Connecting to video…'):
+        (state.source==='snapshot'?'Still image':'Video stalled')+' · received '+age+' s ago · '+(health==='paused'?'preview paused':'reconnecting');
+      state.empty.hidden=state.received!==null;
+      state.canvas.hidden=state.received===null;
+    }
   }
-  function schedule(state){if(!stopped)state.timer=setTimer(()=>refresh(state),delay);}
-  function failed(state){
-    if(!state.pending||stopped)return;
-    clearTimer(state.deadline);state.pending=false;state.image.hidden=true;state.empty.hidden=false;
-    state.empty.textContent='Camera unavailable. Retrying…';state.label.textContent='Unavailable · retrying';if(!state.unavailable){state.unavailable=true;onHealthChange(states.filter(s=>s.unavailable).map(s=>s.role));}schedule(state);
+  function stopSnapshot(state){
+    clearTimer(state.timer);clearTimer(state.deadline);state.timer=state.deadline=null;
+    if(state.snapshot){state.snapshot.onload=state.snapshot.onerror=null;state.snapshot.removeAttribute('src');state.snapshot=null;}
   }
-  states.forEach(state=>{
-    state.image.onload=()=>{
-      if(stopped||!state.pending)return;
-      clearTimer(state.deadline);state.pending=false;state.received=now();state.image.hidden=false;state.empty.hidden=true;
-      state.label.textContent='Updated '+new Date(state.received).toLocaleTimeString();if(state.unavailable){state.unavailable=false;onHealthChange(states.filter(s=>s.unavailable).map(s=>s.role));}schedule(state);
+  function snapshot(state){
+    if(stopped||hidden()||state.snapshot||state.timer!==null||health==='live')return;
+    const image=createImage();state.snapshot=image;
+    function done(){
+      if(state.snapshot!==image)return;
+      stopSnapshot(state);
+      if(!stopped&&!hidden()&&health!=='live')state.timer=setTimer(()=>{state.timer=null;snapshot(state);},5000);
+    }
+    state.deadline=setTimer(done,5000);
+    image.onload=()=>{
+      if(state.snapshot!==image||stopped||hidden()||health==='live')return;
+      try{
+        state.canvas.width=image.naturalWidth||640;state.canvas.height=image.naturalHeight||360;
+        state.context.drawImage(image,0,0,state.canvas.width,state.canvas.height);
+        state.received=now();state.source='snapshot';state.canvas.dataset.frameSource='snapshot';labels();
+      }finally{done();}
     };
-    state.image.onerror=()=>failed(state);
-    refresh(state);
-  });
-  return{stop(){stopped=true;states.forEach(s=>{clearTimer(s.timer);clearTimer(s.deadline);s.image.onload=null;s.image.onerror=null;});}};
+    image.onerror=done;
+    image.src='./api/path-studio/cameras/'+state.role+'.jpg?station=yam-1&t='+now();
+  }
+  function cleanup(){
+    generation++;clearTimer(retry);retry=null;
+    if(hls){hls.destroy();hls=null;}
+    video.onerror=video.onloadedmetadata=video.onprogress=null;
+    video.pause();video.removeAttribute('src');video.load();lastMediaTime=-1;
+  }
+  function reconnect(){
+    if(stopped||hidden()||retry!==null)return;
+    cleanup();announce('reconnecting');labels();states.forEach(snapshot);
+    retry=setTimer(connect,Math.min(8000,1000*2**Math.min(failures++,3)));
+  }
+  function connect(){
+    cleanup();if(stopped||hidden())return;
+    const attempt=generation;attemptStarted=lastAdvance=now();
+    announce(frame?'reconnecting':'connecting');labels();states.forEach(snapshot);
+    video.onerror=()=>{if(attempt===generation)reconnect();};
+    const url='./api/path-studio/video/synchronized-hd/index.m3u8';
+    const play=()=>video.play().catch(()=>{/* Watchdog retries blocked/stopped playback. */});
+    if(Hls?.isSupported()){
+      hls=new Hls({enableWorker:false,lowLatencyMode:true,maxBufferLength:4,backBufferLength:0,
+        liveSyncMode:'buffered',liveSyncDuration:.5,liveMaxLatencyDuration:1,
+        liveSyncOnStallIncrease:0,maxLiveSyncPlaybackRate:1.05});
+      hls.on(Hls.Events.ERROR,(_,data)=>{if(attempt===generation&&data.fatal)reconnect();});
+      hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(attempt===generation)play();});
+      hls.loadSource(url);hls.attachMedia(video);
+    }else if(video.canPlayType('application/vnd.apple.mpegurl')){
+      const catchUp=()=>{if(attempt!==generation||!video.seekable.length)return;
+        const i=video.seekable.length-1,edge=video.seekable.end(i);
+        if(video.currentTime===0||edge-video.currentTime>1)video.currentTime=Math.max(video.seekable.start(i),edge-.5);
+      };
+      video.onloadedmetadata=video.onprogress=catchUp;video.src=url;play();
+    }else{announce('unsupported');labels();}
+  }
+  function paint(){
+    if(stopped)return;
+    // Consume the video texture even when the source is occluded. Chrome may
+    // otherwise stop presenting frames from an offscreen decoder.
+    if(!hidden()&&video.readyState>=2&&!video.paused&&video.currentTime!==lastMediaTime&&now()-lastPaint>=125){
+      const width=video.videoWidth,height=video.videoHeight;
+      if(width&&height){
+        if(atlas.width!==width)atlas.width=width;if(atlas.height!==height)atlas.height=height;
+        context.drawImage(video,0,0,width,height);frame++;lastMediaTime=video.currentTime;lastAdvance=now();lastPaint=now();failures=0;
+        for(const state of states){
+          const rect=cameraCrop(state.role,width,height);
+          if(state.canvas.width!==rect[2])state.canvas.width=rect[2];if(state.canvas.height!==rect[3])state.canvas.height=rect[3];
+          state.context.drawImage(atlas,...rect,0,0,rect[2],rect[3]);
+          state.received=now();state.source='video';state.canvas.dataset.frameSource='video';state.canvas.dataset.presentedFrame=String(frame);
+          stopSnapshot(state);
+        }
+        announce('live');labels();
+      }
+    }
+    animation=requestFrame(paint);
+  }
+  function watch(){
+    if(stopped)return;
+    if(!hidden()){
+      if(now()-lastAdvance>=4000){announce('reconnecting');states.forEach(snapshot);}
+      // Give HLS its full 20s startup/recovery window; nonfatal segment errors
+      // are handled by hls.js, without repeatedly tearing down a healthy stream.
+      if(now()-lastAdvance>=20000&&now()-attemptStarted>=20000)reconnect();
+      labels();
+    }
+    watchdog=setTimer(watch,1000);
+  }
+  function visibility(){
+    if(hidden()){cleanup();states.forEach(stopSnapshot);announce('paused');labels();}
+    else connect();
+  }
+  document.addEventListener('visibilitychange',visibility);
+  connect();paint();watchdog=setTimer(watch,1000);
+  return{stop(){stopped=true;cleanup();clearTimer(watchdog);cancelFrame(animation);states.forEach(stopSnapshot);document.removeEventListener('visibilitychange',visibility);video.remove();}};
 }

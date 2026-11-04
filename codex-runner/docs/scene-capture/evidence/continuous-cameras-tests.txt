@@ -1,0 +1,31 @@
+✔ browser FK matches an independently loaded canonical MuJoCo XML chain (43.346917ms)
+✔ representative spatial paths solve continuously within model joint limits (11.935208ms)
+✔ unreachable targets are reported rather than clamped to a fake tool position (5.261834ms)
+✔ arc-length sampling preserves corners, skips duplicate points, and includes exact endpoints (0.809958ms)
+✔ JSON rejects frame/unit mismatches, nonfinite values, bounds, excessive size and malformed points (2.50925ms)
+✔ shape prompts produce closed, continuous, reachable outlines including a recognizable heart (20.827125ms)
+✔ bimanual assignment covers the full polyline once and both arms meet at the arc midpoint (0.806958ms)
+✔ controller mesh provenance and URDF-derived frames are retained (10.608833ms)
+✔ Robo-house is 60 cm and YAM1 is 50 cm in both rendering bases and IK coordinates (7.872333ms)
+✔ real drawing traces discard approach, retraction, inter-arm jumps and sparse chords (0.6175ms)
+✔ approximate execution shows the actual measured stroke within its allowed deviation (0.208875ms)
+✔ gripper visual uses original slide range with normalized measured opening (0.310958ms)
+✔ observer crop follows the real synchronized stream layout (0.062917ms)
+✔ reference HD atlas and four-camera fallback map all three roles correctly (28.572375ms)
+✔ one continuous decoder paints synchronized role crops and stops startup snapshots (0.940834ms)
+✔ snapshot failure retains the last actual frame and never claims stills are live (0.274667ms)
+✔ fatal errors reconnect once with bounded retry; ordinary segment errors do not tear down playback (0.852333ms)
+✔ stalled media is labelled honestly, gets still fallback, and reconnects after the full startup window (0.213583ms)
+✔ a recovering stream advances without watchdog reconnects or extra snapshot requests (0.4445ms)
+✔ hidden tabs release video and resume automatically without clearing retained frames (0.212833ms)
+✔ stop cancels reconnect, fallback, watchdog and paint callbacks (0.16275ms)
+✔ native HLS uses the same stream and catches up within its live window (0.444375ms)
+✔ still fallback waits for its own request and uses a bounded retry interval (0.481542ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 176.710458

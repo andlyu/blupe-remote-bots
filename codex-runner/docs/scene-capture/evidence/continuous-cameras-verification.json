@@ -1,0 +1,250 @@
+{
+  "soak": [
+    {
+      "at": "2026-11-04T23:45:19.381Z",
+      "health": "All three camera views are receiving video.",
+      "labels": [
+        "Live video \u00b7 delayed",
+        "Live video \u00b7 delayed",
+        "Live video \u00b7 delayed"
+      ],
+      "overflow": false,
+      "panels": [
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraLeft",
+          "presentedFrame": "57"
+        },
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraTop",
+          "presentedFrame": "57"
+        },
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraRight",
+          "presentedFrame": "57"
+        }
+      ],
+      "video": [
+        {
+          "height": 1080,
+          "paused": false,
+          "ready": 4,
+          "time": 18.3368,
+          "width": 2560
+        }
+      ]
+    },
+    {
+      "at": "2026-11-04T23:46:23.874Z",
+      "health": "All three camera views are receiving video.",
+      "labels": [
+        "Live video \u00b7 delayed",
+        "Live video \u00b7 delayed",
+        "Live video \u00b7 delayed"
+      ],
+      "panels": [
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraLeft",
+          "presentedFrame": "527"
+        },
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraTop",
+          "presentedFrame": "527"
+        },
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraRight",
+          "presentedFrame": "527"
+        }
+      ],
+      "video": [
+        {
+          "paused": false,
+          "ready": 4,
+          "time": 82.3569
+        }
+      ]
+    },
+    {
+      "at": "2026-11-04T23:48:33.143Z",
+      "health": "All three camera views are receiving video.",
+      "labels": [
+        "Live video \u00b7 delayed",
+        "Live video \u00b7 delayed",
+        "Live video \u00b7 delayed"
+      ],
+      "overflow": false,
+      "panels": [
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraLeft",
+          "presentedFrame": "1481"
+        },
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraTop",
+          "presentedFrame": "1481"
+        },
+        {
+          "frameSource": "video",
+          "hidden": false,
+          "id": "runCameraRight",
+          "presentedFrame": "1481"
+        }
+      ],
+      "video": [
+        {
+          "paused": false,
+          "ready": 4,
+          "time": 212.0534
+        }
+      ]
+    }
+  ],
+  "mobile": {
+    "at": "2026-11-04T23:46:52.053Z",
+    "clip": {
+      "height": 604.28125,
+      "width": 341,
+      "x": 19.5,
+      "y": 1919.0859375
+    },
+    "overflow": false,
+    "roles": [
+      {
+        "frameSource": "video",
+        "height": 360,
+        "hidden": false,
+        "id": "runCameraLeft",
+        "presentedFrame": "737",
+        "width": 640
+      },
+      {
+        "frameSource": "video",
+        "height": 360,
+        "hidden": false,
+        "id": "runCameraTop",
+        "presentedFrame": "737",
+        "width": 640
+      },
+      {
+        "frameSource": "video",
+        "height": 360,
+        "hidden": false,
+        "id": "runCameraRight",
+        "presentedFrame": "737",
+        "width": 640
+      }
+    ],
+    "width": 390
+  },
+  "outage": {
+    "at": "2026-11-04T23:44:27.820Z",
+    "health": "Live video interrupted. Reconnecting automatically; the last received images stay visible.",
+    "labels": [
+      "Still image \u00b7 received 0 s ago \u00b7 reconnecting",
+      "Still image \u00b7 received 0 s ago \u00b7 reconnecting",
+      "Still image \u00b7 received 5 s ago \u00b7 reconnecting"
+    ],
+    "panels": [
+      {
+        "frameSource": "snapshot",
+        "hidden": false,
+        "id": "runCameraLeft",
+        "presentedFrame": "145"
+      },
+      {
+        "frameSource": "snapshot",
+        "hidden": false,
+        "id": "runCameraTop",
+        "presentedFrame": "145"
+      },
+      {
+        "frameSource": "snapshot",
+        "hidden": false,
+        "id": "runCameraRight",
+        "presentedFrame": "145"
+      }
+    ]
+  },
+  "recovery": {
+    "at": "2026-11-04T23:44:50.827Z",
+    "health": "All three camera views are receiving video.",
+    "labels": [
+      "Live video \u00b7 delayed",
+      "Live video \u00b7 delayed",
+      "Live video \u00b7 delayed"
+    ],
+    "panels": [
+      {
+        "frameSource": "video",
+        "hidden": false,
+        "id": "runCameraLeft",
+        "presentedFrame": "176"
+      },
+      {
+        "frameSource": "video",
+        "hidden": false,
+        "id": "runCameraTop",
+        "presentedFrame": "176"
+      },
+      {
+        "frameSource": "video",
+        "hidden": false,
+        "id": "runCameraRight",
+        "presentedFrame": "176"
+      }
+    ],
+    "video": [
+      {
+        "paused": false,
+        "ready": 4,
+        "time": 13.0907
+      }
+    ]
+  },
+  "console": [],
+  "deployment": [
+    {
+      "file": "scene-capture.html",
+      "sha256": "bc59f37009fad7275485762a85ba669811650e7f0178e3e699db7efa3f38b5b8",
+      "matches_source": true
+    },
+    {
+      "file": "scene-capture.css",
+      "sha256": "e831fa3bf7807ceda5691621059ad1e9ec4a3cceeb5ecadcb86f3826856134f1",
+      "matches_source": true
+    },
+    {
+      "file": "scene-capture.js",
+      "sha256": "6219a2e40faac153916c4be337b915b804a114bc3bca9cbebb2dae8e7c0d5b08",
+      "matches_source": true
+    },
+    {
+      "file": "scene-capture-view.js",
+      "sha256": "8a123684d9819a09ce46b5ef69268ee37d5114d6cf8b548fd3acf380c90afc1f",
+      "matches_source": true
+    }
+  ],
+  "website": "https://d39laae2ep8en8.cloudfront.net/scene-capture.html",
+  "reference": "Local playground static/hosted.js: synchronized-hd continuous HLS and role atlas crops",
+  "scope": "Read-only camera repair. Local fixture rejects POSTs; no robot motion, recording generation or identity submission. Four static assets deployed without service restart.",
+  "test_command": "node --test codex-runner/tests/test_path_studio.cjs codex-runner/tests/test_scene_capture_cameras.cjs",
+  "tests_passed": 23,
+  "test_command_wall_s": 0.127217708,
+  "soak_elapsed_s": 193.762,
+  "observed": "All three roles advanced from frame57 to1481. Media clock18.3368 to212.0534 across193.762s. No observed interruptions or browser warning/error logs;390px viewport has no horizontal overflow.",
+  "limits": "This tests browser playback/recovery, not guaranteed hardware/network uptime or physical camera exposure synchronization. Inherited checklist15/17; strict timing/immediate replay requirements still open."
+}
