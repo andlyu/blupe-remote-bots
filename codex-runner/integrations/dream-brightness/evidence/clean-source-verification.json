@@ -1,0 +1,45 @@
+{
+  "verified_at": "2026-11-04T23:23:06.365731+00:00",
+  "source_base": "27824217353a0820bed6c0e59c1b3c2563077cf3",
+  "source_materialization": "git archive plus only this additive extension and launcher",
+  "source_module_digest": "1afacc302e3399741dbc09740608065c72ff29a7cfc7520a7b993538f366ab52",
+  "python_preflight": {
+    "passed": 45,
+    "runtime_s": 0.42,
+    "receipt": "publication-preflight.xml"
+  },
+  "javascript_payload_test": {
+    "passed": 1,
+    "reported_duration_ms": 51.704417
+  },
+  "clean_source_launch": {
+    "port": 8799,
+    "runner_root": "clean-source/codex-runner",
+    "installed_python_environments_reused": true,
+    "fresh_dependency_install_tested": false,
+    "model_requests": 0,
+    "queue_entries": 0,
+    "physical_commands": 0,
+    "temporary_process_stopped": true
+  },
+  "current_layout_browser": {
+    "inputs_button_visible_beside_run": true,
+    "default_brightness_percent": 50,
+    "baseline_and_dark_presets_verified": true,
+    "all_three_real_previews_loaded": true,
+    "mobile_viewport": [
+      390,
+      844
+    ],
+    "mobile_document_width": 390,
+    "dialog_width": 356,
+    "inputs_button_bounds_x": [
+      202.2578125,
+      285
+    ],
+    "temporary_viewport_reset": true,
+    "temporary_tab_closed": true
+  },
+  "legacy_layout": "Original local UI at8798 remains live with top panel; new JS retains its earlier request-body regression coverage",
+  "remaining_acceptance": "Current checklist11/17; no new physical task or strict timing proof from this smoke check"
+}

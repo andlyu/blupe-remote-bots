@@ -1,0 +1,37 @@
+3:05:16 PM Both physical arms parked at joint zero and torque-disabled
+3:05:13 PM Parking both physical arms at joint zero
+3:05:09 PM Both physical arms settled at Home; Safety Guardrails active
+3:05:05 PM Moving both physical arms to Home and opening both grippers
+3:05:04 PM Trajectory stopped; both arms holding last target: user_requested
+3:04:03 PM Both physical arms settled at Home; Safety Guardrails active
+3:03:59 PM Moving both physical arms to Home and opening both grippers
+3:03:59 PM Both physical arms initialized; holding observed pose; Safety Guardrails active
+3:03:23 PM Policy runtime ended: selected duration limit reached. Both physical arms parked at joint zero and torque-disabled
+3:03:23 PM Joint feedback temporarily unavailable; waiting for fresh telemetry
+3:03:18 PM Parking both physical arms at joint zero
+3:03:17 PM Trajectory stopped; both arms holding last target: session_timeout
+3:02:16 PM Both physical arms settled at Home; Safety Guardrails active
+3:02:12 PM Moving both physical arms to Home and opening both grippers
+3:02:12 PM Both physical arms initialized; holding observed pose; Safety Guardrails active
+3:01:40 PM Both physical arms parked at joint zero and torque-disabled
+3:01:37 PM Parking both physical arms at joint zero
+3:01:34 PM Both physical arms settled at Home; Safety Guardrails active
+3:01:30 PM Moving both physical arms to Home and opening both grippers
+3:01:29 PM Trajectory stopped; both arms holding last target: user_requested
+2:56:57 PM Both physical arms settled at Home; Safety Guardrails active
+2:56:54 PM Moving both physical arms to Home and opening both grippers
+2:56:54 PM Both physical arms initialized; holding observed pose; Safety Guardrails active
+2:49:23 PM Policy runtime ended: selected duration limit reached. Both physical arms parked at joint zero and torque-disabled
+2:49:18 PM Parking both physical arms at joint zero
+2:49:16 PM Trajectory stopped; both arms holding last target: session_timeout
+2:48:15 PM Both physical arms settled at Home; Safety Guardrails active
+2:48:12 PM Moving both physical arms to Home and opening both grippers
+2:48:11 PM Both physical arms initialized; holding observed pose; Safety Guardrails active
+2:48:05 PM Enabled; waiting for a parked station and queued runner
+2:47:23 PM Both physical arms parked at joint zero and torque-disabled
+2:47:23 PM Both physical arms parked at joint zero and torque-disabled
+2:47:21 PM Parking both physical arms at joint zero
+2:46:55 PM Both physical arms initialized; holding observed pose; Safety Guardrails active
+2:46:54 PM Both physical arms initialized; holding observed pose; Safety Guardrails active
+2:46:38 PM Park at Zero blocked: arms must be initialized and idle; use Emergency Stop if motion is active
+2:45:53 PM Physical arms disabled; press Launch Arms to initialize

@@ -1,0 +1,98 @@
+{
+  "recorded_at": "2026-11-04T23:12:47.805825+00:00",
+  "runner_name": "Andrew",
+  "execution_mode": "Agent-operated normal UI; agent reviewed retained physical footage on behalf of confirmed runner",
+  "station": "Robo-house YAM",
+  "robot_id": "robot-ba8413962083809c",
+  "method": "Dream1 brightness",
+  "model": "dreamlabs/dream-1-beta",
+  "sdk_versions": {
+    "dreamlabs": "1.0.0",
+    "dreamlabs-client": "1.0.0"
+  },
+  "immutable_checkpoint": "not exposed/verified for provider alias",
+  "task": "Pick up the green pen and put it in the cup, then withdraw your gripper and hold.",
+  "duration_s": 60,
+  "scene_matched": false,
+  "scene_exception": "Another session changed object positions between trials. This is an exploratory pair, not a controlled brightness comparison.",
+  "trials": [
+    {
+      "condition": "baseline",
+      "brightness_factor": 1.0,
+      "episode_id": "ep_17a7cf3b22d34fbf",
+      "status": "safety_aborted",
+      "task_outcome": "Failure",
+      "outcome_basis": "No release into cup followed by withdrawal by 60-second deadline in retained physical replay",
+      "successful_sdk_responses": 10,
+      "controller_decision_attempts": 10,
+      "completed_packets": 9,
+      "confirmed_waypoint_progress_events": 217,
+      "mean_sdk_rtt_ms": 1190.66,
+      "mean_provider_reported_inference_ms": 356.4,
+      "mean_controller_decision_ms": 1965.95,
+      "timing": {
+        "run_click_bracket_unix_s": [
+          1793832113.347,
+          1793832113.633
+        ],
+        "queue_entry_unix_s": 1793832113.906124,
+        "queue_admission_receipt_unix_s": 1793832496.003708,
+        "excluded_evidenced_queue_s": 382.097584,
+        "home_complete_local_log_unix_s_rounded_to_second": 1793832495.0,
+        "first_confirmed_waypoint_unix_s": 1793832502.7418802,
+        "full_run_click_to_first_waypoint_s_range": [
+          389.10888,
+          389.39488
+        ],
+        "queue_adjusted_run_click_to_first_waypoint_s_range": [
+          7.011297,
+          7.297297
+        ],
+        "home_to_first_waypoint_s": 7.74188,
+        "first_observed_actual_motion": "Not precisely established from timestamped UI frames; backend progress is a proxy, not visual motion proof. Mandatory timing acceptance remains unchecked."
+      },
+      "replay": "baseline-replay.mp4",
+      "visual_timeline": "baseline-timeline/timeline.json"
+    },
+    {
+      "condition": "dark",
+      "brightness_factor": 0.5,
+      "episode_id": "ep_9a2ff3550b444f7f",
+      "status": "timed_out",
+      "task_outcome": "Failure",
+      "outcome_basis": "No release into cup followed by withdrawal by 60-second deadline in retained physical replay",
+      "successful_sdk_responses": 8,
+      "controller_decision_attempts": 9,
+      "completed_packets": 8,
+      "confirmed_waypoint_progress_events": 195,
+      "mean_sdk_rtt_ms": 1131.53,
+      "mean_provider_reported_inference_ms": 310.25,
+      "mean_controller_decision_ms": 2527.12,
+      "timing": {
+        "run_click_bracket_unix_s": [
+          1793833324.909,
+          1793833325.186
+        ],
+        "queue_entry_unix_s": 1793833325.771921,
+        "queue_admission_receipt_unix_s": 1793833336.7579992,
+        "excluded_evidenced_queue_s": 10.986078,
+        "home_complete_local_log_unix_s_rounded_to_second": 1793833336.0,
+        "first_confirmed_waypoint_unix_s": 1793833342.418695,
+        "full_run_click_to_first_waypoint_s_range": [
+          17.232695,
+          17.509695
+        ],
+        "queue_adjusted_run_click_to_first_waypoint_s_range": [
+          6.246617,
+          6.523617
+        ],
+        "home_to_first_waypoint_s": 6.418695,
+        "first_observed_actual_motion": "Not precisely established from timestamped UI frames; backend progress is a proxy, not visual motion proof. Mandatory timing acceptance remains unchecked."
+      },
+      "replay": "dark-replay.mp4",
+      "visual_timeline": "dark-timeline/timeline.json"
+    }
+  ],
+  "difference_percentage_points": 0,
+  "conclusion": "Both exploratory attempts failed. One attempt per condition and unmatched initial scenes do not establish a brightness effect."
+}

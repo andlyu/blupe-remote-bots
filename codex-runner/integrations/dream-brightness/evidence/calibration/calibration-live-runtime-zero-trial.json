@@ -1,0 +1,38 @@
+{
+  "selected": {
+    "robot_id": "robot-ba8413962083809c",
+    "model_calibration_id": "7b118417600209c7059f1456c740c8b5b5e7b11d83b320306eb5c791f06b149d",
+    "camera_calibration_id": "1eb254f29a7f3b13c681b80b8e3fe7d89f056ff581e201c2263743c3791edde2",
+    "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+    "coordinate_convention": "original_i2rt_model_corrected",
+    "wire_coordinates": "original encoder radians",
+    "base_spacing_m": 0.62,
+    "offsets_rad": {
+      "left": [
+        0.0,
+        0.014912483108393418,
+        0.012307275465343557,
+        -0.008471929573933208,
+        -0.026210976390616005,
+        0.0
+      ],
+      "right": [
+        -0.006294346532387252,
+        0.000953688868543523,
+        -0.008201724269474298,
+        -0.041771572442206306,
+        -0.008964675364309116,
+        0.04406042572671076
+      ]
+    },
+    "application": "geometry only; offsets are not added to feedback or commands",
+    "tcp_convention": "Dream YAM TCP; native grasp orientation followed by +90deg local Z",
+    "fingerprint": "7f0ee7ae72b1f716bbbdf84954a32ba42605202d596c88da1add68c9948de069"
+  },
+  "runner_revision": "487dd92f638d90e52e5769a3aac12b9af09ad125",
+  "worker_prepared": false,
+  "inference_started": false,
+  "note": "Live selected profile checked by this runner. Actual run binding is recorded separately.",
+  "checked_at": "2026-11-05T00:23:13.186386+00:00",
+  "process_id": 15398
+}

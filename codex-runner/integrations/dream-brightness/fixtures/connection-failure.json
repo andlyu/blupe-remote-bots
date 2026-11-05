@@ -1,0 +1,66 @@
+{
+  "kind": "model_failure",
+  "message": "Dream prediction request failed",
+  "details": {
+    "error_type": "DreamProtocolError",
+    "code": null,
+    "reason": null,
+    "retryable": false,
+    "phase": "predict",
+    "protocol_category": "connection_failure",
+    "http_status": null,
+    "cause_type": "RemoteDisconnected",
+    "cause_family": "http",
+    "cause_errno": null,
+    "cause_reason": null,
+    "transport_stage": "response_headers",
+    "protocol_trace": [
+      {
+        "module": "dream.client",
+        "function": "get_action",
+        "line": 415
+      },
+      {
+        "module": "dream.client",
+        "function": "_post",
+        "line": 639
+      },
+      {
+        "module": "dream.transport",
+        "function": "request",
+        "line": 243
+      },
+      {
+        "module": "dream.transport",
+        "function": "_exchange",
+        "line": 301
+      },
+      {
+        "module": "dream.transport",
+        "function": "_exchange",
+        "line": 286
+      },
+      {
+        "module": "http.client",
+        "function": "getresponse",
+        "line": 1430
+      },
+      {
+        "module": "http.client",
+        "function": "begin",
+        "line": 331
+      },
+      {
+        "module": "http.client",
+        "function": "_read_status",
+        "line": 300
+      }
+    ],
+    "http_connection_policy": "reuse_until_reset_or_failure",
+    "timing": {
+      "rtt_ms": 176.41412501689047,
+      "request_bytes": 261939,
+      "response_bytes": 0
+    }
+  }
+}

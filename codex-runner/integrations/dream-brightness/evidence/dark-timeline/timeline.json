@@ -1,0 +1,346 @@
+{
+  "darkRunBefore": 1793833324909,
+  "darkRunAfter": 1793833325186,
+  "frames": [
+    {
+      "name": "frame-0000.jpg",
+      "requestedAt": 1793833325366,
+      "capturedAt": 1793833325431
+    },
+    {
+      "name": "frame-0001.jpg",
+      "requestedAt": 1793833326233,
+      "capturedAt": 1793833326254
+    },
+    {
+      "name": "frame-0002.jpg",
+      "requestedAt": 1793833327056,
+      "capturedAt": 1793833327119
+    },
+    {
+      "name": "frame-0003.jpg",
+      "requestedAt": 1793833327921,
+      "capturedAt": 1793833327950
+    },
+    {
+      "name": "frame-0004.jpg",
+      "requestedAt": 1793833328751,
+      "capturedAt": 1793833328777
+    },
+    {
+      "name": "frame-0005.jpg",
+      "requestedAt": 1793833329578,
+      "capturedAt": 1793833329600
+    },
+    {
+      "name": "frame-0006.jpg",
+      "requestedAt": 1793833330402,
+      "capturedAt": 1793833330433
+    },
+    {
+      "name": "frame-0007.jpg",
+      "requestedAt": 1793833331234,
+      "capturedAt": 1793833331279
+    },
+    {
+      "name": "frame-0008.jpg",
+      "requestedAt": 1793833332081,
+      "capturedAt": 1793833332117
+    },
+    {
+      "name": "frame-0009.jpg",
+      "requestedAt": 1793833332920,
+      "capturedAt": 1793833333012
+    },
+    {
+      "name": "frame-0010.jpg",
+      "requestedAt": 1793833333812,
+      "capturedAt": 1793833333848
+    },
+    {
+      "name": "frame-0011.jpg",
+      "requestedAt": 1793833334649,
+      "capturedAt": 1793833334672
+    },
+    {
+      "name": "frame-0012.jpg",
+      "requestedAt": 1793833335474,
+      "capturedAt": 1793833335506
+    },
+    {
+      "name": "frame-0013.jpg",
+      "requestedAt": 1793833336321,
+      "capturedAt": 1793833336427
+    },
+    {
+      "name": "frame-0014.jpg",
+      "requestedAt": 1793833337229,
+      "capturedAt": 1793833337252
+    },
+    {
+      "name": "frame-0015.jpg",
+      "requestedAt": 1793833338053,
+      "capturedAt": 1793833338099
+    },
+    {
+      "name": "frame-0016.jpg",
+      "requestedAt": 1793833338901,
+      "capturedAt": 1793833338998
+    },
+    {
+      "name": "frame-0017.jpg",
+      "requestedAt": 1793833339800,
+      "capturedAt": 1793833339862
+    },
+    {
+      "name": "frame-0018.jpg",
+      "requestedAt": 1793833340664,
+      "capturedAt": 1793833340709
+    },
+    {
+      "name": "frame-0019.jpg",
+      "requestedAt": 1793833341512,
+      "capturedAt": 1793833341573
+    },
+    {
+      "name": "frame-0020.jpg",
+      "requestedAt": 1793833342376,
+      "capturedAt": 1793833342411
+    },
+    {
+      "name": "frame-0021.jpg",
+      "requestedAt": 1793833343212,
+      "capturedAt": 1793833343280
+    },
+    {
+      "name": "frame-0022.jpg",
+      "requestedAt": 1793833344081,
+      "capturedAt": 1793833344137
+    },
+    {
+      "name": "frame-0023.jpg",
+      "requestedAt": 1793833344939,
+      "capturedAt": 1793833344990
+    },
+    {
+      "name": "frame-0024.jpg",
+      "requestedAt": 1793833367395,
+      "capturedAt": 1793833367557
+    },
+    {
+      "name": "frame-0025.jpg",
+      "requestedAt": 1793833368259,
+      "capturedAt": 1793833368303
+    },
+    {
+      "name": "frame-0026.jpg",
+      "requestedAt": 1793833369005,
+      "capturedAt": 1793833369128
+    },
+    {
+      "name": "frame-0027.jpg",
+      "requestedAt": 1793833369829,
+      "capturedAt": 1793833369859
+    },
+    {
+      "name": "frame-0028.jpg",
+      "requestedAt": 1793833370561,
+      "capturedAt": 1793833370593
+    },
+    {
+      "name": "frame-0029.jpg",
+      "requestedAt": 1793833371295,
+      "capturedAt": 1793833371328
+    },
+    {
+      "name": "frame-0030.jpg",
+      "requestedAt": 1793833372029,
+      "capturedAt": 1793833372099
+    },
+    {
+      "name": "frame-0031.jpg",
+      "requestedAt": 1793833372800,
+      "capturedAt": 1793833372827
+    },
+    {
+      "name": "frame-0032.jpg",
+      "requestedAt": 1793833373528,
+      "capturedAt": 1793833373606
+    },
+    {
+      "name": "frame-0033.jpg",
+      "requestedAt": 1793833374307,
+      "capturedAt": 1793833374345
+    },
+    {
+      "name": "frame-0034.jpg",
+      "requestedAt": 1793833375046,
+      "capturedAt": 1793833375115
+    },
+    {
+      "name": "frame-0035.jpg",
+      "requestedAt": 1793833375817,
+      "capturedAt": 1793833375881
+    },
+    {
+      "name": "frame-0036.jpg",
+      "requestedAt": 1793833376583,
+      "capturedAt": 1793833376606
+    },
+    {
+      "name": "frame-0037.jpg",
+      "requestedAt": 1793833377308,
+      "capturedAt": 1793833377345
+    },
+    {
+      "name": "frame-0038.jpg",
+      "requestedAt": 1793833378046,
+      "capturedAt": 1793833378077
+    },
+    {
+      "name": "frame-0039.jpg",
+      "requestedAt": 1793833378779,
+      "capturedAt": 1793833378840
+    },
+    {
+      "name": "frame-0040.jpg",
+      "requestedAt": 1793833379541,
+      "capturedAt": 1793833379578
+    },
+    {
+      "name": "frame-0041.jpg",
+      "requestedAt": 1793833380279,
+      "capturedAt": 1793833380313
+    },
+    {
+      "name": "frame-0042.jpg",
+      "requestedAt": 1793833381014,
+      "capturedAt": 1793833381036
+    },
+    {
+      "name": "frame-0043.jpg",
+      "requestedAt": 1793833381736,
+      "capturedAt": 1793833381787
+    },
+    {
+      "name": "frame-0044.jpg",
+      "requestedAt": 1793833382489,
+      "capturedAt": 1793833382540
+    },
+    {
+      "name": "frame-0045.jpg",
+      "requestedAt": 1793833383242,
+      "capturedAt": 1793833383265
+    },
+    {
+      "name": "frame-0046.jpg",
+      "requestedAt": 1793833383965,
+      "capturedAt": 1793833384084
+    },
+    {
+      "name": "frame-0047.jpg",
+      "requestedAt": 1793833384785,
+      "capturedAt": 1793833384811
+    },
+    {
+      "name": "frame-0048.jpg",
+      "requestedAt": 1793833385513,
+      "capturedAt": 1793833385621
+    },
+    {
+      "name": "frame-0049.jpg",
+      "requestedAt": 1793833386323,
+      "capturedAt": 1793833386371
+    },
+    {
+      "name": "frame-0050.jpg",
+      "requestedAt": 1793833387071,
+      "capturedAt": 1793833387150
+    },
+    {
+      "name": "frame-0051.jpg",
+      "requestedAt": 1793833387852,
+      "capturedAt": 1793833387887
+    },
+    {
+      "name": "frame-0052.jpg",
+      "requestedAt": 1793833388588,
+      "capturedAt": 1793833388708
+    },
+    {
+      "name": "frame-0053.jpg",
+      "requestedAt": 1793833389410,
+      "capturedAt": 1793833389436
+    },
+    {
+      "name": "frame-0054.jpg",
+      "requestedAt": 1793833390137,
+      "capturedAt": 1793833390248
+    },
+    {
+      "name": "frame-0055.jpg",
+      "requestedAt": 1793833402459,
+      "capturedAt": 1793833402579
+    },
+    {
+      "name": "frame-0056.jpg",
+      "requestedAt": 1793833403286,
+      "capturedAt": 1793833403397
+    },
+    {
+      "name": "frame-0057.jpg",
+      "requestedAt": 1793833404099,
+      "capturedAt": 1793833404200
+    },
+    {
+      "name": "frame-0058.jpg",
+      "requestedAt": 1793833404901,
+      "capturedAt": 1793833404939
+    },
+    {
+      "name": "frame-0059.jpg",
+      "requestedAt": 1793833405640,
+      "capturedAt": 1793833405707
+    },
+    {
+      "name": "frame-0060.jpg",
+      "requestedAt": 1793833406409,
+      "capturedAt": 1793833406468
+    },
+    {
+      "name": "frame-0061.jpg",
+      "requestedAt": 1793833407170,
+      "capturedAt": 1793833407229
+    },
+    {
+      "name": "frame-0062.jpg",
+      "requestedAt": 1793833407931,
+      "capturedAt": 1793833407981
+    },
+    {
+      "name": "frame-0063.jpg",
+      "requestedAt": 1793833408681,
+      "capturedAt": 1793833408737
+    },
+    {
+      "name": "frame-0064.jpg",
+      "requestedAt": 1793833409438,
+      "capturedAt": 1793833409459
+    },
+    {
+      "name": "frame-0065.jpg",
+      "requestedAt": 1793833410161,
+      "capturedAt": 1793833412837
+    },
+    {
+      "name": "frame-0066.jpg",
+      "requestedAt": 1793833413538,
+      "capturedAt": 1793833413584
+    },
+    {
+      "name": "frame-0067.jpg",
+      "requestedAt": 1793833414286,
+      "capturedAt": 1793833414407
+    }
+  ]
+}

@@ -178,7 +178,7 @@ class DreamAdapter:
 
     def __init__(self, *, provider, model, credentials, python, directory,
                  camera_source, observation_source, robot_id, worker_factory=DreamWorker,
-                 gateway_max_step_deg=None, worker_pool=None):
+                 gateway_max_step_deg=None, worker_pool=None, calibration_source=None):
         if provider not in MODELS or model != MODELS[provider][0]:
             raise ValueError('Unknown Dream checkpoint')
         self.provider_name, self.model = provider, model
@@ -187,6 +187,8 @@ class DreamAdapter:
         self.camera_source, self.observation_source, self.robot_id = camera_source, observation_source, robot_id
         self.worker_factory = worker_factory
         self.worker_pool = worker_pool
+        self.calibration_source = calibration_source
+        self._kinematics = None
         self._worker_slot = False
         self._transport_lock = threading.RLock()
         self.gateway_max_step_deg = gateway_max_step_deg
@@ -233,6 +235,37 @@ class DreamAdapter:
         self._run_duration_s = seconds
         self._max_commands = command_budget(self.provider_name, seconds, self.trajectory_cadence_hz)
 
+    def configure_robot_workspace(self, robot_id, *, report=None):
+        from .dream_calibration import ROBOHOUSE, binding_from_report, kinematic_description
+        if robot_id != self.robot_id:
+            raise ValueError('Dream calibration robot differs from the selected station')
+        # Preserve other stations' existing native encoder conventions.
+        if report is None and self.calibration_source is None and robot_id != ROBOHOUSE:
+            return
+        if report is None:
+            if self.calibration_source is not None:
+                report = self.calibration_source()
+            else:
+                from .api_depth import ApiDepth
+                origin = getattr(self.camera_source, 'allowed_origin', None)
+                if not origin:
+                    raise ValueError('Dream needs the live selected station calibration before starting')
+                scheme, host, port = origin
+                authority = f'[{host}]' if ':' in host else host
+                api = ApiDepth(f'{scheme}://{authority}:{port}', robot_id)
+                try:
+                    report = json.loads(api.read('/calibration', 256_000))
+                finally:
+                    api.connection.close()
+        binding = binding_from_report(report, robot_id)
+        if self._kinematics is not None:
+            if binding['fingerprint'] != self._kinematics['binding']['fingerprint']:
+                raise ValueError('Selected calibration changed during this Dream run; stop and start a new run')
+            return
+        if self._preparation is not None:
+            raise ValueError('Bind Dream calibration before preparing its solver')
+        self._kinematics = kinematic_description(binding)
+
     def public_config(self):
         return dict(provider=self.provider_name, model=self.model, cadence_hz=self.trajectory_cadence_hz,
                     model_action_hz=30 if self.trajectory_cadence_hz == 30 else 20,
@@ -241,7 +274,11 @@ class DreamAdapter:
                     execution_mode='sequential_chunks', action_space='eef', ik_solve='traj',
                     max_joint_step_deg=self.max_joint_step_deg,
                     effective_joint_step_deg=self.effective_joint_step_deg,
-                    gateway_profile_step_deg=self.gateway_max_step_deg)
+                    gateway_profile_step_deg=self.gateway_max_step_deg,
+                    **({'kinematic_calibration': json.loads(json.dumps(self._kinematics['binding'])),
+                        'model_calibration_id':self._kinematics['binding']['model_calibration_id'],
+                        'calibration_id':self._kinematics['binding']['camera_calibration_id']}
+                       if self._kinematics is not None else {}))
 
     def _cancelled(self):
         return self._stop.is_set() or self.cancelled()
@@ -256,10 +293,14 @@ class DreamAdapter:
 
     def prepare_after_lease(self, cancelled):
         self.cancelled = cancelled
+        if self._kinematics is not None:
+            # A queued runner must not use the profile selected before a dashboard
+            # change. Reject before prediction; never rebuild/replay a motion.
+            self.configure_robot_workspace(self.robot_id)
         self._start_preparation()
 
     def _worker_timings(self, reply):
-        allowed = {'sdk_import', 'sdk_client_init', 'sdk_configure',
+        allowed = {'sdk_import', 'sdk_client_init', 'sdk_configure', 'sdk_kinematics_install',
                    'sdk_observation_update', 'sdk_get_action', 'sdk_reset'}
         for row in reply.get('stage_timings') or []:
             if not isinstance(row, dict) or row.get('stage') not in allowed:
@@ -304,10 +345,14 @@ class DreamAdapter:
                 with journal_span(self.interaction_sink, 'worker_configure'):
                     reply = worker.call('configure', checkpoint=self.model,
                         action_hz=30 if self.trajectory_cadence_hz == 30 else 20,
+                        **({'kinematics': self._kinematics} if self._kinematics is not None else {}),
                         cancelled=self._cancelled, timeout=180)
                 self._worker_timings(reply)
                 if not reply['ok']:
                     self._failure = 'Dream SDK setup failed (' + reply.get('error_type', 'unknown') + ')'
+                    return
+                if self._kinematics is not None and reply.get('kinematic_calibration') != self._kinematics['binding']:
+                    self._failure = 'Dream worker did not confirm the selected calibration; no prediction will run'
                     return
                 self._ready.set()
             except Exception as error:
@@ -512,6 +557,14 @@ class DreamAdapter:
             recover(checkpoint=self.model, cancelled=self._cancelled)
             if self._cancelled():
                 raise RuntimeError('Dream worker recovery cancelled')
+            if self._kinematics is not None:
+                self.configure_robot_workspace(self.robot_id)
+                reply = self._worker.call('configure', checkpoint=self.model,
+                    action_hz=30 if self.trajectory_cadence_hz == 30 else 20,
+                    kinematics=self._kinematics, cancelled=self._cancelled, timeout=180)
+                self._worker_timings(reply)
+                if not reply.get('ok') or reply.get('kinematic_calibration') != self._kinematics['binding']:
+                    raise DreamWorkerUnavailable('Recovered Dream worker did not confirm the selected calibration')
             # Revalidate the SAME lease, completed step and idle executor before
             # requesting another prediction. No failed request/action is replayed.
             if callable(self.refresh_observation):
@@ -539,6 +592,9 @@ class DreamAdapter:
     def build_trajectory(self, prompt, observation, first_step_id):
         if self._cancelled():
             raise RuntimeError('Dream cancelled')
+        if self._kinematics is not None:
+            with journal_span(self.interaction_sink, 'calibration_check', first_step_id=first_step_id):
+                self.configure_robot_workspace(self.robot_id)
         if self._preparation is None:
             self.start_preparation(self.cancelled)
         self.wait_ready(self._cancelled)
