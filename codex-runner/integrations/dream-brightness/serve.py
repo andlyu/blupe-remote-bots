@@ -35,12 +35,21 @@ def runner_root(value):
     raise SystemExit('No Dream1 runner found. Pass --runner-root /path/to/blupe-remote-yam.')
 
 
-def make_runner_type(root):
+def make_runner_type(root, *, local=True):
     sys.path[:0] = [str(root), str(root / 'src')]
     from local_playground import LocalPlayground
     from playground import RequestError
 
     class BrightnessPlayground(LocalPlayground):
+        def __init__(self, *, experiment_root=None, **kwargs):
+            super().__init__(**kwargs)
+            self.experiment_root = Path(experiment_root).resolve() if experiment_root else self.root
+            self.experiment_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+        @property
+        def experiment_database(self):
+            return getattr(self, 'experiment_root', self.root) / 'brightness-experiment.sqlite3'
+
         async def json(self, send, status, payload, extra=()):
             # Correct only an episode whose actual experiment provenance is
             # retained locally. A different station user's run is never renamed.
@@ -48,7 +57,7 @@ def make_runner_type(root):
                 public = payload['public_run']
                 episode = public.get('episode_id')
                 record = next((record for record in ExperimentStore(
-                    self.root / 'brightness-experiment.sqlite3').records()
+                    self.experiment_database).records()
                     if record['episode_id'] == episode), None)
                 if record:
                     payload = {**payload, 'public_run': {**public, 'model_name': record['model'],
@@ -68,7 +77,7 @@ def make_runner_type(root):
                 record = run_record(visitor.controller.status(), robot_id=self.robot_id,
                                     task=visitor.runner_task, runner_name=visitor.runner_name)
                 if record is not None:
-                    ExperimentStore(self.root / 'brightness-experiment.sqlite3').remember(record)
+                    ExperimentStore(self.experiment_database).remember(record)
                     self.brightness_recording_error = None
             except (OSError, ValueError, sqlite3.Error):
                 self.brightness_recording_error = 'Experiment metadata could not be saved. Check local storage before comparing runs.'
@@ -83,12 +92,14 @@ def make_runner_type(root):
             identity = {}
             identity_file = os.environ.get('YAM_BRIGHTNESS_IDENTITY_FILE')
             if identity_file:
+                if not local:
+                    raise RequestError(503, 'Private runner defaults are restricted to the local experiment.')
                 path = Path(identity_file).expanduser()
                 if path.stat().st_mode & 0o077:
                     raise RequestError(503, 'The private runner defaults file must be readable only by its owner.')
                 values = json.loads(path.read_text())
                 identity = {key: str(values.get(key, '')) for key in ('name', 'email')}
-            return {**extra, 'local_runner': True, 'default_provider': 'dream',
+            return {**extra, 'local_runner': local, 'default_provider': 'dream',
                     'runner_identity': identity,
                     'image_experiment': {'brightness_percent': 50}}, headers
 
@@ -139,7 +150,7 @@ def make_runner_type(root):
                 def results():
                     for visitor in list(self.visitors.values()):
                         self.remember_runner(visitor)
-                    records = ExperimentStore(self.root / 'brightness-experiment.sqlite3').records()
+                    records = ExperimentStore(self.experiment_database).records()
                     data = summarize(records, self.run_assessments.summaries())
                     data['warning'] = getattr(self, 'brightness_recording_error', None)
                     return data

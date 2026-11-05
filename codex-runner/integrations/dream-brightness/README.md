@@ -73,3 +73,9 @@ The local Dream adapter now reads the operator-selected Robo-house model and cam
 Dream response-header connection failures are retained as infrastructure failures and excluded from brightness success rates. The UI explains the interruption without retrying the model or movement.
 
 Current required preflight: **70 Python tests and1 JavaScript test**, including calibration geometry, the real camera-origin bridge and the actual deployed packet validator. See `evidence/calibration/publication-preflight.xml`. The [connection-failure investigation](docs/CONNECTION-FAILURE.md) separates the observed HTTP interruption from calibration behavior.
+
+## Hosted extension boundary
+
+`make_runner_type(root, local=False)` disables local identity defaults and labels a public deployment accurately. A configured local private identity file is rejected in this mode before it is read. Hosting can pass a persistent `experiment_root` for the immutable brightness ledger; full visitor recordings continue to follow the shared runner's existing retention rules. BluPe-specific guest allowance and deployment wiring live in `apps/blupe_web` in the parent project. Native queue, lease, validation, duration, Stop and replay behavior are preserved.
+
+The required shared release preflight now passes72Python tests plus the actual UI request/response test. The added regressions cover public identity isolation and ledger persistence across ephemeral visitor roots. Hosted rollout is verified separately; this source change does not claim a public deployment or physical run.

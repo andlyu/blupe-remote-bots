@@ -142,3 +142,20 @@ def test_identity_is_collected_before_launch(payload):
     from playground import RequestError
     with pytest.raises(RequestError):
         runner.validate_launch(None, payload, False)
+
+
+def test_public_session_never_reads_private_local_identity(tmp_path, monkeypatch):
+    from local_playground import LocalPlayground
+    from playground import RequestError
+    async def base_session(self, cookies, visitor):
+        return {}, []
+    monkeypatch.setattr(LocalPlayground, 'session_extension', base_session)
+    runner_type = make_runner_type(ROOT, local=False)
+    runner = runner_type.__new__(runner_type)
+    monkeypatch.setenv('YAM_BRIGHTNESS_IDENTITY_FILE', str(tmp_path / 'must-not-be-read.json'))
+    with pytest.raises(RequestError, match='restricted to the local'):
+        asyncio.run(runner.session_extension({}, None))
+    monkeypatch.delenv('YAM_BRIGHTNESS_IDENTITY_FILE')
+    data, headers = asyncio.run(runner.session_extension({}, None))
+    assert data['runner_identity'] == {} and data['local_runner'] is False
+    assert data['default_provider'] == 'dream' and headers == []

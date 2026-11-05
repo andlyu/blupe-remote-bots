@@ -17,12 +17,19 @@
       if (label) label.textContent = 'Email for run attribution';
       const help = document.querySelector('#emailHelp');
       if (help) help.textContent = 'Used by the existing robot queue for attribution. Kept out of public experiment metadata.';
-      document.title = 'Dream1 brightness · Local experiment';
+      document.title = session.local_runner ? 'Dream1 brightness · Local experiment' : 'Dream1 brightness · Experiment';
+      panel.querySelector('#brightnessHostingLabel').textContent = session.local_runner ? 'Local experiment' : 'Brightness experiment';
+      displayAllowance(session.experiment_allowance);
       mountMeetingControl();
       await selectedCalibration();
     }
   };
   const fetchOriginal = window.fetch.bind(window);
+  function displayAllowance(allowance) {
+    const label = panel.querySelector('#brightnessAllowance');
+    label.hidden = !allowance;
+    if (allowance) label.textContent = `${allowance.remaining} of ${allowance.limit} guest runs remaining in this browser.`;
+  }
   let connectionNotice;
   let runCalibration = null;
   let selectedProfileText = 'Checking the operator’s selected calibration…';
@@ -57,7 +64,8 @@
   panel.className = 'brightnessExperiment';
   panel.setAttribute('aria-labelledby', 'brightnessTitle');
   panel.innerHTML = `
-    <div class="brightnessHeading"><h2 id="brightnessTitle">Dream1 image brightness</h2><span>Local experiment</span></div>
+    <div class="brightnessHeading"><h2 id="brightnessTitle">Dream1 image brightness</h2><span id="brightnessHostingLabel">Brightness experiment</span></div>
+    <p id="brightnessAllowance" role="status" hidden></p>
     <div class="brightnessControls">
       <label for="imageBrightness">Brightness sent to Dream1</label>
       <input id="imageBrightness" type="range" min="0" max="200" step="1" value="50" aria-describedby="brightnessHelp">
@@ -232,6 +240,7 @@
       const selected = brightness;
       const response = await fetchOriginal(input, {...options, body:JSON.stringify(payload)});
       if (response.ok) panel.querySelector('#brightnessRunSetting').textContent = `Submitted run: ${selected}% brightness. This setting is recorded with the run.`;
+      try {const state = await response.clone().json(); if (state.experiment_allowance) displayAllowance(state.experiment_allowance);} catch (_) {}
       return response;
     }
     const response = await fetchOriginal(input, options);
