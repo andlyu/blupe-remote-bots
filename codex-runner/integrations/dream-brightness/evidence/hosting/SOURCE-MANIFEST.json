@@ -1,12 +1,17 @@
 {
   "public_origin": "https://dream-brightness.54.209.185.15.sslip.io",
   "shared_commit": "c027138bb7e36bb7169649753a4c529084e4ebc6",
-  "canonical_hosting_commit": "ab96c1c165625badb8b1ca90f0444cd8d134ddd4",
+  "canonical_hosting_commit": "08995ccf32b5c97e604e888724a4ecc4d39757a5",
   "files": [
     {
       "canonical_path": "apps/blupe_web/hosted_brightness.py",
       "snapshot": "apps__blupe_web__hosted_brightness.py.txt",
       "sha256": "f5902cb0643fed954e0bd4246123ff1a2d1f2196e734b5f6916eeb10c100a2f3"
+    },
+    {
+      "canonical_path": "apps/blupe_web/hosted_brightness_relay.py",
+      "snapshot": "apps__blupe_web__hosted_brightness_relay.py.txt",
+      "sha256": "96af6f3a0dc07c77ed0c4ec334ac2cfc5dd9ac9a703b23aa05696ae6403d4dbd"
     },
     {
       "canonical_path": "apps/blupe_web/guest_runs.py",
@@ -16,12 +21,12 @@
     {
       "canonical_path": "apps/blupe_web/tests/test_hosted_brightness.py",
       "snapshot": "apps__blupe_web__tests__test_hosted_brightness.py.txt",
-      "sha256": "ae442c126afadfd16ceda1e3553ef0506ac353680eace1f64374660595ba2957"
+      "sha256": "e90d94deb38c05b641387b940e4242ee26cd406582327b172b83b50b85be3dcb"
     },
     {
       "canonical_path": "apps/blupe_web/deploy/dream-brightness/README.md",
       "snapshot": "apps__blupe_web__deploy__dream-brightness__README.md.txt",
-      "sha256": "b475459c1a62273eface6d0584adf9ca2d5eee1ee9fef07eb6cc7af0f1f2226e"
+      "sha256": "550fb24d1e5b101bfbfde945d9f190af8348ca1e9fc3770bfd4b43356ce17549"
     },
     {
       "canonical_path": "apps/blupe_web/deploy/dream-brightness/dream-brightness.Caddyfile",

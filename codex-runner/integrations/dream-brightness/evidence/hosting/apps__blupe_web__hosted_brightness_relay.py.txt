@@ -1,0 +1,48 @@
+"""Maintain the dedicated loopback SSH relay; never replay HTTP requests."""
+import argparse
+from pathlib import Path
+import subprocess
+import time
+
+
+def supervise(command, *, run=subprocess.run, sleep=time.sleep, report=print):
+    delay, attempt = 1, 0
+    while True:
+        attempt += 1
+        report(f'Starting SSH relay connection {attempt}', flush=True)
+        result = run(command, capture_output=True, text=True)
+        if result.returncode == 0:
+            return 0
+        message = result.stderr.lower()
+        if any(reason in message for reason in (
+                'host key verification failed', 'remote host identification has changed',
+                'permission denied (publickey')):
+            report('SSH relay stopped: authentication or host trust needs attention.', flush=True)
+            return result.returncode
+        report(f'SSH relay disconnected. Reconnecting in {delay}s.', flush=True)
+        sleep(delay)
+        delay = min(15, delay * 2)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--identity-file', type=Path, required=True)
+    parser.add_argument('--ssh-target', required=True)
+    parser.add_argument('--remote-port', type=int, default=8848)
+    parser.add_argument('--local-port', type=int, default=8799)
+    args = parser.parse_args()
+    if args.ssh_target.startswith('-') or not all(1 <= port <= 65535 for port in (args.remote_port, args.local_port)):
+        parser.error('Use a host target and valid TCP ports')
+    command = ['ssh', '-i', str(args.identity_file), '-o', 'IdentitiesOnly=yes',
+        '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=8',
+        '-o', 'ExitOnForwardFailure=yes', '-o', 'ServerAliveInterval=5',
+        '-o', 'ServerAliveCountMax=2', '-N', '-T', '-R',
+        f'127.0.0.1:{args.remote_port}:127.0.0.1:{args.local_port}', args.ssh_target]
+    try:
+        return supervise(command)
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -52,3 +52,25 @@ def test_https_guest_cookie_is_private_and_survives_new_session(tmp_path):
 def test_public_factory_refuses_local_identity_defaults(monkeypatch):
     monkeypatch.setenv('YAM_BRIGHTNESS_IDENTITY_FILE', '/not/read/private.json')
     with pytest.raises(ValueError, match='Private runner defaults'): create_app()
+
+
+def test_relay_reconnects_after_peer_reset_without_changing_command():
+    from hosted_brightness_relay import supervise
+    replies = iter([SimpleNamespace(returncode=255, stderr='Connection reset by peer'),
+                    SimpleNamespace(returncode=0, stderr='')])
+    calls, waits = [], []
+    def run(command, **kwargs):
+        calls.append(list(command))
+        return next(replies)
+    assert supervise(['ssh', 'fixed-loopback-forward'], run=run, sleep=waits.append,
+                     report=lambda *args, **kwargs:None) == 0
+    assert calls == [['ssh', 'fixed-loopback-forward']]*2 and waits == [1]
+
+
+def test_relay_preserves_authentication_and_host_trust_failures():
+    from hosted_brightness_relay import supervise
+    waits = []
+    assert supervise(['ssh'], run=lambda *args, **kwargs:SimpleNamespace(
+        returncode=255, stderr='Host key verification failed.'), sleep=waits.append,
+        report=lambda *args, **kwargs:None) == 255
+    assert waits == []
