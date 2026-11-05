@@ -30,9 +30,10 @@ class DreamWorkerUnavailable(RuntimeError):
 
 class DreamObservationError(ValueError):
     """Only locally authored diagnostics may be exposed in the run log."""
-    def __init__(self, message, *, field, retryable=False):
+    def __init__(self, message, *, field, retryable=False, http_status=None, cause=None):
         super().__init__(message)
         self.field, self.retryable = field, retryable
+        self.http_status, self.cause = http_status, cause
 
 
 def motion_limited_waypoints(points, observation, max_step_deg, *, max_commands=MAX_COMMANDS, cadence_hz=10):
@@ -441,7 +442,13 @@ class DreamAdapter:
             detail = last_failure.get('cause')
             message = 'Dream ' + (role + ' ' if role in CAMERAS else '') + 'camera capture failed'
             message += ' (' + (str(detail) if detail else type(error).__name__) + ')'
-            raise DreamObservationError(message, field='camera_' + role if role in CAMERAS else 'camera_capture') from None
+            # The camera batch may exhaust its attempts during a short outage.
+            # Keep transient/permanent classification for the collector's bounded
+            # recovery window; never retry denied access or use old images.
+            raise DreamObservationError(message,
+                field='camera_' + role if role in CAMERAS else 'camera_capture',
+                retryable=last_failure.get('retryable') is True,
+                http_status=last_failure.get('http_status'), cause=detail) from None
         camera_capture_s = time.monotonic()-camera_began
         if len(frames) != 3 or {frame.name for frame in frames} != set(CAMERAS):
             raise DreamObservationError('Dream requires overhead and both wrist cameras', field='camera_roles')
@@ -509,21 +516,28 @@ class DreamAdapter:
                 with self._changed:
                     # Never use a prior sample while current feedback is unavailable.
                     self._history.clear()
+                if self.interaction_sink and (first_failure or not retrying):
+                    self.interaction_sink('observation_retry' if retrying else 'observation_failure',
+                        'Dream observation unavailable: ' + str(error),
+                        field=error.field, retrying=retrying, recovery_window_s=OBSERVATION_RECOVERY_S,
+                        http_status=error.http_status, cause=error.cause)
+                with self._changed:
+                    # Retain the diagnosis before waking a consumer that may
+                    # immediately stop the lease and destroy this adapter.
                     if not retrying:
                         self._failure = 'Dream observation capture failed: ' + str(error)
                         if error.retryable:
                             self._failure += ' (recovery timed out)'
                     self._changed.notify_all()
-                if self.interaction_sink and (first_failure or not retrying):
-                    self.interaction_sink('observation_retry' if retrying else 'observation_failure',
-                        'Dream observation unavailable: ' + str(error),
-                        field=error.field, retrying=retrying, recovery_window_s=OBSERVATION_RECOVERY_S)
                 if not retrying:
                     return
             except Exception as error:
                 if not self._cancelled():
                     with self._changed:
                         self._history.clear()
+                    self._interaction('observation_failure', 'Dream observation capture failed',
+                                      field='observation', cause=type(error).__name__)
+                    with self._changed:
                         self._failure = 'Dream observation capture failed (' + type(error).__name__ + ')'
                         self._changed.notify_all()
                 return

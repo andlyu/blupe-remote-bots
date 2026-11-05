@@ -39,6 +39,19 @@ def public_run_error(state):
         return diagnostic
     error = state.get('error')
     safety = state.get('safety_error') or {}
+    observation = (safety.get('details') or {}).get('observation') or {}
+    if observation.get('state') == 'failed':
+        field = observation.get('field')
+        if not isinstance(field, str):
+            field = None
+        if field in {'camera_left', 'camera_top', 'camera_right', 'camera_capture', 'camera_roles'}:
+            view = field[7:] + ' camera' if field in {'camera_left', 'camera_top', 'camera_right'} else 'camera'
+            status = observation.get('http_status')
+            detail = f' (HTTP {status})' if type(status) is int and 400 <= status <= 599 else ''
+            return f'Run stopped: {view} frames remained unavailable{detail}.'
+        if field in {'observation', 'observation_source', 'observed_at', 'jetson_id',
+                     'left_joints_deg', 'right_joints_deg', 'left_gripper', 'right_gripper'}:
+            return 'Run stopped: fresh robot feedback remained unavailable.'
     if error or safety:
         text = str(error or safety.get('code') or '').lower()
         if 'claude code needs sign-in' in text:
