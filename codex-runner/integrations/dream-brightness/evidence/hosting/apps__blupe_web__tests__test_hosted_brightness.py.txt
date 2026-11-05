@@ -1,0 +1,54 @@
+import asyncio
+from http.cookies import SimpleCookie
+from types import SimpleNamespace
+
+import pytest
+
+from guest_runs import GuestRuns
+from hosted_brightness import hosted_runner_type, create_app
+
+
+class Experiment:
+    def __init__(self): self.admitted = 0
+    def launch(self, visitor, payload, **kwargs):
+        if payload.get('invalid'): raise ValueError('Rejected before queue admission')
+        self.admitted += 1
+        return {'status':'queued'}
+    async def session_extension(self, cookies, visitor):
+        return {'local_runner':False, 'runner_identity':{}}, []
+
+
+def test_existing_guest_allowance_bounds_dispatch_and_refunds_rejections(tmp_path):
+    from playground import RequestError
+    allowance = GuestRuns(tmp_path / 'quota.sqlite3', limit=2)
+    runner = hosted_runner_type(Experiment, allowance)()
+    visitor = SimpleNamespace(guest_token=allowance.visitor())
+    with pytest.raises(ValueError): runner.launch(visitor, {'invalid':True})
+    assert allowance.remaining(visitor.guest_token) == 2 and runner.admitted == 0
+    assert runner.launch(visitor, {})['experiment_allowance']['remaining'] == 1
+    assert runner.launch(visitor, {})['experiment_allowance']['remaining'] == 0
+    with pytest.raises(RequestError, match='guest runs'): runner.launch(visitor, {})
+    assert runner.admitted == 2
+
+
+def test_https_guest_cookie_is_private_and_survives_new_session(tmp_path):
+    allowance = GuestRuns(tmp_path / 'quota.sqlite3')
+    runner = hosted_runner_type(Experiment, allowance)()
+    first = SimpleNamespace()
+    setup, headers = asyncio.run(runner.session_extension(SimpleCookie(), first))
+    assert setup['runner_identity'] == {} and not setup['local_runner']
+    assert first.guest_token not in str(setup)
+    cookie = headers[0][1].decode()
+    assert all(flag in cookie for flag in ['Secure','HttpOnly','Path=/','SameSite=Lax'])
+    saved = SimpleCookie(cookie)
+    second = SimpleNamespace()
+    asyncio.run(runner.session_extension(saved, second))
+    assert first.guest_token == second.guest_token
+    other = SimpleNamespace()
+    asyncio.run(runner.session_extension(SimpleCookie(), other))
+    assert first.guest_token != other.guest_token
+
+
+def test_public_factory_refuses_local_identity_defaults(monkeypatch):
+    monkeypatch.setenv('YAM_BRIGHTNESS_IDENTITY_FILE', '/not/read/private.json')
+    with pytest.raises(ValueError, match='Private runner defaults'): create_app()

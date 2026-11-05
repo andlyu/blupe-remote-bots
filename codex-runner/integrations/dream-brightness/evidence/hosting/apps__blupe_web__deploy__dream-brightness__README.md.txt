@@ -1,0 +1,11 @@
+# Dedicated Dream brightness experiment
+
+Public origin: https://dream-brightness.54.209.185.15.sslip.io. Shared source is the published codex-runner brightness integration; its exact pin is the parent submodule entry. The hosted_brightness factory adds only the existing GuestRuns allowance and deployment wiring.
+
+The experiment process runs on Andrew’s Mac, with one Uvicorn worker bound to127.0.0.1:8799. Caddy on the existing54.209.185.15 host proxies through an authenticated SSH reverse tunnel: `-R127.0.0.1:8848:127.0.0.1:8799`, using ExitOnForwardFailure and15s keepalives. The remote listener is loopback only. Configure the dedicated Caddy snippet through a top-level import, validate before graceful reload, and preserve concurrent config changes. Existing general playground service and local8798 stay separate.
+
+Factory environment: `BLUPE_REMOTE_YAM_ROOT` is the exact published codex-runner checkout; `YAM_BRIGHTNESS_ORIGIN` is the HTTPS origin above; `YAM_BRIGHTNESS_STATE` is an owner-only persistent directory; `YAM_DREAM_CREDENTIALS` and `YAM_DREAM_PYTHON` reference existing local private SDK setup. Do not configure YAM_BRIGHTNESS_IDENTITY_FILE. No credential contents are copied to hosting. Start with `uvicorn hosted_brightness:create_app --factory --host 127.0.0.1 --port 8799 --workers 1 --no-access-log --no-proxy-headers`.
+
+Visitors begin with blank editable identity. The existing hashed-cookie GuestRuns ledger provides ten runs per browser, atomic reservation and failed-admission refunds. A separate persistent experiment ledger retains immutable brightness and calibration conditions across ephemeral visitor roots. Native queue/lease, readiness, validation, duration, Stop, parking and public replay remain in the shared runner/backend. Fresh SDK workers follow the selected calibration; a stock resident worker is not substituted.
+
+The server has roughly234MiB available, so no additional Python/SDK service is installed there. Public availability requires the Mac process and SSH tunnel to remain running. For rollback, remove only this site's matching import/snippet, gracefully reload Caddy, close its SSH tunnel and stop its Mac process when idle; preserve guest/result state. Do not restore a stale whole Caddyfile over concurrent edits.

@@ -1,0 +1,4 @@
+dream-brightness.54.209.185.15.sslip.io {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8848
+}

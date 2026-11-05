@@ -1,0 +1,32 @@
+{
+  "public_origin": "https://dream-brightness.54.209.185.15.sslip.io",
+  "shared_commit": "c027138bb7e36bb7169649753a4c529084e4ebc6",
+  "canonical_hosting_commit": "ab96c1c165625badb8b1ca90f0444cd8d134ddd4",
+  "files": [
+    {
+      "canonical_path": "apps/blupe_web/hosted_brightness.py",
+      "snapshot": "apps__blupe_web__hosted_brightness.py.txt",
+      "sha256": "f5902cb0643fed954e0bd4246123ff1a2d1f2196e734b5f6916eeb10c100a2f3"
+    },
+    {
+      "canonical_path": "apps/blupe_web/guest_runs.py",
+      "snapshot": "apps__blupe_web__guest_runs.py.txt",
+      "sha256": "2fc077031e536d1ab3ad3fbf31210227f29b125818495d54af2e1fac8924b424"
+    },
+    {
+      "canonical_path": "apps/blupe_web/tests/test_hosted_brightness.py",
+      "snapshot": "apps__blupe_web__tests__test_hosted_brightness.py.txt",
+      "sha256": "ae442c126afadfd16ceda1e3553ef0506ac353680eace1f64374660595ba2957"
+    },
+    {
+      "canonical_path": "apps/blupe_web/deploy/dream-brightness/README.md",
+      "snapshot": "apps__blupe_web__deploy__dream-brightness__README.md.txt",
+      "sha256": "b475459c1a62273eface6d0584adf9ca2d5eee1ee9fef07eb6cc7af0f1f2226e"
+    },
+    {
+      "canonical_path": "apps/blupe_web/deploy/dream-brightness/dream-brightness.Caddyfile",
+      "snapshot": "apps__blupe_web__deploy__dream-brightness__dream-brightness.Caddyfile.txt",
+      "sha256": "2c29cd822093aad0d2674cd3e4cc7d32fddd73dd5000395977cf7e9533bb324a"
+    }
+  ]
+}

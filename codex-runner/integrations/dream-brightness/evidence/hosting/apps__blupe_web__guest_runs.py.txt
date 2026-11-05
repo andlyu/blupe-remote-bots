@@ -1,0 +1,114 @@
+"""Durable allowance for BluPe-funded guest runs; no model credentials stored."""
+from __future__ import annotations
+
+import hashlib
+from contextlib import contextmanager
+import os
+from pathlib import Path
+import secrets
+import sqlite3
+
+
+class GuestLimitReached(Exception):
+    pass
+
+
+class GuestRuns:
+    limit = 10
+    gemini_limit = 2  # Lifetime per issued visitor token, across robots and restarts.
+
+    def __init__(self, path, *, limit=10):
+        if type(limit) is not int or limit < 1:
+            raise ValueError('Guest run limit must be a positive integer')
+        self.limit = limit
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.path, os.O_CREAT | os.O_WRONLY, 0o600)
+        os.close(fd)
+        self.path.chmod(0o600)
+        with self.connect() as db:
+            # Serialize startup migrations across processes. The old schema had
+            # a two-run CHECK constraint; retain every identity and spent run.
+            db.execute('BEGIN IMMEDIATE')
+            version = db.execute('PRAGMA user_version').fetchone()[0]
+            if version == 0:
+                existing = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='guests'").fetchone()
+                if existing:
+                    db.execute('ALTER TABLE guests RENAME TO guests_legacy')
+                db.execute('CREATE TABLE guests '
+                           '(identity TEXT PRIMARY KEY, used INTEGER NOT NULL DEFAULT 0 '
+                           'CHECK (used >= 0))')
+                if existing:
+                    db.execute('INSERT INTO guests(identity, used) SELECT identity, used FROM guests_legacy')
+                    db.execute('DROP TABLE guests_legacy')
+                db.execute('PRAGMA user_version=1')
+                version = 1
+            if version == 1:
+                db.execute('ALTER TABLE guests ADD COLUMN gemini_used INTEGER NOT NULL '
+                           'DEFAULT 0 CHECK (gemini_used >= 0)')
+                db.execute('PRAGMA user_version=2')
+            elif version != 2:
+                raise ValueError('Unsupported guest allowance database version')
+
+    @contextmanager
+    def connect(self):
+        db = sqlite3.connect(self.path, timeout=5)
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
+
+    @staticmethod
+    def identity(token):
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def visitor(self, token=''):
+        # Only accept server-issued identities already present in the database.
+        with self.connect() as db:
+            if isinstance(token, str) and len(token) == 43 and db.execute(
+                    'SELECT 1 FROM guests WHERE identity=?', (self.identity(token),)).fetchone():
+                return token
+            token = secrets.token_urlsafe(32)
+            db.execute('INSERT INTO guests(identity) VALUES (?)', (self.identity(token),))
+        return token
+
+    def remaining(self, token, *, provider=None):
+        if provider not in (None, 'gemini'):
+            raise ValueError('Unknown guest allowance provider')
+        with self.connect() as db:
+            row = db.execute('SELECT used, gemini_used FROM guests WHERE identity=?',
+                             (self.identity(token),)).fetchone()
+        if not row:
+            return 0
+        return max(0, min(self.limit - row[0], self.gemini_limit - row[1])
+                   if provider == 'gemini' else self.limit - row[0])
+
+    def launch(self, token, callback, *, provider=None):
+        if provider not in (None, 'gemini'):
+            raise ValueError('Unknown guest allowance provider')
+        identity = self.identity(token)
+        # Reserve atomically before queue admission so simultaneous tabs cannot
+        # both spend the last run. A process interruption retains its reservation.
+        with self.connect() as db:
+            if provider == 'gemini':
+                reserved = db.execute('UPDATE guests SET used=used+1, gemini_used=gemini_used+1 '
+                                     'WHERE identity=? AND used<? AND gemini_used<?',
+                                     (identity, self.limit, self.gemini_limit)).rowcount
+            else:
+                reserved = db.execute('UPDATE guests SET used=used+1 '
+                                     'WHERE identity=? AND used<?', (identity, self.limit)).rowcount
+        if not reserved:
+            raise GuestLimitReached()
+        try:
+            return callback()
+        except Exception:
+            # Shared launch rejects invalid inputs and disconnects on failed
+            # admission. Those failures must not consume a guest's allowance.
+            with self.connect() as db:
+                if provider == 'gemini':
+                    db.execute('UPDATE guests SET used=used-1, gemini_used=gemini_used-1 '
+                               'WHERE identity=? AND used>0 AND gemini_used>0', (identity,))
+                else:
+                    db.execute('UPDATE guests SET used=used-1 WHERE identity=? AND used>0', (identity,))
+            raise
