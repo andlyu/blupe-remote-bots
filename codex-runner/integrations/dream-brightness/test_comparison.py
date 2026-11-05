@@ -105,6 +105,16 @@ def test_empty_data_is_not_a_performance_claim():
     assert summarize([record('ep_base', 1), record('ep_dark', .5)], {})['groups'][0]['difference_percentage_points'] is None
 
 
+def test_fixed_experiment_ledger_survives_ephemeral_runner_root(tmp_path):
+    runner_type = make_runner_type(runner_root(None), local=False)
+    first, second = (runner_type.__new__(runner_type) for _ in range(2))
+    first.root, second.root = tmp_path / 'old-visitor-root', tmp_path / 'new-visitor-root'
+    first.experiment_root = second.experiment_root = tmp_path / 'persistent-experiment'
+    expected = record('ep_saved', .5)
+    ExperimentStore(first.experiment_database).remember(expected)
+    assert ExperimentStore(second.experiment_database).records() == [expected]
+
+
 def test_actual_connection_failure_is_separate_even_if_reviewed_as_failure():
     failure = json.loads((Path(__file__).parent / 'fixtures/connection-failure.json').read_text())
     broken = record('ep_connection', .5, interactions={'events':[failure]})
