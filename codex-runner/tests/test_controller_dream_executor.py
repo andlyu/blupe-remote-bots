@@ -303,3 +303,51 @@ def test_native_completion_failure_retains_bounded_check_and_receipt_counts():
     assert failure['accepted'] is False and failure['final_observation'] is False
     assert sent[-1]['details'] == failure
     assert not op.api_authorized and adapters[0].completed == 0
+
+
+
+def test_observation_failure_survives_stop_without_raw_payload_or_exception():
+    class NoFrames(Adapter):
+        def build_trajectory(self, *args):
+            self.interaction_sink('observation_failure', 'private camera body',
+                field='camera_right', cause='HTTPError', http_status=503,
+                credentials='secret', payload={'private': 'image'})
+            raise RuntimeError('private local error with secret')
+    op, executor, request, submitted, sent, _ = setup(adapter_factory=NoFrames)
+    executor.request(request)
+    assert finish(executor) == 'failed'
+    failure = executor.status()['failure']
+    assert failure['observation'] == dict(state='failed', field='camera_right',
+                                         http_status=503, cause='HTTPError')
+    assert failure['trace'] and all(row['module'].startswith('remote_yam.') for row in failure['trace'])
+    assert 'private' not in str(failure) and 'secret' not in str(failure)
+    assert sent[-1]['details'] == failure
+    assert not submitted and not op.api_authorized
+
+
+def test_recovered_input_status_does_not_turn_success_into_failure():
+    class Recovered(Adapter):
+        def build_trajectory(self, *args):
+            self.interaction_sink('observation_retry', 'private', field='camera_right', http_status=503)
+            self.interaction_sink('observation_recovered', 'private')
+            return super().build_trajectory(*args)
+    _, executor, request, submitted, _, _ = setup(adapter_factory=Recovered)
+    executor.request(request)
+    assert finish(executor) == 'completed'
+    assert len(submitted) == 1 and executor.status()['failure'] is None
+    assert executor.status()['observation_status']['state'] == 'recovered'
+
+
+def test_observation_diagnostic_ignores_untrusted_fields_and_types():
+    _, executor, _, _, _, _ = setup()
+    executor._interaction('observation_failure', 'private', field=['private'], camera={},
+                          cause={'private': 'data'}, http_status='private')
+    assert executor.status()['observation_status'] == dict(state='failed', field='observation')
+
+
+def test_exhausted_transient_camera_batch_is_not_yet_terminal():
+    _, executor, _, _, _, _ = setup()
+    executor._interaction('camera_failure', 'private', camera='right',
+                          http_status=503, retryable=True)
+    assert executor.status()['observation_status'] == dict(
+        state='retrying', field='camera_right', http_status=503)

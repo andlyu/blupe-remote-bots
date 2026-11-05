@@ -54,3 +54,18 @@ def test_policy_cancelled_before_start_has_no_http_side_effect():
     api = Mock()
     ControllerExecutorPolicy().run_session('task', {}, api, {}, lambda: True)
     assert not api.mock_calls
+
+
+
+def test_prediction_wait_explains_input_recovery_without_claiming_a_stopped_packet(monkeypatch):
+    states = iter([dict(state='executing', observation_status=dict(state='retrying')),
+                   dict(state='predicting', observation_status=dict(state='retrying')),
+                   dict(state='completed', observation_status=dict(state='recovered'))])
+    monkeypatch.setattr('remote_yam.controller_executor.execution_request',
+        lambda *args, **kwargs: dict(status='completed', result=next(states)))
+    monkeypatch.setattr('remote_yam.controller_executor.time.sleep', lambda _: None)
+    policy, events = ControllerExecutorPolicy(), []
+    policy.interaction_sink = lambda kind, message: events.append(message)
+    policy.run_session('task', {}, None, {}, lambda: False)
+    assert events[0] == 'Controller Dream: executing'
+    assert 'waiting for fresh camera/robot feedback; motion is paused' in events[1]

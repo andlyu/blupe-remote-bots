@@ -373,3 +373,13 @@ def test_native_abort_during_blocking_policy_preserves_recorded_cause():
     assert state['safety_error']['details']['reason'] == 'invalid_receipt_order'
     assert 'session is not active' not in state['error']
     controller._session_api.stop_session.assert_not_called()
+
+
+
+def test_retained_camera_failure_names_the_input_instead_of_generic_safety():
+    state = dict(error='controller_executor_failed', safety_error=dict(category='hardware_safety',
+        details=dict(observation=dict(state='failed', field='camera_right', http_status=503,
+                                      message='private camera response'))))
+    assert public_run_error(state) == 'Run stopped: right camera frames remained unavailable (HTTP 503).'
+    state['safety_error']['details']['observation'] = dict(state='failed', field='observed_at')
+    assert public_run_error(state) == 'Run stopped: fresh robot feedback remained unavailable.'

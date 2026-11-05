@@ -73,6 +73,7 @@ class DreamControllerExecutor:
         self.trajectory = None
         self.failure = None
         self.provider_failure = None
+        self.observation_status = None
         self.owned_receipts = deque(maxlen=8192)
         self._send = operator.api_client.send
         operator.api_client.send = self.send
@@ -104,6 +105,7 @@ class DreamControllerExecutor:
             return dict(state=self.state, packets=self.packets, waypoints=self.waypoints,
                         predictions=self.predictions, predicted_waypoints=self.predicted_waypoints,
                         failure=deepcopy(self.failure),
+                        observation_status=deepcopy(self.observation_status),
                         worker=self.pool.status())
 
     def request(self, payload):
@@ -145,6 +147,7 @@ class DreamControllerExecutor:
             self.predictions = self.predicted_waypoints = 0
             self.failure = None
             self.provider_failure = None
+            self.observation_status = None
             self.thread = threading.Thread(target=self._run,
                 args=(deepcopy(prepared), payload['operation'] == 'predict'),
                 daemon=True, name='controller-dream')
@@ -162,6 +165,31 @@ class DreamControllerExecutor:
         return self.cancelled.is_set() or not self._owns(self.context)
 
     def _interaction(self, kind, message, **details):
+        states = {'camera_retry': 'retrying', 'camera_failure': 'failed',
+                  'camera_recovered': 'recovered', 'observation_retry': 'retrying',
+                  'observation_failure': 'failed', 'observation_recovered': 'recovered'}
+        if kind in states:
+            fields = {'observation', 'observation_source', 'observed_at', 'jetson_id',
+                      'camera_capture', 'camera_roles', 'camera_left', 'camera_top', 'camera_right',
+                      'left_joints_deg', 'right_joints_deg', 'left_gripper', 'right_gripper'}
+            field = details.get('field')
+            camera = details.get('camera')
+            if not isinstance(field, str) or field not in fields:
+                field = 'camera_' + camera if isinstance(camera, str) and camera in {'left', 'top', 'right'} else 'observation'
+            state = states[kind]
+            if kind == 'camera_failure' and details.get('retryable') is True:
+                state = 'retrying'  # The Dream collector still owns bounded recovery.
+            diagnostic = dict(state=state, field=field)
+            status = details.get('http_status')
+            if type(status) is int and 400 <= status <= 599:
+                diagnostic['http_status'] = status
+            cause = details.get('cause')
+            if isinstance(cause, str) and cause in {'TimeoutError', 'URLError', 'HTTPError', 'RuntimeError', 'ValueError', 'OSError',
+                         'ConnectionError', 'ConnectionResetError', 'ConnectionRefusedError',
+                         'RemoteDisconnected', 'SSLError', 'SSLCertVerificationError', 'IncompleteRead'}:
+                diagnostic['cause'] = cause
+            with self.lock:
+                self.observation_status = diagnostic
         if kind == 'model_failure':
             # DreamWorker.error_response already sanitizes these status fields.
             # Never retain its message, model payload, URLs or protocol locals.
@@ -250,6 +278,21 @@ class DreamControllerExecutor:
                             self.failure['receipt_error'] = row['error']
                     if self.provider_failure is not None:
                         self.failure['provider'] = deepcopy(self.provider_failure)
+                    if self.observation_status and self.observation_status['state'] == 'failed':
+                        self.failure['observation'] = deepcopy(self.observation_status)
+                    if not reason and not self.provider_failure:
+                        # Retain code locations, never exception messages, locals,
+                        # absolute paths, images or provider response payloads.
+                        trace, tb = [], error.__traceback__
+                        while tb is not None:
+                            module = tb.tb_frame.f_globals.get('__name__', '')
+                            function = tb.tb_frame.f_code.co_name
+                            if (isinstance(module, str) and module.startswith('remote_yam.')
+                                    and all(part.isidentifier() for part in module.split('.'))
+                                    and function.isidentifier()):
+                                trace.append(dict(module=module, function=function, line=tb.tb_lineno))
+                            tb = tb.tb_next
+                        self.failure['trace'] = trace[-8:]
                     self.state = 'failed'
                 # Native Stop is immediate even if the runner disconnects before
                 # polling this failure. Its normal notification closes the lease.

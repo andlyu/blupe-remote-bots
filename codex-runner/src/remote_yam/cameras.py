@@ -90,7 +90,7 @@ class CameraFrameSource:
                 retrying = (exc.retryable and attempt < self.max_attempts
                             and time.monotonic() < recovery_deadline)
                 detail = {"camera": exc.camera, "attempt": attempt, "max_attempts": self.max_attempts,
-                          "http_status": exc.http_status, "cause": exc.detail,
+                          "http_status": exc.http_status, "cause": exc.detail, "retryable": exc.retryable,
                           "state": "retrying" if retrying else "failed"}
                 message = (f"Waiting for next {exc.camera} camera frame ({attempt}/{self.max_attempts}; {exc.detail})"
                            if retrying else f"Camera failure: {exc.camera} camera frame unavailable after {attempt} attempt(s) ({exc.detail})")

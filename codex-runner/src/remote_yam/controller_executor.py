@@ -63,9 +63,14 @@ class ControllerExecutorPolicy:
         previous = None
         while not cancelled():
             phase = state.get('state')
-            if phase != previous and self.interaction_sink:
-                self.interaction_sink('model_progress', 'Controller Dream: ' + str(phase))
-            previous = phase
+            observation_state = (state.get('observation_status') or {}).get('state')
+            progress = (phase, observation_state)
+            if progress != previous and self.interaction_sink:
+                message = ('Controller Dream: waiting for fresh camera/robot feedback; motion is paused'
+                           if phase == 'predicting' and observation_state == 'retrying'
+                           else 'Controller Dream: ' + str(phase))
+                self.interaction_sink('model_progress', message)
+            previous = progress
             if phase in {'completed', 'cancelled'}:
                 return state
             if phase == 'failed':
