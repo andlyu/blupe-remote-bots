@@ -21,3 +21,12 @@ Verification:
 - [ ] Verify a normal 120-second Dream-1 beta black-pen handoff run, retain native/journal evidence and replay. Runner `andrew` and email were explicitly confirmed in this chat; private contact details remain outside public source/demo evidence.
 
 Deployment and physical verification are pending at this source snapshot. Offline checks establish recovery behavior, not successful pen manipulation or a reproduced physical camera outage.
+
+
+## Native numeric failure found by physical verification
+
+The first post-deployment verification, [ep_801c3fb4167340de](https://playground.blupe.io/?robot_id=robot-ba8413962083809c&run=ep_801c3fb4167340de), stopped after 45.16 hosted seconds. Its last packet had completed, all 24 progress receipts and a final observation were present, and the retained reason was `missing_final_joints`. Recording capture errors were zero. Both arms parked normally with verified torque-off; no movement was retried.
+
+The deployed native workspace-repair implementation builds corrected targets with `tuple(np.rad2deg(joints[part]))`, then retains those NumPy float64 values in its accepted receipt. Dream consumes this receipt directly before JSON serialization. Its exact-type numeric check rejects the valid values even though the equivalent JSON receipt passes. The measured-input validator has the same mismatch. This is a deterministic type-contract defect, rather than evidence of missing physical joint feedback.
+
+An offline regression constructs the exact native receipt: the completion test and measured-input equivalence test fail before the fix, while malformed-value rejection tests pass. The repair uses the native API's `isinstance` numeric contract with explicit boolean/finite checks and normalizes measured grippers to Python float. The new tests and existing focused regressions pass (104 total); full and exact-deployed-baseline checks precede activation. This follow-up does not change native guardrails or replay any motion.

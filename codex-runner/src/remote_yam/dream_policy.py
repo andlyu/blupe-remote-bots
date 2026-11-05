@@ -73,15 +73,15 @@ def state_input(observation, prompt):
         if joints is None:
             raise DreamObservationError('Measured ' + field + ' is unavailable', field=field, retryable=True)
         if (not isinstance(joints, (list, tuple)) or len(joints) != 6
-                or any(type(x) not in (float, int) or not math.isfinite(x) for x in joints)):
+                or any(isinstance(x, bool) or not isinstance(x, (float, int)) or not math.isfinite(x) for x in joints)):
             raise DreamObservationError('Measured ' + field + ' must contain six finite numbers', field=field)
         field = side + '_gripper'
         if grip is None:
             raise DreamObservationError('Measured ' + field + ' is unavailable', field=field, retryable=True)
-        if type(grip) not in (float, int) or not math.isfinite(grip) or not 0 <= grip <= 1:
+        if isinstance(grip, bool) or not isinstance(grip, (float, int)) or not math.isfinite(grip) or not 0 <= grip <= 1:
             raise DreamObservationError('Measured ' + field + ' must be finite and within 0..1', field=field)
         result['state.' + side + '_arm'] = [math.radians(x) for x in joints]
-        result['state.' + side + '_gripper'] = [grip]
+        result['state.' + side + '_gripper'] = [float(grip)]
     return result
 
 
