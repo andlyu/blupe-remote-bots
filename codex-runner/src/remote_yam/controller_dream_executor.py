@@ -394,7 +394,7 @@ class DreamControllerExecutor:
                         key = side + '_joints_deg'
                         for values in (obs.get(key), target.get(key)):
                             if (not isinstance(values, list) or len(values) != 6
-                                    or any(type(v) not in (int, float) or not math.isfinite(v) for v in values)):
+                                    or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in values)):
                                 raise RuntimeError('Missing finite native final joints')
                         mismatch |= any(abs(a-b) > math.degrees(.05) for a,b in zip(obs[key], target[key]))
                     if mismatch:
