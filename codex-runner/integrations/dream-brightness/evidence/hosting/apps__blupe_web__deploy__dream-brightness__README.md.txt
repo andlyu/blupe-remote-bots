@@ -1,6 +1,6 @@
 # Dedicated Dream brightness experiment
 
-Public origin: https://dream-brightness.54.209.185.15.sslip.io. Shared source is the published codex-runner brightness integration; its exact pin is the parent submodule entry. The hosted_brightness factory adds only the existing GuestRuns allowance and deployment wiring.
+Public origin: https://dream-brightness.54.209.185.15.sslip.io. Shared experiment source is the separately published codex-runner brightness release pinned in release.json. The general playground submodule pin remains unchanged. The hosted_brightness factory adds only the existing GuestRuns allowance and deployment wiring.
 
 The experiment process runs on Andrew’s Mac, with one Uvicorn worker bound to127.0.0.1:8799. Caddy on the existing54.209.185.15 host proxies through an authenticated SSH reverse tunnel: `-R127.0.0.1:8848:127.0.0.1:8799`, using ExitOnForwardFailure and15s keepalives. The remote listener is loopback only. Configure the dedicated Caddy snippet through a top-level import, validate before graceful reload, and preserve concurrent config changes. Existing general playground service and local8798 stay separate.
 
@@ -11,3 +11,5 @@ Visitors begin with blank editable identity. The existing hashed-cookie GuestRun
 The server has roughly234MiB available, so no additional Python/SDK service is installed there. Public availability requires the Mac process and SSH tunnel to remain running. For rollback, remove only this site's matching import/snippet, gracefully reload Caddy, close its SSH tunnel and stop its Mac process when idle; preserve guest/result state. Do not restore a stale whole Caddyfile over concurrent edits.
 
 The first live relay experienced a peer reset, producing an empty preview response. Run `hosted_brightness_relay.py --identity-file /private/path/to/ssh-key --ssh-target ubuntu@54.209.185.15` as the relay process. It maintains the same loopback forward with1–15s reconnect backoff and5s keepalives, stops on authentication/host-trust failures, and never replays HTTP/model/movement requests. A relay outage leaves the native queue/run limits unchanged. Keep the Mac process and relay running; their current handles are recorded in task deployment evidence.
+
+Use the release.json source checkout as BLUPE_REMOTE_YAM_ROOT in this dedicated process. The main playground keeps its existing runner pin and modules, including ASPIRE. This experiment release adds calibrated Dream bindings and is verified independently through its73-test packet/image gate, actual SDK worker preparation and hosted UI checks. Do not replace the general playground pin with the experiment release to deploy this site.
