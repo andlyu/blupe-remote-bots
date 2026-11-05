@@ -1,0 +1,42 @@
+name: Dream brightness preflight
+on:
+  push:
+    paths:
+      - 'codex-runner/integrations/dream-brightness/**'
+      - 'codex-runner/src/remote_yam/**'
+      - 'codex-runner/tests/test_dream_calibration.py'
+      - 'codex-runner/*playground.py'
+      - 'run-dream-brightness.sh'
+      - '.github/workflows/dream-brightness.yml'
+  pull_request:
+    paths:
+      - 'codex-runner/integrations/dream-brightness/**'
+      - 'codex-runner/src/remote_yam/**'
+      - 'codex-runner/tests/test_dream_calibration.py'
+      - 'codex-runner/*playground.py'
+      - 'run-dream-brightness.sh'
+      - '.github/workflows/dream-brightness.yml'
+permissions:
+  contents: read
+jobs:
+  offline-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MUJOCO_GL: osmesa
+      YAM_DREAM_RUNNER_ROOT: ${{ github.workspace }}/codex-runner
+      YAM_CANONICAL_TRAJECTORY: ${{ github.workspace }}/codex-runner/integrations/dream-brightness/fixtures/deployed-joint-trajectory.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: sudo apt-get update && sudo apt-get install -y libosmesa6
+      - run: python -m venv codex-runner/.venv
+      - run: codex-runner/.venv/bin/python -m pip install pillow==12.1.1 uvicorn==0.52.4 mujoco==3.12.0 websocket-client==1.9.0 pytest
+      - run: sh -n run-dream-brightness.sh codex-runner/integrations/dream-brightness/verify.sh
+      - run: node --check codex-runner/integrations/dream-brightness/brightness.js
+      - run: codex-runner/integrations/dream-brightness/verify.sh

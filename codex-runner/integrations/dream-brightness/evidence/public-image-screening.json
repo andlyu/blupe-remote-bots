@@ -1,0 +1,7 @@
+{
+  "purpose": "Contact-data screening before publication, in addition to original setup-frame exclusion and visual review",
+  "runtime_s": 14.685,
+  "files_checked": 148,
+  "suspect_files": [],
+  "limitation": "OCR is imperfect; private identity-setup screenshots were already excluded at capture time."
+}

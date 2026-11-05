@@ -1,0 +1,192 @@
+{
+  "description": {
+    "binding": {
+      "robot_id": "robot-ba8413962083809c",
+      "model_calibration_id": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+      "camera_calibration_id": "40a9220259748447f0564404fbc0aa40e236786182992895cef9ee0e51f88f11",
+      "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+      "coordinate_convention": "original_i2rt_model_corrected",
+      "wire_coordinates": "original encoder radians",
+      "base_spacing_m": 0.62,
+      "offsets_rad": {
+        "left": [
+          0.0,
+          0.014912483108393418,
+          0.012307275465343557,
+          -0.008471929573933208,
+          -0.026210976390616005,
+          0.0
+        ],
+        "right": [
+          0.0,
+          0.01726894861620145,
+          0.01978552059540765,
+          -0.015132652029996599,
+          0.006786509759240255,
+          0.0
+        ]
+      },
+      "application": "geometry only; offsets are not added to feedback or commands",
+      "tcp_convention": "Dream YAM TCP; native grasp orientation followed by +90deg local Z",
+      "fingerprint": "3b8225935d13b1fb6cda31736f579d1af8392b29925576fa4d2cf1cff15e2df1"
+    },
+    "urdfs": {
+      "left": "<robot name=\"calibrated_yam_left\"><link name=\"base_link\" /><link name=\"link_1\" /><joint name=\"joint1\" type=\"revolute\"><parent link=\"base_link\" /><child link=\"link_1\" /><origin xyz=\"0.0 0.0 0.067\" rpy=\"0 -0 -1.5708005694372709\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"-2.61799\" upper=\"3.05433\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_2\" /><joint name=\"joint2\" type=\"revolute\"><parent link=\"link_1\" /><child link=\"link_2\" /><origin xyz=\"-0.0329 0.02 0.0455\" rpy=\"1.570800327239702 -0.014912483100274064 -1.570800386449251\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"0.0\" upper=\"3.65\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_3\" /><joint name=\"joint3\" type=\"revolute\"><parent link=\"link_2\" /><child link=\"link_3\" /><origin xyz=\"0.264 4.08431e-07 -0.06375\" rpy=\"-3.1415900002003707 3.2656256852114887e-08 1.5584932939719707\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"0.0\" upper=\"3.66519\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_4\" /><joint name=\"joint4\" type=\"revolute\"><parent link=\"link_3\" /><child link=\"link_4\" /><origin xyz=\"0.0600003 -0.244999 -0.00205\" rpy=\"0 -0 3.1331233775958602\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"-1.5708\" upper=\"1.5708\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_5\" /><joint name=\"joint5\" type=\"revolute\"><parent link=\"link_4\" /><child link=\"link_5\" /><origin xyz=\"-0.0403003 0.0703851 -0.0323887\" rpy=\"1.570634443158643 -1.5445853500511195 1.5709608084164381\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"-1.5708\" upper=\"1.5708\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_6_native\" /><joint name=\"joint6\" type=\"revolute\"><parent link=\"link_5\" /><child link=\"link_6_native\" /><origin xyz=\"2.39858e-07 -0.0419481 0.0404996\" rpy=\"1.5707943268252622 -1.5707923267948967 3.1415906535785254\" /><axis xyz=\"0.0 0.0 -1.0\" /><limit lower=\"-2.0944\" upper=\"2.0944\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_6\" /><joint name=\"sdk_flange\" type=\"fixed\"><parent link=\"link_6_native\" /><child link=\"link_6\" /><origin xyz=\"0 0 0\" rpy=\"3.1415926535897931 -0 -1.5707963267948966\" /></joint></robot>",
+      "right": "<robot name=\"calibrated_yam_right\"><link name=\"base_link\" /><link name=\"link_1\" /><joint name=\"joint1\" type=\"revolute\"><parent link=\"base_link\" /><child link=\"link_1\" /><origin xyz=\"0.0 0.0 0.067\" rpy=\"0 -0 -1.5708005694372709\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"-2.61799\" upper=\"3.05433\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_2\" /><joint name=\"joint2\" type=\"revolute\"><parent link=\"link_1\" /><child link=\"link_2\" /><origin xyz=\"-0.0329 0.02 0.0455\" rpy=\"1.5708003273914037 -0.017268948608063238 -1.5708003958775585\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"0.0\" upper=\"3.65\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_3\" /><joint name=\"joint3\" type=\"revolute\"><parent link=\"link_2\" /><child link=\"link_3\" /><origin xyz=\"0.264 4.08431e-07 -0.06375\" rpy=\"-3.1415900005187738 5.2497855300828742e-08 1.5510150488419328\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"0.0\" upper=\"3.66519\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_4\" /><joint name=\"joint4\" type=\"revolute\"><parent link=\"link_3\" /><child link=\"link_4\" /><origin xyz=\"0.0600003 -0.244999 -0.00205\" rpy=\"0 -0 3.1264626551397967\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"-1.5708\" upper=\"1.5708\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_5\" /><joint name=\"joint5\" type=\"revolute\"><parent link=\"link_4\" /><child link=\"link_5\" /><origin xyz=\"-0.0403003 0.0703851 -0.0323887\" rpy=\"-1.5701711638546807 -1.5640098157193871 -1.5714188217483172\" /><axis xyz=\"0.0 0.0 1.0\" /><limit lower=\"-1.5708\" upper=\"1.5708\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_6_native\" /><joint name=\"joint6\" type=\"revolute\"><parent link=\"link_5\" /><child link=\"link_6_native\" /><origin xyz=\"2.39858e-07 -0.0419481 0.0404996\" rpy=\"1.5707943268252622 -1.5707923267948967 3.1415906535785254\" /><axis xyz=\"0.0 0.0 -1.0\" /><limit lower=\"-2.0944\" upper=\"2.0944\" effort=\"100\" velocity=\"3\" /></joint><link name=\"link_6\" /><joint name=\"sdk_flange\" type=\"fixed\"><parent link=\"link_6_native\" /><child link=\"link_6\" /><origin xyz=\"0 0 0\" rpy=\"3.1415926535897931 -0 -1.5707963267948966\" /></joint></robot>"
+    },
+    "urdf_sha256": {
+      "left": "98bc848b769d56662525d9dceeb02a356ce8915c9451ebb9bdd137be56545f54",
+      "right": "c06829f3e49a358aa8f46fe65a70750e44240cae9cc5843601f8217b04a4af47"
+    }
+  },
+  "cases": [
+    {
+      "q": {
+        "left": [
+          0.0,
+          0.5,
+          0.5,
+          -0.35,
+          0.0,
+          0.0
+        ],
+        "right": [
+          0.0,
+          0.5,
+          0.5,
+          -0.35,
+          0.0,
+          0.0
+        ]
+      },
+      "tcp": {
+        "left": [
+          [
+            -0.024515906787787266,
+            0.3532812202269826,
+            0.9351958884369135,
+            0.26636277979057266
+          ],
+          [
+            0.9996565775930601,
+            6.674943935861301e-07,
+            0.026205474132053184,
+            0.00821784457090391
+          ],
+          [
+            0.009257277639985937,
+            0.9355171721750969,
+            -0.3531599119042358,
+            0.2144329740560742
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "right": [
+          [
+            0.006347260994381327,
+            0.3547203853652723,
+            0.9349508866695527,
+            0.2662806095468655
+          ],
+          [
+            0.9999769547371279,
+            6.500268457019171e-07,
+            -0.006788961204653943,
+            0.0023894437692543735
+          ],
+          [
+            -0.0024087906779204768,
+            0.9349724317892433,
+            -0.35471220661485525,
+            0.21585349755066896
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    },
+    {
+      "q": {
+        "left": [
+          0.2,
+          1.0,
+          1.3,
+          -0.4,
+          0.5,
+          -0.8
+        ],
+        "right": [
+          0.2,
+          1.0,
+          1.3,
+          -0.4,
+          0.5,
+          -0.8
+        ]
+      },
+      "tcp": {
+        "left": [
+          [
+            0.10852768256893083,
+            0.26767234214136304,
+            0.9573783261432104,
+            0.332352691778527
+          ],
+          [
+            0.6545683730020772,
+            0.7055794478535616,
+            -0.2714735490468224,
+            -0.011204831941608095
+          ],
+          [
+            -0.7481724314498843,
+            0.6561319684478275,
+            -0.09863494714931442,
+            0.44048482649250525
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "right": [
+          [
+            0.12929986497189436,
+            0.2912113308850306,
+            0.9478805334441782,
+            0.33052993529614305
+          ],
+          [
+            0.6477340068884454,
+            0.6989786500319095,
+            -0.30309982368818633,
+            -0.01682093618516417
+          ],
+          [
+            -0.7508143587055925,
+            0.6531652222552419,
+            -0.09824963713811483,
+            0.441880944235729
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -198,6 +198,7 @@ def main():
         raise SystemExit(0)
 
     configured_rates = {}
+    configured_kinematics = {}
 
     def prepare_ik(client, spans):
         # A changed playback clock creates a fresh IK instance too. Preserve
@@ -228,6 +229,16 @@ def main():
         checkpoint = command['checkpoint']
         if checkpoint not in ('dreamlabs/dream-1-beta', 'dreamlabs/dream-1-beta-flash'):
             raise ValueError('Unknown checkpoint')
+        description = command.get('kinematics')
+        binding = None
+        if description is not None:
+            try:
+                from .dream_calibration import install_sdk_kinematics
+            except ImportError:
+                from dream_calibration import install_sdk_kinematics
+            with stage(spans, 'sdk_kinematics_install'):
+                binding = install_sdk_kinematics(description, os.environ['DREAM_WORK_DIR'])
+        configured_kinematics[id(client)] = binding
         parts = {'right_arm': [0, 6], 'right_gripper': [6, 7],
                  'left_arm': [7, 13], 'left_gripper': [13, 14]}
         with stage(spans, 'sdk_configure'):
@@ -258,7 +269,8 @@ def main():
             for checkpoint in checkpoints:
                 current = client if not clients else dream.DreamClient()
                 clients[checkpoint] = current
-                configure(current, {'checkpoint': checkpoint}, spans)
+                configure(current, {'checkpoint': checkpoint,
+                    **({'kinematics': command['kinematics']} if command.get('kinematics') is not None else {})}, spans)
                 # SDK 1.0.0 compiles trajectory IK on a background thread. Read
                 # its pinned readiness event; never advertise a partially
                 # prepared solver. No observations or get_action are involved.
@@ -273,6 +285,9 @@ def main():
             if prepared:
                 if checkpoint not in clients:
                     raise ValueError('Checkpoint was not prepared')
+                expected = (command.get('kinematics') or {}).get('binding')
+                if configured_kinematics.get(id(clients[checkpoint])) != expected:
+                    raise ValueError('Prepared Dream worker uses a different calibration; use a fresh matching worker')
                 if client is not None:
                     reset_episode(client)
                 client = clients[checkpoint]
@@ -285,7 +300,8 @@ def main():
                 configure(client, command, spans)
             last_timestamp = None
             return {'sdk_version': dream.__version__, 'prepared_reused': prepared,
-                    'ik_linear_algebra': linear_algebra}
+                    'ik_linear_algebra': linear_algebra,
+                    'kinematic_calibration': configured_kinematics.get(id(client))}
         if kind == 'release':
             with stage(spans, 'sdk_reset'):
                 for current in all_clients():

@@ -27,6 +27,8 @@ def snapshot(provider, prompt, duration):
             'system_prompt_sha256': config.get('system_prompt_sha256'),
             **({'controller_workspace': config['controller_workspace']}
                if config.get('controller_workspace') else {}),
+            **({'kinematic_calibration': config['kinematic_calibration']}
+               if config.get('kinematic_calibration') else {}),
             **{key: config[key] for key in ('underlying_models','runner_name','execution_mode',
                 'calibration_id','model_calibration_id','prompt_sha256','grounding_camera','depth_grounding_roles') if key in config},
             'trajectory_speed': getattr(getattr(provider, '_geometry', None), 'speed_multiplier', None),

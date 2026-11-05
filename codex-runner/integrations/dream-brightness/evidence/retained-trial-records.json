@@ -1,0 +1,44 @@
+{
+  "source": "Authoritative terminal UI status snapshots; original run source revision preserved from live ledger",
+  "review_execution_mode": "Agent review of physical replay on behalf of confirmed runner Andrew",
+  "records": [
+    {
+      "episode_id": "ep_9a2ff3550b444f7f",
+      "robot_id": "robot-ba8413962083809c",
+      "task": "Pick up the green pen and put it in the cup, then withdraw your gripper and hold.",
+      "runner_name": "Andrew",
+      "model": "dreamlabs/dream-1-beta",
+      "code_revision": "77cee11e0916e084e83d3b96eaadecae8eb24bd6",
+      "experiment_revision": "804d1e42ddebe9fe63b819eb403cce87727d67ea1e7c8eac9b679f340ba988b6",
+      "duration_s": 60,
+      "brightness_factor": 0.5,
+      "brightness_percent": 50,
+      "status": "timed_out",
+      "started_at": 1793833336.7587998,
+      "ended_at": 1793833397.157404,
+      "model_calls": 9.0,
+      "model_s": 22.744079999999997,
+      "timing_source": "controller decision pipeline (capture, inference and IK)",
+      "packets_submitted": 8.0
+    },
+    {
+      "episode_id": "ep_17a7cf3b22d34fbf",
+      "robot_id": "robot-ba8413962083809c",
+      "task": "Pick up the green pen and put it in the cup, then withdraw your gripper and hold.",
+      "runner_name": "Andrew",
+      "model": "dreamlabs/dream-1-beta",
+      "code_revision": "77cee11e0916e084e83d3b96eaadecae8eb24bd6",
+      "experiment_revision": "804d1e42ddebe9fe63b819eb403cce87727d67ea1e7c8eac9b679f340ba988b6",
+      "duration_s": 60,
+      "brightness_factor": 1.0,
+      "brightness_percent": 100,
+      "status": "safety_aborted",
+      "started_at": 1793832496.004787,
+      "ended_at": 1793832564.236702,
+      "model_calls": 10.0,
+      "model_s": 19.6595,
+      "timing_source": "controller decision pipeline (capture, inference and IK)",
+      "packets_submitted": 9.0
+    }
+  ]
+}

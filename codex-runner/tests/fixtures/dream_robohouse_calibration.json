@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "robot_id": "robot-ba8413962083809c",
+  "measurement_scope": "calibrated_arm_base",
+  "calibration_id": "40a9220259748447f0564404fbc0aa40e236786182992895cef9ee0e51f88f11",
+  "base_geometry": {
+    "spacing_m": 0.62,
+    "convention": "Parallel level bases; world midpoint, X forward Y left Z up"
+  },
+  "model_joint_calibration": {
+    "calibration_id": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+    "coordinate_convention": "original_i2rt_model_corrected",
+    "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+    "offsets_rad": {
+      "left": [
+        0.0,
+        0.014912483108393418,
+        0.012307275465343557,
+        -0.008471929573933208,
+        -0.026210976390616005,
+        0.0
+      ],
+      "right": [
+        0.0,
+        0.01726894861620145,
+        0.01978552059540765,
+        -0.015132652029996599,
+        0.006786509759240255,
+        0.0
+      ]
+    }
+  }
+}

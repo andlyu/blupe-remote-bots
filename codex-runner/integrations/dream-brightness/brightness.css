@@ -1,0 +1,33 @@
+.brightnessExperiment{margin:0 0 20px;padding:16px 20px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+.brightnessDialog{box-sizing:border-box;width:min(920px,calc(100vw - 32px));max-height:85dvh;margin:auto;padding:16px;border:1px solid #d3dcd4;border-radius:14px;background:#fff;color:#20342b;--ink:#20342b;--muted:#5d6e63;--line:#dce3dd}
+.brightnessDialog::backdrop{background:#0009}
+.brightnessDialog .brightnessExperiment{margin:12px 0 0;border:0;padding:8px}
+.brightnessClose{display:block;margin-left:auto;min-height:44px;padding:8px 12px}
+.dreamConnectionNotice{padding:10px 12px;border-left:3px solid #a04d28;background:#fff1e8;color:#6b351c;font-size:13px;line-height:1.5}
+.dreamConnectionNotice[hidden]{display:none}
+.meetingConsole .meetingPromptDock .composerToolbar #brightnessOpen{width:auto;min-width:76px;height:36px;padding:0 10px;border-radius:20px;background:#e9eef6;color:#20342b;font-size:12px;white-space:nowrap}
+.brightnessHeading{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.brightnessHeading h2{font-size:16px;margin:0;font-weight:650}
+.brightnessHeading span{font-size:12px;color:var(--muted)}
+.brightnessControls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brightnessControls label{font-size:14px;font-weight:600}
+.brightnessControls input[type=range]{flex:1;min-width:160px;max-width:360px;min-height:44px;padding:0;accent-color:var(--ink)}
+.brightnessControls output{font-variant-numeric:tabular-nums;min-width:4ch;font-weight:650}
+.brightnessExperiment button{min-height:44px;padding:8px 12px;cursor:pointer}
+.brightnessExperiment button:disabled{cursor:wait;opacity:.6}
+.brightnessExperiment :is(button,input,summary):focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.brightnessExperiment :is(p,summary){font-size:13px;line-height:1.5}
+.brightnessExperiment p{max-width:85ch;margin:8px 0 0}
+.brightnessExperiment summary{padding:10px 0;cursor:pointer;width:fit-content;text-decoration:underline;text-underline-offset:3px}
+.brightnessPreviewControls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 12px}
+.brightnessPreviewControls p{margin:0}
+.brightnessFrames{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:984px}
+.brightnessFrames figure{margin:0;min-width:0}
+.brightnessFrames img{display:block;width:100%;height:auto;background:#171717;border-radius:6px}
+.brightnessFrames figcaption{font-size:12px;margin-top:6px}
+#brightnessRunSetting{font-weight:600}
+#brightnessResultsBody section{margin:12px 0 20px;overflow-x:auto}
+#brightnessResultsBody table{width:100%;max-width:700px;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+#brightnessResultsBody caption{text-align:left;padding:10px 0;font-weight:600}
+#brightnessResultsBody :is(th,td){padding:8px;text-align:left;border-bottom:1px solid var(--line)}
+@media(max-width:600px){.brightnessExperiment{padding:14px}.brightnessControls label{width:100%}.brightnessControls input[type=range]{max-width:none}.brightnessFrames{grid-template-columns:1fr}.brightnessHeading{gap:6px 12px}}

@@ -1,0 +1,70 @@
+{
+  "sdk_version": "1.0.0",
+  "checkpoint": "dreamlabs/dream-1-beta",
+  "runner_name": "Andrew",
+  "execution_mode": "offline SDK FK/trajectory IK with synthetic targets",
+  "calibration": {
+    "robot_id": "robot-ba8413962083809c",
+    "model_calibration_id": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+    "camera_calibration_id": "40a9220259748447f0564404fbc0aa40e236786182992895cef9ee0e51f88f11",
+    "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+    "coordinate_convention": "original_i2rt_model_corrected",
+    "wire_coordinates": "original encoder radians",
+    "base_spacing_m": 0.62,
+    "offsets_rad": {
+      "left": [
+        0.0,
+        0.014912483108393418,
+        0.012307275465343557,
+        -0.008471929573933208,
+        -0.026210976390616005,
+        0.0
+      ],
+      "right": [
+        0.0,
+        0.01726894861620145,
+        0.01978552059540765,
+        -0.015132652029996599,
+        0.006786509759240255,
+        0.0
+      ]
+    },
+    "application": "geometry only; offsets are not added to feedback or commands",
+    "tcp_convention": "Dream YAM TCP; native grasp orientation followed by +90deg local Z",
+    "fingerprint": "3b8225935d13b1fb6cda31736f579d1af8392b29925576fa4d2cf1cff15e2df1"
+  },
+  "sdk_package_urdf_unchanged": true,
+  "sdk_package_urdf_sha256": "90e1bb509b7be077c42c660e4528d5b8dad6fceca6e3780bd051c5f14b09c548",
+  "jax_enable_x64": false,
+  "actual_trajectory_solver_ready": true,
+  "model_requests": 0,
+  "physical_commands": 0,
+  "synthetic_ik_targets": true,
+  "elapsed_s": 18.70391770801507,
+  "checks": [
+    {
+      "side": "left",
+      "position_error_m": 6.32423369126765e-08,
+      "orientation_error_rad": 0.0003644919734809555,
+      "encoder_roundtrip_error_rad": 2.384185791015625e-07
+    },
+    {
+      "side": "right",
+      "position_error_m": 9.160899051502e-08,
+      "orientation_error_rad": 0.0,
+      "encoder_roundtrip_error_rad": 6.556510923072523e-08
+    },
+    {
+      "side": "left",
+      "position_error_m": 0.00023602530522818575,
+      "orientation_error_rad": 0.0015864313856829833,
+      "encoder_roundtrip_error_rad": 0.0025499343872070757
+    },
+    {
+      "side": "right",
+      "position_error_m": 0.00023647298851837975,
+      "orientation_error_rad": 0.001558836258224963,
+      "encoder_roundtrip_error_rad": 0.0025521993637085405
+    }
+  ]
+}

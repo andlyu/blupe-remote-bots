@@ -1,0 +1,32 @@
+{
+  "verified_at": "2026-11-05T00:25:27.286580+00:00",
+  "local_ui": "http://127.0.0.1:8798",
+  "runner_root": "/Users/andrew/.codex/worktrees/dream-calibration/blupe-remote-yam/codex-runner",
+  "loaded_revision": "487dd92f638d90e52e5769a3aac12b9af09ad125",
+  "process_id": 15398,
+  "exec_session": 94362,
+  "selected_model_calibration": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+  "selected_fingerprint": "3b8225935d13b1fb6cda31736f579d1af8392b29925576fa4d2cf1cff15e2df1",
+  "ui_verified": "Inputs50% dialog shows restored93c4db966dca model and40a922025974 camera; profile labelled last checked, actual run metadata separate. No new run initiated.",
+  "model_requests": 0,
+  "physical_commands": 0,
+  "previous_trials": "Old geometry retained as history; not pooled with new binding.",
+  "checklist": "8/17; integration unfinished",
+  "remaining": [
+    "Public source and hosted deployment",
+    "Fresh representative task acceptance for changed geometry",
+    "Live run and immediate replay for current variant",
+    "Every-run visual startup timing",
+    "Full wait/failure/recovery coverage",
+    "Final deployed normal-UI run"
+  ],
+  "explicit_visibility_exceptions": [],
+  "receipts": {
+    "calibration-core-preflight-final.xml": "69a43faffed4f8a8eeb548e06902a54320f7cd9a0010f3314da2d05f8cd92763",
+    "calibration-experiment-preflight.xml": "628d01b10d92cba371e1f538a18bbacf4aeb606e8d5081958cde9a0939bcdb7f",
+    "calibration-camera-origin-regression.xml": "7fba958796ec1839380f8504ef419054b3ea0271be1a47a5264461cbdfc58346",
+    "sdk-calibration-proof.json": "98d6b825558f051b6bd06621278bcafefce7cb023966b5261f09c38f4a812dbe",
+    "calibration-live-runtime.json": "92f456c4b65ba738fd1bb2890e1684334b2c3b9cceb3abd08b2a1118c5a35c43",
+    "calibration-live-runtime-zero-trial.json": "7dbe934ee24453c10f9dde49646889bfb52c9100646c037e9eb46a18bd50470c"
+  }
+}
