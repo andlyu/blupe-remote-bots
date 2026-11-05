@@ -1,0 +1,166 @@
+{
+  "verified_at": "2026-11-05T00:58:05.717954+00:00",
+  "runner_name": "Andrew",
+  "execution_mode": "deployment SDK configuration and local solver preparation",
+  "checkpoint": "dreamlabs/dream-1-beta",
+  "inference_requests": 0,
+  "observations_sent": 0,
+  "robot_queue_entries": 0,
+  "physical_commands": 0,
+  "metadata_access": "Existing Dream SDK configured model metadata service; no prediction",
+  "workers": [
+    {
+      "worker": 1,
+      "sdk_version": "1.0.0",
+      "actual_trajectory_ready": true,
+      "adapter_confirmed_calibration": {
+        "robot_id": "robot-ba8413962083809c",
+        "model_calibration_id": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+        "camera_calibration_id": "40a9220259748447f0564404fbc0aa40e236786182992895cef9ee0e51f88f11",
+        "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+        "coordinate_convention": "original_i2rt_model_corrected",
+        "wire_coordinates": "original encoder radians",
+        "base_spacing_m": 0.62,
+        "offsets_rad": {
+          "left": [
+            0.0,
+            0.014912483108393418,
+            0.012307275465343557,
+            -0.008471929573933208,
+            -0.026210976390616005,
+            0.0
+          ],
+          "right": [
+            0.0,
+            0.01726894861620145,
+            0.01978552059540765,
+            -0.015132652029996599,
+            0.006786509759240255,
+            0.0
+          ]
+        },
+        "application": "geometry only; offsets are not added to feedback or commands",
+        "tcp_convention": "Dream YAM TCP; native grasp orientation followed by +90deg local Z",
+        "fingerprint": "3b8225935d13b1fb6cda31736f579d1af8392b29925576fa4d2cf1cff15e2df1"
+      },
+      "trajectory_variants": {
+        "dreamlabs/dream-1-beta": [
+          "independent",
+          "coupled"
+        ]
+      },
+      "elapsed_s": 34.15766554203583,
+      "stage_timings": [
+        {
+          "stage": "sdk_import",
+          "started_at": 1793840228.616714,
+          "duration_s": 0.1740582920028828,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_client_init",
+          "started_at": 1793840228.791081,
+          "duration_s": 0.0005063749849796295,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_kinematics_install",
+          "started_at": 1793840228.793432,
+          "duration_s": 0.2132611249689944,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_configure",
+          "started_at": 1793840229.0069041,
+          "duration_s": 17.084285707969684,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_full_preparation",
+          "started_at": 1793840247.103199,
+          "duration_s": 15.541852750000544,
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "worker": 2,
+      "sdk_version": "1.0.0",
+      "actual_trajectory_ready": true,
+      "adapter_confirmed_calibration": {
+        "robot_id": "robot-ba8413962083809c",
+        "model_calibration_id": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+        "camera_calibration_id": "40a9220259748447f0564404fbc0aa40e236786182992895cef9ee0e51f88f11",
+        "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+        "coordinate_convention": "original_i2rt_model_corrected",
+        "wire_coordinates": "original encoder radians",
+        "base_spacing_m": 0.62,
+        "offsets_rad": {
+          "left": [
+            0.0,
+            0.014912483108393418,
+            0.012307275465343557,
+            -0.008471929573933208,
+            -0.026210976390616005,
+            0.0
+          ],
+          "right": [
+            0.0,
+            0.01726894861620145,
+            0.01978552059540765,
+            -0.015132652029996599,
+            0.006786509759240255,
+            0.0
+          ]
+        },
+        "application": "geometry only; offsets are not added to feedback or commands",
+        "tcp_convention": "Dream YAM TCP; native grasp orientation followed by +90deg local Z",
+        "fingerprint": "3b8225935d13b1fb6cda31736f579d1af8392b29925576fa4d2cf1cff15e2df1"
+      },
+      "trajectory_variants": {
+        "dreamlabs/dream-1-beta": [
+          "independent",
+          "coupled"
+        ]
+      },
+      "elapsed_s": 21.18548883299809,
+      "stage_timings": [
+        {
+          "stage": "sdk_import",
+          "started_at": 1793840263.9999151,
+          "duration_s": 0.1334855419700034,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_client_init",
+          "started_at": 1793840264.133634,
+          "duration_s": 0.0002376250340603292,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_kinematics_install",
+          "started_at": 1793840264.1356642,
+          "duration_s": 0.21381241700146347,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_configure",
+          "started_at": 1793840264.349686,
+          "duration_s": 10.125186457997188,
+          "status": "ok"
+        },
+        {
+          "stage": "sdk_full_preparation",
+          "started_at": 1793840275.315806,
+          "duration_s": 9.768289332976565,
+          "status": "ok"
+        }
+      ]
+    }
+  ],
+  "source_module_sha256": {
+    "dream_policy.py": "715758fb5ef579dfd83e3cabf748b420a99f963497c03deae84c95327040e89c",
+    "dream_worker.py": "120a53ee3a7f5e765b3ff5661011a1e2c593ab053a8b20a92a339d047d641727",
+    "dream_calibration.py": "23c3edabc103963790635ce1d44b12173377037e9c5e2c40050541a55de2419c"
+  }
+}

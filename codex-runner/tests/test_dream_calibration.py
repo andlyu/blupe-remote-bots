@@ -122,14 +122,17 @@ def test_invalid_or_already_native_binding_is_rejected(change):
         binding_from_report(selected, ROBOHOUSE)
 
 
-@pytest.mark.parametrize('confirm', [True, False])
+@pytest.mark.parametrize('confirm', [True, False, 'wrong-envelope'])
 def test_worker_must_confirm_actual_selected_profile_before_ready(tmp_path, confirm):
     calls = []
     class Worker:
         def __init__(self, *args): pass
         def call(self, command, **payload):
             calls.append((command, payload))
-            return dict(ok=True, kinematic_calibration=payload['kinematics']['binding'] if confirm else None)
+            binding = payload['kinematics']['binding']
+            if confirm == 'wrong-envelope':
+                return dict(ok=True, result={}, kinematic_calibration=binding)
+            return dict(ok=True, result={'kinematic_calibration':binding if confirm else None})
         def close(self): pass
     selected = report()
     provider = DreamAdapter(provider='dream', model='dreamlabs/dream-1-beta',
@@ -144,10 +147,10 @@ def test_worker_must_confirm_actual_selected_profile_before_ready(tmp_path, conf
     assert recorded['calibration_id'] == selected['calibration_id']
     provider.start_preparation(lambda:False)
     provider._preparation.join(3)
-    assert provider._ready.is_set() is confirm
+    assert provider._ready.is_set() is (confirm is True)
     assert [command for command, _ in calls] == ['configure']
     assert calls[0][1]['checkpoint'] == 'dreamlabs/dream-1-beta'
-    if not confirm:
+    if confirm is not True:
         assert 'did not confirm' in provider._failure
     selected['model_joint_calibration']['calibration_id'] = 'c'*64
     with pytest.raises(ValueError, match='changed'):
@@ -197,7 +200,7 @@ def test_recovery_cannot_silently_switch_to_a_stock_solver(tmp_path):
         def __init__(self, *args): pass
         def call(self, command, **payload):
             calls.append(command)
-            return dict(ok=True, kinematic_calibration=payload['kinematics']['binding'] if len(calls)==1 else None)
+            return dict(ok=True, result={'kinematic_calibration':payload['kinematics']['binding'] if len(calls)==1 else None})
         def recover(self, **kwargs): calls.append('recover')
         def close(self): pass
     provider = DreamAdapter(provider='dream', model='dreamlabs/dream-1-beta',

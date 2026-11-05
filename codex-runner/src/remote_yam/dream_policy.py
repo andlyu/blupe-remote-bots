@@ -351,7 +351,7 @@ class DreamAdapter:
                 if not reply['ok']:
                     self._failure = 'Dream SDK setup failed (' + reply.get('error_type', 'unknown') + ')'
                     return
-                if self._kinematics is not None and reply.get('kinematic_calibration') != self._kinematics['binding']:
+                if self._kinematics is not None and (reply.get('result') or {}).get('kinematic_calibration') != self._kinematics['binding']:
                     self._failure = 'Dream worker did not confirm the selected calibration; no prediction will run'
                     return
                 self._ready.set()
@@ -563,7 +563,7 @@ class DreamAdapter:
                     action_hz=30 if self.trajectory_cadence_hz == 30 else 20,
                     kinematics=self._kinematics, cancelled=self._cancelled, timeout=180)
                 self._worker_timings(reply)
-                if not reply.get('ok') or reply.get('kinematic_calibration') != self._kinematics['binding']:
+                if not reply.get('ok') or (reply.get('result') or {}).get('kinematic_calibration') != self._kinematics['binding']:
                     raise DreamWorkerUnavailable('Recovered Dream worker did not confirm the selected calibration')
             # Revalidate the SAME lease, completed step and idle executor before
             # requesting another prediction. No failed request/action is replayed.
