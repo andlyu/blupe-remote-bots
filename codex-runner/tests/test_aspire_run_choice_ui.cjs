@@ -20,7 +20,7 @@ function fixture(provider = 'aspire', available = true) {
   const storage=new Map();
   const context = vm.createContext({$, runVideoEmail:{validate:()=>true,enabled:()=>false}, aspireRunAvailable:available, configuredProviders:{}, setupProvider:null,selectedRobot:'fixture',
     localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},
-    window:{yamAspireLineage:{requested(task){events.push(['requested',task]);},accepted(){}, rejected(reason){events.push(['rejected',reason]);}}},
+    window:{yamRunnerIdentity:{remember(){}},yamAspireLineage:{requested(task){events.push(['requested',task]);},accepted(){}, rejected(reason){events.push(['rejected',reason]);}}},
     requestAnimationFrame:fn=>queueMicrotask(fn),renderModelRunResult(){},renderConversation(){},
     renderCurrentConversation(){},selectedModelName(){return 'ASPIRE';},
     openAspireTaskPanel(){events.push(['panel']);}, updateRunLabel(){}, updateSavedKey(){}, buttons(){},

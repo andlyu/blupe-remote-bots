@@ -4,7 +4,7 @@ const body=source.slice(source.indexOf('  function configureLocalRunDialog('),so
 test('local and online setup use the same dialog without submitting and retain runner attribution',()=>{
  const nodes={}; const $=id=>nodes[id]||=( {dataset:{},classList:{toggle(){},add(){}},open:false,hidden:false,
  append(node){node.parent=this},before(node){node.parent='form'},showModal(){this.open=true},close(){this.open=false},focus(){this.focused=true}} );
- const context=vm.createContext({$,window:{},active:false,submitting:false,ended:false,csrf:'valid',updateRunLabel(){}});
+ const context=vm.createContext({$,window:{yamRunnerIdentity:{ready:()=>false}},active:false,submitting:false,ended:false,csrf:'valid',updateRunLabel(){}});
  vm.runInContext(body,context);
  vm.runInContext('configureLocalRunDialog(true)',context);
  assert.equal($('runSettings').parent,$('localRunDialogBody'));
@@ -30,7 +30,7 @@ test('ASPIRE README guidance appears only in the selected ASPIRE run dialog, wit
    append(node){node.parent=this},showModal(){this.open=true},close(){this.open=false},focus(){},
    addEventListener(type,handler){handlers[id+type]=handler}};
  const context=vm.createContext({$,active:false,submitting:false,ended:false,csrf:'valid',updateRunLabel(){},
-   providerChanged(){},applyModelName(){},lastLive:null,window:{}});
+   providerChanged(){},applyModelName(){},lastLive:null,window:{yamRunnerIdentity:{ready:()=>false}}});
  vm.runInContext(body,context);
  const change=source.split("  $('provider').addEventListener('change', () => { providerChanged();")[1].split('\n')[0];
  vm.runInContext("$('provider').addEventListener('change', () => { providerChanged();"+change,context);
