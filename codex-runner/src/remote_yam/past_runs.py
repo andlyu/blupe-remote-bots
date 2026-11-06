@@ -81,6 +81,11 @@ def public_runner_diagnostic(state):
     error = state.get('error')
     if not isinstance(error, str):
         return None
+    # Fixed readiness failures contain no provider text or private context.
+    for message in ('Wait for both arms to settle before preparing a chunk',
+                    'Arms did not settle before motion planning'):
+        if error in {message, 'RuntimeError: ' + message, 'ValueError: ' + message}:
+            return message
     # GR00T rejects the whole chunk before dispatch. Preserve this reason in
     # both the live banner and saved result without exposing arbitrary text.
     scalar = r'[0-9]{1,20}(?:\.[0-9]{1,20})?(?:[eE][+-]?[0-9]{1,3})?'
