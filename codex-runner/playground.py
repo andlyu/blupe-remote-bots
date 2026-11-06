@@ -527,8 +527,20 @@ class HostedRunner:
             raise RequestError(421, "Unrecognized website host")
         if await self.public_extension(scope, receive, send, headers):
             return
-        if headers.get("sec-fetch-site") == "cross-site" and not (path == "/" and method == "GET"):
+        if headers.get("sec-fetch-site") == "cross-site" and not (path in {"/", "/research", "/research/"} and method == "GET"):
             raise RequestError(403, "Open the runner directly to continue")
+        research_files = {"gallery.css": "text/css", "gallery.js": "text/javascript",
+            **{name + ".webp": "image/webp" for name in (
+                "roboharness", "roboskills", "spotter", "embodiedevo", "memo", "agent-as-policy", "cag")}}
+        if method == "GET" and path in {"/research", "/research/"}:
+            await self.respond(send, 200, (ROOT / "static/research/index.html").read_bytes(), "text/html; charset=utf-8")
+            return
+        if method == "GET" and path.startswith("/static/research/"):
+            name = path.removeprefix("/static/research/")
+            if name not in research_files:
+                raise RequestError(404, "Not found")
+            await self.respond(send, 200, (ROOT / "static/research" / name).read_bytes(), research_files[name])
+            return
         if method == "GET" and path == "/api/robots":
             await self.json(send, 200, {"selected": self.robot_id, "robots": [
                 {**{k: robot[k] for k in ("id", "name", "url")}, "hardware": robot.get("hardware", ""), "connected": self.robot_connected(robot["id"])} for robot in self.robots]})

@@ -25,6 +25,31 @@ class HeldProvider(ScriptedAdapter):
 
 
 class HostedTests(unittest.IsolatedAsyncioTestCase):
+    async def test_research_gallery_has_public_snapshots_without_robot_sessions(self):
+        from html.parser import HTMLParser
+        class Links(HTMLParser):
+            def __init__(self):
+                super().__init__(); self.images = []
+            def handle_starttag(self, tag, attrs):
+                if tag == 'img' and dict(attrs).get('src'):
+                    self.images.append(dict(attrs)['src'])
+        initial_apis = len(self.apis)
+        for route in ('/research', '/research/'):
+            code, body, _ = await self.call(route, extra={'sec-fetch-site':'cross-site'})
+            self.assertEqual(code, 200)
+            self.assertIn(b'Hosted Works', body)
+        links = Links(); links.feed(body.decode())
+        self.assertEqual(len(links.images), 7)
+        for asset in links.images + ['/static/research/gallery.css', '/static/research/gallery.js']:
+            code, data, headers = await self.call(asset)
+            self.assertEqual(code, 200, asset)
+            self.assertTrue(data)
+        for forbidden in ('../hosted.html', '%2e%2e/hosted.html', 'missing.webp', 'index.html'):
+            self.assertEqual((await self.call('/static/research/' + forbidden))[0], 404)
+        self.assertEqual((await self.call('/api/robots', extra={'sec-fetch-site':'cross-site'}))[0], 403)
+        self.assertFalse(self.app.visitors)
+        self.assertEqual(len(self.apis), initial_apis)
+
     async def test_task_suggestions_follow_robot_and_saved_overrides_without_starting_run(self):
         from remote_yam.task_suggestions import DEFAULTS, save_suggestions
         path = self.app.root / 'task-suggestions.sqlite3'

@@ -44,6 +44,11 @@
   apiLink.href = 'https://blupe.io/docs/robot-api/';
   apiLink.target = '_blank'; apiLink.rel = 'noopener noreferrer';
   header.querySelector('.intro').append(apiLink);
+  const hostedWorksLink = document.createElement('a');
+  hostedWorksLink.className = 'meetingApiLink meetingHostedWorksLink'; hostedWorksLink.textContent = 'Hosted Works';
+  hostedWorksLink.href = '/research/';
+  hostedWorksLink.target = '_blank'; hostedWorksLink.rel = 'noopener noreferrer';
+  header.querySelector('.intro').append(hostedWorksLink);
   const presenting = document.createElement('div'); presenting.className = 'meetingPresenting';
   presenting.innerHTML = icon('presentation') + '<span id="meetingPresentationName">Connecting to camera…</span><span class="meetingPinned">' + icon('pin') + 'Pinned view</span>';
   room.append(presenting, workspace); workspace.id = 'meetingWorkspace';
