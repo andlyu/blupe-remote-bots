@@ -56,3 +56,28 @@ class PolicyTests(unittest.TestCase):
             self.assertNotIn('private-key', str(raised.exception))
             if error == message:
                 self.assertEqual(public_run_error({'error':'RuntimeError: '+str(raised.exception)}), message)
+
+
+    def test_settling_diagnostic_survives_worker_runner_and_saved_result(self):
+        from types import SimpleNamespace
+        from remote_yam.past_runs import public_runner_diagnostic
+        from remote_yam.run_errors import public_run_error
+        for message in ('Wait for both arms to settle before preparing a chunk',
+                        'Arms did not settle before motion planning',
+                        'Model returned duplicate object labels; no task motion started'):
+            for prefix in ('', 'RuntimeError: ', 'ValueError: '):
+                with self.subTest(message=message, prefix=prefix):
+                    worker_error = public_runner_diagnostic({'error': prefix + message})
+                    self.assertEqual(worker_error, message)
+                    p = self.provider(); calls = []
+                    def request(path, payload=None):
+                        calls.append(path)
+                        return dict(status='failed', stage='error', error=worker_error)
+                    p._request = request
+                    with self.assertRaises(RuntimeError) as raised:
+                        p.run_session('task', {}, SimpleNamespace(_capability=lambda sid:'lease-secret'),
+                                      dict(session_id='s'), lambda:False)
+                    self.assertEqual(str(raised.exception), message)
+                    self.assertEqual(public_run_error({'error':'RuntimeError: '+message}), message)
+                    self.assertTrue(calls[-1].endswith('/stop'))
+            self.assertIsNone(public_runner_diagnostic({'error':message+' private detail'}))
