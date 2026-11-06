@@ -527,12 +527,16 @@ class HostedRunner:
             raise RequestError(421, "Unrecognized website host")
         if await self.public_extension(scope, receive, send, headers):
             return
-        if headers.get("sec-fetch-site") == "cross-site" and not (path in {"/", "/research", "/research/"} and method == "GET"):
+        if headers.get("sec-fetch-site") == "cross-site" and not (path in {"/", "/research", "/research/", "/hosted_works", "/hosted_works/"} and method == "GET"):
             raise RequestError(403, "Open the runner directly to continue")
         research_files = {"gallery.css": "text/css", "gallery.js": "text/javascript",
             **{name + ".webp": "image/webp" for name in (
                 "clawmetry", "roboharness", "roboskills", "spotter", "embodiedevo", "memo", "agent-as-policy", "cag")}}
         if method == "GET" and path in {"/research", "/research/"}:
+            await self.respond(send, 308, b"", "text/plain; charset=utf-8",
+                               [(b"location", b"/hosted_works/")])
+            return
+        if method == "GET" and path in {"/hosted_works", "/hosted_works/"}:
             await self.respond(send, 200, (ROOT / "static/research/index.html").read_bytes(), "text/html; charset=utf-8")
             return
         if method == "GET" and path.startswith("/static/research/"):

@@ -46,7 +46,7 @@
   header.querySelector('.intro').append(apiLink);
   const hostedWorksLink = document.createElement('a');
   hostedWorksLink.className = 'meetingApiLink meetingHostedWorksLink'; hostedWorksLink.textContent = 'Hosted Works';
-  hostedWorksLink.href = '/research/';
+  hostedWorksLink.href = '/hosted_works/';
   hostedWorksLink.target = '_blank'; hostedWorksLink.rel = 'noopener noreferrer';
   header.querySelector('.intro').append(hostedWorksLink);
   const presenting = document.createElement('div'); presenting.className = 'meetingPresenting';
