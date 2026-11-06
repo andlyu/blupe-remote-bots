@@ -34,6 +34,46 @@ function currentRunHeading(run, result = null) {
   return {task, status};
 }
 
+function createRunnerIdentity($, storage) {
+  const key = 'yam-runner-identity-v1';
+  const name = $('runnerName'), email = $('email');
+  let remembered = false;
+  const valid = () => !!name.value.trim() && name.validity.valid && email.validity.valid;
+  const syncChat = () => { if ($('chatName')) $('chatName').value = name.value.trim(); };
+  if (storage === undefined) { try { storage = localStorage; } catch (_) {} }
+  try {
+    const saved = JSON.parse(storage?.getItem(key) || 'null');
+    if (saved && typeof saved.name === 'string' && saved.name.trim() && saved.name.length <= 32 &&
+        typeof saved.email === 'string' && saved.email.length <= 254) {
+      const previous = [name.value, email.value];
+      name.value = saved.name; email.value = saved.email;
+      if (valid()) { remembered = true; syncChat(); }
+      else [name.value, email.value] = previous;
+    }
+  } catch (_) { /* Keep the form usable when storage is blocked or corrupt. */ }
+  const editButton = document.createElement('button');
+  editButton.id = 'editRunnerIdentity'; editButton.type = 'button';
+  editButton.textContent = 'Change name or email';
+  editButton.addEventListener('click', () => {
+    window.yamShowModelOptions?.(false);
+    $('runSettings').open = true;
+    if (!$('localRunDialog').open) $('localRunDialog').showModal();
+    name.focus();
+  });
+  return {
+    editButton,
+    ready() { return remembered && valid(); },
+    remember() {
+      if (!valid()) return false;
+      name.value = name.value.trim(); email.value = email.value.trim();
+      remembered = true; syncChat();
+      try { storage?.setItem(key, JSON.stringify({name: name.value, email: email.value})); }
+      catch (_) { /* Reuse the confirmed details for this visit even without storage. */ }
+      return true;
+    }
+  };
+}
+
 function createProviderRunDuration(input) {
   const explicit = new Map();
   let selected = null;
@@ -917,6 +957,7 @@ function createRunLaunchGuard() {
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
+  window.yamRunnerIdentity = createRunnerIdentity($);
   let claudeModel = 'claude-opus-5-5';
   let configuredProviders = {};
   window.yamRunDuration = createProviderRunDuration($('runDuration'));
@@ -1118,6 +1159,7 @@ function createRunLaunchGuard() {
   }
   $('openLocalRun').onclick = () => {
     if (active || submitting || ended || !csrf) return;
+    if (window.yamRunnerIdentity.ready()) { $('runForm').requestSubmit($('run')); return; }
     $('runSettings').open = true;
     updateRunLabel();
     $('localRunMessage').textContent = '';
@@ -1307,6 +1349,7 @@ function createRunLaunchGuard() {
     if (active) return;
     if ($('provider').value === 'custom_endpoint' && !$('customEndpoint').reportValidity()) return;
     if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
+    window.yamRunnerIdentity.remember();
     contactRequested = false;
     let launchVersion = null, payload;
     try {
@@ -3014,7 +3057,7 @@ function bindQuickTaskDraft(prompt, quick) {
     if (child !== duration && child !== $('effortField') && child !== $('geminiCallingModeField') && child !== $('dreamMotionSettings') && child !== $('customEndpointSetup')) advanced.append(child);
   }
   options.prepend(pickerHeader, $('customEndpointSetup'), $('effortField'), $('geminiCallingModeField'), $('dreamMotionSettings'));
-  options.append(advanced);
+  options.append(advanced, window.yamRunnerIdentity.editButton);
   function modelChoice(option, selectedId) {
     if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
     const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
@@ -3191,6 +3234,7 @@ function bindQuickTaskDraft(prompt, quick) {
       showComposerOptions(true); invalid.reportValidity(); return;
     }
     showComposerOptions(false);
+    if (window.yamRunnerIdentity.ready()) { $('runForm').requestSubmit($('run')); return; }
     launch.click();
     if (!dialog.open) {
       $('runSettings').open = true;
