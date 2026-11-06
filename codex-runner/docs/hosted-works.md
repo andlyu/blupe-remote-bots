@@ -12,6 +12,12 @@ establish a new visual identity or replace the existing product/design documents
 The grid uses three columns, two at 1000px and below, and one at 600px and below.
 Reduced-motion preferences disable the preview and hover animations.
 
+The heading area introduces the gallery with “Find research on BluPe.” Both
+research actions stay in this area: “Ask BluPe to host your method” opens an email
+to BluPe's published contact, `info@blupe.io`, and “Harness for integrating our
+method” opens the public shared integration-harness README. The hosting link
+does not submit or send a message automatically.
+
 ## Content and provenance
 
 ClawMetry appears first, followed by Spotter and Completion-Aware Guidance.
