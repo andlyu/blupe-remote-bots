@@ -25,7 +25,7 @@ class HeldProvider(ScriptedAdapter):
 
 
 class HostedTests(unittest.IsolatedAsyncioTestCase):
-    async def test_research_gallery_has_public_snapshots_without_robot_sessions(self):
+    async def test_hosted_works_gallery_has_public_snapshots_without_robot_sessions(self):
         from html.parser import HTMLParser
         class Links(HTMLParser):
             def __init__(self):
@@ -34,12 +34,20 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
                 if tag == 'img' and dict(attrs).get('src'):
                     self.images.append(dict(attrs)['src'])
         initial_apis = len(self.apis)
-        for route in ('/research', '/research/'):
+        for route in ('/hosted_works', '/hosted_works/'):
             code, body, _ = await self.call(route, extra={'sec-fetch-site':'cross-site'})
             self.assertEqual(code, 200)
             self.assertIn(b'Hosted Works', body)
         links = Links(); links.feed(body.decode())
-        self.assertEqual(len(links.images), 8)
+        self.assertEqual(len(links.images), 3)
+        for removed in (b'RoboHarness', b'RoboSkills', b'EmbodiedEvo', b'MEMO', b'Agent as Policy'):
+            self.assertNotIn(removed, body)
+        for retained in (b'ClawMetry', b'Spotter', b'Completion-Aware Guidance'):
+            self.assertIn(retained, body)
+        for route in ('/research', '/research/'):
+            code, _, headers = await self.call(route, extra={'sec-fetch-site':'cross-site'})
+            self.assertEqual(code, 308)
+            self.assertEqual(headers[b'location'], b'/hosted_works/')
         for asset in links.images + ['/static/research/gallery.css', '/static/research/gallery.js']:
             code, data, headers = await self.call(asset)
             self.assertEqual(code, 200, asset)
