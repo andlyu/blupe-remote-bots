@@ -531,7 +531,7 @@ class HostedRunner:
             raise RequestError(403, "Open the runner directly to continue")
         research_files = {"gallery.css": "text/css", "gallery.js": "text/javascript",
             **{name + ".webp": "image/webp" for name in (
-                "roboharness", "roboskills", "spotter", "embodiedevo", "memo", "agent-as-policy", "cag")}}
+                "clawmetry", "roboharness", "roboskills", "spotter", "embodiedevo", "memo", "agent-as-policy", "cag")}}
         if method == "GET" and path in {"/research", "/research/"}:
             await self.respond(send, 200, (ROOT / "static/research/index.html").read_bytes(), "text/html; charset=utf-8")
             return

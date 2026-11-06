@@ -39,7 +39,7 @@ class HostedTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(code, 200)
             self.assertIn(b'Hosted Works', body)
         links = Links(); links.feed(body.decode())
-        self.assertEqual(len(links.images), 7)
+        self.assertEqual(len(links.images), 8)
         for asset in links.images + ['/static/research/gallery.css', '/static/research/gallery.js']:
             code, data, headers = await self.call(asset)
             self.assertEqual(code, 200, asset)

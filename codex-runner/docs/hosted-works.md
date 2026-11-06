@@ -11,6 +11,8 @@ Reduced-motion preferences disable the preview and hover animations.
 
 ## Content and provenance
 
+ClawMetry appears first, followed by Spotter; the other integrations follow.
+
 The screenshots were captured from the public websites in Chrome on November 6,
 2026. They are website snapshots, not live embeds or evidence of current robot
 availability. Gallery presence is not physical task acceptance, a benchmark
@@ -19,19 +21,20 @@ Each website owns its current status and results.
 
 | Website | Public URL | Screenshot |
 | --- | --- | --- |
+| ClawMetry | https://playground.clawmetry.com/ | `clawmetry.webp` |
+| Spotter | https://spotter.54.209.185.15.sslip.io/ | `spotter.webp` |
 | RoboHarness | https://roboharness-blupe.andlyu.chatgpt.site/ | `roboharness.webp` |
 | RoboSkills | https://blupe-bimanual-skills.andlyu.chatgpt.site/ | `roboskills.webp` |
-| Spotter | https://spotter.54.209.185.15.sslip.io/ | `spotter.webp` |
 | EmbodiedEvo | https://blupe-embodiedevo.andlyu.chatgpt.site/ | `embodiedevo.webp` |
 | MEMO | https://memo.54.209.185.15.sslip.io/ | `memo.webp` |
 | Agent as Policy | https://agp.54.209.185.15.sslip.io/ | `agent-as-policy.webp` |
 | Completion-Aware Guidance | https://cag-molmoact-blupe.andlyu.chatgpt.site/ | `cag.webp` |
 
 Gallery files live in `codex-runner/static/research/`: `index.html`, `gallery.css`,
-`gallery.js`, the seven WebP images above and adjacent `.webp.json` provenance
+`gallery.js`, the eight WebP images above and adjacent `.webp.json` provenance
 files. The JSON files record the capture source/date; they are not public assets.
 `/static/research/` serves only the explicit `research_files` allowlist in
-`playground.py`: the CSS, JavaScript and seven image filenames.
+`playground.py`: the CSS, JavaScript and eight image filenames.
 
 ## Preview behavior
 
@@ -58,7 +61,7 @@ embed the workspaces, create robot sessions or submit robot runs.
    give each preview its correct date rather than retaining a shared date.
 3. When adding or renaming an image, update `research_files` in `playground.py`.
    Preserve its explicit allowlist. Check the route/asset coverage in
-   `tests/test_hosted.py`, including the seven-entry expectation when content
+   `tests/test_hosted.py`, including the eight-entry expectation when content
    changes. Verify preview open/close, Escape, focus return, direct modified-click
    navigation and the narrow-screen layout after UI changes.
 
