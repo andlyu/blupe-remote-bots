@@ -38,7 +38,8 @@ function createRunnerIdentity($, storage) {
   const key = 'yam-runner-identity-v1';
   const name = $('runnerName'), email = $('email');
   let remembered = false;
-  const valid = () => !!name.value.trim() && name.validity.valid && email.validity.valid;
+  const valid = () => !!name.value.trim() && name.validity.valid && email.validity.valid &&
+    !(name.value.trim() === 'Guest' && !email.value.trim());
   const syncChat = () => { if ($('chatName')) $('chatName').value = name.value.trim(); };
   if (storage === undefined) { try { storage = localStorage; } catch (_) {} }
   try {

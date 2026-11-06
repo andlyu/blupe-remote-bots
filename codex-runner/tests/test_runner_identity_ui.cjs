@@ -116,3 +116,11 @@ test('hosted guest-entry delegation reuses identity without reopening the fallba
   context.active = true; f.$('openLocalRun').onclick();
   assert.equal(submissions, 1); // Existing in-progress-run guard remains authoritative.
 });
+
+
+test('the anonymous guest bypass is not saved as a confirmed person', () => {
+  const f = fixture(); f.$('runnerName').value = 'Guest';
+  assert.equal(f.control.remember(), false);
+  assert.equal(f.control.ready(), false);
+  assert.equal(f.storage.size, 0);
+});
