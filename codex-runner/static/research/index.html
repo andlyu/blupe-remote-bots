@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore research websites hosted on BluPe. Preview each project and open its workspace.">
+  <title>Hosted Works · BluPe</title>
+  <link rel="stylesheet" href="/static/research/gallery.css">
+  <script src="/static/research/gallery.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#works">Skip to websites</a>
+  <header class="siteHeader">
+    <a class="brand" href="/">BluPe</a>
+    <nav aria-label="Main navigation">
+      <a href="/">Robot room</a>
+      <a href="https://blupe.io/docs/robot-api/" target="_blank" rel="noopener noreferrer">API</a>
+      <a href="/research/" aria-current="page">Hosted Works</a>
+    </nav>
+  </header>
+  <main id="works">
+    <div class="galleryHeading">
+      <h1>Hosted Works</h1>
+      <p>Research on BluPe. Pick a website for a closer look.</p>
+    </div>
+    <ul class="gallery" aria-label="Research websites">
+      <li><a class="work" href="https://roboharness-blupe.andlyu.chatgpt.site/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/roboharness.webp" width="1200" height="562" alt="RoboHarness robot workspace website" fetchpriority="high"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>RoboHarness</h2><p>Visual and geometric robot control</p>
+      </a></li>
+      <li><a class="work" href="https://blupe-bimanual-skills.andlyu.chatgpt.site/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/roboskills.webp" width="1200" height="562" alt="RoboSkills bimanual task workspace website"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>RoboSkills</h2><p>Bimanual skills and simulation</p>
+      </a></li>
+      <li><a class="work" href="https://spotter.54.209.185.15.sslip.io/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/spotter.webp" width="1200" height="562" alt="Spotter on BluPe website"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>Spotter</h2><p>Policy supervision and failure repair</p>
+      </a></li>
+      <li><a class="work" href="https://blupe-embodiedevo.andlyu.chatgpt.site/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/embodiedevo.webp" width="1200" height="562" alt="EmbodiedEvo real YAM skills website" loading="lazy"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>EmbodiedEvo</h2><p>Learned skills for physical YAM arms</p>
+      </a></li>
+      <li><a class="work" href="https://memo.54.209.185.15.sslip.io/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/memo.webp" width="1200" height="562" alt="MEMO corrections and skills website" loading="lazy"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>MEMO</h2><p>Corrections, memory and reusable skills</p>
+      </a></li>
+      <li><a class="work" href="https://agp.54.209.185.15.sslip.io/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/agent-as-policy.webp" width="1200" height="562" alt="Agent as Policy robot workspace website" loading="lazy"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>Agent as Policy</h2><p>Observe, write Python, act and review</p>
+      </a></li>
+      <li><a class="work" href="https://cag-molmoact-blupe.andlyu.chatgpt.site/" target="_blank" rel="noopener noreferrer" data-preview>
+        <div class="thumbnail"><img src="/static/research/cag.webp" width="1200" height="562" alt="Completion-Aware Guidance and MolmoAct2 website" loading="lazy"><span class="previewHint" aria-hidden="true">Preview website</span></div>
+        <h2>Completion-Aware Guidance</h2><p>MolmoAct2 attention experiment</p>
+      </a></li>
+    </ul>
+    <footer>Independent BluPe integrations. Previews are website snapshots; visit each site for its current status and results.</footer>
+  </main>
+  <dialog id="preview" aria-labelledby="previewTitle" aria-describedby="previewDescription">
+    <div class="previewToolbar">
+      <div><h2 id="previewTitle"></h2><p id="previewDescription"></p></div>
+      <button class="closePreview" type="button" aria-label="Close preview" autofocus><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="previewImage"><img id="previewImage" alt=""></div>
+    <div class="previewFooter"><span>Website preview · November 6, 2026</span><a id="visitWebsite" class="visitWebsite" target="_blank" rel="noopener noreferrer">Visit website <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div>
+  </dialog>
+</body>
+</html>

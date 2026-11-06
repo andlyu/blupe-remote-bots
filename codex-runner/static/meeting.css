@@ -401,3 +401,13 @@
   .meetingConsole .meetingPanelOpen .watchVisuals>.videoPanel { height:clamp(120px,calc((100vw - 538px)*.5625),240px); }
   .meetingConsole .meetingPanelOpen .watchInteraction { position:relative; inset:auto; width:100%; height:180px; min-height:180px; box-shadow:none; }
 }
+
+/* Keep both resource links and the robot selector usable on narrow phones. */
+.meetingHostedWorksLink { white-space:nowrap; }
+@media(max-width:600px) {
+  .meetingConsole .meetingRoom .intro { gap:8px; }
+  .meetingConsole .meetingRoom .playgroundHeader { gap:8px; }
+  .meetingApiLink { font-size:12px; }
+  .meetingConsole .meetingRoom .robotNavigation { min-width:0; }
+  .meetingConsole .meetingRoom .robotNavigation select { width:100%; min-width:0; max-width:calc(100vw - 240px); }
+}
