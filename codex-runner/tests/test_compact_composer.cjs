@@ -29,7 +29,7 @@ for(const mode of ['missing','present','disabled','invalid'])test('identity conf
   const invalid={willValidate:true,validity:{valid:false},reportValidity(){reported++;}};
   const advanced={open:false,contains:()=>true};
   const nodes={openLocalRun:launch,localRunDialog:dialog,runSettings:{},prompt:{reportValidity:()=>true},runnerName:{focus(){focused++;}}};
-  vm.runInNewContext(setup+'\nopenRunIdentity();',{$:id=>nodes[id],advanced,
+  vm.runInNewContext(setup+'\nopenRunIdentity();',{$:id=>nodes[id],advanced,window:{yamRunnerIdentity:{ready:()=>false}},
     options:{querySelectorAll:()=>mode==='invalid'?[invalid]:[]},showComposerOptions:open=>popover.push(open)});
   assert.equal(existing,['disabled','invalid'].includes(mode)?0:1);
   assert.equal(dialog.open,!['disabled','invalid'].includes(mode));
