@@ -81,9 +81,10 @@ def public_runner_diagnostic(state):
     error = state.get('error')
     if not isinstance(error, str):
         return None
-    # Fixed readiness failures contain no provider text or private context.
+    # Fixed pre-motion failures contain no provider text or private context.
     for message in ('Wait for both arms to settle before preparing a chunk',
-                    'Arms did not settle before motion planning'):
+                    'Arms did not settle before motion planning',
+                    'Model returned duplicate object labels; no task motion started'):
         if error in {message, 'RuntimeError: ' + message, 'ValueError: ' + message}:
             return message
     # GR00T rejects the whole chunk before dispatch. Preserve this reason in

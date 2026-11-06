@@ -63,7 +63,8 @@ class PolicyTests(unittest.TestCase):
         from remote_yam.past_runs import public_runner_diagnostic
         from remote_yam.run_errors import public_run_error
         for message in ('Wait for both arms to settle before preparing a chunk',
-                        'Arms did not settle before motion planning'):
+                        'Arms did not settle before motion planning',
+                        'Model returned duplicate object labels; no task motion started'):
             for prefix in ('', 'RuntimeError: ', 'ValueError: '):
                 with self.subTest(message=message, prefix=prefix):
                     worker_error = public_runner_diagnostic({'error': prefix + message})
