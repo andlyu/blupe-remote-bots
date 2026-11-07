@@ -93,3 +93,20 @@ test('legacy generic messages never replace a recorded cause or invent one', () 
   const context=vm.createContext({sharedTaskRun:run=>run});vm.runInContext(helpers,context);
   assert.doesNotMatch(context.taskRunFailure({status:'stopped',error:generic}).reason,/model or runner error/);
 });
+
+test('inconclusive placement is neutral and does not claim execution or task failure', () => {
+  const reason='Motion completed; placement verification was inconclusive';
+  const {element,render}=fixture();
+  render({public_run:{runner_name:'Fixture',status:'stopped',error:reason}});
+  assert.equal(element.dataset.tone,'neutral');
+  assert.equal(element.textContent,'Fixture — Verification inconclusive: '+reason);
+  const helpers=source.slice(source.indexOf('function currentTaskRun('),source.indexOf('// End of shared task helpers.'));
+  const context=vm.createContext({sharedTaskRun:run=>run});vm.runInContext(helpers,context);
+  const result=context.taskRunFailure({status:'failed',error:reason});
+  assert.equal(result.label,'Verification inconclusive');
+  assert.equal(result.tone,'neutral');
+  assert.equal(result.reason,reason);
+  render({public_run:{status:'failed',error:reason},robot_fault:'Joint fault'});
+  assert.equal(element.dataset.tone,'error');
+  assert.equal(element.textContent,'Robot error: Joint fault');
+});
