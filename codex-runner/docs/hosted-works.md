@@ -14,7 +14,7 @@ Reduced-motion preferences disable the preview and hover animations.
 
 The heading area introduces the gallery with “Find research on BluPe.” Both
 research actions stay in this area: “Ask BluPe to host your method” opens an email
-to BluPe's published contact, `info@blupe.io`, and “Harness for integrating our
+to BluPe's published contact, `info@blupe.io`, and “Harness to integrate your
 method” opens the public shared integration-harness README. The hosting link
 does not submit or send a message automatically.
 
