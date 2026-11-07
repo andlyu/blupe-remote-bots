@@ -81,10 +81,12 @@ def public_runner_diagnostic(state):
     error = state.get('error')
     if not isinstance(error, str):
         return None
-    # Fixed pre-motion failures contain no provider text or private context.
+    # Fixed provider diagnostics contain no model text or private context.
     for message in ('Wait for both arms to settle before preparing a chunk',
                     'Arms did not settle before motion planning',
-                    'Model returned duplicate object labels; no task motion started'):
+                    'Model returned duplicate object labels; no task motion started',
+                    'Motion completed; placement verification was inconclusive',
+                    'Motion completed; requested placement was not achieved'):
         if error in {message, 'RuntimeError: ' + message, 'ValueError: ' + message}:
             return message
     # GR00T rejects the whole chunk before dispatch. Preserve this reason in
@@ -314,8 +316,11 @@ class RunNames:
             errors = reason
         elif state.get('error'):
             from .run_errors import public_run_error
-            result, reason = 'Failure', public_run_error(state)
-            errors = reason
+            reason = public_run_error(state)
+            # Inconclusive visual evidence does not prove physical task failure.
+            # Robot failures, deadlines and safety errors retain priority above.
+            result = 'Unknown' if reason == 'Motion completed; placement verification was inconclusive' else 'Failure'
+            errors = reason if result == 'Failure' else None
         elif ending:
             result = 'Failure' if ending[0] == 'give_up' else 'Success'
             reason = ending[1]
@@ -360,7 +365,7 @@ class RunNames:
                 result, reason, errors = 'Stopped', 'Run reached time limit', None
             db.execute('INSERT INTO run_details VALUES (?, ?, ?) ON CONFLICT(episode_id) DO UPDATE SET errors=COALESCE(excluded.errors,errors), ending_reason=COALESCE(excluded.ending_reason,ending_reason)',
                        (episode_id, errors, ending[1] if ending else None))
-            if reason == 'Run reached time limit':
+            if reason in {'Run reached time limit', 'Motion completed; placement verification was inconclusive'}:
                 db.execute('UPDATE run_details SET errors=NULL, ending_reason=? WHERE episode_id=?', (reason, episode_id))
             db.execute('INSERT INTO run_results VALUES (?, ?, ?) ON CONFLICT(episode_id) DO UPDATE SET result=excluded.result, reason=excluded.reason WHERE result != excluded.result OR reason != excluded.reason', (episode_id, result, reason))
 

@@ -1840,12 +1840,13 @@ function createRunLaunchGuard() {
     const warning = ['preparing', 'running'].includes(run?.status) ? run?.warning : null;
     const notice = error === generic ? 'Run failed without a recorded error detail.' : error || warning;
     const timeLimit = !state.robot_fault && notice === 'Run reached time limit';
+    const inconclusive = !state.robot_fault && /^(?:RuntimeError: )?Motion completed; placement verification was inconclusive$/.test(notice || '');
     const element = $('publicRunError');
     element.hidden = !notice;
-    element.dataset.tone = timeLimit ? 'neutral' : error ? 'error' : 'warning';
+    element.dataset.tone = timeLimit || inconclusive ? 'neutral' : error ? 'error' : 'warning';
     element.textContent = notice ? (state.robot_fault
       ? `Robot error: ${notice}`
-      : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
+      : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : inconclusive ? 'Verification inconclusive' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
     liveViewers?.render(state.live_viewer_count);
@@ -3380,7 +3381,8 @@ function taskRunFailure(run) {
   const reason = timedOut ? 'Run reached time limit' :
     (run.error && run.error !== generic ? run.error : blocked) ||
     'The task ended without a recorded reason.';
-  return {label:timedOut ? 'Task stopped' : 'Task failed',tone:timedOut ? 'neutral' : 'error',
+  const inconclusive = /^(?:RuntimeError: )?Motion completed; placement verification was inconclusive$/.test(String(reason));
+  return {label:timedOut ? 'Task stopped' : inconclusive ? 'Verification inconclusive' : 'Task failed',tone:timedOut || inconclusive ? 'neutral' : 'error',
     reason:String(reason),task:run.task || run.task_progress?.task};
 }
 
