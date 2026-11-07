@@ -72,6 +72,37 @@ def run_result(meta):
             'errors': reason if label == 'Failure' else None}
 
 
+_SETTLE_PHASES = {
+    'approach': 'approach', 'descend': 'descent', 'close': 'grasp',
+    'lift': 'lifting', 'carry': 'transfer', 'lower': 'lowering',
+    'open': 'release', 'retreat': 'retreat', 'return_to_start': 'return to start',
+}
+_SETTLE_MESSAGE = 'Robot stopped: arm did not settle during '
+_SETTLE_BLOCKER = (r'(?:measured_position|commanded_position|joint_speed|'
+                   r'commanded_gripper|measured_gripper|stable_interval)')
+_SETTLE_DEC3 = r'[0-9]{1,4}\.[0-9]{3}'
+_SETTLE_DEC4 = r'[0-9]{1,4}\.[0-9]{4}'
+_SETTLE_DETAIL = re.compile(
+    rf'Measured target did not settle: ([a-z_]{{1,15}}); '
+    rf'blocked_by={_SETTLE_BLOCKER}(?:,{_SETTLE_BLOCKER}){{0,4}}; '
+    rf'measured_joint_[1-6]_error_deg={_SETTLE_DEC3}; '
+    rf'commanded_joint_[1-6]_error_deg={_SETTLE_DEC3}; allowed_deg={_SETTLE_DEC3}; '
+    rf'max_joint_speed_rad_s={_SETTLE_DEC4} \(limit 0\.05\); '
+    rf'gripper_measured=-?{_SETTLE_DEC4},commanded=-?{_SETTLE_DEC4},goal=-?{_SETTLE_DEC4}; '
+    rf'stable_s={_SETTLE_DEC3} \(required 0\.15\)'
+)
+
+
+def _public_measured_settle_diagnostic(error):
+    # Retain only the known stage, including when the next filter sees our text.
+    error = error.removeprefix('RuntimeError: ')
+    if error.startswith(_SETTLE_MESSAGE):
+        return error if error[len(_SETTLE_MESSAGE):] in _SETTLE_PHASES.values() else None
+    detail = _SETTLE_DETAIL.fullmatch(error)
+    phase = _SETTLE_PHASES.get(detail.group(1)) if detail else None
+    return _SETTLE_MESSAGE + phase if phase else None
+
+
 def public_runner_diagnostic(state):
     """Preserve allowlisted diagnostics; never include arbitrary provider text."""
     from .runner_failures import failure_from_state
@@ -88,6 +119,9 @@ def public_runner_diagnostic(state):
     if workspace:
         side = workspace.group(1) or workspace.group(2)
         return f'Robot safety stop: {side} tip left the configured workspace'
+    settle = _public_measured_settle_diagnostic(error)
+    if settle:
+        return settle
     # Fixed provider diagnostics contain no model text or private context.
     for message in ('Wait for both arms to settle before preparing a chunk',
                     'Arms did not settle before motion planning',
