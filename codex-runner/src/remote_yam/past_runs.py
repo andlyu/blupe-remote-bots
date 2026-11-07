@@ -81,6 +81,13 @@ def public_runner_diagnostic(state):
     error = state.get('error')
     if not isinstance(error, str):
         return None
+    # Native workspace guards expose only the affected arm, never provider text.
+    workspace = re.fullmatch(
+        r'(?:RuntimeError: |ValueError: )?(?:(left|right)_tip_outside_workspace at waypoint [0-9]{1,4}|'
+        r'Robot safety stop: (left|right) tip left the configured workspace)', error)
+    if workspace:
+        side = workspace.group(1) or workspace.group(2)
+        return f'Robot safety stop: {side} tip left the configured workspace'
     # Fixed provider diagnostics contain no model text or private context.
     for message in ('Wait for both arms to settle before preparing a chunk',
                     'Arms did not settle before motion planning',
