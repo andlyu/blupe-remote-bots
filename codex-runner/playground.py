@@ -338,6 +338,8 @@ class HostedRunner:
     async def publish_reaction(self, visitor, emoji):
         return self.reactions.publish(emoji, visitor.chat_id)
 
+    session_run_limit: int | None = 20
+
     def validate_launch(self, visitor, payload, paid):
         """Application admission rules, before shared robot/provider validation."""
 
@@ -1111,8 +1113,9 @@ class HostedRunner:
                 raise RequestError(409, "A run is already active. Stop it before starting another.")
             if time.monotonic() - visitor.last_launch < 5:
                 raise RequestError(429, "Please wait a few seconds before starting another run.")
-            if visitor.launches >= 20:
-                raise RequestError(429, 'This browser session reached its 20-run limit. Click Reset runs in the page footer to continue.')
+            limit = self.session_run_limit
+            if limit is not None and visitor.launches >= limit:
+                raise RequestError(429, f'This browser session reached its {limit}-run limit. Click Reset runs in the page footer to continue.')
             name, key, prompt, model = (payload.get(k, "") for k in ("provider", "api_key", "prompt", "model"))
             from remote_yam.controller_executor import selected_executor
             try:
