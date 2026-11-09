@@ -57,11 +57,24 @@ The selected model is exactly `claude-fable-5-2`. No other model was substituted
   terminal failure. The main queue state updated to “Your turn”; the lower
   status still said “You’re in the queue.” There was no GPU provisioning.
   No visibility exception was requested.
+- The lower status now follows the queue, preparation and running stages.
+  [PR #302](https://github.com/andlyu/blupe-remote-bots/pull/302) merged as
+  `9f8e3009fccd4ec6caa1928cf540bcae083031fd`. All eight public CI checks passed.
+  Both reviewed hosted JavaScript overlays passed the focused transition test,
+  including preservation of warnings and Stop acknowledgements. The public
+  browser reopened the playground successfully and HTTPS served SHA-256
+  `adbc195fbf2069edf5552daa2c83ceba421e32e5a789bbdc47e0109a9cdc23db`.
+  The web and broker processes stayed up. The updated inline lifecycle still
+  needs observation during a successful physical run.
 - Access: the hosted Claude Code 2.1.296 rejected the requested model. The
   vendor-signed 2.1.321 candidate was staged and tested in a read-only
   catalog query under the same subscription. Anthropic's unfiltered catalog
   listed Fable 5.1 and Fable 5, but not Fable 5.2. The active launcher was
   left on its prior build. No alternate model was used.
-- Still required: access to Fable 5.2, a confirmed response from that model,
+- The researcher's signed-in Claude web account showed Fable 5.2 selected
+  with a completed reply. The local BluPe launcher using signed Claude Code
+  2.1.321 is awaiting the researcher's own Claude Code sign-in. The web
+  account check does not establish access in BluPe's runner or sponsored broker.
+- Still required are a confirmed Fable 5.2 response through a BluPe runner,
   a successful representative physical execution, exact queue and motion
   timing, and a verified successful replay and historical attribution.

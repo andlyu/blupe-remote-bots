@@ -571,7 +571,9 @@ before any completion claim.
   were checked November 9, 2026. The API sends images and uses automatic
   tool choice, with signed assistant blocks preserved privately. The direct
   and subscription routes check the provider's actual model before returning
-  a decision. Account access and live model performance remain unverified.
+  a decision. The researcher's personal Claude web account displayed Fable 5.2
+  with a completed reply. Access and live model performance in BluPe's runner
+  remain unverified.
 - The model picker distinguishes BluPe subscription and API-key funding.
   The run details separate the approach from the requested and verified
   provider model. Existing selected defaults and user-editable effort are
@@ -591,9 +593,14 @@ before any completion claim.
   identity was used in these software tests.
 - No visibility exceptions were requested. Public visibility for this
   integration's specific run, recordings, replay and evidence is unverified.
-- Pending acceptance: actual Fable 5.2 account access and a confirmed model
-  response, consistent approach attribution across history and notifications,
+- The stale queue notice was fixed in the deployed shared JavaScript from
+  [PR #302](https://github.com/andlyu/blupe-remote-bots/pull/302). The focused
+  tests exercised queue admission, preparation, running and termination. A
+  successful physical run is still needed to verify the full inline lifecycle.
+- Pending acceptance includes a confirmed Fable 5.2 response in BluPe,
+  consistent approach attribution across history and notifications,
   representative physical task success, live task motion, successful replay
   and history, both timing budgets, and complete inline lifecycle transitions.
-  The hosted account lists Fable 5.1 but not Fable 5.2; no substitution was made.
-  The API-key option is deployed, with end-to-end inference still unverified.
+  The hosted catalog lists Fable 5.1 and Fable 5. The local subscription route
+  is awaiting Claude Code sign-in. The deployed API-key route still needs
+  end-to-end inference verification.
