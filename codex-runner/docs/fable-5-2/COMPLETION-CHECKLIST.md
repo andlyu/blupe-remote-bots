@@ -601,8 +601,7 @@ before any completion claim.
   consistent approach attribution across history and notifications,
   representative physical task success, live task motion, successful replay
   and history, both timing budgets, and complete inline lifecycle transitions.
-  The earlier hosted catalog listed Fable 5.1 and Fable 5. A later live check
-  found the hosted broker signed out and sponsored Claude absent from the
-  public Robo-house session. The local subscription route is awaiting Claude
-  Code sign-in. The deployed API-key route still needs end-to-end inference
-  verification.
+  Both subscription catalogs now list the exact Fable 5.2 ID. The owner restored
+  the hosted login, and the public picker offers “Fable 5.2 · BluPe subscription”
+  through Claude Code 2.1.321. A direct text response reported the exact model.
+  The normal BluPe robot path still needs end-to-end verification.

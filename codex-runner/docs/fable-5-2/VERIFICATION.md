@@ -72,14 +72,26 @@ The selected model is exactly `claude-fable-5-2`. No other model was substituted
   listed Fable 5.1 and Fable 5, but not Fable 5.2. The active launcher was
   left on its prior build. No alternate model was used.
 - The researcher's signed-in Claude web account showed Fable 5.2 selected
-  with a completed reply. The local BluPe launcher using signed Claude Code
-  2.1.321 is awaiting the researcher's own Claude Code sign-in. The web
-  account check does not establish access in BluPe's runner or sponsored broker.
+  with a completed reply. After the researcher signed in to local Claude Code
+  2.1.321, the exact Fable 5.2 ID appeared in its subscription catalog and the
+  local BluPe launcher responded with HTTP 200.
 - At 13:27 PST the active and staged hosted CLI executables both reported
   signed out under the broker account. The exact-model text check stopped at
   authentication before sending its prompt. A new anonymous Robo-house web
   session omitted sponsored Claude and still exposed Claude API-key support.
   No new robot attempt or model response resulted from these checks.
+- The owner restored the dedicated hosted Claude subscription sign-in. The
+  active 2.1.296 catalog still omitted Fable 5.2. The same account on 2.1.321
+  listed `claude-fable-5-2` and returned a text response whose assistant stream
+  confirmed that exact model. The first text probe misclassified rate-limit
+  telemetry. The corrected probe checked the final result and exact assistant
+  model identifier in 6.46 seconds.
+- The dedicated broker now uses Claude Code 2.1.321. The Linux x64 binary
+  matched Anthropic's official release SHA-256
+  `426c33815ca6645a772f722fbff10dbf2cbdb124a8aeab733c1365dbf8bbf61f`.
+  Activation checked all six robot queues were idle and kept the same broker
+  process. The public catalog returned the exact model through the subscription
+  route. The browser showed and selected “Fable 5.2 · BluPe subscription.”
 - Still required are a confirmed Fable 5.2 response through a BluPe runner,
   a successful representative physical execution, exact queue and motion
   timing, and a verified successful replay and historical attribution.
