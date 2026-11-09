@@ -161,7 +161,7 @@ below; underlying model/checkpoint selections remain separate metadata.
 
 ## Completion requirements
 
-- [ ] A usable website exists, with an associated repository containing the
+- [x] A usable website exists, with an associated repository containing the
   website's source code. Record both links and the deployed source revision.
 - [ ] Everything in the playground demo is public by default, including the
   website, source repository, runs/results, live demos, recordings, replays/history,
@@ -176,19 +176,19 @@ below; underlying model/checkpoint selections remain separate metadata.
   were checked. Configuration and run details retain the selected and actually
   resolved models/settings, with baseline/replacement variants labelled and no
   silent fallback. Record evidence below, or a justified no-model explanation.
-- [ ] When a human joins, collect or confirm their name and email. Prefill known
+- [x] When a human joins, collect or confirm their name and email. Prefill known
   identity/default values where available and let the runner edit both fields
   before joining.
-- [ ] Run context includes the actual approach and confirmed runner identity;
+- [x] Run context includes the actual approach and confirmed runner identity;
   the website makes clear which method is running and whose run it is.
-- [ ] Policy/model tests initiated by a person retain that actual user's
+- [x] Policy/model tests initiated by a person retain that actual user's
   confirmed name as runner. Use available identity and editable name/email
   defaults; require the real name to be provided/confirmed if missing before
   testing or running. Do not substitute `Anonymous`, `Autonomous` or `Automated`
   for that person. Record execution mode (such as `automated test`) and actual
   approach separately from human identity. Genuinely unattended/system activity
   has an explicit system identity; never fabricate a person's name or email.
-- [ ] Every advertised control primitive passes the offline command-contract
+- [x] Every advertised control primitive passes the offline command-contract
   gate through the actual parser/generator/serializer and canonical validator,
   including measured fractional starts, numeric endpoints, invalid-input and
   zero-dispatch failure tests. A required CI/release-preflight result and exact
@@ -579,7 +579,9 @@ before any completion claim.
 - Candidate public origins: [playground and queue/run UI](https://playground.blupe.io/)
   and [shared runner source](https://github.com/andlyu/blupe-remote-bots).
   The production site's health endpoint responded before deployment.
-  A deployment revision and end-to-end evidence are still required.
+  The public site and source revision were verified. See [verification evidence](VERIFICATION.md)
+  for the active release revisions, station preflight, and two browser attempts.
+  The live provider did not return a Fable 5.2 decision.
 - Offline checks: the shared runner's focused suite covered catalog admission,
   fixed-origin wire requests, exact assistant-block replay, rejection of
   missing/mismatched model IDs, and existing motion validation. The hosted
@@ -589,10 +591,9 @@ before any completion claim.
   identity was used in these software tests.
 - No visibility exceptions were requested. Public visibility for this
   integration's specific run, recordings, replay and evidence is unverified.
-- Pending acceptance: deployed revision and catalog/account access, editable
-  human attribution, consistency of method/model in stored records and
-  notifications, canonical command-contract release gate, representative
-  physical task and result, live footage, immediate and historical playback,
-  both motion timing budgets, and persistent lifecycle/failure UI on the
-  deployed release. Confirmed runner identity and concrete station/run scope
-  are required before submitting any physical run.
+- Pending acceptance: actual Fable 5.2 account access and a confirmed model
+  response, consistent approach attribution across history and notifications,
+  representative physical task success, live task motion, successful replay
+  and history, both timing budgets, and complete inline lifecycle transitions.
+  The hosted account lists Fable 5.1 but not Fable 5.2; no substitution was made.
+  The API-key option is deployed, with end-to-end inference still unverified.
