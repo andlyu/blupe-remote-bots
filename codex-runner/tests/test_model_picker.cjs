@@ -111,7 +111,7 @@ test('Haiku suggestions and discovered future versions retain the subscription p
     {id:'claude-opus-5-5',label:'Opus 5.5'},
     {id:'claude-haiku-5-5',label:'Haiku 5.5',reasoning_efforts:['low','medium','high','xhigh','max'],default_reasoning_effort:'medium'},
     {id:'claude-haiku-6',label:'Haiku 6'}]}));
-  assert.deepEqual(f.picker.modelsFor('guest_claude').map(row=>row.id),['claude-opus-5-5','claude-haiku-5-5']);
+  assert.deepEqual(f.picker.modelsFor('guest_claude').map(row=>row.id),['claude-opus-5-5','claude-haiku-5-5','claude-fable-5-2']);
   assert.deepEqual(f.picker.modelsFor('groot'),[]);
   f.choose('guest_claude');await tick();
   assert.deepEqual(f.picker.modelsFor('guest_claude').map(row=>row.id),['claude-opus-5-5','claude-haiku-5-5','claude-haiku-6']);
@@ -123,4 +123,15 @@ test('Haiku suggestions and discovered future versions retain the subscription p
   f.choose('codex');f.choose('guest_claude');
   assert.equal(f.$('model').value,'claude-haiku-5-5');
   assert.equal(f.$('reasoningEffort').value,'xhigh');
+});
+
+test('Fable 5.2 keeps the exact selected model across catalog refresh',async()=>{
+  const id='claude-fable-5-2';
+  const f=fixture(async()=>({source:'claude_subscription',models:[{id,label:'Claude Fable 5.2'}]}));
+  f.choose('guest_claude');
+  assert.equal(f.$('model').value,'claude-opus-5-5');
+  f.picker.selectModel(id);
+  await tick();
+  assert.equal(f.$('model').value,id);
+  assert.equal(f.$('availableModels').children[0].value,id);
 });

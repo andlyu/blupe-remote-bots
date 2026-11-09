@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 import uuid
 
+from .model_catalog import FABLE_5_2
 from .session import MAX_COMMANDS
 from .providers import ResponsesAdapter, PolicyComplete
 from .robocurve_contract import SYSTEM_PROMPT, TOOLS
@@ -374,7 +375,9 @@ class RoboCurveResponsesAdapter(ResponsesAdapter):
             summary = wire_events([{'kind':'response', 'call':self._calls,
                                     'time':time.time(), 'response':raw}])[0]
             self._interaction('model_response', summary['message'], tools=summary['details']['tools'],
-                              response=__import__('remote_yam.public_conversation', fromlist=['response_text']).response_text(raw))
+                              response=__import__('remote_yam.public_conversation', fromlist=['response_text']).response_text(raw),
+                              **({'resolved_model': FABLE_5_2, 'policy': self.public_config()['policy']}
+                                 if self.model == raw.get('model') == FABLE_5_2 else {}))
             if self.cancelled():
                 return []
             output = raw.get('output')

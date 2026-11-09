@@ -16,8 +16,8 @@
     function modelsFor(name) {
       if (!defaults[name]) return [];
       return catalogs.get(name)?.models || [defaults[name],
-        ...(['anthropic','claude','guest_claude'].includes(name) ? ['claude-haiku-5-5'] : ['gpt-6.1-terra'])]
-        .map(id => ({id,label:id}));
+        ...(['anthropic','claude','guest_claude'].includes(name) ? ['claude-haiku-5-5','claude-fable-5-2'] : ['gpt-6.1-terra'])]
+        .map(id => ({id,label:id === 'claude-fable-5-2' ? 'Claude Fable 5.2' : id}));
     }
     function saveSelection() {
       if (!provider || fixed) return;
@@ -62,7 +62,7 @@
     function renderCatalog() {
       const catalog = catalogs.get(provider);
       $('availableModels').replaceChildren(...modelsFor(provider).map(model => nodeOption(model.id, model.label)));
-      $('modelCatalogStatus').textContent = catalog?.message || 'Choose Astra or GPT 6.1+, or Claude Opus or Haiku 5.5+. Enter a model ID or refresh the list.';
+      $('modelCatalogStatus').textContent = catalog?.message || 'Choose a model or enter its exact ID. Refresh to see the models available from your provider.';
       applyEffort();
       changed();
     }
