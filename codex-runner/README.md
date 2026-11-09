@@ -171,7 +171,11 @@ an explicit model ID. OpenAI supports Astra (`gpt-6-astra`) and GPT 6.1 or newer
 including `gpt-6.1-sol` and `gpt-6.1-terra`. Terra appears in the model menu and
 uses the existing OpenAI API or Codex subscription adapter. Codex requires
 **CLI 0.159.0 or later** for GPT 6.1 Terra; update the CLI before selecting it.
-Astra remains the default. Claude supports **Opus or Haiku 5.5 or newer**. The same release
+Astra remains the default. Claude supports **Fable 5.2** (`claude-fable-5-2`) and **Opus or Haiku 5.5 or newer**.
+Select **Fable 5.2** under Claude in the model picker. A Claude subscription
+needs access to this model; use **Anthropic API key** for direct API access.
+If the selected provider can't confirm a Fable 5.2 decision, the runner stops
+before executing it. The same release
 limits apply to manually entered IDs; older models and other Claude families
 are rejected before joining the queue.
 

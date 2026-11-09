@@ -16,6 +16,7 @@ from urllib import parse, request
 
 DEFAULTS = {'openai': 'gpt-6-astra', 'codex': 'gpt-6-astra',
             'anthropic': 'claude-opus-5-5', 'claude': 'claude-opus-5-5'}
+FABLE_5_2 = 'claude-fable-5-2'
 TIMEOUT = 15
 MAX_BYTES = 2_000_000
 EFFORTS = ('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')
@@ -25,10 +26,11 @@ def baseline_models(provider):
     """Suggestions when discovery is unavailable; never account entitlements."""
     ids = [DEFAULTS[provider]]
     if provider in ('anthropic', 'claude'):
-        ids.append('claude-haiku-5-5')
+        ids.extend(('claude-haiku-5-5', FABLE_5_2))
     elif provider in ('openai', 'codex'):
         ids.append('gpt-6.1-terra')
-    return [{'id': identifier, 'label': identifier} for identifier in ids]
+    return [{'id': identifier, 'label': 'Claude Fable 5.2' if identifier == FABLE_5_2 else identifier}
+            for identifier in ids]
 
 
 def model_id(value, *, allow_empty=False):
@@ -46,7 +48,7 @@ def eligible_model(provider, identifier):
     """User-selected release floors, without enumerating each future release.
 
     Astra is the GPT-6 baseline; other GPT families begin at 6.1. Claude is
-    restricted to Opus or Haiku 5.5+. Explicit IDs preserve the release floor.
+    restricted to Opus or Haiku 5.5+ and the explicitly supported Fable 5.2.
     """
     if not isinstance(identifier, str):
         return False
@@ -60,6 +62,8 @@ def eligible_model(provider, identifier):
             return False
         return version >= (6, 1) or version == (6, 0) and bool(re.fullmatch(r'-astra(?:-\d{4}-\d{2}-\d{2})?', suffix))
     if provider in ('anthropic', 'claude'):
+        if identifier == FABLE_5_2:
+            return True
         match = re.fullmatch(r'claude-(?:opus|haiku)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[1m\])?', identifier)
         return bool(match and (int(match[1]), int(match[2] or 0)) >= (5, 5))
     return False
@@ -69,7 +73,7 @@ def selected_model(provider, value):
     identifier = model_id(value, allow_empty=True) or DEFAULTS[provider]
     if not eligible_model(provider, identifier):
         raise ValueError('Choose Astra or GPT 6.1 or newer.' if provider in ('openai', 'codex')
-                         else 'Choose an explicit Claude Opus or Haiku 5.5 or newer model ID.')
+                         else 'Choose Claude Fable 5.2 or an explicit Claude Opus or Haiku 5.5+ model ID.')
     return identifier
 
 
@@ -90,9 +94,12 @@ def normalize(rows, provider):
             identifier = model_id(row.get('resolvedModel') or row.get('model') or row.get('value') or row.get('id'))
         except ValueError:
             continue
+        # Claude Code may append a context selector; Fable 5.2 already has a 1M window.
+        if provider == 'claude' and identifier == FABLE_5_2 + '[1m]':
+            identifier = FABLE_5_2
         if not eligible_model(provider, identifier):
             continue
-        label = row.get('displayName') or row.get('display_name') or row.get('display') or identifier
+        label = row.get('displayName') or row.get('display_name') or row.get('display') or ('Claude Fable 5.2' if identifier == FABLE_5_2 else identifier)
         option = {'id': identifier, 'label': str(label)[:160]}
         efforts = row.get('supportedReasoningEfforts')
         if isinstance(efforts, list):

@@ -2,6 +2,8 @@
 import json
 import re
 
+from .model_catalog import FABLE_5_2
+
 
 def request_images(content, recorder):
     if recorder is None:
@@ -51,6 +53,11 @@ def project_events(events, run_id):
         row['message'] = message or event.get('message', '')
         if event['kind'] == 'model_request' and details.get('request_display'):
             row['request'] = details['request_display']
+        if event['kind'] == 'model_response' and details.get('resolved_model') == FABLE_5_2:
+            row['resolved_model'] = FABLE_5_2
+            if details.get('policy') in {'robocurve_no_demo', 'so101_cartesian',
+                                         'bimanual_so101_cartesian', 'makerarm_cartesian'}:
+                row['policy'] = details['policy']
         if event['kind'] == 'model_progress':
             category = details.get('progress_type')
             if category not in {'summary', 'status'}:

@@ -28,6 +28,7 @@ from types import MethodType
 import uuid
 
 from .codex_policy import DECISION_SCHEMA, decision_response as _shared_decision_response
+from .model_catalog import FABLE_5_2
 from .robocurve_policy import RoboCurveResponsesAdapter
 
 DEFAULT_MODEL = 'claude-opus-5-5'
@@ -139,22 +140,69 @@ def claude_failure(raw):
             'no motion sent.')
 
 
+class FableModelMismatch(RuntimeError):
+    """The CLI did not verify the selected model for this decision."""
+
+
+def claude_output_flags(model):
+    # A result-only envelope reports usage, not which model supplied the
+    # assistant decision. Stream assistant messages to check Fable fallbacks.
+    return ['--output-format', 'stream-json', '--verbose'] if model == FABLE_5_2 else ['--output-format', 'json']
+
+
+def claude_report(raw, model):
+    lines = raw.decode().strip().splitlines()
+    report = json.loads(lines[-1])
+    if not isinstance(report, dict):
+        raise ValueError('Invalid Claude result')
+    if model != FABLE_5_2 or report.get('is_error'):
+        return report
+    if report.get('type') != 'result':
+        raise ValueError('Claude did not return a final result')
+    actual = set()
+    for line in lines[:-1]:
+        event = json.loads(line)
+        if event.get('type') == 'assistant' and event.get('parent_tool_use_id') is None:
+            identifier = event['message']['model']
+            if not isinstance(identifier, str):
+                raise ValueError('Invalid Claude model ID')
+            actual.add(identifier.removesuffix('[1m]'))
+    if actual != {FABLE_5_2}:
+        raise FableModelMismatch('Claude Code did not confirm Fable 5.2 throughout the turn; no motion sent.')
+    return {**report, 'resolved_model': FABLE_5_2}
+
+
 def use_claude_executor(provider, executor, *, close=None):
     """Attach a private model-only transport to the robot's existing validator."""
     from .codex_policy import CodexAdapter, use_codex_executor
-    provider = use_codex_executor(provider, executor, close=close)
+    def verify_executor(**kwargs):
+        events = executor(**kwargs)
+        if kwargs['model'] == FABLE_5_2 and not any(
+                event.get('type') == 'turn.completed' and event.get('resolved_model') == FABLE_5_2
+                for event in events):
+            raise FableModelMismatch('Claude service did not confirm Fable 5.2; no motion sent.')
+        return events
+
+    provider = use_codex_executor(provider, verify_executor, close=close)
+    resolved_model = None
     if not hasattr(provider, '_decision_response'):
         provider._decision_response = decision_response
     def post(self, payload):
+        nonlocal resolved_model
         try:
-            return CodexAdapter._post_json(self, payload)
+            result = CodexAdapter._post_json(self, payload)
+            if self.model == FABLE_5_2:
+                resolved_model = result['model'] = FABLE_5_2
+            return result
         except RuntimeError as exc:
             raise RuntimeError(str(exc).replace('Codex', 'Claude')) from None
     provider._post_json = MethodType(post, provider)
     original_config = provider.public_config
     def config():
         return {**original_config(), 'authentication':'claude_subscription',
-                'transport':'claude_executor', 'funding':'sponsored_claude_subscription'}
+                'transport':'claude_executor', 'funding':'sponsored_claude_subscription',
+                **({'requested_model': provider.model, 'resolved_model': resolved_model}
+                   if provider.model == FABLE_5_2 else {})}
     provider.public_config = config
     return provider
 
@@ -180,12 +228,15 @@ class ClaudeAdapter(RoboCurveResponsesAdapter):
         self._sent_items = 0
         self._timeout_s = timeout_s
         self._usage = None
+        self._resolved_model = None
 
     def public_config(self):
         return {**super().public_config(), 'api_key_configured': False,
                 'authentication': 'claude_subscription', 'transport': 'claude_print',
                 'claude_connected': True, 'usage': self._usage,
-                'reasoning_effort': self.reasoning_effort}
+                'reasoning_effort': self.reasoning_effort,
+                **({'requested_model': self.model, 'resolved_model': self._resolved_model}
+                   if self.model == FABLE_5_2 else {})}
 
     def _post_json(self, payload):
         root = Path(self._workspace.name)
@@ -236,7 +287,7 @@ class ClaudeAdapter(RoboCurveResponsesAdapter):
         if self._session_id is None:
             lines.append('Action contract: ' + json.dumps(payload.get('tools', [])))
         command = [self._binary, '--print',
-                   '--output-format', 'json',
+                   *claude_output_flags(self.model),
                    '--json-schema', json.dumps(getattr(self, '_decision_schema', DECISION_SCHEMA)),
                    '--model', self.model,
                    '--settings', json.dumps({'fastMode': self.response_speed == 'fast'}),
@@ -274,14 +325,20 @@ class ClaudeAdapter(RoboCurveResponsesAdapter):
             raise RuntimeError('Claude did not return a conversation ID; no motion sent')
         if self._session_id is not None and session_id != self._session_id:
             raise RuntimeError('Claude resumed the wrong conversation')
-        final = report.get('result')
-        if not isinstance(final, str):
-            raise RuntimeError('Claude did not complete a structured decision; no motion sent')
+        final = report.get('structured_output')
+        if final is None:
+            final = report.get('result')
+            if not isinstance(final, str):
+                raise RuntimeError('Claude did not complete a structured decision; no motion sent')
         try:
-            result = getattr(self, '_decision_response', decision_response)(json.loads(final))
+            value = json.loads(final) if isinstance(final, str) else final
+            result = getattr(self, '_decision_response', decision_response)(value)
         except (ValueError, TypeError):
             raise RuntimeError('Claude returned malformed JSON; no motion sent') from None
         self._session_id = session_id
+        if self.model == FABLE_5_2:
+            self._resolved_model = report['resolved_model']
+            result['model'] = self._resolved_model
         usage = report.get('usage')
         self._usage = {'input_tokens': usage.get('input_tokens'),
                        'output_tokens': usage.get('output_tokens'),
@@ -320,11 +377,9 @@ class ClaudeAdapter(RoboCurveResponsesAdapter):
                 if b'unrecognized_model' in raw + diagnostics:
                     raise RuntimeError(claude_failure(b'unrecognized_model'))
                 try:
-                    report = json.loads(raw.decode().strip().splitlines()[-1])
-                except (ValueError, UnicodeError, IndexError):
+                    report = claude_report(raw, self.model)
+                except (ValueError, TypeError, KeyError, AttributeError, IndexError):
                     raise RuntimeError('Claude returned malformed output; no motion sent') from None
-                if not isinstance(report, dict):
-                    raise RuntimeError('Claude returned an invalid result object; no motion sent')
                 return report
             finally:
                 if process.poll() is None:

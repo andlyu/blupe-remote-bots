@@ -47,12 +47,23 @@ class ModelCatalogTests(unittest.TestCase):
             {'id':'claude-haiku-4-5'}, {'id':'claude-haiku-6','lifecycle':'retired'}], 'claude'),
             [{'id':'claude-haiku-5-5','label':'Haiku 5.5','reasoning_efforts':['low','medium','high','xhigh','max']}])
 
-    def test_haiku_baseline_is_a_suggestion_without_auth_or_network(self):
+    def test_fable_id_is_available_only_on_claude_routes(self):
+        model = 'claude-fable-5-2'
+        for provider in ('claude', 'anthropic'):
+            self.assertEqual(catalog.selected_model(provider, model), model)
+            self.assertIn(model, [row['id'] for row in catalog.baseline_models(provider)])
+            with self.assertRaises(ValueError):
+                catalog.selected_model(provider, 'claude-fable-5-1')
+        self.assertFalse(catalog.eligible_model('codex', model))
+        self.assertEqual(catalog.normalize([{'resolvedModel': model + '[1m]'}], 'claude'),
+                         [{'id':model, 'label':'Claude Fable 5.2'}])
+
+    def test_claude_baseline_is_a_suggestion_without_auth_or_network(self):
         with patch.object(catalog, 'api_models') as fetch:
             result = catalog.discover_models('anthropic')
         fetch.assert_not_called()
         self.assertEqual(result['source'], 'fallback')
-        self.assertEqual([row['id'] for row in result['models']], ['claude-opus-5-5','claude-haiku-5-5'])
+        self.assertEqual([row['id'] for row in result['models']], ['claude-opus-5-5','claude-haiku-5-5','claude-fable-5-2'])
 
     def test_terra_suggestion_survives_missing_credentials_and_cli_failure(self):
         with patch.object(catalog, 'api_models') as fetch, \

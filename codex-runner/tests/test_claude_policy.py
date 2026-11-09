@@ -111,6 +111,25 @@ class ClaudeStatusTests(unittest.TestCase):
 
 
 class ClaudePolicyTests(unittest.TestCase):
+    def test_sponsored_fable_requires_broker_attestation(self):
+        from remote_yam.anthropic_policy import AnthropicAdapter
+        from remote_yam.claude_policy import use_claude_executor
+        model = 'claude-fable-5-2'
+        completed = {'type':'turn.completed'}
+        def execute(**kwargs):
+            self.assertEqual(kwargs['model'], model)
+            return [{'type':'thread.started','thread_id':SESSION},
+                    {'type':'item.completed','item':{'type':'agent_message','text':json.dumps(decision())}},
+                    completed]
+        provider = use_claude_executor(AnthropicAdapter('placeholder', model), execute)
+        self.addCleanup(provider.close_transport)
+        with self.assertRaisesRegex(RuntimeError, 'service did not confirm Fable'):
+            provider._post_json(payload())
+        self.assertIsNone(provider.public_config()['resolved_model'])
+        completed['resolved_model'] = model
+        self.assertEqual(provider._post_json(payload())['model'], model)
+        self.assertEqual(provider.public_config()['resolved_model'], model)
+
     def test_private_executor_retains_decision_validation_and_has_no_http_fallback(self):
         from remote_yam.anthropic_policy import AnthropicAdapter
         from remote_yam.claude_policy import use_claude_executor
@@ -247,15 +266,15 @@ class ClaudePolicyTests(unittest.TestCase):
 class ClaudeExecutionTests(unittest.TestCase):
     """The unrecognized-model fallback is silent, so it is checked on real output."""
 
-    def provider(self):
+    def provider(self, model='claude-opus-5-5'):
         with patch('remote_yam.claude_policy.claude_status', return_value={'ready': True}), \
              patch('remote_yam.claude_policy.claude_binary', return_value='/bin/claude'):
-            provider = ClaudeAdapter(model='claude-opus-5-5')
+            provider = ClaudeAdapter(model=model)
         self.addCleanup(provider._workspace.cleanup)
         return provider
 
-    def execute(self, stdout, returncode=0):
-        provider = self.provider()
+    def execute(self, stdout, returncode=0, model='claude-opus-5-5'):
+        provider = self.provider(model)
         script = ('import sys; sys.stdout.write(%r); sys.exit(%d)' % (stdout, returncode))
         command = [sys.executable, '-c', script]
         return provider._execute(command, '', Path(provider._workspace.name))
@@ -266,6 +285,17 @@ class ClaudeExecutionTests(unittest.TestCase):
             self.execute(line)
         self.assertIn('no motion sent', str(caught.exception))
         self.assertIn('does not recognize the requested model', str(caught.exception))
+
+    def test_fable_stream_requires_every_main_assistant_turn_to_use_fable(self):
+        model = 'claude-fable-5-2'
+        assistant = lambda name: json.dumps({'type':'assistant', 'parent_tool_use_id':None,
+                                             'message':{'model':name}})
+        final = json.dumps(report())
+        self.assertEqual(self.execute('\n'.join([assistant(model), final]), model=model)['resolved_model'], model)
+        for events in ([final], [assistant('claude-opus-5'), final],
+                       [assistant(model), assistant('claude-opus-5'), final]):
+            with self.assertRaisesRegex(RuntimeError, 'did not confirm Fable'):
+                self.execute('\n'.join(events), model=model)
 
     def test_a_clean_result_line_is_returned(self):
         self.assertEqual(self.execute(json.dumps(report()))['session_id'], SESSION)
