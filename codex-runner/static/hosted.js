@@ -1394,9 +1394,13 @@ function createRunLaunchGuard() {
     renderCurrentConversation(runLaunchGuard.conversation(null),state);
     updateSavedKey(state.saved_key_providers);window.yamAnalytics?.observe(state);
     $('apiKey').value = '';$('runSettings').open = true;$('localRunDialog').close();
-    active = ['queued','preparing','running'].includes(state.status || 'queued');
-    guideRunAttention({status:state.status || 'queued'});
-    message((['molmoact2','dreamzero'].includes(payload.provider) && !state.session_id ? 'Preparing the model GPU. The robot queue and run timer start after it is ready.' : payload.provider === 'groot' ? 'You’re in the queue. GR00T GPU warmup has started.' : 'You’re in the queue. Your position is highlighted above.'));
+    const status = state.status || 'queued';
+    active = ['queued','preparing','running'].includes(status);
+    guideRunAttention({status});
+    if (['molmoact2','dreamzero'].includes(payload.provider) && !state.session_id)
+      message('Preparing the model GPU. The robot queue and run timer start after it is ready.');
+    else if (payload.provider === 'groot') message('You’re in the queue. GR00T GPU warmup has started.');
+    else showInlineRunStage(status, true);
     }
     catch (error) {
       if (error.stale) return;
@@ -1536,6 +1540,15 @@ function createRunLaunchGuard() {
     }
     attentionSession = session;
     attentionPhase = attention;
+  }
+  let inlineRunStage = '';
+  function showInlineRunStage(status, initial = false) {
+    const current = $('message').textContent;
+    const ownsMessage = initial || !current || current === inlineRunStage;
+    inlineRunStage = ['queued', 'preparing', 'running'].includes(status) ? $('queueGuidance').textContent : '';
+    // Let a specific warning or user-action result stay visible. Avoid
+    // announcing the same stage on each status poll.
+    if (ownsMessage && current !== inlineRunStage) message(inlineRunStage);
   }
   function modelResponseTools(event) {
     if (event?.kind !== 'model_response') return [];
@@ -1895,6 +1908,7 @@ function createRunLaunchGuard() {
     else if (state.provider?.vision?.retry?.state === 'retrying') message(state.provider.vision.retry.message, state.provider.vision.retry.cause === 'No image');
     else if (state.provider?.vision?.retry?.state === 'failed') message(state.provider.vision.retry.message, true);
     else if (state.provider?.vision?.retry?.state === 'recovered' && /^(Waiting for next |No image)/.test($('message').textContent)) message('Camera feeds recovered. Continuing the run.');
+    else showInlineRunStage(state.status);
     const queue = state.queue_snapshot;
     renderPublicRunNotice(state, taskFailure);
     const station = queue?.stations?.find(item => item.jetson_id === selectedRobot);
