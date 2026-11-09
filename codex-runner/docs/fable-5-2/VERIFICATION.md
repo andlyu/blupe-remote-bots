@@ -75,6 +75,11 @@ The selected model is exactly `claude-fable-5-2`. No other model was substituted
   with a completed reply. The local BluPe launcher using signed Claude Code
   2.1.321 is awaiting the researcher's own Claude Code sign-in. The web
   account check does not establish access in BluPe's runner or sponsored broker.
+- At 13:27 PST the active and staged hosted CLI executables both reported
+  signed out under the broker account. The exact-model text check stopped at
+  authentication before sending its prompt. A new anonymous Robo-house web
+  session omitted sponsored Claude and still exposed Claude API-key support.
+  No new robot attempt or model response resulted from these checks.
 - Still required are a confirmed Fable 5.2 response through a BluPe runner,
   a successful representative physical execution, exact queue and motion
   timing, and a verified successful replay and historical attribution.

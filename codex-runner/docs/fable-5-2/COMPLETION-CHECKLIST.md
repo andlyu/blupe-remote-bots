@@ -601,6 +601,8 @@ before any completion claim.
   consistent approach attribution across history and notifications,
   representative physical task success, live task motion, successful replay
   and history, both timing budgets, and complete inline lifecycle transitions.
-  The hosted catalog lists Fable 5.1 and Fable 5. The local subscription route
-  is awaiting Claude Code sign-in. The deployed API-key route still needs
-  end-to-end inference verification.
+  The earlier hosted catalog listed Fable 5.1 and Fable 5. A later live check
+  found the hosted broker signed out and sponsored Claude absent from the
+  public Robo-house session. The local subscription route is awaiting Claude
+  Code sign-in. The deployed API-key route still needs end-to-end inference
+  verification.
