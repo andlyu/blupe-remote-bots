@@ -66,3 +66,49 @@ def test_failed_request_redacts_key_after_revocation():
     with pytest.raises(RuntimeError) as exc: adapter._post_json(payload())
     assert 'private-key' not in str(exc.value)
     assert '[REDACTED]' in str(exc.value)
+
+
+def test_fable_preserves_signed_turn_across_tool_feedback_without_logging_thinking():
+    model = 'claude-fable-5-2'
+    p = {**payload(), 'model': model}
+    adapter = AnthropicAdapter('private-key', model)
+    turns = [
+        {'type':'thinking','thinking':'','signature':'first-signature'},
+        {'type':'text','text':'Checking the scene'},
+        {'type':'redacted_thinking','data':'private-signature'},
+        {'type':'tool_use','id':'toolu_1','name':'move_to','input':{'targets':{'left_x':0.4},'note':'Move'}},
+    ]
+    responses = iter([
+        {'model':model,'stop_reason':'tool_use','content':turns},
+        {'model':model,'stop_reason':'tool_use','content':[
+            {'type':'tool_use','id':'toolu_2','name':'done','input':{'summary':'OK','hindsight':'OK'}}]},
+    ])
+    requests = []
+    def send(req, timeout):
+        requests.append(json.loads(req.data))
+        return io.BytesIO(json.dumps(next(responses)).encode())
+    adapter._urlopen = send
+    first = adapter._post_json(p)
+    assert first['model'] == model
+    assert 'private-signature' not in json.dumps(first)
+    p['input'] += first['output'] + [
+        {'type':'function_call_output','call_id':'toolu_1','output':'{"ok":true}'},
+        {'role':'user','content':'New measured observation'},
+    ]
+    assert adapter._post_json(p)['output'][0]['name'] == 'done'
+    assert requests[0]['tool_choice'] == {'type':'auto','disable_parallel_tool_use':True}
+    assert requests[1]['messages'][:1] == requests[0]['messages']
+    assert requests[1]['messages'][1] == {'role':'assistant','content':turns}
+    assert requests[1]['messages'][2]['content'][0]['tool_use_id'] == 'toolu_1'
+
+
+@pytest.mark.parametrize('returned_model', ['claude-opus-5', None])
+def test_fable_api_never_returns_motion_on_fallback_or_missing_model(returned_model):
+    model = 'claude-fable-5-2'
+    adapter = AnthropicAdapter('private-key', model)
+    body = {'model':returned_model,'stop_reason':'tool_use','content':[
+        {'type':'tool_use','id':'toolu_1','name':'move_to','input':{'targets':{'left_x':0.4},'note':'Move'}}]}
+    adapter._urlopen = lambda req, timeout: io.BytesIO(json.dumps(body).encode())
+    with pytest.raises(RuntimeError, match='did not confirm Fable 5.2'):
+        adapter._post_json({**payload(), 'model':model})
+    assert adapter.public_config()['resolved_model'] is None

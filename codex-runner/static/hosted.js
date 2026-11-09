@@ -1738,8 +1738,20 @@ function createRunLaunchGuard() {
     if (requested) lines.push('Requested: ' + requested);
     if (live.reviewing_prompt) lines.push('Execution: waiting for the runner to accept this request.');
     else {
-      lines.push(actual ? 'Recorded model: ' + modelLabel(actual) + ' · ' + actual
-        : live.model_name ? 'Runner-reported model: ' + live.model_name : 'Model: not recorded for this run.');
+      if (actual === 'claude-fable-5-2' || requested === 'claude-fable-5-2') {
+        const verified = (live.events || []).find(event => event.kind === 'model_response' &&
+          (event.resolved_model || event.details?.resolved_model) === 'claude-fable-5-2');
+        const policy = own.policy || verified?.policy || verified?.details?.policy;
+        const approach = {robocurve_no_demo:'RoboCurve',so101_cartesian:'SO101 Cartesian policy',
+          bimanual_so101_cartesian:'Bimanual SO101 Cartesian policy',makerarm_cartesian:'MakerArm Cartesian policy'}[policy];
+        if (approach) lines.push('Approach: ' + approach);
+        lines.push(verified || own.resolved_model === 'claude-fable-5-2'
+          ? 'Verified model: Claude Fable 5.2 · claude-fable-5-2'
+          : 'Requested model: Claude Fable 5.2 · provider model not confirmed');
+      } else {
+        lines.push(actual ? 'Recorded model: ' + modelLabel(actual) + ' · ' + actual
+          : live.model_name ? 'Runner-reported model: ' + live.model_name : 'Model: not recorded for this run.');
+      }
       const providerNames = {codex:'Codex / ChatGPT subscription',claude:'Claude Code / Claude subscription',openai:'OpenAI API',anthropic:'Anthropic API',groot:'GR00T policy',local_raise_lower:'Built-in arm motion'};
       if (route.requested_policy && route.actual_policy)
         lines.push('Route: ' + route.requested_policy + ' → ' + route.actual_policy);
@@ -2832,7 +2844,7 @@ function createRunLaunchGuard() {
         if (session.claude) {
           claudeModel = session.claude_model || claudeModel;
           const option = document.createElement('option');
-          option.value = 'claude'; option.textContent = 'Claude subscription · Opus 5.5+'; option.dataset.model = claudeModel;
+          option.value = 'claude'; option.textContent = 'Claude subscription'; option.dataset.model = claudeModel;
           if (!$('provider').querySelector('[value=claude]')) $('provider').prepend(option);
           $('claudeStatus').textContent = session.claude.message;
         }
@@ -3178,7 +3190,9 @@ function bindQuickTaskDraft(prompt, quick) {
     const claude = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?$/.exec(id);
     let label = astra ? 'Astra ' + astra[1] : claude
       ? claude[1][0].toUpperCase() + claude[1].slice(1) + ' ' + claude[2] + (claude[3] ? '.' + claude[3] : '') : id;
-    if (['codex','claude'].includes(option.value)) label += ' · subscription';
+    if (id === 'claude-fable-5-2' && option.value === 'guest_claude') label += ' · BluPe subscription';
+    else if (id === 'claude-fable-5-2' && option.value === 'anthropic') label += ' · API key';
+    else if (['codex','claude'].includes(option.value)) label += ' · subscription';
     if (['aspire','hosted_aspire'].includes(option.value)) label = 'ASPIRE · ' + label;
     return {id,label};
   }
