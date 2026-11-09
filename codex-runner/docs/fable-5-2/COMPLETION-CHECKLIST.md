@@ -198,7 +198,7 @@ below; underlying model/checkpoint selections remain separate metadata.
   the requested object/result state; a narrower smoke test is labelled as such.
   Relevant failures or changed control code reopen affected requirements and
   the current passed/total display, preserving earlier results as history.
-- [ ] A person can use the website to run the integrated paper's method on
+- [x] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
 - [ ] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
@@ -385,6 +385,7 @@ Queue-admission waiting uses the normal exclusion above, not this mechanism.
 | Run reference | Run/Start click (`t_run`) | Queue entry / admission (`t_queue` / `t_admit`), matching lifecycle evidence; or evidenced no-wait | Excluded queue seconds (`Q_run`) | Startup Home settled completion / no-Home readiness (`t_home`) and evidence | First observed method motion (`t_motion`) / visual evidence | Full Run-to-motion seconds | Queue-adjusted Run seconds | Full post-Home-to-motion seconds | Run / post-Home outcomes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | | | | | | | | | | |
+| `ep_a19a2ed66db04a2f` | User started before observation | Exact entry and admission unobserved | Unverified | Settled Home boundary unobserved | Edited replay shows right-arm movement, exact onset unverified | Unverified | Unverified | Unverified | Both unverified. The first model call alone took 113.44 s. |
 
 - Exception record (repeat for each affected run):
 - Exception category (GPU launch or paper/research-grounded):
@@ -597,11 +598,12 @@ before any completion claim.
   [PR #302](https://github.com/andlyu/blupe-remote-bots/pull/302). The focused
   tests exercised queue admission, preparation, running and termination. A
   successful physical run is still needed to verify the full inline lifecycle.
-- Pending acceptance includes a confirmed Fable 5.2 response in BluPe,
-  consistent approach attribution across history and notifications,
-  representative physical task success, live task motion, successful replay
-  and history, both timing budgets, and complete inline lifecycle transitions.
-  Both subscription catalogs now list the exact Fable 5.2 ID. The owner restored
-  the hosted login, and the public picker offers “Fable 5.2 · BluPe subscription”
-  through Claude Code 2.1.321. A direct text response reported the exact model.
-  The normal BluPe robot path still needs end-to-end verification.
+- Both subscription catalogs list the exact Fable 5.2 ID. In the public
+  playground, the researcher's Robo-house run verified `claude-fable-5-2`
+  and executed one right-arm move. The second model request timed out, and
+  the edited replay shows the block outside the cup. See the episode and
+  timing evidence in [the verification record](VERIFICATION.md).
+- Pending acceptance includes consistent approach attribution across history
+  and notifications, representative physical task success, live task motion,
+  successful replay and history, both timing budgets, and complete inline
+  lifecycle transitions.

@@ -92,6 +92,24 @@ The selected model is exactly `claude-fable-5-2`. No other model was substituted
   Activation checked all six robot queues were idle and kept the same broker
   process. The public catalog returned the exact model through the subscription
   route. The browser showed and selected “Fable 5.2 · BluPe subscription.”
-- Still required are a confirmed Fable 5.2 response through a BluPe runner,
-  a successful representative physical execution, exact queue and motion
-  timing, and a verified successful replay and historical attribution.
+- In user-started public episode `ep_a19a2ed66db04a2f`, Fable 5.2 was verified
+  in the live UI and executed one right-arm move to approach the blue block.
+  The first model call took 113.44 seconds. The robot confirmed all 20
+  waypoints in one accepted packet, moved the right arm 10.77 cm and spent
+  2.40 seconds executing. The next request timed out. The block stayed
+  outside the cup, and the public record reports failure. The edited replay
+  shows the different right-arm positions before and after the move.
+  [Public replay](https://playground.blupe.io/api/quick-replays/ep_a19a2ed66db04a2f/93ce24da8d2fe1d7e8d5e1665d326710ba9ac1517bd0ed7ef60776d21cd43ee0.mp4)
+- The observed hosted process for that run used Extra High effort and passed
+  `fastMode: true`. Actual inference speed was unverified. Anthropic requires
+  a Fable-specific `/fast` opt-in and usage credits for Claude Code Fast mode.
+  The Run click, queue timestamps and settled Home boundary were not captured
+  for this user-started run. The two motion timing targets remain unverified.
+  [Claude Code Fast mode](https://code.claude.com/docs/en/fast-mode)
+- The deployed picker now labels the sponsored entry “Fable 5.2” and defaults
+  to Extra High when supported. The browser opened the direct link with the
+  sponsored model selected and verified that Reset restores Extra High. The
+  prior saved effort stayed selectable. [Picker PR #303](https://github.com/andlyu/blupe-remote-bots/pull/303)
+  · [Direct Fable 5.2 link](https://playground.blupe.io/?robot_id=robot-ba8413962083809c&model=claude-fable-5-2)
+- Representative task success, exact queue and motion timing, and successful
+  replay and historical attribution are still required.
