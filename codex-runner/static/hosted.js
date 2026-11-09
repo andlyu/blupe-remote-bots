@@ -5,6 +5,7 @@ function playgroundEntryModel(search, options, session = {}) {
   const requested = (new URLSearchParams(search).get('model') || '').trim().toLowerCase();
   const aliases = {dream:'dream', 'dream-1':'dream', 'dreamlabs/dream-1-beta':'dream',
     terra:'terra', 'gpt-6.1-terra':'terra',
+    fable:'fable', 'claude-fable-5-2':'fable',
     astra:'astra', 'gpt-6-astra':'astra', argon:'argon', 'gemini-4-argon':'argon'};
   const name = Object.hasOwn(aliases, requested) ? aliases[requested] : (session.local_runner ? null : 'dream');
   if (!name) return null;
@@ -16,6 +17,7 @@ function playgroundEntryModel(search, options, session = {}) {
   };
   const astra = () => select('gpt-6-astra', ['guest_astra', 'codex', 'openai']);
   if (name === 'terra') return select('gpt-6.1-terra', ['guest_astra', 'codex', 'openai']);
+  if (name === 'fable') return select('claude-fable-5-2', ['guest_claude', 'claude', 'anthropic']);
   return (name === 'dream' ? select('dreamlabs/dream-1-beta', ['dream'])
     : name === 'argon' ? select('gemini-4-argon', ['guest_gemini', 'gemini']) : astra())
     || (session.local_runner ? null : astra());
@@ -3206,8 +3208,7 @@ function bindQuickTaskDraft(prompt, quick) {
     const claude = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:-(\d+))?$/.exec(id);
     let label = astra ? 'Astra ' + astra[1] : claude
       ? claude[1][0].toUpperCase() + claude[1].slice(1) + ' ' + claude[2] + (claude[3] ? '.' + claude[3] : '') : id;
-    if (id === 'claude-fable-5-2' && option.value === 'guest_claude') label += ' · BluPe subscription';
-    else if (id === 'claude-fable-5-2' && option.value === 'anthropic') label += ' · API key';
+    if (id === 'claude-fable-5-2' && option.value === 'anthropic') label += ' · API key';
     else if (['codex','claude'].includes(option.value)) label += ' · subscription';
     if (['aspire','hosted_aspire'].includes(option.value)) label = 'ASPIRE · ' + label;
     return {id,label};

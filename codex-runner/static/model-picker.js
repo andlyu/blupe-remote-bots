@@ -52,10 +52,10 @@
       const field = $('reasoningEffort'), previous = field.value;
       const identity = effortKey();
       let saved; try { saved = storage?.getItem(identity); } catch (_) {}
-      defaultEffort = entry?.default_reasoning_effort || (['claude','guest_claude'].includes(provider) ? 'medium' : provider === 'guest_astra' ? 'high' : efforts[0]);
-      if (!efforts.includes(defaultEffort)) defaultEffort = efforts[0];
+      const fallbackDefault = ['claude','guest_claude'].includes(provider) ? 'medium' : provider === 'guest_astra' ? 'high' : efforts[0];
+      defaultEffort = ['xhigh', entry?.default_reasoning_effort, fallbackDefault].find(effort => efforts.includes(effort)) || efforts[0];
       field.replaceChildren(...efforts.map(effort => nodeOption(effort, labels[effort])));
-      field.value = efforts.includes(saved) ? saved : effortIdentity === identity && efforts.includes(previous) ? previous : provider.startsWith('guest_') && efforts.includes('high') ? 'high' : defaultEffort;
+      field.value = efforts.includes(saved) ? saved : effortIdentity === identity && efforts.includes(previous) ? previous : defaultEffort;
       effortIdentity = identity;
       renderEffort();
     }
@@ -110,7 +110,7 @@
     }
     function selectModel(value) {
       $('model').value = value;
-      saveEffort(); saveSelection(); applyEffort(); changed();
+      saveSelection(); applyEffort(); changed();
     }
     $('model').addEventListener('input', () => selectModel($('model').value));
     $('reasoningEffort').addEventListener('change', () => { saveEffort(); renderEffort(); });
@@ -121,7 +121,7 @@
     $('resetReasoning')?.addEventListener('click', () => { $('reasoningEffort').value = defaultEffort; saveEffort(); renderEffort(); });
     $('refreshModels').addEventListener('click', () => { void refresh(true); });
     $('apiKey').addEventListener('change', () => { void refresh(true); });
-    return {saveSelection:() => { saveEffort(); saveSelection(); }, providerChanged, refresh, reset, modelsFor, selectModel};
+    return {saveSelection, providerChanged, refresh, reset, modelsFor, selectModel};
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = {createModelPicker};
   else root.createBlupeModelPicker = createModelPicker;
