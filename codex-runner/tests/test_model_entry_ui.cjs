@@ -58,6 +58,15 @@ test('Terra share links select the exact model through available existing routes
   assert.equal(entry('?model=terra', choices('codex'), {station_local:true}), null);
 });
 
+test('Fable 5.2 links prefer the available subscription route and retain the exact model', () => {
+  const model = 'claude-fable-5-2';
+  const link = '?robot_id=robot-ba8413962083809c&model=' + model;
+  assert.deepEqual(entry(link, choices('dream','guest_claude','anthropic')), {provider:'guest_claude',model});
+  assert.deepEqual(entry(link, choices('claude','anthropic'), {local_runner:true}), {provider:'claude',model});
+  assert.deepEqual(entry(link, choices({value:'guest_claude',disabled:true},'anthropic')), {provider:'anthropic',model});
+  assert.equal(entry(link, choices('dream','guest_astra')), null);
+});
+
 test('unknown and unavailable models fall back to available Astra, never enabling a provider', () => {
   for (const query of ['?model=unknown', '?model=__proto__', '?model=', '?model=argon']) {
     assert.deepEqual(entry(query, choices('guest_astra', {value:'guest_gemini', disabled:true})),
