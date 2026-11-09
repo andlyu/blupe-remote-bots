@@ -16,7 +16,7 @@ function fixture(ready) {
   const setup = {provider:'claude', label:'Opus (Claude)', ready:false,
     state:'upgrade_required', message:'Update Claude Code', setup_prompt:'Set up or update Opus for this playground.'};
   const context = vm.createContext({$, runVideoEmail:{validate:()=>true,enabled:()=>false}, aspireRunAvailable:false, requestAnimationFrame:fn=>queueMicrotask(fn), selectedModelName(){return 'Claude';},renderCurrentConversation(){},openAspireTaskPanel(){}, window:{yamRunnerIdentity:{remember(){}}}, navigator:{clipboard:{async writeText() {}}},
-    message() {}, buttons() {}, updateSavedKey() {}, guideRunAttention() {},
+    message() {}, buttons() {}, updateSavedKey() {}, guideRunAttention() {}, showInlineRunStage() {},
     async api(path) {
       requests.push(path);
       if (path.endsWith('/check')) return {...setup, ready:true, message:'Signed in', availability_note:'Local setup only.'};

@@ -14,7 +14,10 @@ const $ = id => elements[id] ||= {hidden:false,textContent:'',classes:new Set(),
   }},
   closest(selector){assert.equal(selector,'.queuePlace');return $('queuePlace');},
   focus(){this.focusCount++;},scrollIntoView(options){this.scrolls.push(options);}};
-const context = vm.createContext({$,window:{matchMedia:()=>({matches:true})}});
+const message = text => {
+  for (const id of ['message', 'localRunMessage']) $(id).textContent = text;
+};
+const context = vm.createContext({$,message,window:{matchMedia:()=>({matches:true})}});
 vm.runInContext(source.slice(start,end),context);
 const render = state => context.guideRunAttention(state);
 render({status:'queued',session_id:'mine',queue_position:3});
@@ -91,4 +94,28 @@ assert.equal($('liveConversationPanel').classes.has('yourTaskReview'),false);
 const scrolls=$('liveViewer').scrolls.length;
 render({status:'running',session_id:'aspire-session',provider:{task_progress:{task:'Fixture'}}});
 assert.equal($('liveViewer').scrolls.length,scrolls);
+
+// The status below Run follows the owner stage. It must stop describing the
+// queue after admission, without replacing a warning or stop confirmation.
+const updateInline = (status, initial = false) => {
+  render({status,session_id:'fable-fixture',queue_position:2});
+  context.showInlineRunStage(status, initial);
+};
+message('Checking your subscription connection…');
+updateInline('queued', true);
+assert.match($('message').textContent, /in the queue/);
+updateInline('preparing');
+assert.equal($('message').textContent,'The robot is getting ready for your run.');
+updateInline('running');
+assert.match($('message').textContent, /Your run is live/);
+assert.equal($('message').textContent,$('localRunMessage').textContent);
+updateInline('stopped');
+assert.equal($('message').textContent,'');
+updateInline('queued', true);
+message('GPU startup failed. Leave the queue and try again.');
+updateInline('preparing');
+assert.match($('message').textContent, /GPU startup failed/);
+message('Stop requested.');
+updateInline('stopped');
+assert.equal($('message').textContent,'Stop requested.');
 console.log('Queue handoff checks passed');

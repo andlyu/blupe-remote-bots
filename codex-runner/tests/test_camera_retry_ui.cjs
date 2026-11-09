@@ -11,6 +11,7 @@ test('camera waiting, failure and recovery are visible during polling', () => {
   const element = {textContent: ''};
   const messages = [];
   const context = vm.createContext({state: {}, $: () => element,
+    showInlineRunStage() {},
     message(text, error = false) { element.textContent = text; messages.push({text, error}); }});
   const update = retry => {
     context.state = {provider: {vision: {retry}}};
