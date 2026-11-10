@@ -2541,6 +2541,7 @@ function createRunLaunchGuard() {
     context:() => robotGeneration + ':' + csrf, requestId:() => crypto.randomUUID(), changed:buttons,
   });
   window.addEventListener('blupe-robot-selected', () => steeringComposer.update());
+  window.addEventListener('blupe-robot-selected', () => syncStopwatch(null));
   const originalCameraMarkup = $('liveViewer').innerHTML;
   let modelCameraNames = new Set();
   let cameraNames = ['left', 'top', 'right'], camerasDisconnected = false, cameraEpoch = 0;
