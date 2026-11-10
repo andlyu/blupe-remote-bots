@@ -36,17 +36,8 @@ function currentRunHeading(run, result = null) {
   return {task, status};
 }
 
-function spectatorRunPrompt(state) {
-  const run = state.public_run;
-  const active = ['preparing', 'running'];
-  if (!active.includes(run?.status)) return '';
-  if (active.includes(state.status)) {
-    const episode = run.episode_id || run.run_id;
-    const own = state.attempt_id && run.attempt_id ? state.attempt_id === run.attempt_id
-      : state.episode_id && episode ? state.episode_id === episode : true;
-    if (own) return '';
-  }
-  return currentRunHeading(run).task;
+function activeRunPrompt(run) {
+  return ['preparing', 'running'].includes(run?.status) ? currentRunHeading(run).task : '';
 }
 
 function createRunnerIdentity($, storage) {
@@ -1469,10 +1460,10 @@ function createRunLaunchGuard() {
     catch (error) { message(error.message, true); }
     buttons();
   });
-  function renderSpectatorPrompt(state) {
+  function renderActiveRunPrompt(run) {
     const prompt = $('meetingSpectatorPrompt');
     if (!prompt) return;
-    const task = spectatorRunPrompt(state);
+    const task = activeRunPrompt(run);
     prompt.hidden = !task;
     if (prompt.textContent !== task) {
       prompt.textContent = task;
@@ -1917,7 +1908,7 @@ function createRunLaunchGuard() {
       : 'No policy is running.';
     const live = runLaunchGuard.conversation(state.public_run,state);
     syncStopwatch(state.public_run, state.queue_snapshot?.generated_at);
-    renderSpectatorPrompt(state);
+    renderActiveRunPrompt(state.public_run);
     const taskFailure = renderCurrentConversation(live,state);
     active = ['queued', 'preparing', 'running'].includes(state.status);
     ownRunLive = ['preparing', 'running'].includes(state.status);
@@ -2567,7 +2558,7 @@ function createRunLaunchGuard() {
   window.addEventListener('blupe-robot-selected', () => steeringComposer.update());
   window.addEventListener('blupe-robot-selected', () => {
     syncStopwatch(null);
-    renderSpectatorPrompt({});
+    renderActiveRunPrompt(null);
   });
   const originalCameraMarkup = $('liveViewer').innerHTML;
   let modelCameraNames = new Set();
