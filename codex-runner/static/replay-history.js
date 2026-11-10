@@ -357,7 +357,7 @@
       const known = {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
         run_metrics:state.run_metrics, step_timings:state.step_timings};
       const scope = generation, id = state.episode_id;
-      if (robot === 'robot-ba8413962083809c') {
+      if (robot === 'yam-1' || robot === 'robot-ba8413962083809c') {
         openEpisode(id, known, true);
         return;
       }
