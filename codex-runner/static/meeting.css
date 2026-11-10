@@ -127,7 +127,6 @@
   .meetingConsole .meetingPanelOpen #liveViewer.cameras>figure[data-camera-role]:not([data-meeting-main]) { display:none; }
   .meetingConsole .meetingPanelOpen .watchVisuals>.cameraStatusLine,.meetingConsole .meetingPanelOpen .watchVisuals>#yourQueue { display:none; }
   .meetingConsole .meetingPanelOpen .watchInteraction { top:calc(118px + (100vw - 24px)*.55); right:12px; left:12px; bottom:94px; width:auto; height:auto; border-radius:16px; box-shadow:0 12px 40px #0007; animation:meeting-sheet .18s cubic-bezier(.16,1,.3,1); }
-  .meetingConsole .meetingKeyboardOpen .meetingSpectatorPrompt { display:none; }
   .meetingConsole .meetingKeyboardOpen .watchVisuals { height:64px; }
   .meetingConsole .meetingKeyboardOpen .watchInteraction { top:132px; bottom:70px; }
   .meetingConsole .meetingKeyboardOpen .watchToolbar { display:none; }
