@@ -20,7 +20,7 @@
       panel.hidden=false;spinner.hidden=Boolean(request.next);
       const caption=request.next?'Improved replay ready · Opens after playback ends':
         request.error?'Replay status unavailable · Retrying…':
-        request.quick?'Preparing full replay…':'Preparing replay…';
+        request.quick?'Preparing high quality replay…':'Preparing replay…';
       if(text.textContent!==caption) text.textContent=caption;
     }
     function apply(run) {

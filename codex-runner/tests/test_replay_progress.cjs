@@ -35,6 +35,7 @@ test('own completed run polls the direct path and displays a playable quick prev
   c.answer(c.requests[0],[c.run()]);await c.flush();
   assert.equal(c.opened.length,1);assert.equal(c.opened[0].video_quality,'quick');
   assert.equal(c.requests.length,2);
+  assert.equal(c.nodes.replayProgress.children[1].textContent,'Preparing high quality replay…');
 });
 test('final edit waits for playback to end rather than interrupting the viewer',async()=>{
   const c=setup();c.window.yamReplayHistory.openRun(c.run());
