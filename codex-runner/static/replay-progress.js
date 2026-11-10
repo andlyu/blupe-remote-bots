@@ -5,11 +5,11 @@
     const player=document.getElementById('pastRunVideo'), dialog=document.getElementById('pastRunDialog');
     const history=window.yamReplayHistory, review=window.yamReplayReview;
     if(!player || !dialog || !history) return;
-    const panel=document.createElement('div'), bar=document.createElement('progress'), text=document.createElement('p');
+    const panel=document.createElement('div'), spinner=document.createElement('span'), text=document.createElement('p');
     panel.className='replayProcessing'; panel.id='replayProgress'; panel.hidden=true;
     panel.setAttribute('role','status'); panel.setAttribute('aria-live','polite');
-    bar.max=100; bar.setAttribute('aria-label','Waiting for replay preparation');
-    panel.append(bar,text); player.parentElement.after(panel);
+    spinner.className='replaySpinner'; spinner.setAttribute('aria-hidden','true');
+    panel.append(spinner,text); player.parentElement.after(panel);
     const baseOpen=history.openRun.bind(history);
     let target=null, timer=null, generation=0, activeSession=null;
     const completed=new Set();
@@ -17,11 +17,11 @@
     const terminal=new Set(['stopped','completed','failed','error','timed_out','cancelled','ended','safety_aborted','disconnected']);
     function stop() { generation++;target=null;clearTimeout(timer);panel.hidden=true; }
     function progress(request) {
-      panel.hidden=false;bar.removeAttribute('value');
-      text.textContent=request.next?'Improved replay ready — it will open after playback ends.':
+      panel.hidden=false;spinner.hidden=Boolean(request.next);
+      const caption=request.next?'Improved replay ready · Opens after playback ends':
         request.error?'Replay status unavailable · Retrying…':
-        request.quick?'Quick preview ready · Waiting for improved replay.':
-        'Waiting for saved replay · Preparation may take a few minutes.';
+        request.quick?'Preparing full replay…':'Preparing replay…';
+      if(text.textContent!==caption) text.textContent=caption;
     }
     function apply(run) {
       const quality=run.video_quality;
@@ -78,7 +78,7 @@
         observe(state,robot,csrf);
         if(state.session_id && ['queued','preparing','running'].includes(state.status)) activeSession=state.session_id;
         if(state.session_id===activeSession && terminal.has(state.status) && valid(state.episode_id)
-            && !completed.has(state.session_id) && dialog.open) {
+            && !completed.has(state.session_id) && dialog.open && !review.ownsQuick?.(state.episode_id)) {
           completed.add(state.session_id);begin(state.episode_id,robot);
         }
       };
@@ -103,7 +103,7 @@
         setTimeout(()=>{
           review?.ready();player.pause();player.removeAttribute('src');player.load();
           player.parentElement.hidden=true;
-          if(window.yamRunSidebar) window.yamRunSidebar.open({episode_id:timingId,robot_id:document.getElementById('robotSelector')?.value});
+          if(window.yamRunSidebar) window.yamRunSidebar.open({episode_id:timingId,robot_id:document.getElementById('robotSelector')?.value},{deferMedia:true});
           else if(!dialog.open) dialog.showModal();
           panel.dataset.timingStartedAt=String(at);
           begin(timingId,document.getElementById('robotSelector')?.value);
