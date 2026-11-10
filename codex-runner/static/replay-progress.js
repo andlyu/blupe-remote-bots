@@ -72,7 +72,7 @@
       if(live){stop();return baseOpen(run,live);}
       apply(run);
     };
-    if(review) {
+    if(review && document.body?.dataset.postRunReplay !== 'paused') {
       const observe=review.observe.bind(review);
       review.observe=(state,robot,csrf)=>{
         observe(state,robot,csrf);

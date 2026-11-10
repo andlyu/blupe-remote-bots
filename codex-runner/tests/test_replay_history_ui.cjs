@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname,'../static/replay-history.js'),'utf8');
-function setup() {
+function setup({postRunReplay} = {}) {
   const nodes=new Map(), events={}, requests=[], timers=new Map(), opened=[], stored={}, summaries=[], charts=[]; let timerId=0;
   function element(){return {children:[],dataset:{},value:'',hidden:false,open:false,listeners:{},parentElement:{hidden:false},
     addEventListener(name,fn){(this.listeners[name] ||= []).push(fn)}, emit(name,event={}){for(const fn of this.listeners[name]||[])fn(event)},
@@ -12,7 +12,7 @@ function setup() {
     'clearRunHistoryEmail','moreMyRuns','refreshPastRuns','past-runs','pastRunTitle','pastRunPrompt','pastRunError','pastRunMetricsSummary','pastRunMetricsChart','prompt','email','myRunsStatus','assessmentWindow'];
   for(const id of ids)nodes.set(id,element());
   const window={addEventListener(name,fn){events[name]=fn},history:{replaceState(){}},yamReplayHistory:{openRun(run){window.yamReplayReview.ready();opened.push(run)},refresh(){}}};
-  vm.runInNewContext(source,{document:{getElementById:id=>nodes.get(id),createElement:element},window,
+  vm.runInNewContext(source,{document:{body:{dataset:{postRunReplay}},getElementById:id=>nodes.get(id),createElement:element},window,
     renderRunMetrics(node,metrics){node.textContent=JSON.stringify(metrics);summaries.push(metrics)},renderStepMetricsChart(node,timings){charts.push(timings)},
     localStorage:{getItem(){throw Error('History must not read durable storage')},setItem(){throw Error('History must not write durable storage')}},location:{search:'',href:'https://robot.example/'},URL,URLSearchParams,Date,
     setTimeout(fn,delay){fn.delay=delay;timers.set(++timerId,fn);return timerId},clearTimeout:id=>timers.delete(id),
@@ -89,4 +89,19 @@ test('summary and charts appear immediately and update while only the video is p
   assert.equal(c.opened.length,0);assert.equal(c.nodes.get('replayProcessing').hidden,false);
   assert.equal(c.nodes.get('pastRunDetails').textContent,'Model not recorded · version unknown · Success: Reported complete');
   assert.deepEqual(c.summaries.at(-1),metrics);assert.equal(c.timers.size,1);
+});
+
+test('pausing post-run replay keeps the live view and leaves manual history playback available',async()=>{
+  const c=setup({postRunReplay:'paused'});
+  c.nodes.get('assessmentWindow').hidden=true;
+  c.state('running');c.state('stopped');
+  assert.equal(c.nodes.get('pastRunDialog').open,false);
+  assert.equal(c.nodes.get('assessmentWindow').hidden,true);
+  assert.equal(c.timers.size,0);
+  assert.ok(c.requests.every(r=>r.url==='/api/my-runs'));
+  c.window.yamReplayReview.openEpisode('ep_own',{robot_id:'yam-1'});
+  assert.equal(c.nodes.get('pastRunDialog').open,true);
+  c.answer(c.requests.at(-1),[{episode_id:'ep_own',robot_id:'yam-1',video_url:'/retained.mp4',video_duration_s:3}]);
+  await c.flush();
+  assert.equal(c.opened.at(-1).video_url,'/retained.mp4');
 });

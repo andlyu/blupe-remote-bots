@@ -347,6 +347,10 @@
     }
     if (sid && activeSessions.has(sid) && terminal.has(state.status) && validId(state.episode_id) && !completedSessions.has(sid)) {
       completedSessions.add(sid); remember(state); processingRuns.add(state.episode_id);
+      if (document.body?.dataset.postRunReplay === 'paused') {
+        loadMine();
+        return;
+      }
       const known = {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
         run_metrics:state.run_metrics, step_timings:state.step_timings};
       const scope = generation, id = state.episode_id;

@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../static/replay-progress.js'),'utf8');
-function setup({readyState='complete',lateDependencies=false}={}){
+function setup({readyState='complete',lateDependencies=false,postRunReplay}={}){
   const nodes={},events={},documentEvents={},requests=[],timers=new Map(),opened=[];let clock=1000,tid=0;
   function element(){return {listeners:{},children:[],hidden:false,open:true,paused:false,currentTime:1,ended:false,src:'',
     setAttribute(k,v){this[k]=v},removeAttribute(k){delete this[k]},append(...x){this.children.push(...x)},after(x){nodes[x.id]=x},
@@ -11,7 +11,7 @@ function setup({readyState='complete',lateDependencies=false}={}){
   const window={addEventListener(n,f){events[n]=f}};
   const dependencies=()=>Object.assign(window,{yamReplayReview:{observe(){}},yamReplayHistory:{openRun(run){opened.push(run)}}});
   if(!lateDependencies)dependencies();
-  vm.runInNewContext(source,{window,document:{readyState,addEventListener(n,f){documentEvents[n]=f},getElementById:id=>nodes[id],createElement:element},
+  vm.runInNewContext(source,{window,document:{readyState,body:{dataset:{postRunReplay}},addEventListener(n,f){documentEvents[n]=f},getElementById:id=>nodes[id],createElement:element},
     location:{search:''},URLSearchParams,Date:{now:()=>clock},setTimeout(f){timers.set(++tid,f);return tid},clearTimeout:id=>timers.delete(id),
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))},encodeURIComponent});
   const flush=()=>new Promise(setImmediate);
@@ -86,4 +86,14 @@ test('cache errors retry and fall back to the published catalog without false pr
   c.answer(c.requests[1],[c.run('final')]);await c.flush();
   assert.equal(c.opened[0].video_quality,'final');
   assert.equal(c.nodes.replayProgress.hidden,true);
+});
+
+test('pausing post-run replay never replaces an open history video when the current run ends',()=>{
+  const c=setup({postRunReplay:'paused'});
+  const previous={...c.run('final'),episode_id:'ep_previous'};
+  c.window.yamReplayHistory.openRun(previous);
+  c.observe('running');c.observe('stopped');
+  assert.deepEqual(c.opened,[previous]);
+  assert.equal(c.requests.length,0);
+  assert.equal(c.timers.size,0);
 });
