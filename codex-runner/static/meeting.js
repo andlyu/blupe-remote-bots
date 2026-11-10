@@ -280,6 +280,10 @@
     views.disabled = figures.length < 2;
   }
   new MutationObserver(updateCameras).observe($('liveViewer'), {childList:true});
+  // The startup preview assigns roles to existing figures before live video starts.
+  new MutationObserver(updateCameras).observe($('liveViewer'), {
+    subtree: true, attributes: true, attributeFilter: ['data-camera-role']
+  });
   function viewport() {
     const height = Math.min(window.innerHeight, window.visualViewport?.height || window.innerHeight);
     room.style.setProperty('--meeting-viewport-height', height + 'px');
