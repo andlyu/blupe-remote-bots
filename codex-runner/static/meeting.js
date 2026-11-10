@@ -7,8 +7,6 @@
   if (!workspace || !header || !$('composerSend')) return;
 
   const paths = {
-    presentation: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="m8 21 4-4 4 4M12 8v5m-3-3 3-3 3 3"/>',
-    pin: '<path d="M8 3h8l-1 6 3 4H6l3-4-1-6Zm4 10v8"/>',
     cameras: '<rect x="3" y="4" width="18" height="11" rx="2"/><rect x="3" y="18" width="4" height="3" rx=".7"/><rect x="10" y="18" width="4" height="3" rx=".7"/><rect x="17" y="18" width="4" height="3" rx=".7"/>',
     settings: '<path d="M4 7h7m4 0h5M4 17h3m4 0h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
     notes: '<path d="M4 4h16v13H9l-5 4V4Z"/><path d="M8 8h8m-8 5h5"/>',
@@ -49,9 +47,12 @@
   hostedWorksLink.href = '/hosted_works/';
   hostedWorksLink.target = '_blank'; hostedWorksLink.rel = 'noopener noreferrer';
   header.querySelector('.intro').append(hostedWorksLink);
-  const presenting = document.createElement('div'); presenting.className = 'meetingPresenting';
-  presenting.innerHTML = icon('presentation') + '<span id="meetingPresentationName">Connecting to camera…</span><span class="meetingPinned">' + icon('pin') + 'Pinned view</span>';
-  room.append(presenting, workspace); workspace.id = 'meetingWorkspace';
+  const countdown = document.createElement('div'); countdown.className = 'meetingCountdown';
+  countdown.hidden = true;
+  countdown.setAttribute('role', 'timer');
+  countdown.setAttribute('aria-label', 'Time remaining');
+  countdown.setAttribute('aria-describedby', 'runTimerDetail');
+  room.append(countdown, workspace); workspace.id = 'meetingWorkspace';
   const simulation = $('simulationNotice');
   if (simulation) {
     simulation.classList.remove('eyebrow'); simulation.classList.add('meetingSimulationNotice');
@@ -156,6 +157,17 @@
   peopleControls.append(visitors);
   bar.append(roomInfo, callControls, peopleControls); room.append(bar);
   const mobile = window.matchMedia('(max-width:600px), (max-width:1000px) and (max-height:500px)');
+  const observerStage = $('liveViewer').closest('.videoPanel');
+  function placeComposer() {
+    const insideObserver = mobile.matches && CSS.supports('grid-template-rows', 'subgrid');
+    const parent = insideObserver ? observerStage : room;
+    if (dock.parentElement === parent) return;
+    const focused = dock.contains(document.activeElement) ? document.activeElement : null;
+    parent.insertBefore(dock, insideObserver ? null : bar);
+    focused?.focus({preventScroll:true});
+  }
+  placeComposer();
+  mobile.addEventListener('change', placeComposer);
   function arrangeControls() {
     if (mobile.matches) callControls.insertBefore(visitors, stop);
     else { callControls.prepend(views); peopleControls.append(visitors); }
@@ -273,8 +285,6 @@
     const figures = [...$('liveViewer').querySelectorAll('figure[data-camera-role]')];
     const main = figures.find(node => node.dataset.cameraRole === 'observer') || figures.find(node => node.dataset.cameraRole === 'top') || figures[0];
     for (const figure of figures) figure.toggleAttribute('data-meeting-main', figure === main);
-    const role = main?.dataset.cameraRole;
-    $('meetingPresentationName').textContent = role ? role.charAt(0).toUpperCase() + role.slice(1) + ' camera is presenting' : $('armsDisconnected') ? 'Camera unavailable' : 'Connecting to camera…';
     $('liveViewer').style.setProperty('--meeting-side-count', Math.max(1, figures.length - 1));
     $('liveViewer').dataset.meetingCount = String(figures.length);
     views.disabled = figures.length < 2;
@@ -295,12 +305,16 @@
     const emptyQueue = /^Queue\s*·\s*0 waiting(?:\s*·\s*Your place:\s*[—–-])?$/.test($('queueSummary').textContent.trim())
       && $('leaveQueue').hidden && $('position').closest('.queuePlace').hidden;
     $('yourQueue').classList.toggle('meetingQueueEmpty', emptyQueue);
-    const timer = $('runTimer'), stopwatch = timer?.closest('.liveStopwatch');
-    if (stopwatch) stopwatch.hidden = !$('liveTaskTitle')?.textContent.trim()
-      && (!timer.textContent.trim() || /^[—–\-:]+$/.test(timer.textContent.trim()));
   }
   new MutationObserver(updateQuietStatus).observe($('yourQueue'), {childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden']});
-  new MutationObserver(updateQuietStatus).observe($('liveViewer'), {childList:true,characterData:true,subtree:true});
+  function updateCountdown() {
+    const timer = $('runTimer');
+    const time = timer.textContent;
+    countdown.hidden = timer.hidden || !/^\d+:\d{2}$/.test(time);
+    if (!countdown.hidden && countdown.textContent !== time) countdown.textContent = time;
+  }
+  new MutationObserver(updateCountdown).observe($('liveViewer'), {childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:['hidden']});
+  updateCountdown();
   function clock() { $('meetingClock').textContent = new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }
   clock(); setInterval(clock, 30000);
   updateControls(); updateCameras(); updateQuietStatus();
