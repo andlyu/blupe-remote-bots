@@ -587,9 +587,36 @@ function createRunLaunchGuard() {
         if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
         else if (run.video_url) video.src = run.video_url;
         else watch.textContent = run.video_status === 'processing' ? 'Preparing replay… · View run' : 'View run details';
-        if (!run.video_url && !zeroSecondVideo(run.video_duration_s)) {
+        if (run.video_status === 'processing') {
           const request = new AbortController(); let timer;
           previewViews.push(() => {clearTimeout(timer);request.abort();});
+          async function prepare() {
+            try {
+              if (document.hidden) return;
+              const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(run.robot_id)}`,
+                {signal:request.signal,cache:'no-store',headers:{'X-Blupe-Robot':run.robot_id}});
+              if (!response.ok) throw new Error('Replay preparation unavailable');
+              const data = await response.json();
+              if (request.signal.aborted) return;
+              const detail = data.runs?.find(row => row.episode_id === run.episode_id);
+              if (!detail) return;
+              Object.assign(run,detail);
+              liveState();
+              if (run.video_url) {
+                disposeView?.(); disposeView = window.yamRecordingView?.(video,run.camera_order,run.video_layout);
+                video.src = run.video_url; watch.textContent = '▶ Watch replay';
+              } else if (zeroSecondVideo(run.video_duration_s)) showEmptyRun();
+              else if (run.video_status !== 'processing') watch.textContent = 'View run details';
+            } catch (_) { /* Retry transient preparation failures without losing loaded pages. */ }
+            finally {
+              if (!request.signal.aborted && run.video_status === 'processing') timer = setTimeout(prepare,3000);
+            }
+          }
+          timer = setTimeout(prepare,3000);
+        }
+        else if (run.robot_id === 'robot-ba8413962083809c' && !run.video_url && !zeroSecondVideo(run.video_duration_s)) {
+          const request = new AbortController();
+          previewViews.push(() => request.abort());
           async function prepare() {
             try {
               const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(run.robot_id)}&preview=1`,
@@ -609,10 +636,6 @@ function createRunLaunchGuard() {
                 showEmptyRun();
               }
             } catch (_) { /* A catalog card can still open the full replay lookup. */ }
-            finally {
-              if (!request.signal.aborted && !run.video_url && !zeroSecondVideo(run.video_duration_s)
-                  && run.video_status === 'processing') timer = setTimeout(prepare,3000);
-            }
           }
           void prepare();
         }
