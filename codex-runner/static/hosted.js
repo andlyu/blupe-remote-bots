@@ -36,6 +36,19 @@ function currentRunHeading(run, result = null) {
   return {task, status};
 }
 
+function spectatorRunPrompt(state) {
+  const run = state.public_run;
+  const active = ['preparing', 'running'];
+  if (!active.includes(run?.status)) return '';
+  if (active.includes(state.status)) {
+    const episode = run.episode_id || run.run_id;
+    const own = state.attempt_id && run.attempt_id ? state.attempt_id === run.attempt_id
+      : state.episode_id && episode ? state.episode_id === episode : true;
+    if (own) return '';
+  }
+  return currentRunHeading(run).task;
+}
+
 function createRunnerIdentity($, storage) {
   const key = 'yam-runner-identity-v1';
   const name = $('runnerName'), email = $('email');
@@ -1456,6 +1469,16 @@ function createRunLaunchGuard() {
     catch (error) { message(error.message, true); }
     buttons();
   });
+  function renderSpectatorPrompt(state) {
+    const prompt = $('meetingSpectatorPrompt');
+    if (!prompt) return;
+    const task = spectatorRunPrompt(state);
+    prompt.hidden = !task;
+    if (prompt.textContent !== task) {
+      prompt.textContent = task;
+      prompt.title = task;
+    }
+  }
   // Shared spectator stopwatch, anchored to server elapsed time rather than the viewer's clock.
   let stopwatch = null;
   const stopwatchTime = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -1894,6 +1917,7 @@ function createRunLaunchGuard() {
       : 'No policy is running.';
     const live = runLaunchGuard.conversation(state.public_run,state);
     syncStopwatch(state.public_run, state.queue_snapshot?.generated_at);
+    renderSpectatorPrompt(state);
     const taskFailure = renderCurrentConversation(live,state);
     active = ['queued', 'preparing', 'running'].includes(state.status);
     ownRunLive = ['preparing', 'running'].includes(state.status);
@@ -2541,7 +2565,10 @@ function createRunLaunchGuard() {
     context:() => robotGeneration + ':' + csrf, requestId:() => crypto.randomUUID(), changed:buttons,
   });
   window.addEventListener('blupe-robot-selected', () => steeringComposer.update());
-  window.addEventListener('blupe-robot-selected', () => syncStopwatch(null));
+  window.addEventListener('blupe-robot-selected', () => {
+    syncStopwatch(null);
+    renderSpectatorPrompt({});
+  });
   const originalCameraMarkup = $('liveViewer').innerHTML;
   let modelCameraNames = new Set();
   let cameraNames = ['left', 'top', 'right'], camerasDisconnected = false, cameraEpoch = 0;

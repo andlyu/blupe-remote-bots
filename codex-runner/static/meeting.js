@@ -47,12 +47,13 @@
   hostedWorksLink.href = '/hosted_works/';
   hostedWorksLink.target = '_blank'; hostedWorksLink.rel = 'noopener noreferrer';
   header.querySelector('.intro').append(hostedWorksLink);
-  const countdown = document.createElement('div'); countdown.className = 'meetingCountdown';
-  countdown.hidden = true;
-  countdown.setAttribute('role', 'timer');
-  countdown.setAttribute('aria-label', 'Time remaining');
-  countdown.setAttribute('aria-describedby', 'runTimerDetail');
-  room.append(countdown, workspace); workspace.id = 'meetingWorkspace';
+  const spectatorPrompt = document.createElement('p');
+  spectatorPrompt.id = 'meetingSpectatorPrompt';
+  spectatorPrompt.className = 'meetingSpectatorPrompt';
+  spectatorPrompt.hidden = true;
+  spectatorPrompt.setAttribute('role', 'status');
+  spectatorPrompt.setAttribute('data-clarity-mask', 'true');
+  room.append(spectatorPrompt, workspace); workspace.id = 'meetingWorkspace';
   const simulation = $('simulationNotice');
   if (simulation) {
     simulation.classList.remove('eyebrow'); simulation.classList.add('meetingSimulationNotice');
@@ -307,14 +308,6 @@
     $('yourQueue').classList.toggle('meetingQueueEmpty', emptyQueue);
   }
   new MutationObserver(updateQuietStatus).observe($('yourQueue'), {childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['hidden']});
-  function updateCountdown() {
-    const timer = $('runTimer');
-    const time = timer.textContent;
-    countdown.hidden = timer.hidden || !/^\d+:\d{2}$/.test(time);
-    if (!countdown.hidden && countdown.textContent !== time) countdown.textContent = time;
-  }
-  new MutationObserver(updateCountdown).observe($('liveViewer'), {childList:true, characterData:true, subtree:true, attributes:true, attributeFilter:['hidden']});
-  updateCountdown();
   function clock() { $('meetingClock').textContent = new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }
   clock(); setInterval(clock, 30000);
   updateControls(); updateCameras(); updateQuietStatus();
