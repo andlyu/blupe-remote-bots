@@ -620,6 +620,31 @@ function createRunLaunchGuard() {
           }
           timer = setTimeout(prepare,3000);
         }
+        else if (run.robot_id === 'robot-ba8413962083809c' && !run.video_url && !zeroSecondVideo(run.video_duration_s)) {
+          const request = new AbortController();
+          previewViews.push(() => request.abort());
+          async function prepare() {
+            try {
+              const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(run.episode_id)}&robot_id=${encodeURIComponent(run.robot_id)}&preview=1`,
+                {signal:request.signal,cache:'no-store',headers:{'X-Blupe-Robot':run.robot_id}});
+              if (!response.ok) return;
+              const data = await response.json();
+              if (request.signal.aborted) return;
+              const detail = data.runs?.find(row => row.episode_id === run.episode_id && row.robot_id === run.robot_id);
+              if (!detail) return;
+              if (detail.video_url && !zeroSecondVideo(detail.video_duration_s)) {
+                Object.assign(run,detail,{video_status:'ready'});
+                liveState();
+                disposeView?.(); disposeView = window.yamRecordingView?.(video,run.camera_order,run.video_layout);
+                video.hidden = false; video.src = run.video_url;
+                watch.textContent = '▶ Watch replay';
+              } else if (zeroSecondVideo(detail.video_duration_s)) {
+                showEmptyRun();
+              }
+            } catch (_) { /* A catalog card can still open the full replay lookup. */ }
+          }
+          void prepare();
+        }
       }
   }
   const modelDisplayName = model => model === '__unrecorded__' ? 'Model not recorded' : model;

@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../static/replay-progress.js'),'utf8');
-function setup({readyState='complete',lateDependencies=false}={}){
+function setup({readyState='complete',lateDependencies=false,ownsQuick=false}={}){
   const nodes={},events={},documentEvents={},requests=[],timers=new Map(),opened=[];let clock=1000,tid=0;
   function element(){return {listeners:{},children:[],hidden:false,open:true,paused:false,currentTime:1,ended:false,src:'',
     setAttribute(k,v){this[k]=v},removeAttribute(k){delete this[k]},append(...x){this.children.push(...x)},after(x){nodes[x.id]=x},
@@ -9,7 +9,7 @@ function setup({readyState='complete',lateDependencies=false}={}){
   for(const id of ['pastRunVideo','pastRunDialog','replayProcessing','robotSelector'])nodes[id]=element();
   nodes.robotSelector.value='robot';
   const window={addEventListener(n,f){events[n]=f}};
-  const dependencies=()=>Object.assign(window,{yamReplayReview:{observe(){}},yamReplayHistory:{openRun(run){opened.push(run)}}});
+  const dependencies=()=>Object.assign(window,{yamReplayReview:{observe(){},ownsQuick:()=>ownsQuick},yamReplayHistory:{openRun(run){opened.push(run)}}});
   if(!lateDependencies)dependencies();
   vm.runInNewContext(source,{window,document:{readyState,addEventListener(n,f){documentEvents[n]=f},getElementById:id=>nodes[id],createElement:element},
     location:{search:''},URLSearchParams,Date:{now:()=>clock},setTimeout(f){timers.set(++tid,f);return tid},clearTimeout:id=>timers.delete(id),
@@ -35,12 +35,14 @@ test('own completed run polls the direct path and displays a playable quick prev
   c.answer(c.requests[0],[c.run()]);await c.flush();
   assert.equal(c.opened.length,1);assert.equal(c.opened[0].video_quality,'quick');
   assert.equal(c.requests.length,2);
+  assert.equal(c.nodes.replayProgress.children[1].textContent,'Preparing high quality replay…');
 });
 test('final edit waits for playback to end rather than interrupting the viewer',async()=>{
   const c=setup();c.window.yamReplayHistory.openRun(c.run());
   c.answer(c.requests[0],[c.run('final')]);await c.flush();
   assert.equal(c.opened.length,1);
   assert.match(c.nodes.replayProgress.children[1].textContent,/after playback ends/);
+  assert.equal(c.nodes.replayProgress.children[0].hidden,true);
   c.nodes.pastRunVideo.emit('ended');
   assert.equal(c.opened.length,2);assert.equal(c.opened[1].video_quality,'final');
   assert.equal(c.nodes.replayProgress.hidden,true);
@@ -64,8 +66,11 @@ test('closing or changing robot discards late readiness responses',async()=>{
 test('waiting stays indeterminate and does not promise a countdown',async()=>{
   const c=setup();c.observe('running');c.observe('stopped');
   c.answer(c.requests[0],[]);await c.flush();c.advance(6000);c.tick();
-  const [bar,text]=c.nodes.replayProgress.children;
-  assert.match(text.textContent,/Waiting for saved replay/);assert.equal(bar.value,undefined);
+  const [spinner,text]=c.nodes.replayProgress.children;
+  assert.equal(spinner.className,'replaySpinner');
+  assert.equal(spinner['aria-hidden'],'true');
+  assert.equal(spinner.hidden,false);
+  assert.match(text.textContent,/Preparing replay/);
   assert.doesNotMatch(text.textContent,/0 seconds left/);
 });
 test('a processing placeholder stays pending until a matching robot video exists',async()=>{
@@ -74,16 +79,23 @@ test('a processing placeholder stays pending until a matching robot video exists
   c.answer(c.requests[0],[{...c.run('final'),robot_id:'other-robot'}]);await c.flush();
   assert.equal(c.opened.length,1,'A different robot cannot replace this replay');
   assert.equal(c.nodes.replayProgress.hidden,false);
-  assert.match(c.nodes.replayProgress.children[1].textContent,/Waiting for saved replay/);
+  assert.match(c.nodes.replayProgress.children[1].textContent,/Preparing replay/);
 });
 test('cache errors retry and fall back to the published catalog without false progress',async()=>{
   const c=setup();c.observe('running');c.observe('stopped');
   c.requests[0].resolve({ok:false});await c.flush();
   assert.match(c.nodes.replayProgress.children[1].textContent,/unavailable.*Retrying/);
-  assert.equal(c.nodes.replayProgress.children[0].value,undefined);
+  assert.equal(c.nodes.replayProgress.children[0].hidden,false);
   c.advance(6000);c.tick();
   assert.doesNotMatch(c.requests[1].url,/preview=1/,'Published catalog is checked after the bounded cache-only interval');
   c.answer(c.requests[1],[c.run('final')]);await c.flush();
   assert.equal(c.opened[0].video_quality,'final');
+  assert.equal(c.nodes.replayProgress.hidden,true);
+});
+
+test('history ownership suppresses the duplicate post-run poll',()=>{
+  const c=setup({ownsQuick:true});
+  c.observe('running');c.observe('stopped');
+  assert.equal(c.requests.length,0);
   assert.equal(c.nodes.replayProgress.hidden,true);
 });

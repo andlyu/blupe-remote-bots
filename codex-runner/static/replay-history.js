@@ -162,7 +162,7 @@
       window.yamReplayHistory?.selectRun(first);
       return true;
     },
-    open(run) {
+    open(run, {deferMedia=false}={}) {
       if(selection && !selection.rows.some(row=>row.robot_id===run.robot_id && row.episode_id===run.episode_id)){selection=null;signature='';}
       const changed=!active || active.episode_id!==run.episode_id || active.robot_id!==run.robot_id;
       const switchingInside=changed && dialog.open && dialog.contains(document.activeElement);
@@ -170,7 +170,11 @@
       active={...(changed?{}:active),...run};if(changed){signature='';if(!selection){cancelScope();body.scrollTop=0;}}
       document.body.classList.add('runSidebarOpen');if(!dialog.open)dialog.show();
       if(switchingInside)$('closePastRun')?.focus({preventScroll:true});
-      refresh();
+      if(deferMedia) {status.textContent='Similar videos load after playback starts.';return;}
+      if(run.video_quality==='quick' && $('pastRunVideo').readyState<3) {
+        const opening=active;
+        $('pastRunVideo').addEventListener('canplay',()=>{if(active===opening && dialog.open)refresh();},{once:true});
+      } else refresh();
     },
     setCatalog(rows,{robot,complete,source:labelSource,filters:nextFilters}) {
       source=labelSource || source;
@@ -282,12 +286,12 @@
     renderRunMetrics($('pastRunMetricsSummary'), run.run_metrics, 'stopped');
     renderStepMetricsChart($('pastRunMetricsChart'), run.step_timings);
   }
-  function openEpisode(id, known = {}) {
+  function openEpisode(id, known = {}, quick = false) {
     if (!validId(id) || !robot) return;
     const recordingRobot = known.robot_id || robot;
     known = {...known,episode_id:id,robot_id:recordingRobot};
     ready();
-    pending = {id, robot:recordingRobot, generation, known};
+    pending = {id, robot:recordingRobot, generation, known, quick, openedAt:Date.now()};
     if (!window.yamRunSidebar) $('past-runs').scrollIntoView({behavior: 'smooth', block: 'start'});
     player.pause(); player.yamRecordingView?.(); player.yamRecordingView = null;
     player.removeAttribute('src'); player.load(); player.parentElement.hidden = true;
@@ -295,14 +299,15 @@
     if ($('pastRunSpeed')) $('pastRunSpeed').hidden = true;
     renderSummary(known);
     $('pastRunError').textContent = '';
-    if (window.yamRunSidebar) window.yamRunSidebar.open(known);
+    if (window.yamRunSidebar) window.yamRunSidebar.open(known,{deferMedia:quick});
     else if (!dialog.open) dialog.showModal();
     window.yamReplayHistory?.setContextRun?.(known);
     poll(pending);
   }
   async function poll(request) {
     try {
-      const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(request.id)}&robot_id=${encodeURIComponent(request.robot)}`,
+      const localPreview = request.quick && Date.now()-request.openedAt<5000;
+      const response = await fetch(`/api/past-runs?episode_id=${encodeURIComponent(request.id)}&robot_id=${encodeURIComponent(request.robot)}${localPreview?'&preview=1':''}`,
         {cache: 'no-store', headers: {'X-Blupe-Robot': request.robot}});
       if (!response.ok) throw new Error();
       const data = await response.json();
@@ -316,7 +321,9 @@
       if (run && run.video_duration_s !== 0 && run.video_url) {
         processingRuns.delete(run.episode_id);
         window.yamReplayHistory.openRun(request.known);
-        loadMine(); window.yamReplayHistory.refresh();
+        const refreshHistory=()=>{loadMine(); window.yamReplayHistory.refresh();};
+        if (request.quick && player.readyState<3) player.addEventListener('canplay',refreshHistory,{once:true});
+        else refreshHistory();
         return;
       }
       if (run?.video_status === 'unavailable') {
@@ -330,7 +337,7 @@
     } catch (_) {
       if (pending === request) $('pastRunError').textContent = 'Replay is not available yet. Checking again shortly…';
     }
-    if (pending === request && dialog.open) timer = setTimeout(() => poll(request), 5000);
+    if (pending === request && dialog.open) timer = setTimeout(() => poll(request), request.quick && Date.now()-request.openedAt<5000 ? 250 : 5000);
   }
   function observe(state, selectedRobot, csrf) {
     if (historyToken && historyToken !== csrf) {
@@ -350,6 +357,10 @@
       const known = {...saved[0], runner_name:state.runner_name || $('runnerName')?.value,
         run_metrics:state.run_metrics, step_timings:state.step_timings};
       const scope = generation, id = state.episode_id;
+      if (robot === 'yam-1' || robot === 'robot-ba8413962083809c') {
+        openEpisode(id, known, true);
+        return;
+      }
       if ($('assessmentWindow')) $('assessmentWindow').hidden = false;
       // Recording/V0 processing starts at termination on the recorder. Begin
       // checking its public receipt immediately, concurrently with this window.
@@ -363,7 +374,7 @@
     if (processingRuns.size && token && Date.now() - lastMineAt > 10000) loadMine();
     if (!$('myRunsList').dataset.loaded && token) { $('myRunsList').dataset.loaded = 'true'; loadMine(); }
   }
-  window.yamReplayReview = {observe, openEpisode, ready};
+  window.yamReplayReview = {observe, openEpisode, ready, ownsQuick: id => pending?.quick && pending.id === id};
   dialog.addEventListener('close', ready);
   $('moreMyRuns').addEventListener('click', () => { if (next != null) loadMine(next); });
   $('refreshPastRuns').addEventListener('click', () => loadMine());

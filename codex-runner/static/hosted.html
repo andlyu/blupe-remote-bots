@@ -414,8 +414,8 @@
 <dialog id="pastRunDialog" class="runSidebar" aria-labelledby="pastRunTitle" aria-modal="false">
   <div class="statusHeader"><h2 id="pastRunTitle">Past run</h2><button id="closePastRun" type="button" aria-label="Close video">Close</button></div>
   <div class="runSidebarPlayer">
-  <div id="replayProcessing" class="replayProcessing" role="status" aria-live="polite" hidden><progress aria-label="Processing replay"></progress><p>Processing your replay. This usually takes about a minute.</p><p class="help">You can close this and run another while it processes.</p></div>
   <div class="recordedPlayer"><video id="pastRunVideo" controls playsinline preload="none"></video></div>
+  <div id="replayProcessing" class="replayProcessing" role="status" aria-live="polite" hidden><span class="replaySpinner" aria-hidden="true"></span><p>Preparing replay…</p></div>
   </div>
   <div id="runSidebarBody" class="runSidebarBody">
   <p id="pastRunError" role="status"></p>
