@@ -71,13 +71,13 @@ class KinexPackets:
             self.geometry.high=np.minimum(self.geometry.high,self.guard.config.joint_upper_rad)
         self.limits = {'lower_rad':self.geometry.low.tolist(),'upper_rad':self.geometry.high.tolist()}
 
-    def build(self, device, args, observation, step):
+    def build(self, device, args, observation, step, *, startup_home_verified=False):
         if device not in ('left_arm','right_arm','left_gripper','right_gripper'):
             raise ValueError('Unsupported actuator')
         if not isinstance(args,dict) or set(args) != {'actions','duration_s'}:
             raise ValueError('Actuation requires only actions and duration_s')
         if (observation.get('source') != 'hardware' or observation.get('settled') is not True
-                or observation.get('homed') is not True or observation.get('safety',{}).get('ok') is not True
+                or (observation.get('homed') is not True and startup_home_verified is not True) or observation.get('safety',{}).get('ok') is not True
                 or observation.get('jetson_id',observation.get('robot_id')) != self.robot_id
                 or not 0 <= time.time()-finite(observation.get('observed_at'),'feedback timestamp') <= 2):
             raise ValueError('Fresh, homed, settled '+self.robot_id+' feedback with safety OK is required')
@@ -209,6 +209,7 @@ class KinexAdapter:
         self._stop=threading.Event();self._lock=threading.RLock();self._token=secrets.token_urlsafe(32)
         self._calls=0;self._server=None;self._bridge_thread=None;self._events=[]
         self._stop_error=None;self._finished_normally=False;self._target=None
+        self._startup_home=None
         self.directory=Path(evidence_root) if evidence_root else self.workspace/'evidence';self.directory.mkdir(parents=True,exist_ok=True)
 
     def public_config(self):
@@ -257,7 +258,7 @@ class KinexAdapter:
             if self._active or self._pending:raise ValueError('A buffer owns the gateway. Wait for measured completion; superseding is unsupported.')
             item={'device':name,'args':args,'event':threading.Event(),'state':state,'result':None,'error':None}
             # Validate before enqueue, then again against controller planning feedback.
-            self.packets.build(name,args,obs,0)
+            self.packets.build(name,args,obs,0,startup_home_verified=self._startup_home==self._session_key())
             self._pending=item;self._queue.put(item)
         deadline=time.monotonic()+15
         while not item['event'].wait(.05):
@@ -276,14 +277,27 @@ class KinexAdapter:
             item['event'].set()
 
     def trajectory_completed(self,observation,waypoint_count):
-        self.validate_trajectory_final(observation)
-        with self._lock:self._latest=deepcopy(observation);self._active=False;self._pending=None
+        measured=self.validate_trajectory_final(observation)
+        with self._lock:
+            episode=(self._latest or {}).get('episode_id')
+            self._latest=deepcopy(measured);self._latest['episode_id']=episode
+            self._active=False;self._pending=None
         self.emit('kinex_feedback','Kinex buffer completed with measured robot feedback',waypoint_count=waypoint_count)
 
     def validate_trajectory_final(self,observation):
         if self._target is None:raise RuntimeError('No Kinex final target is recorded')
-        if observation.get('settled') is not True or observation.get('source')!='hardware':
+        if observation.get('settled') is not True or observation.get('source') not in (None,'hardware'):
             raise RuntimeError('Kinex final feedback must be settled hardware')
+        # The gateway's capability-scoped trajectory observation omits source.
+        # Independently corroborate it with fresh hardware under the same lease.
+        measured=self._read() if observation.get('source') is None else observation
+        if measured.get('source')!='hardware' or measured.get('settled') is not True or not 0<=time.time()-finite(measured.get('observed_at'),'final feedback time')<=2:
+            raise RuntimeError('Kinex final feedback must be fresh settled hardware')
+        self._validate_target(observation)
+        if measured is not observation:self._validate_target(measured)
+        return measured
+
+    def _validate_target(self,observation):
         for arm in ('left','right'):
             values=observation.get(arm+'_joints_deg')
             if not isinstance(values,(list,tuple)) or len(values)!=6:raise RuntimeError('Missing final joint feedback')
@@ -293,6 +307,15 @@ class KinexAdapter:
             if abs(finite(observation.get(arm+'_gripper'),'measured gripper',0,1)-self._target[arm+'_gripper'])>.02:
                 raise RuntimeError('Kinex final gripper target was not reached (0.02 fraction tolerance)')
 
+    def _session_key(self):
+        return (self.api.session_id,(self._latest or {}).get('episode_id'),getattr(self,'_lease',None))
+
+    def _verify_startup_home(self):
+        observation=self._read()
+        if observation.get('homed') is not True or observation.get('settled') is not True:
+            raise RuntimeError('Fresh settled startup Home is required before Kinex starts')
+        self._startup_home=self._session_key()
+
     def trajectory_failed(self,*args,**kwargs):
         self._error='Physical trajectory did not complete; automatic retry is disabled';self.request_stop()
 
@@ -300,6 +323,7 @@ class KinexAdapter:
         self._latest=deepcopy(observation)
         if self._thread is None:
             self._lease=self.api.get_session(self.api.session_id).get('lease_id')
+            self._verify_startup_home()
             self._thread=threading.Thread(target=self._agent,args=(prompt,),daemon=True);self._thread.start()
         while not self.cancelled() and not self._stop.is_set():
             if self._error:raise RuntimeError(self._error)
@@ -310,7 +334,7 @@ class KinexAdapter:
             try:
                 obs=self._read()
                 if self.packets.guard:self.packets.guard.validate_report(self.api.get_robot_calibration())
-                points=self.packets.build(item['device'],item['args'],obs,first_step_id)
+                points=self.packets.build(item['device'],item['args'],obs,first_step_id,startup_home_verified=self._startup_home==self._session_key())
                 if self._stop.is_set() or self.cancelled():raise RuntimeError('Kinex cancelled before buffer dispatch')
                 self._target=deepcopy(points[-1])
                 self.emit('kinex_command','Kinex requested a validated device buffer',device=item['device'],waypoint_count=len(points))
@@ -369,16 +393,25 @@ class KinexAdapter:
             'The attached images and following measured state are the initial real robot observation. '
             'Use these supplied observations for your initial decision; read devices again when needed. '
             'Do not perform redundant start/discovery calls or create timing files; the host records them. '
+            'Loaded device IDs are left_arm, right_arm, left_gripper, right_gripper, top_camera, left_camera, right_camera and world. The station ID is not a device. '
+            'If the supplied images/state support a safe first task action, perform it directly; status/profile discovery is unnecessary. '
             'Supported schemas: '
             'device({deviceID,action,args}), devices({calls:[{deviceID,action,args}]}), '
             'servo({device,joints,block}), device_stop({deviceID}). Use only these registered tools. '
-            'Batch initial camera, joint and gripper reads with devices. '
+            'A joint write is device({deviceID:"right_arm",action:"write",args:{actions:[[six absolute joint radians]],duration_s:1}}); '
+            'a gripper write uses actions:[fraction] with duration_s. World pacing uses device({deviceID:"world",action:"wait",args:{duration_s:1}}). '
+            'Batch additional reads with devices when needed. '
             'Arms have six absolute joints in radians; grippers use fractions 0 closed to 1 open. '
             'Cartesian kinematics and arbitrary Python are unavailable in this initial integration. '
             'Use measured camera images and joint feedback. Keep motions small, within all declared limits, '
             'and verify measured completion before another actuator write. Never retry a timed-out/uncertain motion. '
             'When another buffer is active, read feedback and wait with the world device. '
-            'Finish with an honest task result; do not stop the gateway just to finish normally.\nInitial measured state: '+json.dumps({k:initial.get(k) for k in ('observed_at','left_joints_deg','right_joints_deg','left_gripper','right_gripper','homed','settled')})+'\nTask: '+prompt)
+            'Finish with an honest task result; do not stop the gateway just to finish normally.\nInitial measured state (camera order top, left wrist, right wrist): '+json.dumps(dict(
+                observed_at=initial['observed_at'],homed=initial['homed'],settled=initial['settled'],
+                devices={**{side+'_arm':dict(positions=np.deg2rad(initial[side+'_joints_deg']).tolist(),units='radians',
+                    lower=self.packets.limits['lower_rad'][offset:offset+6],upper=self.packets.limits['upper_rad'][offset:offset+6],max_velocity=.35)
+                    for side,offset in (('left',0),('right',6))},
+                    **{side+'_gripper':dict(fraction=initial[side+'_gripper'],closed=0,open=1,max_velocity=1) for side in ('left','right')}}))+'\nTask: '+prompt)
         self.emit('model_request','Starting Astra with Kinex tools through the Codex subscription',model=self.model)
         with (self.directory/'codex-events.jsonl').open('w') as log,(self.directory/'codex-stderr.log').open('w') as errors:
             self._spawn(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=errors,text=True,env=env,start_new_session=True)

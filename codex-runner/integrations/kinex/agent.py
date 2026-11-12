@@ -17,6 +17,15 @@ from remote_yam.kinex_safety import RoboHouseGuard,ROBOHOUSE,admission
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
+def progress(status,policy,events):
+    stage={'queued':'Waiting in robot queue','preparing':'Preparing robot'}.get(status,status.replace('_',' ').title())
+    last=events[-1].get('message',stage) if events else stage
+    if status!='running':return stage,last
+    if policy._active:return 'Executing Kinex motion','The gateway is executing the validated buffer. Waiting for measured completion before another command. Stop is available.'
+    if policy._pending:return 'Validating Kinex motion','Checking fresh robot state and the command before dispatch. Waiting for gateway acknowledgement; no automatic retry.'
+    if policy._thread is not None:return 'Astra is planning','Waiting for Astra to choose its next Kinex action. No new motion is being submitted during this wait. Stop is available.'
+    return 'Checking robot feedback',last
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--site',required=True);parser.add_argument('--token-file',required=True)
     parser.add_argument('--upstream',required=True);parser.add_argument('--state',required=True);parser.add_argument('--preflight',required=True)
@@ -68,8 +77,7 @@ def main():
                     snapshot=controller.status();status=snapshot['status'];events=(snapshot.get('interactions') or {}).get('events',[])
                     config=policy.public_config();config.pop('recording_path',None)
                     clean=[{'time':e.get('timestamp',e.get('time',time.time())),'kind':e.get('kind'),'message':e.get('message','')[:6000]} for e in events[-60:]]
-                    stage={'queued':'Waiting in robot queue','preparing':'Preparing robot','running':'Kinex running'}.get(status,status.replace('_',' ').title())
-                    last=clean[-1]['message'] if clean else stage
+                    stage,last=progress(status,policy,clean)
                     if policy._finished_normally:stage='Kinex agent finished';last='Agent finished. Physical task outcome is unverified.'
                     terminal=status not in ('queued','preparing','running')
                     published='completed' if terminal and snapshot.get('error') is None and policy._finished_normally and any(e.get('kind')=='stop_requested' and e.get('details',{}).get('reason')=='policy_complete' for e in events) else status

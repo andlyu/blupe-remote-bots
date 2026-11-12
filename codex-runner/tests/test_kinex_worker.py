@@ -22,6 +22,19 @@ worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(worker)
 
 
 class WorkerLifecycle(unittest.TestCase):
+    def test_planning_dispatch_and_execution_waits_explain_the_actual_stage(self):
+        from types import SimpleNamespace
+        p=SimpleNamespace(_thread=object(),_pending=None,_active=False)
+        stage,reason=worker.progress('running',p,[])
+        self.assertIn('planning',stage);self.assertIn('Astra',reason);self.assertIn('Stop',reason)
+        p._pending={};p._pending={'device':'right_arm'}
+        stage,reason=worker.progress('running',p,[])
+        self.assertIn('Validating',stage);self.assertIn('acknowledgement',reason)
+        p._active=True
+        stage,reason=worker.progress('running',p,[])
+        self.assertIn('Executing',stage);self.assertIn('measured completion',reason)
+        self.assertEqual(worker.progress('failed',p,[{'message':'original error'}]),('Failed','original error'))
+
     def test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch(self):
         class Finished(BaseException):pass
         api=MockSessionAPI(auto_activate=False);api._session_capabilities={}

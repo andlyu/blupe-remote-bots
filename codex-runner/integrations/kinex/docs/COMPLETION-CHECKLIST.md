@@ -179,7 +179,7 @@ below; underlying model/checkpoint selections remain separate metadata.
 - [x] When a human joins, collect or confirm their name and email. Prefill known
   identity/default values where available and let the runner edit both fields
   before joining.
-- [ ] Run context includes the actual approach and confirmed runner identity;
+- [x] Run context includes the actual approach and confirmed runner identity;
   the website makes clear which method is running and whose run it is.
 - [x] Policy/model tests initiated by a person retain that actual user's
   confirmed name as runner. Use available identity and editable name/email
@@ -198,9 +198,9 @@ below; underlying model/checkpoint selections remain separate metadata.
   the requested object/result state; a narrower smoke test is labelled as such.
   Relevant failures or changed control code reopen affected requirements and
   the current passed/total display, preserving earlier results as history.
-- [ ] A person can use the website to run the integrated paper's method on
+- [x] A person can use the website to run the integrated paper's method on
   physical YAM robots/arms. Record a verified physical execution of that method.
-- [ ] The actual physical arms are visible live on the website while the method
+- [x] The actual physical arms are visible live on the website while the method
   runs, so a visitor can see that it is executing on real hardware.
 - [ ] Immediately after a run finishes, the person can replay that just-completed
   physical YAM execution through the website, with retained footage showing the
@@ -647,3 +647,16 @@ The old MCP catalog required repeated discovery calls: the first packet was subm
 Site v8 source `aec8287bba85cc9b14aad60263e1d10da47012db`, deployment `appgdep_6af5d83a7820819183663db1b1fa5d48`, succeeded. The recording index omitted its model; an exact independently matched public queue record confirms the same episode, Robo-house station, Kinex approach, andrew and task. Recovery retains `recording_index_model: null` and `attribution_source: matched_live_queue_context`; it rejects explicitly conflicting attribution. Eight real-SQLite tests pass. Its retained preview hash is `738fa8719964ba2bdf2f884099e0e654651c0b03b547a6f9549f38a36e70ef7c`, 32.533 seconds, marked 2x and EDITED REPLAY. The top-only edited footage does not clearly settle the uncertain gripper command or establish precise physical-onset timing. Ownerless session/trace access returned 403; reading the stopped trace through its original owned worker was prevented by macOS task-port entitlement restrictions. No access protection or OS privilege was changed and no credentials were copied. Future runs now retain private ownership, independent transport receipts and final backend traces.
 
 The failed physical attempt, old timings and unknown command remain history. Physical task success, successful method-motion playback and final normal-UI acceptance remain unchecked. No timing exception is claimed.
+
+
+### Verified physical wrist and gateway feedback repair
+
+Normal UI job `dac55616-1277-4b79-8445-1987c7e4b924`, episode `ep_1dcfbe6dca464637`, session `sess_f594014f1e4c4d7e`, executed one right-wrist +0.08 rad buffer on real Robo-house through Kinex/Astra. All ten ordered waypoint receipts and a completed gateway result were retained privately; sanitized evidence is `evidence/robohouse-attempt-03.json`. Live cameras visibly showed the wrist move. The packet's measured final wrist was 3.3113 degrees and the existing target tolerance passed. No other task primitive completed. Normal Stop/parking released the lease. The previous uncertain left-gripper command was not replayed.
+
+The adapter then stopped on the capability-scoped gateway observation's omitted source field, even though the shared controller had corroborated fresh hardware and settled completion. The repaired adapter independently reads fresh safe settled hardware under the same lease and validates both gateway and live measured targets; it does not merely trust a missing source. The gateway defines `homed` as currently being at Home, not initialization history. Startup Home is now independently verified once and bound to the session/episode/lease; following writes still require fresh safe settled hardware, unchanged lease, strict calibration and swept controller guards. A changed lease or absent initial Home still rejects. The episode binding is preserved when the public hardware snapshot omits it.
+
+The old completion function reproduces the failure; see `evidence/hardware-feedback-red.json`. The exact isolated release passes 32 Python tests plus native direct-schema, explicit-deny and lifecycle tests; every native fixture now uses the real gateway's missing-source completion shape. See `evidence/preflight-hardware-feedback.json`. All public/private source distinctions and guards remain intact.
+
+This physical run missed onset timing. No 15-second/30-second pass or timing exception is claimed. The attempted timed screenshot helper produced no frames; live screenshot observations and retained backend receipts establish a wrist motion, but do not constitute the required continuous UI timing record. That requirement remains unchecked. The new prompt supplies actual loaded device IDs, radians, profile bounds and exact native write syntax, reducing unnecessary discovery; its latency must still be measured.
+
+The integration remains incomplete pending a full representative task, browser-playable method footage, timing/wait-stage verification and final normal-UI acceptance. Earlier source-only successes remain history rather than substitutes for these requirements.

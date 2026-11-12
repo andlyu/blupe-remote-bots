@@ -86,7 +86,8 @@ class NativeCommandContract(unittest.TestCase):
                     try:
                         controller._dispatch_trajectory(policy.build_trajectory,policy,'Synthetic offline fixture',deepcopy(feedback),'offline','ep_offline','lease_offline',0)
                         target=deepcopy(sent[-1]['waypoints'][-1]);feedback.update(target,observed_at=time.time())
-                        policy.trajectory_completed(deepcopy(feedback),len(sent[-1]['waypoints']))
+                        gateway=deepcopy(feedback);gateway.pop('source')
+                        policy.trajectory_completed(gateway,len(sent[-1]['waypoints']))
                         controller.status()
                         controller._trajectory=None
                     except Exception as exc:failures.append(repr(exc));policy.request_stop();break

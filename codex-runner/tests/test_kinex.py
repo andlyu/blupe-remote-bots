@@ -83,6 +83,33 @@ class CommandContract(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class BridgeRegression(unittest.TestCase):
+    def test_gateway_final_without_source_requires_independent_fresh_hardware(self):
+        p=self.adapter();fresh=observation();p._read=lambda:deepcopy(fresh)
+        p._target={k:deepcopy(fresh[k]) for k in ('left_joints_deg','right_joints_deg','left_gripper','right_gripper')}
+        gateway=deepcopy(fresh);gateway.pop('source');gateway['homed']=False
+        self.assertEqual(p.validate_trajectory_final(gateway)['source'],'hardware')
+        p._latest=dict(fresh,episode_id='episode');p.trajectory_completed(gateway,10)
+        self.assertEqual(p._latest['episode_id'],'episode')
+        for changed in ({'source':'simulation'},{'settled':False},{'observed_at':time.time()-3},{'left_gripper':0}):
+            before=deepcopy(fresh);fresh.update(changed)
+            with self.assertRaises(RuntimeError):p.validate_trajectory_final(gateway)
+            fresh.clear();fresh.update(before)
+        bad=deepcopy(gateway);bad['right_gripper']=0
+        with self.assertRaises(RuntimeError):p.validate_trajectory_final(bad)
+
+    def test_startup_home_attestation_is_required_and_bound_to_current_lease(self):
+        p=self.adapter();obs=observation();obs['episode_id']='episode';p._latest=deepcopy(obs);p._lease='lease'
+        session=dict(status='running',episode_id='episode',lease_id='lease')
+        p.api.get_session=lambda *a:session;p.api.get_robot_observation=lambda *a:deepcopy(obs)
+        obs['homed']=False
+        with self.assertRaisesRegex(RuntimeError,'startup Home'):p._verify_startup_home()
+        obs['homed']=True;p._verify_startup_home();obs['homed']=False
+        obs['right_joints_deg'][-1]+=math.degrees(.08)
+        item=self.item();p._pending=item;p._queue.put(item)
+        self.assertEqual(len(p.build_trajectory('offline after Home',deepcopy(obs),0)),10)
+        session['lease_id']='other'
+        with self.assertRaisesRegex(RuntimeError,'lease changed'):p._read()
+
     def adapter(self):
         import tempfile
         from remote_yam.kinex_policy import KinexAdapter

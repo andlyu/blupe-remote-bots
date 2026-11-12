@@ -1,0 +1,178 @@
+{
+  "trajectory_progress": [
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 0,
+      "executed_at": 1794496967.213829
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 1,
+      "executed_at": 1794496967.3158376
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 2,
+      "executed_at": 1794496967.420721
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 3,
+      "executed_at": 1794496967.51986
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 4,
+      "executed_at": 1794496967.6204886
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 5,
+      "executed_at": 1794496967.7247815
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 6,
+      "executed_at": 1794496967.8274522
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 7,
+      "executed_at": 1794496967.9301307
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 8,
+      "executed_at": 1794496968.0329103
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "step_id": 9,
+      "executed_at": 1794496968.1363862
+    }
+  ],
+  "trajectory_results": [
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "status": "accepted",
+      "reported_at": 1794496967.2081974,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "lease_id": "lease_eb6137dc198d491b",
+      "trajectory_id": "traj_ep_1dcfbe6dca464637_0",
+      "status": "completed",
+      "reported_at": 1794496968.5916157,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    }
+  ],
+  "lifecycle": [
+    {
+      "schema_version": 1,
+      "event_id": "evt_cad16d87aa4b4458",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "state": "preparing",
+      "previous_state": "queued",
+      "timestamp": 1794496893.963792,
+      "actor": "system",
+      "reason": "jetson_leased"
+    },
+    {
+      "schema_version": 1,
+      "event_id": "evt_c2993d6cd811417b",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "state": "running",
+      "previous_state": "preparing",
+      "timestamp": 1794496894.063642,
+      "actor": "jetson",
+      "reason": "first_observation"
+    },
+    {
+      "schema_version": 1,
+      "event_id": "evt_3686781a1c3549d6",
+      "session_id": "sess_f594014f1e4c4d7e",
+      "episode_id": "ep_1dcfbe6dca464637",
+      "state": "stopped",
+      "previous_state": "running",
+      "timestamp": 1794496970.7288666,
+      "actor": "runner",
+      "reason": "user_requested"
+    }
+  ],
+  "site_job": "dac55616-1277-4b79-8445-1987c7e4b924",
+  "episode_id": "ep_1dcfbe6dca464637",
+  "approach": "Kinex",
+  "runner": "andrew",
+  "execution_mode": "automated_verification",
+  "outcome": "One right-wrist +0.08rad buffer completed; callback then stopped on missing source metadata. Remaining task not performed. No automatic retry.",
+  "timing_pass": false,
+  "timing_reason": "First packet submitted ~71.29s into controller planning; actual physical motion visibly occurred after the mandatory limits. No timing exception claimed.",
+  "ui_timing_recording": "Timed helper capture did not produce frames; live screenshots were observed, but no complete UI timing sequence is claimed."
+}
