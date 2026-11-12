@@ -1,0 +1,13 @@
+{
+  "approach": "Kinex",
+  "underlying_model": "gpt-6-astra",
+  "station": "yam-1",
+  "runner": {
+    "ready": false,
+    "message": "YAM1 feedback is stale. Restore the station connection before running.",
+    "approach": "Kinex",
+    "underlying_model": "gpt-6-astra",
+    "online": true
+  },
+  "runs": []
+}

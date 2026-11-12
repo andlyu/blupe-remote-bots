@@ -1,0 +1,28 @@
+name: Kinex command contract
+on:
+  pull_request:
+    paths: ['codex-runner/integrations/kinex/**', 'codex-runner/src/remote_yam/kinex_policy.py', 'codex-runner/tests/test_kinex.py', '.github/workflows/kinex.yml']
+  push:
+    branches: ['codex/kinex-playground']
+    paths: ['codex-runner/integrations/kinex/**', 'codex-runner/src/remote_yam/kinex_policy.py', 'codex-runner/tests/test_kinex.py', '.github/workflows/kinex.yml']
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+      - run: pip install numpy scipy Pillow mujoco websocket-client
+      - name: Build pinned official Kinex runtime
+        run: |
+          git clone https://github.com/stacx-lab/kinex-plugins.git /tmp/kinex-plugins
+          git -C /tmp/kinex-plugins checkout f68a8d7f1ddcae2b096f171b817c232d8730f3ec
+          cd /tmp/kinex-plugins
+          npm ci --ignore-scripts
+          npm run build
+      - name: Required offline command and native MCP gate
+        run: PYTHONPATH=codex-runner/src python codex-runner/integrations/kinex/preflight.py --upstream /tmp/kinex-plugins --output /tmp/kinex-preflight.json
