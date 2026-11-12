@@ -83,6 +83,18 @@ class CommandContract(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class BridgeRegression(unittest.TestCase):
+    def test_small_remote_clock_lead_waits_without_widening_freshness_window(self):
+        p=self.adapter();p._latest={'episode_id':'episode'};p._lease='lease'
+        p.api.get_session=lambda *a:dict(status='running',episode_id='episode',lease_id='lease')
+        obs=observation();obs['observed_at']=time.time()+.04
+        p.api.get_robot_observation=lambda *a:deepcopy(obs)
+        result=p._read();self.assertLessEqual(result['observed_at'],time.time())
+        for timestamp in (time.time()+1,time.time()-3):
+            obs['observed_at']=timestamp
+            with self.assertRaisesRegex(RuntimeError,'Fresh safe'):p._read()
+        p._stop.set();obs['observed_at']=time.time()+.04
+        with self.assertRaisesRegex(RuntimeError,'cancelled'):p._read()
+
     def test_gateway_final_without_source_requires_independent_fresh_hardware(self):
         p=self.adapter();fresh=observation();p._read=lambda:deepcopy(fresh)
         p._target={k:deepcopy(fresh[k]) for k in ('left_joints_deg','right_joints_deg','left_gripper','right_gripper')}

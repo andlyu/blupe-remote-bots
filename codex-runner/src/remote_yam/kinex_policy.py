@@ -233,9 +233,17 @@ class KinexAdapter:
                 or session.get('lease_id')!=self._lease):raise RuntimeError('Robot lease changed; stopping Kinex')
         result=self.api.get_robot_observation(self.robot_id)
         obs=result.get('observation') or result.get('payload') or result
+        observed=finite(obs.get('observed_at'),'feedback time')
+        ahead=observed-time.time()
+        # A small remote clock lead is not permission to use future feedback.
+        # Wait until the original strict local freshness window is satisfied.
+        if 0<ahead<=.5:
+            self.emit('feedback_clock_wait','Waiting briefly for the hardware timestamp to enter the local freshness window',clock_lead_s=ahead)
+            if self._stop.wait(ahead+.002) or self.cancelled():raise RuntimeError('Kinex cancelled while waiting for hardware timestamp')
+        age=time.time()-observed
         if (obs.get('jetson_id',obs.get('robot_id'))!=self.robot_id or obs.get('source')!='hardware'
-                or not 0<=time.time()-finite(obs.get('observed_at'),'feedback time')<=2
-                or obs.get('safety',{}).get('ok') is not True):raise RuntimeError('Fresh safe robot feedback unavailable')
+                or not 0<=age<=2 or obs.get('safety',{}).get('ok') is not True):
+            raise RuntimeError('Fresh safe robot feedback unavailable: '+json.dumps(dict(station=obs.get('jetson_id',obs.get('robot_id')),source=obs.get('source'),age_s=age,safety_ok=obs.get('safety',{}).get('ok'))))
         return obs
 
     def _device(self,data):
