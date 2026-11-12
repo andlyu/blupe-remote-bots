@@ -1,0 +1,100 @@
+[
+  {
+    "attempt": 1,
+    "job_id": "81581277-d1c5-4a34-a783-ed5b906a248a",
+    "run_click_bounds_s": [
+      1794493932.311,
+      1794493932.35
+    ],
+    "home_completed_observed_at_s": null,
+    "first_observed_method_motion_s_bounds": null,
+    "excluded_queue_s": 0,
+    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "terminal_event_at_s": 1794493951.187994,
+    "full_elapsed_to_terminal_s_bounds": [
+      18.83799409866333,
+      18.876993894577026
+    ],
+    "both_limits_pass": false,
+    "reason": "Failed before episode/model/actuator; no Home/method motion"
+  },
+  {
+    "attempt": 2,
+    "job_id": "25fda63b-b886-4ed4-940d-a8f1d69a2537",
+    "run_click_bounds_s": [
+      1794494656.663,
+      1794494656.719
+    ],
+    "home_completed_observed_at_s": 1794494669.9981499,
+    "first_observed_method_motion_s_bounds": null,
+    "excluded_queue_s": 0,
+    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "terminal_event_at_s": 1794494747.037345,
+    "full_elapsed_to_terminal_s_bounds": [
+      90.31834483146667,
+      90.37434482574463
+    ],
+    "both_limits_pass": false,
+    "reason": "Left gripper submission outcome uncertain; no verified method onset"
+  },
+  {
+    "attempt": 3,
+    "job_id": "dac55616-1277-4b79-8445-1987c7e4b924",
+    "run_click_bounds_s": [
+      1794496884.83,
+      1794496884.873
+    ],
+    "home_completed_observed_at_s": 1794496894.0117364,
+    "first_observed_method_motion_s_bounds": null,
+    "excluded_queue_s": 0,
+    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "terminal_event_at_s": 1794496969.828161,
+    "full_elapsed_to_terminal_s_bounds": [
+      84.95516109466553,
+      84.99816107749939
+    ],
+    "both_limits_pass": false,
+    "reason": "First packet only after >70s planning; physical wrist observed but complete UI timing capture unavailable"
+  },
+  {
+    "attempt": 4,
+    "job_id": "c8a1639e-56ea-424b-b68b-10ba454be7c7",
+    "run_click_bounds_s": [
+      1794497895.519,
+      1794497895.754
+    ],
+    "home_completed_observed_at_s": 1794497902.951757,
+    "first_observed_method_motion_s_bounds": null,
+    "excluded_queue_s": 0,
+    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "terminal_event_at_s": 1794497905.89469,
+    "full_elapsed_to_terminal_s_bounds": [
+      10.140690088272095,
+      10.37568998336792
+    ],
+    "both_limits_pass": false,
+    "reason": "Stopped at fresh feedback gate before model/actuator"
+  },
+  {
+    "attempt": 5,
+    "job_id": "25f59a9c-488f-4a65-8989-69d700a190e7",
+    "run_click_bounds_s": [
+      1794498206.577,
+      1794498206.78
+    ],
+    "home_completed_observed_at_s": 1794498216.4750092,
+    "first_observed_method_motion_s_bounds": [
+      1794498238.158,
+      1794498239.907
+    ],
+    "excluded_queue_s": 0,
+    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "terminal_event_at_s": 1794498296.803803,
+    "full_elapsed_to_terminal_s_bounds": [
+      90.02380299568176,
+      90.22680306434631
+    ],
+    "both_limits_pass": false,
+    "reason": "Observed onset ~21.7\u201323.4s after Home and~31.4\u201333.3s after Run; both fail with no queue exclusion"
+  }
+]

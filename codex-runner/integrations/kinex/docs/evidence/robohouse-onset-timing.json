@@ -1,0 +1,33 @@
+{
+  "run_click_bounds_s": [
+    1794498206.577,
+    1794498206.78
+  ],
+  "home_observed_at_s": 1794498216.4750092,
+  "visual_motion_observation_bounds_s": [
+    1794498238.158,
+    1794498239.907
+  ],
+  "last_clearly_unchanged_frame": "00224-camera.jpg",
+  "first_clearly_changed_frame": "00236-camera.jpg",
+  "excluded_queue_wait_s": 0,
+  "queue_exclusion_reason": "No separate admission wait behind another runner is evidenced. Queued status overlapped controller initialization/Home, which is retained in elapsed time.",
+  "home_to_motion_s_bounds": [
+    21.682990789413452,
+    23.4319908618927
+  ],
+  "run_to_motion_s_bounds": [
+    31.378000020980835,
+    33.330000162124634
+  ],
+  "queue_adjusted_run_to_motion_s_bounds": [
+    31.378000020980835,
+    33.330000162124634
+  ],
+  "both_timing_limits_pass": false,
+  "continuous_onset_frame_count": 266,
+  "capture_gaps_after_onset": "Subsequent separate capture window has a gap; no continuous full-run capture is claimed.",
+  "clock_correlation": "UI capture uses local wall-clock intervals. Gateway/Home timestamps corroborated by fresh public feedback and live camera state. Public hardware clock had a small lead; physical onset is bounded from observed UI frames, not inferred from packet receipt.",
+  "capture_bound_method": "Use the start of the last definitely unchanged frame and end of the first definitely changed frame, conservatively including screenshot acquisition uncertainty. Captures pair camera and actions sequentially.",
+  "clock_uncertainty": "Remote hardware clock lead was observed, not precisely calibrated; up to0.5s accepted only after waiting into local freshness. This uncertainty does not change either failed threshold."
+}

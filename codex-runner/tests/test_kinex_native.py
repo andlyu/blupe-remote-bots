@@ -48,6 +48,8 @@ class NativeCommandContract(unittest.TestCase):
             policy._thread=object();policy._lease='lease_offline';policy._latest=deepcopy(feedback)
             controller=RunnerController(api,share_conversation=False)
             controller._status='running';controller._provider=policy
+            controller._run_started_at=time.time()  # Fixture enters the same state as a normally joined run.
+            controller._run_duration_s=180;controller._run_ended_at=None
             controller._session_id='offline';controller._episode_id='ep_offline';controller._lease_id='lease_offline'
             policy.interaction_sink=lambda kind,message,**details:controller._interactions.add(kind,message,**details)
             policy._start_bridge()
