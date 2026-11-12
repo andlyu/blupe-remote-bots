@@ -25,6 +25,7 @@ from PIL import Image
 
 from .mujoco_ik import BimanualRelativeIK
 from .providers import PolicyComplete
+from .kinex_safety import RoboHouseGuard, ROBOHOUSE
 from .session import MAX_COMMANDS, MAX_WAYPOINTS_PER_PACKET, _trajectory_waypoints, SessionAPIError
 
 RUNTIME = Path(__file__).resolve().parents[2] / 'integrations/kinex/runtime'
@@ -37,11 +38,37 @@ def finite(value, name, lo=-math.inf, hi=math.inf):
     return float(value)
 
 
+def bounded_degrees(values,lower,upper):
+    """Encode validated radians without rounding a legal endpoint outside bounds.
+
+    Only the wire representation is moved inward by at most four degree ULPs.
+    Invalid requested radians remain rejected, and no safety bound is widened.
+    """
+    result=[]
+    for value,lo,hi in zip(values,lower,upper):
+        q=finite(float(value),'generated joint',float(lo),float(hi))
+        degrees=float(np.rad2deg(q))
+        for attempt in range(5):
+            restored=(float(np.deg2rad(degrees)),math.radians(degrees))
+            if min(restored)>=lo and max(restored)<=hi:break
+            if attempt==4:raise ValueError('Joint endpoint cannot be safely represented in wire degrees')
+            degrees=math.nextafter(degrees,math.inf if min(restored)<lo else -math.inf)
+        result.append(degrees)
+    return result
+
+
 class KinexPackets:
-    def __init__(self):
+    def __init__(self,robot_id='yam-1'):
+        self.robot_id=robot_id
+        self.guard=RoboHouseGuard() if robot_id==ROBOHOUSE else None
+        if robot_id not in ('yam-1',ROBOHOUSE):raise ValueError('Unsupported robot')
         self.geometry = BimanualRelativeIK(base_spacing_m=.50)
-        self.geometry.low = np.maximum(self.geometry.low, YAM1_JOINT_LIMITS['lower_rad'])
-        self.geometry.high = np.minimum(self.geometry.high, YAM1_JOINT_LIMITS['upper_rad'])
+        if robot_id=='yam-1':
+            self.geometry.low = np.maximum(self.geometry.low, YAM1_JOINT_LIMITS['lower_rad'])
+            self.geometry.high = np.minimum(self.geometry.high, YAM1_JOINT_LIMITS['upper_rad'])
+        else:
+            self.geometry.low=np.maximum(self.geometry.low,self.guard.config.joint_lower_rad)
+            self.geometry.high=np.minimum(self.geometry.high,self.guard.config.joint_upper_rad)
         self.limits = {'lower_rad':self.geometry.low.tolist(),'upper_rad':self.geometry.high.tolist()}
 
     def build(self, device, args, observation, step):
@@ -51,9 +78,9 @@ class KinexPackets:
             raise ValueError('Actuation requires only actions and duration_s')
         if (observation.get('source') != 'hardware' or observation.get('settled') is not True
                 or observation.get('homed') is not True or observation.get('safety',{}).get('ok') is not True
-                or observation.get('jetson_id',observation.get('robot_id')) != 'yam-1'
+                or observation.get('jetson_id',observation.get('robot_id')) != self.robot_id
                 or not 0 <= time.time()-finite(observation.get('observed_at'),'feedback timestamp') <= 2):
-            raise ValueError('Fresh, homed, settled YAM1 feedback with safety OK is required')
+            raise ValueError('Fresh, homed, settled '+self.robot_id+' feedback with safety OK is required')
         duration = finite(args['duration_s'],'duration_s',.1,6)
         count = math.ceil(duration*10)
         if count > MAX_WAYPOINTS_PER_PACKET or step+count > MAX_COMMANDS:
@@ -96,28 +123,36 @@ class KinexPackets:
             if self.geometry.data.ncon:raise ValueError('Predictive model contact rejected the buffer')
             for arm in ('left','right'):
                 offset=0 if arm=='left' else 6
-                point[arm+'_joints_deg'] = np.rad2deg(q[offset:offset+6]).tolist() if joint and arm==side else deepcopy(observation[arm+'_joints_deg'])
+                point[arm+'_joints_deg']=deepcopy(observation[arm+'_joints_deg'])
+                if joint and arm==side:
+                    encoded=bounded_degrees(q[offset:offset+6],self.geometry.low[offset:offset+6],self.geometry.high[offset:offset+6])
+                    point[arm+'_joints_deg']=[original if q[offset+i]==q0[offset+i] else encoded[i] for i,original in enumerate(observation[arm+'_joints_deg'])]
                 point[arm+'_gripper'] = float(target) if not joint and arm==side else grips[arm]
             if not joint and abs(point[side+'_gripper']-previous_grip) > .1+1e-10:raise ValueError('Generated gripper pacing exceeds existing limit')
             previous_grip=point[side+'_gripper']; previous=q;points.append(point)
-        return _trajectory_waypoints(points)
+        points=_trajectory_waypoints(points)
+        if self.guard:self.guard.approve(q0,points)
+        return points
 
 
 class KinexAPI:
     """Identity-preserving API facade and dispatch acknowledgement hook."""
-    def __init__(self, api, name, email):
-        self.api=api;self.name=name;self.email=email;self.policy=None;self.session_id=None
+    def __init__(self, api, name, email,robot_id='yam-1'):
+        self.api=api;self.name=name;self.email=email;self.robot_id=robot_id;self.policy=None;self.session_id=None
 
     def __getattr__(self,name):return getattr(self.api,name)
 
     def create_session(self,prompt,run_duration_s=300):
         # Keep attribution even on shared client revisions predating identity kwargs.
         import websocket  # Validate the control transport before queue admission.
-        result=self.api._request('POST','/v1/sessions',dict(schema_version=1,robot_id='yam-1',prompt=prompt,run_duration_s=run_duration_s,runner_name=self.name,email=self.email,model='Kinex'))
+        result=self.api._request('POST','/v1/sessions',dict(schema_version=1,robot_id=self.robot_id,prompt=prompt,run_duration_s=run_duration_s,runner_name=self.name,email=self.email,model='Kinex'))
         capability=result.get('session_capability');self.session_id=result.get('session_id')
         if not self.session_id or not isinstance(capability,str) or not capability:raise RuntimeError('Session creation omitted its capability')
         self.api._session_capabilities[self.session_id]=capability
         return result
+
+    def get_robot_calibration(self):
+        return self.api._request('GET','/v1/robots/'+self.robot_id+'/calibration')
 
     def submit_trajectory(self,session_id,episode_id,lease_id,trajectory_id,cadence_hz,waypoints):
         if self.policy._stop.is_set() or self.policy.cancelled():
@@ -145,9 +180,9 @@ class KinexAdapter:
     supports_runtime_steering=False
     last_step_model_s=0
 
-    def __init__(self,upstream,workspace,api,cameras,model='gpt-6-astra',evidence_root=None):
+    def __init__(self,upstream,workspace,api,cameras,model='gpt-6-astra',evidence_root=None,robot_id='yam-1'):
         self.model=model;self.upstream=Path(upstream).resolve();self.workspace=Path(workspace).resolve()
-        self.api=api;api.policy=self;self.cameras=cameras;self.packets=KinexPackets()
+        self.robot_id=robot_id;self.api=api;api.policy=self;self.cameras=cameras;self.packets=KinexPackets(robot_id)
         self.cancelled=lambda:False;self.interaction_sink=None
         self._queue=queue.Queue();self._pending=None;self._active=False;self._latest=None
         self._process=None;self._thread=None;self._error=None;self._done=False
@@ -157,12 +192,12 @@ class KinexAdapter:
         self.directory=Path(evidence_root) if evidence_root else self.workspace/'evidence';self.directory.mkdir(parents=True,exist_ok=True)
 
     def public_config(self):
-        return dict(provider='kinex',model='Kinex',display_name='Kinex',policy='kinex_native_device_tools',
+        return dict(robot_id=self.robot_id,provider='kinex',model='Kinex',display_name='Kinex',policy='kinex_native_device_tools',
             underlying_models={'planning':self.model,'vision':self.model,'resolved':None,'reasoning_effort':'low'},
             host='Codex 0.162.1 + official Kinex MCP/core 1.0.0',model_calls=self._calls,
             recording_path=str(self.directory),capabilities=['joint servo','normalized grippers','RGB cameras','measured feedback'],
             exclusions=['Cartesian goals','unrestricted Python','arbitrary shell','simultaneous/superseding actuator buffers'],
-            predictive_collision_protection='not_established_visual_model_collision_masks_disabled',
+            predictive_collision_protection='canonical_swept_controller_guard' if self.packets.guard else 'not_established_visual_model_collision_masks_disabled',
             runner_name=getattr(self,'runner_name',None),execution_mode=getattr(self,'execution_mode','interactive'),
             kinex_upstream_revision='f68a8d7f1ddcae2b096f171b817c232d8730f3ec',
             agent_finished=self._finished_normally,task_success='unverified',stop_error=self._stop_error)
@@ -175,9 +210,9 @@ class KinexAdapter:
         session=self.api.get_session(self.api.session_id)
         if (session.get('status')!='running' or session.get('episode_id')!=self._latest.get('episode_id')
                 or session.get('lease_id')!=self._lease):raise RuntimeError('Robot lease changed; stopping Kinex')
-        result=self.api.get_robot_observation('yam-1')
+        result=self.api.get_robot_observation(self.robot_id)
         obs=result.get('observation') or result.get('payload') or result
-        if (obs.get('jetson_id',obs.get('robot_id'))!='yam-1' or obs.get('source')!='hardware'
+        if (obs.get('jetson_id',obs.get('robot_id'))!=self.robot_id or obs.get('source')!='hardware'
                 or not 0<=time.time()-finite(obs.get('observed_at'),'feedback time')<=2
                 or obs.get('safety',{}).get('ok') is not True):raise RuntimeError('Fresh safe robot feedback unavailable')
         return obs
@@ -197,6 +232,7 @@ class KinexAdapter:
                if name.endswith('_arm') else {'aperture_m':None,'fraction':finite(obs.get(side+'_gripper'),'measured gripper',0,1),'faults':[],'timestamp':obs['observed_at']})
         if action=='read':return {'ok':True,**state}
         if action!='write':raise ValueError('Unsupported device action')
+        if self.packets.guard:self.packets.guard.validate_report(self.api.get_robot_calibration())
         with self._lock:
             if self._active or self._pending:raise ValueError('A buffer owns the gateway. Wait for measured completion; superseding is unsupported.')
             item={'device':name,'args':args,'event':threading.Event(),'state':state,'result':None,'error':None}
@@ -253,6 +289,7 @@ class KinexAdapter:
                 continue
             try:
                 obs=self._read()
+                if self.packets.guard:self.packets.guard.validate_report(self.api.get_robot_calibration())
                 points=self.packets.build(item['device'],item['args'],obs,first_step_id)
                 if self._stop.is_set() or self.cancelled():raise RuntimeError('Kinex cancelled before buffer dispatch')
                 self._target=deepcopy(points[-1])
@@ -293,7 +330,7 @@ class KinexAdapter:
         frames=self.cameras.capture(self._read());sizes={}
         for frame in frames:
             image=Image.open(io.BytesIO(frame.jpeg));sizes[frame.name]={'width':image.width,'height':image.height}
-        setup={'directory':str(self.workspace),'limits':self.packets.limits,'cameras':sizes}
+        setup={'robot_id':self.robot_id,'directory':str(self.workspace),'limits':self.packets.limits,'cameras':sizes}
         self.emit('kinex_startup','Preparing Kinex device profiles and loading the robotics runtime')
         subprocess.run(['node',str(RUNTIME/'workspace.mjs')],input=json.dumps(setup),text=True,env=env,check=True,capture_output=True,timeout=30)
         binary=self.upstream/'node_modules/.bin/codex'
@@ -306,8 +343,11 @@ class KinexAdapter:
             'mcp_servers.kinex.tool_timeout_sec':60,'mcp_servers.kinex.default_tools_approval_mode':'approve'}
         for key,value in settings.items():command+=['-c',key+'='+json.dumps(value)]
         command+=['-']
-        instructions=('Use the official Kinex MCP tools for this physical YAM1 task. First explicitly call kinex_start, '
-            'then inspect Kinex context and schemas. Use only the registered device, devices, servo and device_stop tools. '
+        instructions=('Use the official Kinex MCP tools for this physical '+self.robot_id+' task. First explicitly call kinex_start, '
+            'use the context it returns. The supported tool schemas are supplied here: '
+            'device({deviceID,action,args}), devices({calls:[{deviceID,action,args}]}), '
+            'servo({device,joints,block}), device_stop({deviceID}). Use only these registered tools. '
+            'Batch initial camera, joint and gripper reads with devices. '
             'Arms have six absolute joints in radians; grippers use fractions 0 closed to 1 open. '
             'Cartesian kinematics and arbitrary Python are unavailable in this initial integration. '
             'Use measured camera images and joint feedback. Keep motions small, within all declared limits, '

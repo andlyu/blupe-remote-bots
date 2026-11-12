@@ -4,10 +4,12 @@ import argparse,hashlib,json,os
 from pathlib import Path
 import subprocess,sys,tempfile,time
 ROOT=Path(__file__).resolve().parents[2]
-SOURCES=['src/remote_yam/kinex_policy.py','src/remote_yam/session.py','src/remote_yam/controller.py',
- 'src/remote_yam/mujoco_ik.py','tests/test_kinex.py','tests/test_kinex_native.py',
+SOURCES=['src/remote_yam/kinex_policy.py','src/remote_yam/kinex_safety.py','src/remote_yam/session.py','src/remote_yam/controller.py',
+ 'src/remote_yam/mujoco_ik.py','tests/test_kinex.py','tests/test_kinex_native.py','tests/test_kinex_robohouse.py',
  'integrations/kinex/agent.py','integrations/kinex/preflight.py',
  *['integrations/kinex/runtime/'+name for name in ('driver.py','mcp.mjs','workspace.mjs','offline-mcp.mjs','native-contract.mjs','yam1-limits.json')]]
+SOURCES += ['integrations/kinex/runtime/robohouse/'+p.name for p in sorted((ROOT/'integrations/kinex/runtime/robohouse').iterdir()) if p.is_file()]
+SOURCES += [str(p.relative_to(ROOT)) for p in sorted((ROOT/'models/yam/assets').glob('*.stl'))]
 def hashes():return {name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in SOURCES}
 def upstream_fingerprint(path):
     root=Path(path).resolve()
@@ -43,7 +45,7 @@ def main():
         upstream_fingerprint=upstream_fingerprint(a.upstream),
         validator='remote_yam.session._trajectory_waypoints and HttpSessionAPI.submit_trajectory',
         physical_commands_sent=0,simulation_rollout=False,
-        physical_command_contract='pending_station_safety_calibration_review')
+        physical_command_contract={'yam-1':'pending_station_safety_calibration_review','robot-ba8413962083809c':'verified'})
     out=Path(a.output);out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(value,indent=2)+'\n')
     print(json.dumps(dict(status=value['status'],output=str(out),elapsed_s=time.time()-started)))
     raise SystemExit(0 if value['status']=='passed' else 1)

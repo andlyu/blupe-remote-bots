@@ -23,6 +23,7 @@ try{
   try{result=await client.callTool({name:'kinex_call',arguments:{name:item.tool||'device',arguments:item.arguments}})}
   catch(error){result={isError:true,error:String(error)}}
   assert.equal(!!result.isError,!!item.reject,item.label+': '+JSON.stringify(result));
+  if(item.reject_reason)assert.match(JSON.stringify(result),new RegExp(item.reject_reason),item.label+' planning rejection');
   if(item.image)assert(result.content.some(c=>c.type==='image'),item.label+' image attachment');
   const after=await fixture({inspect:true});
   assert.equal(after.dispatches-before.dispatches,item.writes||0,item.label+' dispatch count');

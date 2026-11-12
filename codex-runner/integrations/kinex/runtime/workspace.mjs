@@ -8,7 +8,7 @@ let input = ''; for await (const chunk of process.stdin) input += chunk;
 const config = JSON.parse(input);
 await mkdir(config.directory,{recursive:true});
 const runtime = createKinexRuntime({directory: config.directory});
-await runtime.profiles.writeManifest({identity:{id:'yam-1',name:'BluPe YAM1',platform:'real',kind:'arm',model:'YAM'},
+await runtime.profiles.writeManifest({identity:{id:config.robot_id||'yam-1',name:config.robot_id==='robot-ba8413962083809c'?'Robo-house YAM':'BluPe YAM1',platform:'real',kind:'arm',model:'YAM'},
   safety:{max_joint_velocity:.35, max_cartesian_velocity:'???',keep_out_zones:[]}});
 const affected = ['left_arm','right_arm','left_gripper','right_gripper'];
 const stop = {behavior:'controller_emergency_stop',affected_devices:affected};

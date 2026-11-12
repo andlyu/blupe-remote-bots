@@ -13,13 +13,14 @@ from remote_yam.cameras import CameraFrameSource
 from remote_yam.controller import RunnerController
 from remote_yam.kinex_policy import KinexAPI,KinexAdapter
 from remote_yam.session import HttpSessionAPI
+from remote_yam.kinex_safety import RoboHouseGuard,ROBOHOUSE,admission
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--site',required=True);parser.add_argument('--token-file',required=True)
     parser.add_argument('--upstream',required=True);parser.add_argument('--state',required=True);parser.add_argument('--preflight',required=True)
-    parser.add_argument('--session-api',default=API);parser.add_argument('--model',default='gpt-6-astra');args=parser.parse_args()
+    parser.add_argument('--session-api',default=API);parser.add_argument('--model',default='gpt-6-astra');parser.add_argument('--robot-id',default=ROBOHOUSE);args=parser.parse_args()
     if not args.site.startswith('https://'):parser.error('A deployed HTTPS Site is required')
     from preflight import verify
     verify(args.preflight,args.upstream)
@@ -30,30 +31,29 @@ def main():
     def heartbeat(ready=True,message='Kinex runner connected. Ready for bounded joint and gripper tasks.'):
         call('/api/runner/heartbeat',{'ready':ready,'message':message,'approach':'Kinex','underlying_model':args.model})
     controller=None;policy=None;job=None
-    monitor=HttpSessionAPI(args.session_api,timeout_s=5,robot_id='yam-1')
+    monitor=HttpSessionAPI(args.session_api,timeout_s=5,robot_id=args.robot_id)
     def readiness():
         try:
-            result=monitor.get_robot_observation('yam-1');obs=result.get('observation') or result.get('payload') or result
-            age=time.time()-float(obs.get('observed_at',0))
-            reason=(obs.get('safety') or {}).get('reason')
-            if not 0<=age<=2:return False,'YAM1 feedback is stale. Restore the station connection before running.'
-            if (obs.get('safety') or {}).get('ok') is not True:return False,'YAM1 is not ready: '+str(reason or 'safety status unavailable')+'. Restore the station before running.'
-            return True,'Kinex and YAM1 are ready. Run joins the normal robot queue.'
-        except Exception:return False,'Cannot reach fresh YAM1 feedback. Restore the station connection before running.'
+            result=monitor.get_robot_observation(args.robot_id);obs=result.get('observation') or result.get('payload') or result
+            queue=monitor._request('GET','/v1/queue?robot_id='+args.robot_id)
+            if args.robot_id==ROBOHOUSE:
+                RoboHouseGuard().validate_report(monitor._request('GET','/v1/robots/'+args.robot_id+'/calibration'))
+            return admission(queue,obs,args.robot_id)
+        except Exception:return False,'Cannot verify fresh station connection, calibration and queue readiness. Restore the station before running.'
     try:
         while True:
             try:
                 gate=verify(args.preflight,args.upstream);ready,reason=readiness()
-                if ready and gate.get('physical_command_contract')!='verified':
+                if ready and gate.get('physical_command_contract',{}).get(args.robot_id)!='verified':
                     ready=False;reason='Offline Kinex tool checks passed. Station safety/calibration verification is pending; hardware Run is disabled.'
                 heartbeat(ready,reason)
                 if not ready:time.sleep(3);continue
                 job=call('/api/runner/claim',{}).get('run')
                 if not job:time.sleep(.8);continue
-                api=KinexAPI(HttpSessionAPI(args.session_api,supports_trajectories=True,robot_id='yam-1'),job['name'],job['email'])
-                policy=KinexAdapter(args.upstream,state/'workspace',api,CameraFrameSource(args.session_api),model=args.model,evidence_root=state/job['id']/'evidence')
+                api=KinexAPI(HttpSessionAPI(args.session_api,supports_trajectories=True,robot_id=args.robot_id),job['name'],job['email'],robot_id=args.robot_id)
+                policy=KinexAdapter(args.upstream,state/'workspace',api,CameraFrameSource(args.session_api),model=args.model,evidence_root=state/job['id']/'evidence',robot_id=args.robot_id)
                 policy.runner_name=job['name'];policy.execution_mode='interactive'
-                controller=RunnerController(api,robot_id='yam-1',hardware_control_enabled=True,recording_root=state/'recordings')
+                controller=RunnerController(api,robot_id=args.robot_id,hardware_control_enabled=True,recording_root=state/'recordings')
                 config=policy.public_config();config.pop('recording_path',None)
                 call('/api/runner/update',dict(id=job['id'],status='preparing',stage='Joining BluPe queue',message='Requesting normal queue admission and robot readiness.',configuration=config))
                 controller.join_and_run(policy,job['prompt'],run_duration_s=job['duration_s'])

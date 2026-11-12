@@ -28,19 +28,23 @@ from test_kinex import observation
 
 @unittest.skipUnless(os.environ.get('KINEX_SOURCE'), 'Required native release gate supplies KINEX_SOURCE')
 class NativeCommandContract(unittest.TestCase):
+    robot_id='yam-1'
     def test_native_tools_and_complete_packet_path(self):
         with tempfile.TemporaryDirectory(prefix='kinex-native-contract-') as directory:
             base=HttpSessionAPI('https://offline.invalid',supports_trajectories=True)
             base._session_capabilities['offline']='offline-only-capability'
-            api=KinexAPI(base,'Offline fixture','fixture@example.test');api.session_id='offline'
-            feedback=observation();feedback['episode_id']='ep_offline'
+            api=KinexAPI(base,'Offline fixture','fixture@example.test',robot_id=self.robot_id);api.session_id='offline'
+            feedback=observation();feedback['episode_id']='ep_offline';feedback['jetson_id']=self.robot_id
             base.get_session=lambda *a,**k:dict(dict(status='running',episode_id='ep_offline',lease_id='lease_offline'),**active_case.get('session_patch',{}))
             base.get_robot_observation=lambda *a,**k:deepcopy(feedback)
             stopped=[];base.stop_session=lambda *a,**k:(stopped.append(True) or {'status':'stopped'})
             stream=io.BytesIO();Image.new('RGB',(4,3),(28,45,62)).save(stream,format='JPEG')
             from types import SimpleNamespace
             cameras=SimpleNamespace(capture=lambda _: [SimpleNamespace(name=n,jpeg=stream.getvalue(),received_at=time.time()) for n in ('top','left','right')])
-            policy=KinexAdapter(os.environ['KINEX_SOURCE'],directory,api,cameras)
+            policy=KinexAdapter(os.environ['KINEX_SOURCE'],directory,api,cameras,robot_id=self.robot_id)
+            if policy.packets.guard:
+                from test_kinex_robohouse import report
+                api.get_robot_calibration=lambda:report()
             policy._thread=object();policy._lease='lease_offline';policy._latest=deepcopy(feedback)
             controller=RunnerController(api,share_conversation=False)
             controller._status='running';controller._provider=policy
@@ -104,7 +108,7 @@ class NativeCommandContract(unittest.TestCase):
             threading.Thread(target=fixture.serve_forever,daemon=True).start()
             # Node fixture calls use a distinct loopback port; drivers use the actual bridge.
             env=dict(os.environ,BLUPE_KINEX_PYTHON=sys.executable,BLUPE_KINEX_BRIDGE='http://127.0.0.1:'+str(policy._server.server_port),BLUPE_KINEX_TOKEN=policy._token,KINEX_FIXTURE='http://127.0.0.1:'+str(fixture.server_port))
-            config=dict(directory=directory,limits=policy.packets.limits,cameras={n:dict(width=4,height=3) for n in ('top','left','right')})
+            config=dict(robot_id=self.robot_id,directory=directory,limits=policy.packets.limits,cameras={n:dict(width=4,height=3) for n in ('top','left','right')})
             setup=subprocess.run(['node',str(RUNTIME/'workspace.mjs')],input=json.dumps(config),text=True,capture_output=True,env=env,timeout=30)
             self.assertEqual(setup.returncode,0,setup.stderr)
             # Use the already installed interpreter; avoid network/setup in the gate.
@@ -139,18 +143,27 @@ class NativeCommandContract(unittest.TestCase):
                 offset=0 if side=='left' else 6
                 for joint in range(6):
                     for bound,direction in ((geometry.low[offset+joint],1),(geometry.high[offset+joint],-1)):
+                        unreachable=False
                         for attempt in range(1000):
                             q=np.deg2rad(feedback['left_joints_deg']+feedback['right_joints_deg']) if attempt==0 else rng.uniform(geometry.low+.001,geometry.high-.001)
                             q[offset+joint]=bound+direction*.0001
                             geometry._forward(q)
                             if geometry.data.ncon:continue
                             goal=q.copy();goal[offset+joint]=bound;geometry._forward(goal)
-                            if not geometry.data.ncon:break
-                        else:self.fail('No contact-free endpoint fixture found')
+                            if geometry.data.ncon:continue
+                            if policy.packets.guard:
+                                trial=deepcopy(feedback);trial.update(left_joints_deg=np.rad2deg(q[:6]).tolist(),right_joints_deg=np.rad2deg(q[6:]).tolist())
+                                try:policy.packets.build(side+'_arm',dict(actions=[goal[offset:offset+6].tolist()],duration_s=.1),trial,0)
+                                except ValueError:continue
+                            break
+                        else:
+                            if not policy.packets.guard:self.fail('No contact-free endpoint fixture found')
+                            unreachable=True
+                            q=np.deg2rad(feedback['left_joints_deg']+feedback['right_joints_deg']);q[offset+joint]=bound+direction*.0001
                         obs=deepcopy(feedback);obs.update(left_joints_deg=np.rad2deg(q[:6]).tolist(),right_joints_deg=np.rad2deg(q[6:]).tolist())
                         for delta in (0,direction*1e-12,-direction*1e-10):
                             target=q[offset:offset+6].tolist();target[joint]=bound+delta
-                            case(f'{side} joint {joint+1} bound {bound} delta {delta}',dict(deviceID=side+'_arm',action='write',args=dict(actions=[target],duration_s=.1)),obs=obs,writes=0 if delta*direction<0 else 1,reject=delta*direction<0)
+                            case(f'{side} joint {joint+1} bound {bound} delta {delta}',dict(deviceID=side+'_arm',action='write',args=dict(actions=[target],duration_s=.1)),obs=obs,writes=0 if unreachable or delta*direction<0 else 1,reject=unreachable or delta*direction<0,**({'reject_reason':'outside_workspace|predicted_collision'} if unreachable and delta*direction>=0 else {}))
             for changed in ({'safety':{'ok':False}},{'settled':False},{'homed':False},{'source':'simulation'},{'jetson_id':'other'}):
                 case('unsafe feedback '+str(changed),dict(deviceID='left_gripper',action='write',args=dict(actions=[0],duration_s=1)),obs=dict(feedback,**changed),reject=True)
             case('stale feedback',dict(deviceID='left_gripper',action='write',args=dict(actions=[0],duration_s=1)),age_s=3,reject=True)
@@ -167,3 +180,6 @@ class NativeCommandContract(unittest.TestCase):
             self.assertEqual(len(sent),sum(c.get('writes',0) for c in cases))
             self.assertTrue(stopped)
             print('Native MCP/driver/controller contract:',result.stdout.strip())
+
+class RoboHouseNativeCommandContract(NativeCommandContract):
+    robot_id='robot-ba8413962083809c'
