@@ -1,11 +1,17 @@
 """Non-actuating Astra/Kinex check using offline device profiles."""
-import json,os
+import json,os,tempfile
 from pathlib import Path
 import subprocess,sys,time
 ROOT=Path(__file__).resolve().parents[2];PROJECT=ROOT.parent
 upstream=PROJECT/'output/kinex-upstream'
-workspace=Path('/tmp/kinex-last-offline-workspace').read_text()
-env=dict(os.environ,KINEX_SOURCE=str(upstream));env.pop('OPENAI_API_KEY',None)
+workspace_owner=tempfile.TemporaryDirectory(prefix='kinex-model-offline-');workspace=workspace_owner.name
+sys.path.insert(0,str(ROOT/'src'))
+from remote_yam.kinex_policy import KinexPackets
+env=dict(os.environ,KINEX_SOURCE=str(upstream),BLUPE_KINEX_PYTHON=sys.executable,BLUPE_KINEX_BRIDGE='http://127.0.0.1:1',BLUPE_KINEX_TOKEN='offline-no-robot-capability');env.pop('OPENAI_API_KEY',None)
+config={'directory':workspace,'limits':KinexPackets().limits,'cameras':{name:{'width':640,'height':480} for name in ('top','left','right')}}
+subprocess.run(['node',str(ROOT/'integrations/kinex/runtime/workspace.mjs')],input=json.dumps(config),text=True,capture_output=True,env=env,check=True)
+if '--prepare-only' in sys.argv:
+ print('Prepared isolated offline Kinex profiles; no model or physical connection');raise SystemExit(0)
 settings={'forced_login_method':'chatgpt','model_provider':'openai','model_reasoning_effort':'low','approval_policy':'on-request',
  'web_search':'disabled','features.shell_tool':False,'features.apps':False,'features.multi_agent':False,'features.hooks':False,
  'mcp_servers.kinex.command':'node','mcp_servers.kinex.args':[str(ROOT/'integrations/kinex/runtime/mcp.mjs')],

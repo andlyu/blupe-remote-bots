@@ -161,16 +161,16 @@ below; underlying model/checkpoint selections remain separate metadata.
 
 ## Completion requirements
 
-- [ ] A usable website exists, with an associated repository containing the
+- [x] A usable website exists, with an associated repository containing the
   website's source code. Record both links and the deployed source revision.
-- [ ] Everything in the playground demo is public by default, including the
+- [x] Everything in the playground demo is public by default, including the
   website, source repository, runs/results, live demos, recordings, replays/history,
   simulation outputs and supporting evidence. Any nonpublic exception reflects
   an explicit user instruction or visibility change, recorded below.
-- [ ] The website clearly names the actual approach/method being run. Use the
+- [x] The website clearly names the actual approach/method being run. Use the
   executed method's name; Spotter is an example, not a shared hardcoded label.
   The **Model** field identifies the approach being tested, as specified below.
-- [ ] The researcher was asked which underlying models/versions to use before
+- [x] The researcher was asked which underlying models/versions to use before
   model-dependent work, or their prior explicit choice/delegation was retained.
   Choices include newer/custom models; current availability and compatibility
   were checked. Configuration and run details retain the selected and actually
@@ -181,7 +181,7 @@ below; underlying model/checkpoint selections remain separate metadata.
   before joining.
 - [ ] Run context includes the actual approach and confirmed runner identity;
   the website makes clear which method is running and whose run it is.
-- [ ] Policy/model tests initiated by a person retain that actual user's
+- [x] Policy/model tests initiated by a person retain that actual user's
   confirmed name as runner. Use available identity and editable name/email
   defaults; require the real name to be provided/confirmed if missing before
   testing or running. Do not substitute `Anonymous`, `Autonomous` or `Automated`
@@ -208,7 +208,7 @@ below; underlying model/checkpoint selections remain separate metadata.
 - [ ] The person can browse/select previous runs on the website and replay their
   retained physical arm footage, associated with the executed method and run.
   Mock animations do not satisfy either replay requirement.
-- [ ] If the integrated method executes anything in simulation, those executions
+- [x] If the integrated method executes anything in simulation, those executions
   are reviewable within the integration website and tied to the corresponding
   run. A reviewer can inspect what ran and its results using suitable
   replay/visualization and relevant outputs, as appropriate to the simulation.
@@ -572,3 +572,15 @@ Website: https://kinex-blupe.andlyu.chatgpt.site (public deployment v1 succeeded
 Review repairs: full canonical dispatch acknowledgement is checked before driver success; cancellation is rechecked after blocking reads and before model spawn, late acknowledgements cannot report success, gateway Stop failures remain visible, owned processes are reaped, and measured joint plus gripper agreement is checked before buffer completion. The explicit 0.02 normalized gripper target-agreement tolerance is additional validation, not the canonical sensor endpoint-drift rule or proof of object grasp. Upstream source/snapshot/installed runtime fingerprints are bound to preflight. Website repairs distinguish worker connectivity from robot readiness, hide broken-image chrome, retain action errors through polling and restrict Stop to the owner browser.
 
 Public delivery evidence: Site project appgprj_6af56e0b68d081918ee61c1c8fc36d22, v1 commit b41e8c44fac0b33a75b53f9eec5e88e732cf404a, deployment appgdep_6af575b4c8f08191a7dff9081614ab38 succeeded. Public GitHub main has the same source. The public state endpoint confirms worker connected, ready=false, stale YAM1 feedback and zero runs. Current acceptance: public website/software preview and non-actuating model check verified; physical run/live motion/timing/replay/object outcome remain unchecked.
+
+## Final handoff review — November 12, 2026
+
+Website v2 deployed successfully from cd35227ae3b9bf95d74baeb92660f25f48a36686; final narrow UI recovery fixes were deployed as v3 from f8670751f35e0930cd1d28646de59a530f374edd. Public website source is https://github.com/andlyu/blupe-kinex . Native runtime source is https://github.com/andlyu/blupe-remote-bots/tree/codex/kinex-playground/codex-runner/integrations/kinex ; draft review https://github.com/andlyu/blupe-remote-bots/pull/311 . Clean source commit e1a3aa95aeb0aa7ae272333ce02a24b4ed57335d passed required CI: https://github.com/andlyu/blupe-remote-bots/actions/runs/43183812183 .
+
+Seventeen acceptance items reviewed individually: website/source existence, public visibility for created materials, actual approach naming, adopted/configured underlying model, actual human identity in the non-actuating model check, and explicit no-simulation-rollout explanation are verified. Those six items are checked. Human join with editable defaults is implemented and the confirmed identity was prefilled privately in the delivered browser, but no queue join occurred, so that acceptance item remains unchecked. Physical run context, full advertised primitive coverage through native runtime/controller, representative physical task, real-arm live viewing, immediate replay, historical replay, every-run visual onset timing, complete live wait-stage behavior and final normal-UI physical run remain unchecked. Offline tests are scoped evidence, not a substitute for these requirements.
+
+No visibility exception or timing exception is claimed. Model-clock test was non-actuating and is not a physical run. YAM1 currently reports hardware_not_initialized, not homed/settled and stale feedback. The public state endpoint shows worker online, ready=false and zero Kinex runs; Run remains disabled. No uncertain/timed-out motion has been retried. The integration is not complete.
+
+UI evidence: published desktop/mobile layouts and disabled readiness state were visually inspected. A fresh finish reviewer assessed the inherited operational design; its owner-aware controls and readiness wording are resolved, and narrow camera/error-recovery fixes were resolved in the fresh reviewer's scoped verdict (ship). Running/replay/physical UI states remain unverified. Source screenshots contain no private email. The site and one outbound worker remain running; source/UI code, real Kinex/Astra connectivity and clean-source software checks are delivered.
+
+Final website release: v3, source f8670751f35e0930cd1d28646de59a530f374edd, public GitHub main synchronized. Native deployment succeeded. Design documentation was independently rechecked after recovery-logic edits; no material mismatch was found. No physical acceptance claim was made.
