@@ -1,10 +1,10 @@
 name: Kinex command contract
 on:
   pull_request:
-    paths: ['codex-runner/integrations/kinex/**', 'codex-runner/src/remote_yam/kinex_policy.py', 'codex-runner/tests/test_kinex.py', '.github/workflows/kinex.yml']
+    paths: ['codex-runner/integrations/kinex/**', 'codex-runner/src/remote_yam/kinex_policy.py', 'codex-runner/tests/test_kinex*.py', '.github/workflows/kinex.yml']
   push:
     branches: ['codex/kinex-playground']
-    paths: ['codex-runner/integrations/kinex/**', 'codex-runner/src/remote_yam/kinex_policy.py', 'codex-runner/tests/test_kinex.py', '.github/workflows/kinex.yml']
+    paths: ['codex-runner/integrations/kinex/**', 'codex-runner/src/remote_yam/kinex_policy.py', 'codex-runner/tests/test_kinex*.py', '.github/workflows/kinex.yml']
 jobs:
   contract:
     runs-on: ubuntu-latest

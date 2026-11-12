@@ -43,7 +43,10 @@ def main():
     try:
         while True:
             try:
-                verify(args.preflight,args.upstream);ready,reason=readiness();heartbeat(ready,reason)
+                gate=verify(args.preflight,args.upstream);ready,reason=readiness()
+                if ready and gate.get('physical_command_contract')!='verified':
+                    ready=False;reason='Offline Kinex tool checks passed. Station safety/calibration verification is pending; hardware Run is disabled.'
+                heartbeat(ready,reason)
                 if not ready:time.sleep(3);continue
                 job=call('/api/runner/claim',{}).get('run')
                 if not job:time.sleep(.8);continue

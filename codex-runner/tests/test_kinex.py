@@ -95,6 +95,12 @@ class BridgeRegression(unittest.TestCase):
     def item(self):
         import threading
         return dict(device='left_gripper',args=dict(actions=[0.],duration_s=1.),event=threading.Event(),state={},result=None,error=None)
+    def test_active_buffer_rejects_superseding_write_before_enqueue(self):
+        p=self.adapter();p._active=True;p._read=observation
+        with self.assertRaisesRegex(ValueError,'buffer owns the gateway'):
+            p._device(dict(device='left_gripper',action='write',args=dict(actions=[0],duration_s=1)))
+        self.assertTrue(p._queue.empty());self.assertIsNone(p._pending)
+
     def test_cancel_during_read_returns_no_buffer(self):
         import threading
         p=self.adapter();item=self.item();p._pending=item;p._queue.put(item)

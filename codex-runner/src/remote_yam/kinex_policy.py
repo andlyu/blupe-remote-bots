@@ -91,6 +91,8 @@ class KinexPackets:
             if joint:q[index:index+6]=target
             if np.max(np.abs(q-previous)) > .035+1e-10:raise ValueError('Generated joint pacing exceeds 0.35 rad/s')
             self.geometry._forward(q)
+            # Preserve reported-contact rejection. The inherited visual model has
+            # robot collision masks disabled; this is not certified collision protection.
             if self.geometry.data.ncon:raise ValueError('Predictive model contact rejected the buffer')
             for arm in ('left','right'):
                 offset=0 if arm=='left' else 6
@@ -160,6 +162,7 @@ class KinexAdapter:
             host='Codex 0.162.1 + official Kinex MCP/core 1.0.0',model_calls=self._calls,
             recording_path=str(self.directory),capabilities=['joint servo','normalized grippers','RGB cameras','measured feedback'],
             exclusions=['Cartesian goals','unrestricted Python','arbitrary shell','simultaneous/superseding actuator buffers'],
+            predictive_collision_protection='not_established_visual_model_collision_masks_disabled',
             runner_name=getattr(self,'runner_name',None),execution_mode=getattr(self,'execution_mode','interactive'),
             kinex_upstream_revision='f68a8d7f1ddcae2b096f171b817c232d8730f3ec',
             agent_finished=self._finished_normally,task_success='unverified',stop_error=self._stop_error)
@@ -191,7 +194,7 @@ class KinexAdapter:
             image=Image.open(io.BytesIO(frame.jpeg)).convert('RGB');stream=io.BytesIO();image.save(stream,format='PNG')
             return {'ok':True,'timestamp':frame.received_at,'width':image.width,'height':image.height,'color':base64.b64encode(stream.getvalue()).decode()}
         state=({'positions':np.deg2rad(obs[side+'_joints_deg']).tolist(),'velocities':[],'efforts':[],'faults':[],'timestamp':obs['observed_at']}
-               if name.endswith('_arm') else {'aperture_m':None,'faults':[],'timestamp':obs['observed_at']})
+               if name.endswith('_arm') else {'aperture_m':None,'fraction':finite(obs.get(side+'_gripper'),'measured gripper',0,1),'faults':[],'timestamp':obs['observed_at']})
         if action=='read':return {'ok':True,**state}
         if action!='write':raise ValueError('Unsupported device action')
         with self._lock:
@@ -265,8 +268,7 @@ class KinexAdapter:
         except Exception as exc:self._error=str(exc);self.emit('model_error',self._error)
         finally:self._done=True
 
-    def _run_agent(self,prompt):
-        if self._stop.is_set() or self.cancelled():raise RuntimeError('Kinex cancelled before startup')
+    def _start_bridge(self):
         owner=self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args):pass
@@ -282,6 +284,10 @@ class KinexAdapter:
                 self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
         self._server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
         self._bridge_thread=threading.Thread(target=self._server.serve_forever,daemon=True);self._bridge_thread.start()
+
+    def _run_agent(self,prompt):
+        if self._stop.is_set() or self.cancelled():raise RuntimeError('Kinex cancelled before startup')
+        self._start_bridge()
         env=dict(os.environ,KINEX_SOURCE=str(self.upstream),BLUPE_KINEX_PYTHON=sys.executable,BLUPE_KINEX_BRIDGE='http://127.0.0.1:'+str(self._server.server_port),BLUPE_KINEX_TOKEN=self._token)
         for key in ('OPENAI_API_KEY','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN'):env.pop(key,None)
         frames=self.cameras.capture(self._read());sizes={}
