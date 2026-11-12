@@ -36,7 +36,16 @@ def main():
     token=Path(args.token_file).read_text().strip();state=Path(args.state);state.mkdir(parents=True,exist_ok=True)
     def call(path,data):
         req=Request(args.site+path,data=json.dumps(data,allow_nan=False).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+token,'User-Agent':'Kinex-BluPe-Worker/1.0 (+https://github.com/andlyu/blupe-kinex)'})
-        with urlopen(req,timeout=12) as response:return json.load(response)
+        attempts=2 if path in ('/api/runner/update','/api/runner/heartbeat') else 1
+        for attempt in range(attempts):
+            try:
+                with urlopen(req,timeout=3) as response:return json.load(response)
+            except TimeoutError:
+                if attempt+1==attempts:raise
+                # Only status/heartbeat are idempotent. Never replay claims,
+                # queue admission or actuator requests after an unknown outcome.
+                print('Website status publication timed out; retrying status only.',flush=True)
+                time.sleep(.1)
     def heartbeat(ready=True,message='Kinex runner connected. Ready for bounded joint and gripper tasks.'):
         call('/api/runner/heartbeat',{'ready':ready,'message':message,'approach':'Kinex','underlying_model':args.model})
     controller=None;policy=None;job=None;api=None

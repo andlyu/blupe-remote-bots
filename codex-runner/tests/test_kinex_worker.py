@@ -50,15 +50,19 @@ class WorkerLifecycle(unittest.TestCase):
             if path.startswith('/v1/queue'):return dict(generated_at=time.time(),stations=[dict(jetson_id=ROBOHOUSE,connected=True,queue_ready=True,available=False)])
             self.fail('Unexpected mock station request '+path)
         api._request=request
-        updates=[];heartbeats=[];claimed=False
+        updates=[];heartbeats=[];claimed=False;publication_timeout=False
         def site(req,**kwargs):
-            nonlocal claimed
+            nonlocal claimed,publication_timeout
             data=json.loads(req.data);path=req.full_url.split('.test')[-1]
             if path=='/api/runner/heartbeat':heartbeats.append(data);result={'ok':True}
             elif path=='/api/runner/claim':
                 if claimed:raise Finished()
                 claimed=True;result={'run':{'id':'offline_job','name':'Offline fixture','email':'fixture@example.test','prompt':'Queue/Stop protocol only; no model or robot','duration_s':60}}
-            elif path=='/api/runner/update':updates.append(data);result={'ok':True,'stop':data['status']=='queued_robot'}
+            elif path=='/api/runner/update':
+                updates.append(data)
+                if not publication_timeout:
+                    publication_timeout=True;raise TimeoutError('synthetic lost status response after processing')
+                result={'ok':True,'stop':data['status']=='queued_robot'}
             else:self.fail('Unexpected mock Site request '+path)
             return io.BytesIO(json.dumps(result).encode())
         with tempfile.TemporaryDirectory() as directory:
@@ -69,7 +73,8 @@ class WorkerLifecycle(unittest.TestCase):
             with patch.object(sys,'argv',args),patch.object(worker,'HttpSessionAPI',return_value=api),patch.object(worker,'urlopen',side_effect=site),patch('preflight.verify',return_value=gate),patch('remote_yam.kinex_policy.subprocess.Popen') as model:
                 with self.assertRaises(Finished):worker.main()
                 model.assert_not_called()
-        self.assertEqual([u['status'] for u in updates],['preparing','queued_robot','stopped'])
+        self.assertEqual([u['status'] for u in updates],['preparing','preparing','queued_robot','stopped'])
+        self.assertEqual(updates[0],updates[1])
         self.assertTrue(any(not h['ready'] and 'progress' in h['message'] for h in heartbeats))
         self.assertFalse(any(u.get('error') for u in updates))
         self.assertEqual(api.action_attempts,[]);self.assertEqual(api.trajectory_attempts,[])

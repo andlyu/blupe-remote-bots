@@ -26,3 +26,9 @@ jobs:
           npm run build
       - name: Required offline command and native MCP gate
         run: PYTHONPATH=codex-runner/src python codex-runner/integrations/kinex/preflight.py --upstream /tmp/kinex-plugins --output /tmp/kinex-preflight.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kinex-preflight
+          path: /tmp/kinex-preflight.json
+          if-no-files-found: ignore

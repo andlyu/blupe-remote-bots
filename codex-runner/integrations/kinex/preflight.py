@@ -38,7 +38,9 @@ def main():
         for command in commands:
             begin=time.monotonic();r=subprocess.run(command,cwd=ROOT.parent,env=env,text=True,capture_output=True)
             records.append(dict(command=command,exit_code=r.returncode,runtime_s=time.monotonic()-begin,output=r.stdout+r.stderr))
-            if r.returncode:break
+            if r.returncode:
+                print((r.stdout+r.stderr)[-16000:],file=sys.stderr)
+                break
     value=dict(status='passed' if all(r['exit_code']==0 for r in records) and len(records)==2 else 'failed',
         created_at=started,source_sha256=hashes(),commands=records,
         upstream_revision=subprocess.check_output(['git','-C',a.upstream,'rev-parse','HEAD'],text=True).strip(),

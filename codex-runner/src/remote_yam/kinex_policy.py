@@ -379,7 +379,7 @@ class KinexAdapter:
         self._start_bridge()
         env=dict(os.environ,KINEX_SOURCE=str(self.upstream),BLUPE_KINEX_PYTHON=sys.executable,BLUPE_KINEX_BRIDGE='http://127.0.0.1:'+str(self._server.server_port),BLUPE_KINEX_TOKEN=self._token)
         for key in ('OPENAI_API_KEY','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN'):env.pop(key,None)
-        initial=self._read();frames=self.cameras.capture(initial);sizes={};image_paths=[]
+        initial=self._read();frames=sorted(self.cameras.capture(initial),key=lambda f:('top','left','right').index(f.name));sizes={};image_paths=[]
         for frame in frames:
             image=Image.open(io.BytesIO(frame.jpeg));sizes[frame.name]={'width':image.width,'height':image.height}
             path=self.directory/('initial-'+frame.name+'.jpg');path.write_bytes(frame.jpeg);image_paths.append(path)
