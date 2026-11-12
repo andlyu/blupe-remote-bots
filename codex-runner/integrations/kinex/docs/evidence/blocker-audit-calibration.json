@@ -1,0 +1,37 @@
+{
+  "checked_at": 1794475450.945235,
+  "source": "https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com/v1/robots/yam-1/calibration",
+  "robot_id": "yam-1",
+  "report_calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+  "native_joint_calibration": {
+    "calibration_id": "6b24647ab8fe4b87dcee2cfb0100b1df8a7b8133ac8839bb37b0ba1cf37260df",
+    "coordinate_convention": "native_i2rt_updated",
+    "additional_offsets_rad": {
+      "left": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "right": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "convention": "Reported/commanded joint angles already include native i2RT shifts. Do not apply shifts again."
+  },
+  "base_geometry": {
+    "spacing_m": 0.5,
+    "convention": "Parallel level arm bases; common world midpoint; left y=+spacing/2, right y=-spacing/2.",
+    "independently_surveyed": false
+  },
+  "quality_status": "experimental_requires_fresh_validation",
+  "active_top_level_selected_safety_hash": null,
+  "conclusion": "Native calibration matches the pinned joint profile. Static retained provenance does not establish current active controller safety configuration. No live pose or physical safety claim."
+}
