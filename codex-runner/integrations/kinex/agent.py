@@ -20,7 +20,7 @@ API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--site',required=True);parser.add_argument('--token-file',required=True)
     parser.add_argument('--upstream',required=True);parser.add_argument('--state',required=True);parser.add_argument('--preflight',required=True)
-    parser.add_argument('--session-api',default=API);parser.add_argument('--model',default='gpt-6-astra');parser.add_argument('--robot-id',default=ROBOHOUSE);args=parser.parse_args()
+    parser.add_argument('--session-api',default=API);parser.add_argument('--model',default='gpt-6-astra');parser.add_argument('--robot-id',default=ROBOHOUSE);parser.add_argument('--execution-mode',choices=['interactive','automated_verification'],default='interactive');args=parser.parse_args()
     if not args.site.startswith('https://'):parser.error('A deployed HTTPS Site is required')
     from preflight import verify
     verify(args.preflight,args.upstream)
@@ -52,7 +52,7 @@ def main():
                 if not job:time.sleep(.8);continue
                 api=KinexAPI(HttpSessionAPI(args.session_api,supports_trajectories=True,robot_id=args.robot_id),job['name'],job['email'],robot_id=args.robot_id)
                 policy=KinexAdapter(args.upstream,state/'workspace',api,CameraFrameSource(args.session_api),model=args.model,evidence_root=state/job['id']/'evidence',robot_id=args.robot_id)
-                policy.runner_name=job['name'];policy.execution_mode='interactive'
+                policy.runner_name=job['name'];policy.execution_mode=args.execution_mode
                 controller=RunnerController(api,robot_id=args.robot_id,hardware_control_enabled=True,recording_root=state/'recordings')
                 config=policy.public_config();config.pop('recording_path',None)
                 call('/api/runner/update',dict(id=job['id'],status='preparing',stage='Joining BluPe queue',message='Requesting normal queue admission and robot readiness.',configuration=config))
@@ -70,7 +70,7 @@ def main():
                     response=call('/api/runner/update',dict(id=job['id'],status='queued_robot' if published=='queued' else published,
                         stage=stage,message=last,configuration=config,episode_id=snapshot.get('episode_id'),session_id=snapshot.get('session_id'),
                         events=clean,metrics=snapshot.get('run_metrics',{}),error=snapshot.get('error')))
-                    heartbeat(not controller.busy(),'Kinex run in progress.' if controller.busy() else 'Kinex ready for the next run.')
+                    heartbeat(False,'Kinex is releasing the run and verifying cleanup.' if terminal else 'Kinex run in progress.')
                     if response.get('stop') and not terminal:controller.stop('user_requested');policy.request_stop()
                     if terminal:break
                     time.sleep(.5)

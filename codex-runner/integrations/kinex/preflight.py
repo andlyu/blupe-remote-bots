@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess,sys,tempfile,time
 ROOT=Path(__file__).resolve().parents[2]
 SOURCES=['src/remote_yam/kinex_policy.py','src/remote_yam/kinex_safety.py','src/remote_yam/session.py','src/remote_yam/controller.py',
- 'src/remote_yam/mujoco_ik.py','tests/test_kinex.py','tests/test_kinex_native.py','tests/test_kinex_robohouse.py',
+ 'src/remote_yam/mujoco_ik.py','tests/test_kinex.py','tests/test_kinex_native.py','tests/test_kinex_robohouse.py','tests/test_kinex_worker.py',
  'integrations/kinex/agent.py','integrations/kinex/preflight.py',
  *['integrations/kinex/runtime/'+name for name in ('driver.py','mcp.mjs','workspace.mjs','offline-mcp.mjs','native-contract.mjs','yam1-limits.json')]]
 SOURCES += ['integrations/kinex/runtime/robohouse/'+p.name for p in sorted((ROOT/'integrations/kinex/runtime/robohouse').iterdir()) if p.is_file()]

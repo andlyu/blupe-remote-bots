@@ -176,7 +176,7 @@ below; underlying model/checkpoint selections remain separate metadata.
   were checked. Configuration and run details retain the selected and actually
   resolved models/settings, with baseline/replacement variants labelled and no
   silent fallback. Record evidence below, or a justified no-model explanation.
-- [ ] When a human joins, collect or confirm their name and email. Prefill known
+- [x] When a human joins, collect or confirm their name and email. Prefill known
   identity/default values where available and let the runner edit both fields
   before joining.
 - [ ] Run context includes the actual approach and confirmed runner identity;
@@ -625,3 +625,12 @@ Robo-house adds the exact canonical HardwareSafetyConfig/BimanualHardwareGuard s
 The strict joint-endpoint regression exposed degree/radian round-trip rounding outside a legal bound. Only an already validated requested radian target's wire encoding is moved inward by at most four floating-point degree ULPs; all restored radians remain within the unchanged strict envelope. Invalid requested targets, including nextafter just outside a bound, still reject. Exact uninstructed measured joints are preserved. The failing preflight receipt and green regression are retained. Some legal joint endpoints are spatially inadmissible and correctly return workspace/collision rejection with zero outbound commands; tests do not disable those checks to force acceptance.
 
 The isolated required gate passed 28 Python tests, including native MCP/core/JSONL-driver/bridge/controller/serializer runs for both stations: 124 native cases each, 60 YAM1 wire-spy packets and 56 Robo-house wire-spy packets. Source, mesh, controller snapshot and upstream/runtime fingerprints are retained in evidence/preflight-robohouse.json. Seven real-SQLite website tests pass with Robo-house camera/history attribution. The Robo-house command-contract item is verified in software; YAM1 remains physically ineligible. Physical run, outcome, live onset/timing and real playback are not established by these tests.
+
+
+### First normal-UI attempt and compatibility repair
+
+Site v6 (378e51b92c4078963a4e29d65857483a1d1fc13d) deployed successfully and its three Robo-house camera views were inspected live. andrew's confirmed name/private email were prefilled, editable and submitted through the normal Run control. Job 81581277-d1c5-4a34-a783-ed5b906a248a created backend session sess_d1eae5a0bd8e40b7. It stopped before any episode/model request/actuator packet because the worker referenced RunnerController.busy(), absent in the pinned controller. Public metrics show zero accepted/executed/confirmed waypoints; the normal queue was empty afterward and Robo-house remained parked/queue-ready. No timed-out or unknown movement was replayed. The public session overview is access-controlled (403); that restriction was respected.
+
+The worker now derives active/terminal behavior from the controller's supported status snapshot and keeps readiness false through cleanup. A required whole-worker regression exercises real pinned RunnerController with a synthetic queued/Stop transport and no model or actuator dispatch; the previous code fails and the repair passes. See queued-worker-regression.json and preflight-robohouse-worker.json. The full gate now passes 29 Python tests plus both stations' native tool cases and the lifecycle gate. Automated verification has an explicit execution-mode CLI flag, separate from human identity. The first attempt's interactive metadata is retained as history; the next root-driven test is explicitly automated_verification.
+
+Website request validation now matches the existing backend's minimum 60-second run and maximum 32-character runner name, with regression assertions. No source or public API response contains the confirmed private email. Human join/identity collection is verified even though execution failed before an episode; current software/join acceptance is eight of seventeen. The remaining nine items require actual method/run context, representative physical outcome, physical execution/live footage, immediate and historical replay, onset timing, live wait-stage verification and final normal-UI physical run. No physical or timing acceptance is inferred from this failed attempt.
