@@ -30,7 +30,14 @@ def main():
         with urlopen(req,timeout=12) as response:return json.load(response)
     def heartbeat(ready=True,message='Kinex runner connected. Ready for bounded joint and gripper tasks.'):
         call('/api/runner/heartbeat',{'ready':ready,'message':message,'approach':'Kinex','underlying_model':args.model})
-    controller=None;policy=None;job=None
+    controller=None;policy=None;job=None;api=None
+    def retain_backend_evidence():
+        if not api or not job or not api.session_id:return
+        directory=state/job['id']/'evidence';directory.mkdir(parents=True,exist_ok=True,mode=0o700)
+        for name,read in [('backend-session-final.json',lambda:api.get_session(api.session_id)),('backend-trace.json',lambda:api.get_episode_trace(api.session_id))]:
+            try:
+                path=directory/name;path.write_text(json.dumps(read(),indent=2,allow_nan=False)+'\n');path.chmod(0o600)
+            except Exception as error:print('Evidence retention '+name+': '+type(error).__name__,flush=True)
     monitor=HttpSessionAPI(args.session_api,timeout_s=5,robot_id=args.robot_id)
     def readiness():
         try:
@@ -50,7 +57,7 @@ def main():
                 if not ready:time.sleep(3);continue
                 job=call('/api/runner/claim',{}).get('run')
                 if not job:time.sleep(.8);continue
-                api=KinexAPI(HttpSessionAPI(args.session_api,supports_trajectories=True,robot_id=args.robot_id),job['name'],job['email'],robot_id=args.robot_id)
+                api=KinexAPI(HttpSessionAPI(args.session_api,supports_trajectories=True,robot_id=args.robot_id),job['name'],job['email'],robot_id=args.robot_id,private_state=state/job['id']/'evidence')
                 policy=KinexAdapter(args.upstream,state/'workspace',api,CameraFrameSource(args.session_api),model=args.model,evidence_root=state/job['id']/'evidence',robot_id=args.robot_id)
                 policy.runner_name=job['name'];policy.execution_mode=args.execution_mode
                 controller=RunnerController(api,robot_id=args.robot_id,hardware_control_enabled=True,recording_root=state/'recordings')
@@ -60,7 +67,7 @@ def main():
                 while True:
                     snapshot=controller.status();status=snapshot['status'];events=(snapshot.get('interactions') or {}).get('events',[])
                     config=policy.public_config();config.pop('recording_path',None)
-                    clean=[{'time':e.get('time',time.time()),'kind':e.get('kind'),'message':e.get('message','')[:6000]} for e in events[-60:]]
+                    clean=[{'time':e.get('timestamp',e.get('time',time.time())),'kind':e.get('kind'),'message':e.get('message','')[:6000]} for e in events[-60:]]
                     stage={'queued':'Waiting in robot queue','preparing':'Preparing robot','running':'Kinex running'}.get(status,status.replace('_',' ').title())
                     last=clean[-1]['message'] if clean else stage
                     if policy._finished_normally:stage='Kinex agent finished';last='Agent finished. Physical task outcome is unverified.'
@@ -74,9 +81,13 @@ def main():
                     if response.get('stop') and not terminal:controller.stop('user_requested');policy.request_stop()
                     if terminal:break
                     time.sleep(.5)
-                policy.close_transport();controller=None;policy=None;job=None
+                policy.close_transport();retain_backend_evidence();controller=None;policy=None;job=None;api=None
             except Exception as error:
                 print(type(error).__name__+': '+str(error),flush=True)
+                if job:
+                    import traceback
+                    directory=state/job['id']/'evidence';directory.mkdir(parents=True,exist_ok=True,mode=0o700)
+                    with (directory/'worker-error.log').open('w') as stream:traceback.print_exc(file=stream)
                 if controller:
                     try:controller.stop('runner_failed')
                     except Exception:pass
@@ -84,11 +95,12 @@ def main():
                 if policy:
                     try:policy.close_transport()
                     except Exception as failure:cleanup_error=str(failure)
+                retain_backend_evidence()
                 if job:
                     try:call('/api/runner/update',dict(id=job['id'],status='failed',stage='Run stopped',message='Kinex could not complete this run. No automatic retry.',error=str(error)[:1000]))
                     except Exception:pass
                     job=None
-                controller=None;policy=None
+                controller=None;policy=None;api=None
                 if cleanup_error:
                     while True:
                         try:heartbeat(False,'Kinex cleanup failed: '+cleanup_error+'. Restore and verify the station before restarting the worker.')

@@ -20,7 +20,7 @@ try{
  for(const item of plan){
   const before=await fixture({...item,observation:item.observation});
   let result;
-  try{result=await client.callTool({name:'kinex_call',arguments:{name:item.tool||'device',arguments:item.arguments}})}
+  try{result=await client.callTool({name:item.tool||'device',arguments:item.arguments})}
   catch(error){result={isError:true,error:String(error)}}
   assert.equal(!!result.isError,!!item.reject,item.label+': '+JSON.stringify(result));
   if(item.reject_reason)assert.match(JSON.stringify(result),new RegExp(item.reject_reason),item.label+' planning rejection');

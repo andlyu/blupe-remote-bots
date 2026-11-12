@@ -137,10 +137,19 @@ class KinexPackets:
 
 class KinexAPI:
     """Identity-preserving API facade and dispatch acknowledgement hook."""
-    def __init__(self, api, name, email,robot_id='yam-1'):
+    def __init__(self, api, name, email,robot_id='yam-1',private_state=None):
         self.api=api;self.name=name;self.email=email;self.robot_id=robot_id;self.policy=None;self.session_id=None
+        self.private_state=Path(private_state) if private_state else None
 
     def __getattr__(self,name):return getattr(self.api,name)
+
+    def journal(self,kind,**details):
+        if self.private_state:
+            self.private_state.mkdir(parents=True,exist_ok=True,mode=0o700)
+            path=self.private_state/'transport.jsonl'
+            with path.open('a') as stream:stream.write(json.dumps(dict(time=time.time(),kind=kind,**details),allow_nan=False)+'\n')
+            path.chmod(0o600)
+
 
     def create_session(self,prompt,run_duration_s=300):
         # Keep attribution even on shared client revisions predating identity kwargs.
@@ -149,6 +158,13 @@ class KinexAPI:
         capability=result.get('session_capability');self.session_id=result.get('session_id')
         if not self.session_id or not isinstance(capability,str) or not capability:raise RuntimeError('Session creation omitted its capability')
         self.api._session_capabilities[self.session_id]=capability
+        if self.private_state:
+            self.private_state.mkdir(parents=True,exist_ok=True,mode=0o700)
+            path=self.private_state/'ownership.json'
+            descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+            with os.fdopen(descriptor,'w') as stream:json.dump(dict(session_id=self.session_id,session_capability=capability,robot_id=self.robot_id),stream)
+            path.chmod(0o600)
+        self.journal('session_created',session_id=self.session_id)
         return result
 
     def get_robot_calibration(self):
@@ -157,7 +173,11 @@ class KinexAPI:
     def submit_trajectory(self,session_id,episode_id,lease_id,trajectory_id,cadence_hz,waypoints):
         if self.policy._stop.is_set() or self.policy.cancelled():
             raise SessionAPIError('Kinex cancelled before dispatch',code='kinex_cancelled')
-        receipt=self.api.submit_trajectory(session_id,episode_id,lease_id,trajectory_id,cadence_hz,waypoints)
+        self.journal('transport_attempt',session_id=session_id,episode_id=episode_id,trajectory_id=trajectory_id,waypoint_count=len(waypoints))
+        try:receipt=self.api.submit_trajectory(session_id,episode_id,lease_id,trajectory_id,cadence_hz,waypoints)
+        except Exception as error:
+            self.journal('transport_error_execution_unconfirmed',error_type=type(error).__name__,message=str(error)[:1000]);raise
+        self.journal('transport_receipt',receipt=receipt)
         keys={'schema_version','accepted','duplicate','session_id','episode_id','lease_id','trajectory_id',
               'first_step_id','last_step_id','waypoint_count','dispatched_at'}
         if (not isinstance(receipt,dict) or set(receipt)!=keys or receipt.get('schema_version')!=1
@@ -258,7 +278,7 @@ class KinexAdapter:
     def trajectory_completed(self,observation,waypoint_count):
         self.validate_trajectory_final(observation)
         with self._lock:self._latest=deepcopy(observation);self._active=False;self._pending=None
-        self.emit('kinex_feedback','Kinex buffer completed with measured robot feedback',waypoints=waypoint_count)
+        self.emit('kinex_feedback','Kinex buffer completed with measured robot feedback',waypoint_count=waypoint_count)
 
     def validate_trajectory_final(self,observation):
         if self._target is None:raise RuntimeError('No Kinex final target is recorded')
@@ -293,7 +313,7 @@ class KinexAdapter:
                 points=self.packets.build(item['device'],item['args'],obs,first_step_id)
                 if self._stop.is_set() or self.cancelled():raise RuntimeError('Kinex cancelled before buffer dispatch')
                 self._target=deepcopy(points[-1])
-                self.emit('kinex_command','Kinex requested a validated device buffer',device=item['device'],waypoints=len(points))
+                self.emit('kinex_command','Kinex requested a validated device buffer',device=item['device'],waypoint_count=len(points))
                 return points
             except Exception as exc:
                 with self._lock:self._pending=None
@@ -327,9 +347,10 @@ class KinexAdapter:
         self._start_bridge()
         env=dict(os.environ,KINEX_SOURCE=str(self.upstream),BLUPE_KINEX_PYTHON=sys.executable,BLUPE_KINEX_BRIDGE='http://127.0.0.1:'+str(self._server.server_port),BLUPE_KINEX_TOKEN=self._token)
         for key in ('OPENAI_API_KEY','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN'):env.pop(key,None)
-        frames=self.cameras.capture(self._read());sizes={}
+        initial=self._read();frames=self.cameras.capture(initial);sizes={};image_paths=[]
         for frame in frames:
             image=Image.open(io.BytesIO(frame.jpeg));sizes[frame.name]={'width':image.width,'height':image.height}
+            path=self.directory/('initial-'+frame.name+'.jpg');path.write_bytes(frame.jpeg);image_paths.append(path)
         setup={'robot_id':self.robot_id,'directory':str(self.workspace),'limits':self.packets.limits,'cameras':sizes}
         self.emit('kinex_startup','Preparing Kinex device profiles and loading the robotics runtime')
         subprocess.run(['node',str(RUNTIME/'workspace.mjs')],input=json.dumps(setup),text=True,env=env,check=True,capture_output=True,timeout=30)
@@ -342,9 +363,13 @@ class KinexAdapter:
             'mcp_servers.kinex.required':True,'mcp_servers.kinex.startup_timeout_sec':30,
             'mcp_servers.kinex.tool_timeout_sec':60,'mcp_servers.kinex.default_tools_approval_mode':'approve'}
         for key,value in settings.items():command+=['-c',key+'='+json.dumps(value)]
+        for path in image_paths:command+=['--image',str(path)]
         command+=['-']
-        instructions=('Use the official Kinex MCP tools for this physical '+self.robot_id+' task. First explicitly call kinex_start, '
-            'use the context it returns. The supported tool schemas are supplied here: '
+        instructions=('Use the official Kinex MCP tools for this physical '+self.robot_id+' task. Kinex is activated by the host and native schemas are already exposed. '
+            'The attached images and following measured state are the initial real robot observation. '
+            'Use these supplied observations for your initial decision; read devices again when needed. '
+            'Do not perform redundant start/discovery calls or create timing files; the host records them. '
+            'Supported schemas: '
             'device({deviceID,action,args}), devices({calls:[{deviceID,action,args}]}), '
             'servo({device,joints,block}), device_stop({deviceID}). Use only these registered tools. '
             'Batch initial camera, joint and gripper reads with devices. '
@@ -353,7 +378,7 @@ class KinexAdapter:
             'Use measured camera images and joint feedback. Keep motions small, within all declared limits, '
             'and verify measured completion before another actuator write. Never retry a timed-out/uncertain motion. '
             'When another buffer is active, read feedback and wait with the world device. '
-            'Finish with an honest task result; do not stop the gateway just to finish normally.\nTask: '+prompt)
+            'Finish with an honest task result; do not stop the gateway just to finish normally.\nInitial measured state: '+json.dumps({k:initial.get(k) for k in ('observed_at','left_joints_deg','right_joints_deg','left_gripper','right_gripper','homed','settled')})+'\nTask: '+prompt)
         self.emit('model_request','Starting Astra with Kinex tools through the Codex subscription',model=self.model)
         with (self.directory/'codex-events.jsonl').open('w') as log,(self.directory/'codex-stderr.log').open('w') as errors:
             self._spawn(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=errors,text=True,env=env,start_new_session=True)

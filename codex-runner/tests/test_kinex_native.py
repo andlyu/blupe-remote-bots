@@ -49,11 +49,13 @@ class NativeCommandContract(unittest.TestCase):
             controller=RunnerController(api,share_conversation=False)
             controller._status='running';controller._provider=policy
             controller._session_id='offline';controller._episode_id='ep_offline';controller._lease_id='lease_offline'
+            policy.interaction_sink=lambda kind,message,**details:controller._interactions.add(kind,message,**details)
             policy._start_bridge()
             self.addCleanup(policy._server.server_close);self.addCleanup(policy._server.shutdown)
             sent=[];failures=[];active_case={};finish=threading.Event()
             def wire(request,**kwargs):
                 self.assertTrue(request.full_url.startswith('https://offline.invalid/v1/sessions/offline/'))
+                controller.status()  # Exercise real journal compaction while a native buffer is pending.
                 packet=json.loads(request.data);points=packet['waypoints']
                 arguments=active_case['arguments'];device=arguments.get('deviceID',arguments.get('device'))
                 side=device.split('_')[0];other='right' if side=='left' else 'left'
@@ -85,6 +87,7 @@ class NativeCommandContract(unittest.TestCase):
                         controller._dispatch_trajectory(policy.build_trajectory,policy,'Synthetic offline fixture',deepcopy(feedback),'offline','ep_offline','lease_offline',0)
                         target=deepcopy(sent[-1]['waypoints'][-1]);feedback.update(target,observed_at=time.time())
                         policy.trajectory_completed(deepcopy(feedback),len(sent[-1]['waypoints']))
+                        controller.status()
                         controller._trajectory=None
                     except Exception as exc:failures.append(repr(exc));policy.request_stop();break
             # Separate fixture controls only exist in this test, outside the real bridge.
