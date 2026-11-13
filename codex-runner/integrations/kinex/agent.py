@@ -63,7 +63,7 @@ def main():
             queue=monitor._request('GET','/v1/queue?robot_id='+args.robot_id)
             if args.robot_id==ROBOHOUSE:
                 RoboHouseGuard().validate_report(monitor._request('GET','/v1/robots/'+args.robot_id+'/calibration'))
-            return admission(queue,obs,args.robot_id)
+            return admission(queue,obs,args.robot_id,wait_for_clock=True)
         except Exception:return False,'Cannot verify fresh station connection, calibration and queue readiness. Restore the station before running.'
     try:
         while True:

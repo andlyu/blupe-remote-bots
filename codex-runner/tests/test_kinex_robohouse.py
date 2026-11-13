@@ -23,6 +23,17 @@ class RoboHouseCommandContract(generic.CommandContract):
 
 
 class StationSafety(unittest.TestCase):
+    def test_admission_waits_for_small_queue_clock_lead_without_accepting_future_data(self):
+        obs=generic.observation();obs.update(jetson_id=ROBOHOUSE,mode='DISABLED',queue_ready=True,homed=False,settled=False,safety={'ok':False,'estop_engaged':False,'reason':'hardware_not_initialized'})
+        queue=dict(generated_at=time.time()+.03,stations=[dict(jetson_id=ROBOHOUSE,connected=True,queue_ready=True,available=False)])
+        self.assertFalse(admission(queue,obs,ROBOHOUSE)[0])
+        self.assertTrue(admission(queue,obs,ROBOHOUSE,wait_for_clock=True)[0])
+        self.assertLessEqual(queue['generated_at'],time.time())
+        queue['generated_at']=time.time()+1
+        self.assertFalse(admission(queue,obs,ROBOHOUSE,wait_for_clock=True)[0])
+        queue['generated_at']=time.time();obs['observed_at']=time.time()-3
+        self.assertFalse(admission(queue,obs,ROBOHOUSE,wait_for_clock=True)[0])
+
     def test_endpoint_codec_roundtrips_inside_strict_bounds_without_accepting_bad_targets(self):
         import math
         p=KinexPackets(ROBOHOUSE)

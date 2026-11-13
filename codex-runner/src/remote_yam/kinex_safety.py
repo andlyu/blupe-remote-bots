@@ -20,11 +20,16 @@ PROFILE_ROOT=ROOT/'integrations/kinex/runtime/robohouse'
 ROBOHOUSE='robot-ba8413962083809c'
 
 
-def admission(queue,observation,robot_id,*,now=None):
+def admission(queue,observation,robot_id,*,now=None,wait_for_clock=False):
     """Queue admission only; never permits an actuator dispatch."""
-    now=time.time() if now is None else now
     row=next((s for s in queue.get('stations',[]) if s.get('jetson_id')==robot_id),{})
     obs=observation.get('observation') or observation.get('payload') or observation
+    if now is None and wait_for_clock:
+        try:
+            lead=max(float(obs['observed_at']),float(queue['generated_at']))-time.time()
+            if 0<lead<=.5:time.sleep(lead+.002)
+        except (KeyError,TypeError,ValueError):pass
+    now=time.time() if now is None else now
     safety=obs.get('safety') or {}
     try:fresh=0<=now-float(obs['observed_at'])<=2 and 0<=now-float(queue['generated_at'])<=5
     except (KeyError,TypeError,ValueError):fresh=False
