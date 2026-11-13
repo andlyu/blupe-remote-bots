@@ -1234,7 +1234,8 @@ function createRunLaunchGuard() {
     $('dreamMotionHelp').textContent = 'Larger moves are slowed with extra waypoints, preserving the path and final target.'
       + (motion?.gateway_step_deg ? ` This robot’s configured limit is ${Number(motion.gateway_step_deg.toFixed(2))}° / 100 ms; the lower limit applies.` : ' Robot checks also apply.');
     window.yamRunDuration?.select(selectedRobot + ':' + $('provider').value,
-      configuredProviders[$('provider').value]?.default_run_duration_s,
+      configuredProviders[$('provider').value]?.default_run_duration_s
+        ?? (['dream', 'dream_flash'].includes($('provider').value) ? 120 : undefined),
       configuredProviders[$('provider').value]?.max_run_duration_s);
     window.yamModelPicker?.saveSelection();
     const fixedTask = configuredProviders[$('provider').value]?.task;

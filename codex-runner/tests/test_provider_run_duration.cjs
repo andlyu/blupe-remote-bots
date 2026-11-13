@@ -22,6 +22,7 @@ function page(initial='5') {
   const requestLine=source.split('\n').find(line=>line.includes('prompt: $(\'prompt\').value, run_duration_s:'));
   const requestDuration=requestLine.match(/run_duration_s:([^,]+)/)[1];
   return {select(provider){$('provider').value=provider;changed();},
+    omitDefault(provider){delete context.configuredProviders[provider].default_run_duration_s;},
     edit(value){$('runDuration').value=String(value);listeners.input();},
     minutes(){return $('runDuration').value;},
     maximum(){return $('runDuration').max;},
@@ -69,3 +70,14 @@ test('Dream choices stay independent and other providers retain ten-minute limit
   p.select('openai');assert.equal(p.requestSeconds(),480);assert.equal(p.maximum(),'10');
   p.edit(20);p.select('openai');assert.equal(p.requestSeconds(),600);
 });
+
+for (const provider of ['dream', 'dream_flash']) {
+  test(`${provider} defaults to two minutes when controller metadata omits duration`,()=>{
+    const p=page();p.omitDefault(provider);p.select(provider);
+    assert.equal(p.minutes(),'2');assert.equal(p.requestSeconds(),120);
+    p.edit(4);p.select('openai');assert.equal(p.requestSeconds(),300);
+    p.select(provider);assert.equal(p.requestSeconds(),240);
+    const restored=page('7');restored.omitDefault(provider);restored.select(provider);
+    assert.equal(restored.requestSeconds(),420);
+  });
+}
