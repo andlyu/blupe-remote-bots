@@ -1,0 +1,50 @@
+{
+  "checked_at": "2026-11-13T16:38:00.412604+00:00",
+  "classification": "external_operator_calibration_unavailable",
+  "previous_goal_turn": "progress",
+  "site_url": "https://kinex-blupe.andlyu.chatgpt.site",
+  "site_version": 14,
+  "site_source": "5270b2b6020ed8a7bb81c982890c7d66573105db",
+  "deployment": "appgdep_6af6f1870af48191aa75dd6c6fa586c7",
+  "deployment_status": "succeeded",
+  "runtime_source": "58d4dcd51f8569cde36037a0e445f6f4c77fb299",
+  "source_receipt": "preflight-immediate-replay.json",
+  "source_receipt_matches_every_public_source_hash": true,
+  "station": "robot-ba8413962083809c",
+  "station_connected": true,
+  "mode": "DISABLED",
+  "queue_ready": true,
+  "queue_entries": [],
+  "observation_at_s": 1794587566.611908,
+  "calibration_http_status": 503,
+  "calibration_error": {
+    "code": "calibration_unavailable",
+    "message": "Selected operator calibration is unavailable or switching"
+  },
+  "worker_confirmed_live": true,
+  "run_count": 6,
+  "planned_task7_submitted": false,
+  "new_model_calls": 0,
+  "new_physical_commands": 0,
+  "site_ui": "Robot not ready; Run disabled; three cameras reconnecting; worker connected",
+  "ci": {
+    "Kinex command contract": {
+      "run_id": 43415532288,
+      "status": "success"
+    },
+    "Shared runner": {
+      "run_id": 43415531983,
+      "status": "success"
+    },
+    "RoboHarness command contract": {
+      "run_id": 43415532010,
+      "status": "success"
+    },
+    "Dream brightness preflight": {
+      "run_id": 43415531987,
+      "status": "success"
+    }
+  },
+  "acceptance": "12/17 verified; no new physical acceptance or exception claimed",
+  "recovery": "Restore the selected operator calibration and fresh camera availability, then revalidate existing readiness gates before the scoped normal-UI test. No queue/motion retry or safety bypass."
+}
