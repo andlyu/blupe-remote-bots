@@ -14,6 +14,7 @@ from remote_yam.controller import RunnerController
 from remote_yam.kinex_policy import KinexAPI,KinexAdapter
 from remote_yam.session import HttpSessionAPI
 from remote_yam.kinex_safety import RoboHouseGuard,ROBOHOUSE,admission
+from replay import KinexReplay
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
@@ -51,9 +52,9 @@ def main():
                 # queue admission or actuator requests after an unknown outcome.
                 print('Website status publication timed out; retrying status only.',flush=True)
                 time.sleep(.1)
-    def heartbeat(ready=True,message='Kinex runner connected. Ready for bounded joint and gripper tasks.'):
-        call('/api/runner/heartbeat',{'ready':ready,'message':message,'approach':'Kinex','underlying_model':args.model})
-    controller=None;policy=None;job=None;api=None;publication_sequence=0
+    def heartbeat(ready=True,message='Kinex runner connected. Ready for bounded joint and gripper tasks.',stage=None):
+        call('/api/runner/heartbeat',{'ready':ready,'message':message,'approach':'Kinex','underlying_model':args.model,**({'stage':stage} if stage else {})})
+    controller=None;policy=None;job=None;api=None;publication_sequence=0;replay=None;replay_thread=None
     def publish(data):
         nonlocal publication_sequence
         publication_sequence+=1
@@ -89,9 +90,20 @@ def main():
                 policy=KinexAdapter(args.upstream,state/'workspace',api,CameraFrameSource(args.session_api),model=args.model,evidence_root=state/job['id']/'evidence',robot_id=args.robot_id)
                 policy.runner_name=job['name'];policy.execution_mode=args.execution_mode
                 controller=RunnerController(api,robot_id=args.robot_id,hardware_control_enabled=True,recording_root=state/'recordings')
+                def upload_recording(meta,path,run_id=job['id']):
+                    header={key:meta[key] for key in ('episode_id','session_id','robot_id','model','bytes','capture_partial','capture_fps','started_at','ended_at')}
+                    header.update(sha256=meta['preview']['sha256'],duration_s=meta['preview']['duration_s'],
+                        sample_count=len(meta['frames']),first_capture_at=meta['frames'][0]['received_at'],last_capture_at=meta['frames'][-1]['received_at'])
+                    req=Request(args.site+'/api/runner/recordings/'+run_id,data=path.read_bytes(),headers={
+                        'Authorization':'Bearer '+token,'Content-Type':'video/mp4','X-Kinex-Recording':json.dumps(header,allow_nan=False),
+                        'User-Agent':'Kinex-BluPe-Worker/1.0 (+https://github.com/andlyu/blupe-kinex)'})
+                    with urlopen(req,timeout=10) as response:return json.load(response)
+                replay=KinexReplay(state/'camera-replays',robot_id=args.robot_id,upload=upload_recording)
+                if not replay.ready():raise RuntimeError('Replay encoder is unavailable; install ffmpeg before running')
                 config=policy.public_config();config.pop('recording_path',None)
                 publish(dict(id=job['id'],status='preparing',stage='Joining BluPe queue',message='Requesting normal queue admission and robot readiness.',configuration=config))
                 controller.join_and_run(policy,job['prompt'],run_duration_s=job['duration_s'])
+                replay_thread=replay.start(controller)
                 while True:
                     snapshot=controller.status();status=snapshot['status'];events=(snapshot.get('interactions') or {}).get('events',[])
                     if status in ('queued','preparing'):
@@ -108,12 +120,19 @@ def main():
                     if published not in ('completed','failed','stopped','timed_out','queued','preparing','running'):published='failed'
                     response=publish(dict(id=job['id'],status='queued_robot' if published=='queued' else published,
                         stage=stage,message=last,configuration=config,episode_id=snapshot.get('episode_id'),session_id=snapshot.get('session_id'),
-                        events=clean,queue_lifecycle=queue_lifecycle,metrics=snapshot.get('run_metrics',{}),error=snapshot.get('error')))
+                        events=clean,queue_lifecycle=queue_lifecycle,metrics=snapshot.get('run_metrics',{}),error=snapshot.get('error'),
+                        **({'recording_capture':dict(state='processing',reason='The run has finished. Preparing its retained camera replay; no robot rerun is needed.')} if terminal else {})))
                     heartbeat(False,'Kinex is releasing the run and verifying cleanup.' if terminal else 'Kinex run in progress.')
                     if response.get('stop') and not terminal:controller.stop('user_requested');policy.request_stop()
-                    if terminal:break
+                    if terminal:replay.allow_publish();break
                     time.sleep(.5)
-                policy.close_transport();retain_backend_evidence();controller=None;policy=None;job=None;api=None
+                while replay_thread.is_alive():
+                    heartbeat(False,'The run has finished. Preparing and retaining its timestamped camera playback. The robot is not being rerun.',stage='Preparing replay')
+                    replay_thread.join(.5)
+                if replay.phase=='failed':
+                    publish(dict(id=job['id'],status=published,recording_capture=dict(state='failed',
+                        reason='The immediate camera recording could not be retained. The normal BluPe archive is being checked; the robot will not be rerun.')))
+                policy.close_transport();retain_backend_evidence();controller=None;policy=None;job=None;api=None;replay=None;replay_thread=None
             except Exception as error:
                 print(type(error).__name__+': '+str(error),flush=True)
                 if job:
@@ -123,6 +142,7 @@ def main():
                 if controller:
                     try:controller.stop('runner_failed')
                     except Exception:pass
+                if replay:replay.close()
                 cleanup_error=None
                 if policy:
                     try:policy.close_transport()
@@ -141,6 +161,7 @@ def main():
                 time.sleep(2)
     finally:
         if controller:controller.stop('user_requested')
+        if replay:replay.close()
         if policy:policy.close_transport()
 
 if __name__=='__main__':main()

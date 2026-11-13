@@ -5,8 +5,9 @@ from pathlib import Path
 import subprocess,sys,tempfile,time
 ROOT=Path(__file__).resolve().parents[2]
 SOURCES=['src/remote_yam/kinex_policy.py','src/remote_yam/kinex_safety.py','src/remote_yam/session.py','src/remote_yam/controller.py',
- 'src/remote_yam/mujoco_ik.py','tests/test_kinex.py','tests/test_kinex_native.py','tests/test_kinex_robohouse.py','tests/test_kinex_worker.py',
- 'integrations/kinex/agent.py','integrations/kinex/preflight.py',
+ 'src/remote_yam/mujoco_ik.py','src/remote_yam/cameras.py',
+ 'tests/test_kinex.py','tests/test_kinex_native.py','tests/test_kinex_robohouse.py','tests/test_kinex_worker.py','tests/test_kinex_replay.py',
+ 'integrations/kinex/agent.py','integrations/kinex/preflight.py','integrations/kinex/replay.py','integrations/kinex/camera_replay.py',
  *['integrations/kinex/runtime/'+name for name in ('driver.py','mcp.mjs','workspace.mjs','offline-mcp.mjs','native-contract.mjs','yam1-limits.json')]]
 SOURCES += ['integrations/kinex/runtime/robohouse/'+p.name for p in sorted((ROOT/'integrations/kinex/runtime/robohouse').iterdir()) if p.is_file()]
 SOURCES += [str(p.relative_to(ROOT)) for p in sorted((ROOT/'models/yam/assets').glob('*.stl'))]
@@ -43,6 +44,7 @@ def main():
                 break
     value=dict(status='passed' if all(r['exit_code']==0 for r in records) and len(records)==2 else 'failed',
         created_at=started,source_sha256=hashes(),commands=records,
+        replay_encoder=subprocess.check_output(['ffmpeg','-version'],text=True).splitlines()[0],
         upstream_revision=subprocess.check_output(['git','-C',a.upstream,'rev-parse','HEAD'],text=True).strip(),
         upstream_fingerprint=upstream_fingerprint(a.upstream),
         validator='remote_yam.session._trajectory_waypoints and HttpSessionAPI.submit_trajectory',

@@ -22,13 +22,13 @@ It exercises the real buffer parser/generator, complete canonical HTTP serialize
 
 ## Launch
 
-Build upstream from its pinned Git revision using `npm ci --ignore-scripts` and `npm run build`. Retain the checkout and dependencies; do not change global Codex or copy login credentials. Use the existing Python environment with numpy/scipy/Pillow/MuJoCo/websocket-client. The launcher needs normal write access to Codex session storage.
+Build upstream from its pinned Git revision using `npm ci --ignore-scripts` and `npm run build`. Retain the checkout and dependencies; do not change global Codex or copy login credentials. Use the existing Python environment with numpy/scipy/Pillow/MuJoCo/websocket-client and install ffmpeg (including ffprobe). The launcher needs normal write access to Codex session storage.
 
 ```sh
 codex-runner/.venv/bin/python codex-runner/integrations/kinex/agent.py --site https://kinex-blupe.andlyu.chatgpt.site --token-file /private/path/runner-token --upstream /absolute/path/kinex-plugins --state /private/path/kinex-state --preflight codex-runner/integrations/kinex/docs/evidence/preflight.json
 ```
 
-The worker polls outbound HTTPS, claims each website request once, then uses the normal BluPe queue. No claimed/unknown physical request is automatically retried. Stop is polled independently of model inference and sent to the gateway and owned model/runtime processes. The website retains each run's public status; physical footage is resolved through the existing public recording system.
+The worker polls outbound HTTPS, claims each website request once, then uses the normal BluPe queue. No claimed/unknown physical request is automatically retried. Stop is polled independently of model inference and sent to the gateway and owned model/runtime processes. The website retains each run's public status. A separate read-only recorder samples the actual top camera at2fps, retains source/receive timestamps and marks missing frames. Encoding begins after terminal website status is acknowledged; a digest-checked MP4 is uploaded to the Site's BUCKET binding for same-origin playback. The normal BluPe archive remains an independent fallback. Shared local retained videos are capped at1GiB; capture failure never retries robot movement. All playback remains task/session/episode/station/Model=Kinex matched. Keep a running worker's source immutable and replace only an idle owned process with its own passing receipt.
 
 Local collision-model limitation: the inherited canonical XML is a visual/FK model whose robot geoms have contype=0 and conaffinity=0. Its contact counter cannot establish arm-collision protection. The rejection branch is tested with an explicit injected contact fault; no geometry or safety masks are altered in production. Existing gateway workspace/safety checks remain enabled. No physical safety or task acceptance is inferred from these offline tests.
 
