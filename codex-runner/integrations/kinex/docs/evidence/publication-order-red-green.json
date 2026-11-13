@@ -1,0 +1,19 @@
+{
+  "previous_site_revision": "5d662e6c68f644f9c701208e71abe17f32b0ce6e",
+  "physical_commands_sent": 0,
+  "external_requests": 0,
+  "records": [
+    {
+      "version": "before",
+      "exit_code": 1,
+      "runtime_s": 0.10212179199879756,
+      "output": "(node:85906) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n\u2716 late and duplicate publications cannot regress newer status or reopen a terminal run (18.966542ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 68.026333\n\n\u2716 failing tests:\n\ntest at tests/worker.test.mjs:30:1\n\u2716 late and duplicate publications cannot regress newer status or reopen a terminal run (18.966542ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + 'late queued'\n  - 'current'\n  \n      at TestContext.<anonymous> (file:///private/tmp/kinex-site-sequence-regression/tests/worker.test.mjs:34:9)\n      at async Test.run (node:internal/test_runner/test:981:9)\n      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:297:3) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 'late queued',\n    expected: 'current',\n    operator: 'strictEqual'\n  }\n"
+    },
+    {
+      "version": "after",
+      "exit_code": 0,
+      "runtime_s": 0.10708958299801452,
+      "output": "(node:85908) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n\u2714 late and duplicate publications cannot regress newer status or reopen a terminal run (22.043166ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 72.310417\n"
+    }
+  ]
+}

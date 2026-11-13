@@ -10,8 +10,8 @@
   ],
   "last_clearly_unchanged_frame": "00224-camera.jpg",
   "first_clearly_changed_frame": "00236-camera.jpg",
-  "excluded_queue_wait_s": 0,
-  "queue_exclusion_reason": "No separate admission wait behind another runner is evidenced. Queued status overlapped controller initialization/Home, which is retained in elapsed time.",
+  "excluded_queue_wait_s": 5.772434949874878,
+  "queue_exclusion_reason": "Matched same-session queue created_at and initial jetson_leased lifecycle; no inference from Home.",
   "home_to_motion_s_bounds": [
     21.682990789413452,
     23.4319908618927
@@ -21,13 +21,34 @@
     33.330000162124634
   ],
   "queue_adjusted_run_to_motion_s_bounds": [
-    31.378000020980835,
-    33.330000162124634
+    25.605565071105957,
+    27.557565212249756
   ],
   "both_timing_limits_pass": false,
   "continuous_onset_frame_count": 266,
   "capture_gaps_after_onset": "Subsequent separate capture window has a gap; no continuous full-run capture is claimed.",
   "clock_correlation": "UI capture uses local wall-clock intervals. Gateway/Home timestamps corroborated by fresh public feedback and live camera state. Public hardware clock had a small lead; physical onset is bounded from observed UI frames, not inferred from packet receipt.",
   "capture_bound_method": "Use the start of the last definitely unchanged frame and end of the first definitely changed frame, conservatively including screenshot acquisition uncertainty. Captures pair camera and actions sequentially.",
-  "clock_uncertainty": "Remote hardware clock lead was observed, not precisely calibrated; up to0.5s accepted only after waiting into local freshness. This uncertainty does not change either failed threshold."
+  "clock_uncertainty": "Small uncalibrated remote clock lead does not change the corrected Run pass or post-Home miss.",
+  "queue_entry": {
+    "session_id": "sess_920e9b39ef254c56",
+    "robot_id": "robot-ba8413962083809c",
+    "created_at": 1794498210.6517527,
+    "status": "queued",
+    "position": 1
+  },
+  "admission": {
+    "schema_version": 1,
+    "event_id": "evt_f544505cd4d140b4",
+    "session_id": "sess_920e9b39ef254c56",
+    "episode_id": "ep_8d367811e49d4fee",
+    "state": "preparing",
+    "previous_state": "queued",
+    "timestamp": 1794498216.4241877,
+    "actor": "system",
+    "reason": "jetson_leased"
+  },
+  "run_outcome": "pass",
+  "post_home_outcome": "missed target",
+  "correction": "Earlier Q=0 assumption was wrong. Matched queue/lease evidence establishes5.772435s. Both-limits pass remainsfalse because15s post-Home target fails."
 }

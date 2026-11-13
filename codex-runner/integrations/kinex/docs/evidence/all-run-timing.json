@@ -8,15 +8,17 @@
     ],
     "home_completed_observed_at_s": null,
     "first_observed_method_motion_s_bounds": null,
-    "excluded_queue_s": 0,
-    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "excluded_queue_s": null,
+    "queue_exclusion_reason": "Initial queue entry/admission pair not established in this audit; adjusted Run measure is unverified, not assumed zero.",
     "terminal_event_at_s": 1794493951.187994,
     "full_elapsed_to_terminal_s_bounds": [
       18.83799409866333,
       18.876993894577026
     ],
     "both_limits_pass": false,
-    "reason": "Failed before episode/model/actuator; no Home/method motion"
+    "reason": "Failed before episode/model/actuator; no Home/method motion",
+    "run_budget_outcome": "unverified",
+    "post_home_outcome": "unverified"
   },
   {
     "attempt": 2,
@@ -27,15 +29,17 @@
     ],
     "home_completed_observed_at_s": 1794494669.9981499,
     "first_observed_method_motion_s_bounds": null,
-    "excluded_queue_s": 0,
-    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "excluded_queue_s": null,
+    "queue_exclusion_reason": "Initial queue entry/admission pair not established in this audit; adjusted Run measure is unverified, not assumed zero.",
     "terminal_event_at_s": 1794494747.037345,
     "full_elapsed_to_terminal_s_bounds": [
       90.31834483146667,
       90.37434482574463
     ],
     "both_limits_pass": false,
-    "reason": "Left gripper submission outcome uncertain; no verified method onset"
+    "reason": "Left gripper submission outcome uncertain; no verified method onset",
+    "run_budget_outcome": "unverified",
+    "post_home_outcome": "unverified"
   },
   {
     "attempt": 3,
@@ -46,15 +50,17 @@
     ],
     "home_completed_observed_at_s": 1794496894.0117364,
     "first_observed_method_motion_s_bounds": null,
-    "excluded_queue_s": 0,
-    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "excluded_queue_s": null,
+    "queue_exclusion_reason": "Initial queue entry/admission pair not established in this audit; adjusted Run measure is unverified, not assumed zero.",
     "terminal_event_at_s": 1794496969.828161,
     "full_elapsed_to_terminal_s_bounds": [
       84.95516109466553,
       84.99816107749939
     ],
     "both_limits_pass": false,
-    "reason": "First packet only after >70s planning; physical wrist observed but complete UI timing capture unavailable"
+    "reason": "First packet only after >70s planning; physical wrist observed but complete UI timing capture unavailable",
+    "run_budget_outcome": "unverified",
+    "post_home_outcome": "unverified"
   },
   {
     "attempt": 4,
@@ -65,15 +71,17 @@
     ],
     "home_completed_observed_at_s": 1794497902.951757,
     "first_observed_method_motion_s_bounds": null,
-    "excluded_queue_s": 0,
-    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "excluded_queue_s": null,
+    "queue_exclusion_reason": "Initial queue entry/admission pair not established in this audit; adjusted Run measure is unverified, not assumed zero.",
     "terminal_event_at_s": 1794497905.89469,
     "full_elapsed_to_terminal_s_bounds": [
       10.140690088272095,
       10.37568998336792
     ],
     "both_limits_pass": false,
-    "reason": "Stopped at fresh feedback gate before model/actuator"
+    "reason": "Stopped at fresh feedback gate before model/actuator",
+    "run_budget_outcome": "unverified",
+    "post_home_outcome": "unverified"
   },
   {
     "attempt": 5,
@@ -87,14 +95,99 @@
       1794498238.158,
       1794498239.907
     ],
-    "excluded_queue_s": 0,
-    "queue_exclusion_reason": "No separately established initial wait duration is subtracted; queued controller preparation/Home is retained.",
+    "excluded_queue_s": 5.772434949874878,
+    "queue_exclusion_reason": "Matched same-session queue created_at and initial jetson_leased lifecycle; no inference from Home.",
     "terminal_event_at_s": 1794498296.803803,
     "full_elapsed_to_terminal_s_bounds": [
       90.02380299568176,
       90.22680306434631
     ],
     "both_limits_pass": false,
-    "reason": "Observed onset ~21.7\u201323.4s after Home and~31.4\u201333.3s after Run; both fail with no queue exclusion"
+    "reason": "Corrected accounting: queue-adjusted Run budget passes; full post-Home interval21.683\u201323.432s still misses15s. Earlier Q=0 accounting retained as history.",
+    "queue_entry": {
+      "session_id": "sess_920e9b39ef254c56",
+      "robot_id": "robot-ba8413962083809c",
+      "created_at": 1794498210.6517527,
+      "status": "queued",
+      "position": 1
+    },
+    "admission": {
+      "schema_version": 1,
+      "event_id": "evt_f544505cd4d140b4",
+      "session_id": "sess_920e9b39ef254c56",
+      "episode_id": "ep_8d367811e49d4fee",
+      "state": "preparing",
+      "previous_state": "queued",
+      "timestamp": 1794498216.4241877,
+      "actor": "system",
+      "reason": "jetson_leased"
+    },
+    "run_budget_outcome": "pass",
+    "post_home_outcome": "missed target",
+    "full_run_to_motion_s_bounds": [
+      31.378000020980835,
+      33.330000162124634
+    ],
+    "queue_adjusted_run_to_motion_s_bounds": [
+      25.605565071105957,
+      27.557565212249756
+    ]
+  },
+  {
+    "attempt": 6,
+    "job_id": "612ea0de-4b21-4a45-899d-98e92d80e119",
+    "session_id": "sess_41916c66094a46f5",
+    "episode_id": "ep_bfdd8d9771014e40",
+    "run_click_bounds_s": [
+      1794565282.046,
+      1794565282.322
+    ],
+    "queue_entry": {
+      "session_id": "sess_41916c66094a46f5",
+      "robot_id": "robot-ba8413962083809c",
+      "created_at": 1794565284.5039928,
+      "status": "queued",
+      "position": 1
+    },
+    "admission": {
+      "schema_version": 1,
+      "event_id": "evt_dd03ff1cbba1445a",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "state": "preparing",
+      "previous_state": "queued",
+      "timestamp": 1794565290.102864,
+      "actor": "system",
+      "reason": "jetson_leased"
+    },
+    "excluded_queue_s": 5.598871231079102,
+    "home_completed_observed_at_s": 1794565290.1863992,
+    "first_observed_method_motion_s_bounds": [
+      1794565306.556,
+      1794565307.93
+    ],
+    "visual_evidence": [
+      "run06-before-motion.jpg",
+      "run06-observed-motion.jpg"
+    ],
+    "full_run_to_motion_s_bounds": [
+      24.233999967575073,
+      25.884000062942505
+    ],
+    "queue_adjusted_run_to_motion_s_bounds": [
+      18.63512873649597,
+      20.285128831863403
+    ],
+    "post_home_to_motion_s_bounds": [
+      16.369600772857666,
+      17.743600845336914
+    ],
+    "run_budget_outcome": "pass",
+    "post_home_outcome": "missed target",
+    "both_limits_pass": false,
+    "exception": "none",
+    "clock_correlation": "Run and screenshots use local wall-clock bounds. Matched server queue/admission/Home timestamps have a small uncalibrated clock lead, bounded by the existing0.5s clock-wait safeguard. Retain acquisition uncertainty; backend progress is not substituted for visual onset.",
+    "capture": "437 sequential camera/actions pairs in two windows, with an explicit gap; no continuous full-run film claimed. Onset bounds use start of unchanged frame00182 and end of clearly changed frame00190.",
+    "queue_exclusion_reason": "Actual matched queue entry to first jetson_leased grant only. Home5290.186 occurs after admission5290.103; no post-admission Home time is excluded."
   }
 ]

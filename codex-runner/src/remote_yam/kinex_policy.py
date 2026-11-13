@@ -140,6 +140,7 @@ class KinexAPI:
     def __init__(self, api, name, email,robot_id='yam-1',private_state=None):
         self.api=api;self.name=name;self.email=email;self.robot_id=robot_id;self.policy=None;self.session_id=None
         self.private_state=Path(private_state) if private_state else None
+        self.queue_lifecycle={}
 
     def __getattr__(self,name):return getattr(self.api,name)
 
@@ -166,6 +167,35 @@ class KinexAPI:
             path.chmod(0o600)
         self.journal('session_created',session_id=self.session_id)
         return result
+
+    def refresh_queue_entry(self):
+        # Read only while entry evidence is missing and admission is not known.
+        # A session-created acknowledgement is not queue-entry/admission evidence.
+        if not self.session_id or self.queue_lifecycle.get('entered_at') is not None or self.queue_lifecycle.get('admitted_at') is not None:return
+        response=self.api._request('GET','/v1/queue?robot_id='+self.robot_id)
+        for row in response.get('entries',[]):
+            if row.get('session_id')==self.session_id and row.get('robot_id')==self.robot_id:
+                stamp=finite(row.get('created_at'),'queue entry timestamp',0)
+                self.queue_lifecycle.update(session_id=self.session_id,entered_at=stamp,entry_source='matched_queue_entry')
+                self.journal('queue_entry',**self.queue_lifecycle)
+                break
+
+    def open_events(self,session_id):
+        owner=self;stream=self.api.open_events(session_id)
+        class ObservedStream:
+            def receive(self,timeout_s=None):
+                event=stream.receive(timeout_s)
+                payload=event.get('payload') or {}
+                if (event.get('session_id')==owner.session_id and event.get('type')=='lifecycle'
+                        and payload.get('reason')=='jetson_leased' and payload.get('state')=='preparing'
+                        and owner.queue_lifecycle.get('admitted_at') is None):
+                    stamp=finite(event.get('timestamp'),'admission timestamp',0)
+                    owner.queue_lifecycle.update(session_id=owner.session_id,admitted_at=stamp,
+                        episode_id=event.get('episode_id'),admission_source='jetson_leased_lifecycle')
+                    owner.journal('queue_admitted',**owner.queue_lifecycle)
+                return event
+            def close(self):return stream.close()
+        return ObservedStream()
 
     def get_robot_calibration(self):
         return self.api._request('GET','/v1/robots/'+self.robot_id+'/calibration')
@@ -209,7 +239,7 @@ class KinexAdapter:
         self._stop=threading.Event();self._lock=threading.RLock();self._token=secrets.token_urlsafe(32)
         self._calls=0;self._server=None;self._bridge_thread=None;self._events=[]
         self._stop_error=None;self._finished_normally=False;self._target=None
-        self._startup_home=None
+        self._startup_home=None;self._startup_observed_at=None
         self.directory=Path(evidence_root) if evidence_root else self.workspace/'evidence';self.directory.mkdir(parents=True,exist_ok=True)
 
     def public_config(self):
@@ -323,6 +353,8 @@ class KinexAdapter:
         if observation.get('homed') is not True or observation.get('settled') is not True:
             raise RuntimeError('Fresh settled startup Home is required before Kinex starts')
         self._startup_home=self._session_key()
+        self._startup_observed_at=observation['observed_at']
+        return observation
 
     def trajectory_failed(self,*args,**kwargs):
         self._error='Physical trajectory did not complete; automatic retry is disabled';self.request_stop()
@@ -331,8 +363,8 @@ class KinexAdapter:
         self._latest=deepcopy(observation)
         if self._thread is None:
             self._lease=self.api.get_session(self.api.session_id).get('lease_id')
-            self._verify_startup_home()
-            self._thread=threading.Thread(target=self._agent,args=(prompt,),daemon=True);self._thread.start()
+            initial=self._verify_startup_home()
+            self._thread=threading.Thread(target=self._agent,args=(prompt,initial),daemon=True);self._thread.start()
         while not self.cancelled() and not self._stop.is_set():
             if self._error:raise RuntimeError(self._error)
             try:item=self._queue.get(timeout=.1)
@@ -352,8 +384,8 @@ class KinexAdapter:
                 item['error']=str(exc);item['event'].set()
         raise RuntimeError(self._error or 'Kinex stopped')
 
-    def _agent(self,prompt):
-        try:self._run_agent(prompt)
+    def _agent(self,prompt,initial=None):
+        try:self._run_agent(prompt,initial)
         except Exception as exc:self._error=str(exc);self.emit('model_error',self._error)
         finally:self._done=True
 
@@ -374,12 +406,15 @@ class KinexAdapter:
         self._server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
         self._bridge_thread=threading.Thread(target=self._server.serve_forever,daemon=True);self._bridge_thread.start()
 
-    def _run_agent(self,prompt):
+    def _run_agent(self,prompt,initial=None):
         if self._stop.is_set() or self.cancelled():raise RuntimeError('Kinex cancelled before startup')
         self._start_bridge()
         env=dict(os.environ,KINEX_SOURCE=str(self.upstream),BLUPE_KINEX_PYTHON=sys.executable,BLUPE_KINEX_BRIDGE='http://127.0.0.1:'+str(self._server.server_port),BLUPE_KINEX_TOKEN=self._token)
         for key in ('OPENAI_API_KEY','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN'):env.pop(key,None)
-        initial=self._read();frames=sorted(self.cameras.capture(initial),key=lambda f:('top','left','right').index(f.name));sizes={};image_paths=[]
+        # Reuse the just-verified Home observation for the initial prompt only.
+        # Every device operation and dispatch still independently calls _read().
+        if initial is None or not 0<=time.time()-initial['observed_at']<=2:initial=self._read()
+        frames=sorted(self.cameras.capture(initial),key=lambda f:('top','left','right').index(f.name));sizes={};image_paths=[]
         for frame in frames:
             image=Image.open(io.BytesIO(frame.jpeg));sizes[frame.name]={'width':image.width,'height':image.height}
             path=self.directory/('initial-'+frame.name+'.jpg');path.write_bytes(frame.jpeg);image_paths.append(path)
@@ -403,6 +438,7 @@ class KinexAdapter:
             'Do not perform redundant start/discovery calls or create timing files; the host records them. '
             'Loaded device IDs are left_arm, right_arm, left_gripper, right_gripper, top_camera, left_camera, right_camera and world. The station ID is not a device. '
             'If the supplied images/state support a safe first task action, perform it directly; status/profile discovery is unnecessary. '
+            'Make the first safe tool decision without a preliminary narration message. '
             'Supported schemas: '
             'device({deviceID,action,args}), devices({calls:[{deviceID,action,args}]}), '
             'servo({device,joints,block}), device_stop({deviceID}). Use only these registered tools. '

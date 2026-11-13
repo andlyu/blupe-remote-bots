@@ -17,7 +17,12 @@ from remote_yam.kinex_safety import RoboHouseGuard,ROBOHOUSE,admission
 
 API='https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
-def progress(status,policy,events):
+def progress(status,policy,events,queue_lifecycle=None):
+    lifecycle=queue_lifecycle or {}
+    if status=='queued':
+        if lifecycle.get('admitted_at') is not None:
+            return 'Preparing robot','Robot admission is confirmed. Waiting for fresh settled Home feedback before Kinex can start. Stop is available.'
+        return 'Waiting for robot admission','Waiting for the normal robot session/lease grant. Station initialization may run while queued; it is not method motion. Stop is available.'
     stage={'queued':'Waiting in robot queue','preparing':'Preparing robot'}.get(status,status.replace('_',' ').title())
     last=events[-1].get('message',stage) if events else stage
     if status!='running':return stage,last
@@ -48,7 +53,11 @@ def main():
                 time.sleep(.1)
     def heartbeat(ready=True,message='Kinex runner connected. Ready for bounded joint and gripper tasks.'):
         call('/api/runner/heartbeat',{'ready':ready,'message':message,'approach':'Kinex','underlying_model':args.model})
-    controller=None;policy=None;job=None;api=None
+    controller=None;policy=None;job=None;api=None;publication_sequence=0
+    def publish(data):
+        nonlocal publication_sequence
+        publication_sequence+=1
+        return call('/api/runner/update',dict(data,publication_sequence=publication_sequence))
     def retain_backend_evidence():
         if not api or not job or not api.session_id:return
         directory=state/job['id']/'evidence';directory.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -75,25 +84,31 @@ def main():
                 if not ready:time.sleep(3);continue
                 job=call('/api/runner/claim',{}).get('run')
                 if not job:time.sleep(.8);continue
+                publication_sequence=0
                 api=KinexAPI(HttpSessionAPI(args.session_api,supports_trajectories=True,robot_id=args.robot_id),job['name'],job['email'],robot_id=args.robot_id,private_state=state/job['id']/'evidence')
                 policy=KinexAdapter(args.upstream,state/'workspace',api,CameraFrameSource(args.session_api),model=args.model,evidence_root=state/job['id']/'evidence',robot_id=args.robot_id)
                 policy.runner_name=job['name'];policy.execution_mode=args.execution_mode
                 controller=RunnerController(api,robot_id=args.robot_id,hardware_control_enabled=True,recording_root=state/'recordings')
                 config=policy.public_config();config.pop('recording_path',None)
-                call('/api/runner/update',dict(id=job['id'],status='preparing',stage='Joining BluPe queue',message='Requesting normal queue admission and robot readiness.',configuration=config))
+                publish(dict(id=job['id'],status='preparing',stage='Joining BluPe queue',message='Requesting normal queue admission and robot readiness.',configuration=config))
                 controller.join_and_run(policy,job['prompt'],run_duration_s=job['duration_s'])
                 while True:
                     snapshot=controller.status();status=snapshot['status'];events=(snapshot.get('interactions') or {}).get('events',[])
+                    if status in ('queued','preparing'):
+                        try:api.refresh_queue_entry()
+                        except Exception:pass  # Missing evidence stays unknown; never invent a timestamp.
+                    queue_lifecycle=dict(api.queue_lifecycle)
+                    if policy._startup_observed_at is not None:queue_lifecycle['home_observed_at']=policy._startup_observed_at
                     config=policy.public_config();config.pop('recording_path',None)
                     clean=[{'time':e.get('timestamp',e.get('time',time.time())),'kind':e.get('kind'),'message':e.get('message','')[:6000]} for e in events[-60:]]
-                    stage,last=progress(status,policy,clean)
+                    stage,last=progress(status,policy,clean,queue_lifecycle)
                     if policy._finished_normally:stage='Kinex agent finished';last='Agent finished. Physical task outcome is unverified.'
                     terminal=status not in ('queued','preparing','running')
                     published='completed' if terminal and snapshot.get('error') is None and policy._finished_normally and any(e.get('kind')=='stop_requested' and e.get('details',{}).get('reason')=='policy_complete' for e in events) else status
                     if published not in ('completed','failed','stopped','timed_out','queued','preparing','running'):published='failed'
-                    response=call('/api/runner/update',dict(id=job['id'],status='queued_robot' if published=='queued' else published,
+                    response=publish(dict(id=job['id'],status='queued_robot' if published=='queued' else published,
                         stage=stage,message=last,configuration=config,episode_id=snapshot.get('episode_id'),session_id=snapshot.get('session_id'),
-                        events=clean,metrics=snapshot.get('run_metrics',{}),error=snapshot.get('error')))
+                        events=clean,queue_lifecycle=queue_lifecycle,metrics=snapshot.get('run_metrics',{}),error=snapshot.get('error')))
                     heartbeat(False,'Kinex is releasing the run and verifying cleanup.' if terminal else 'Kinex run in progress.')
                     if response.get('stop') and not terminal:controller.stop('user_requested');policy.request_stop()
                     if terminal:break
@@ -114,7 +129,7 @@ def main():
                     except Exception as failure:cleanup_error=str(failure)
                 retain_backend_evidence()
                 if job:
-                    try:call('/api/runner/update',dict(id=job['id'],status='failed',stage='Run stopped',message='Kinex could not complete this run. No automatic retry.',error=str(error)[:1000]))
+                    try:publish(dict(id=job['id'],status='failed',stage='Run stopped',message='Kinex could not complete this run. No automatic retry.',error=str(error)[:1000]))
                     except Exception:pass
                     job=None
                 controller=None;policy=None;api=None

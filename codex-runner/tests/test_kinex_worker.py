@@ -22,6 +22,26 @@ worker=importlib.util.module_from_spec(spec);spec.loader.exec_module(worker)
 
 
 class WorkerLifecycle(unittest.TestCase):
+    def test_actual_queue_entry_and_first_admission_are_retained_without_changing_events(self):
+        from types import SimpleNamespace
+        event={'schema_version':1,'session_id':'session','type':'lifecycle','episode_id':'episode',
+            'timestamp':102.,'payload':{'state':'preparing','reason':'jetson_leased'}}
+        stream=SimpleNamespace(receive=lambda timeout:event,close=lambda:None)
+        api=SimpleNamespace(open_events=lambda session:stream,
+            _request=lambda *a:{'entries':[{'session_id':'other','robot_id':ROBOHOUSE,'created_at':99.},
+                {'session_id':'session','robot_id':ROBOHOUSE,'created_at':100.}]})
+        facade=worker.KinexAPI(api,'Fixture','fixture@example.test',robot_id=ROBOHOUSE);facade.session_id='session'
+        facade.refresh_queue_entry();self.assertEqual(facade.queue_lifecycle['entered_at'],100.)
+        observed=facade.open_events('session');self.assertIs(observed.receive(.5),event)
+        self.assertEqual(facade.queue_lifecycle['admitted_at'],102.)
+        event['timestamp']=105.;observed.receive(.5)
+        self.assertEqual(facade.queue_lifecycle['admitted_at'],102.)
+        stage,reason=worker.progress('queued',None,[],facade.queue_lifecycle)
+        self.assertEqual(stage,'Preparing robot');self.assertIn('admission is confirmed',reason)
+        missing=worker.KinexAPI(SimpleNamespace(_request=lambda *a:{'entries':[]}), 'Fixture','fixture@example.test',robot_id=ROBOHOUSE)
+        missing.session_id='absent';missing.refresh_queue_entry();self.assertEqual(missing.queue_lifecycle,{})
+        self.assertEqual(worker.progress('queued',None,[])[0],'Waiting for robot admission')
+
     def test_planning_dispatch_and_execution_waits_explain_the_actual_stage(self):
         from types import SimpleNamespace
         p=SimpleNamespace(_thread=object(),_pending=None,_active=False)
@@ -75,6 +95,7 @@ class WorkerLifecycle(unittest.TestCase):
                 model.assert_not_called()
         self.assertEqual([u['status'] for u in updates],['preparing','preparing','queued_robot','stopped'])
         self.assertEqual(updates[0],updates[1])
+        self.assertEqual([u['publication_sequence'] for u in updates],[1,1,2,3])
         self.assertTrue(any(not h['ready'] and 'progress' in h['message'] for h in heartbeats))
         self.assertFalse(any(u.get('error') for u in updates))
         self.assertEqual(api.action_attempts,[]);self.assertEqual(api.trajectory_attempts,[])

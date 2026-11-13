@@ -38,6 +38,19 @@ class CommandContract(unittest.TestCase):
                         self.assertEqual(p[other+'_gripper'],self.obs[other+'_gripper'])
                         for side in ('left','right'):self.assertEqual(p[side+'_joints_deg'],self.obs[side+'_joints_deg'])
                     self.assertEqual(_trajectory_waypoints(points),points)
+    def test_multisample_gripper_cycle_and_wrist_return_through_wire(self):
+        for arm in ('left','right'):
+            points=self.submit(arm+'_gripper',dict(actions=[0,.6,1],duration_s=6))
+            self.assertEqual([points[i][arm+'_gripper'] for i in (19,39,59)],[0,.6,1])
+            initial=np.deg2rad(self.obs[arm+'_joints_deg']).tolist();away=initial.copy();away[-1]+=.04
+            points=self.submit(arm+'_arm',dict(actions=[away,initial],duration_s=2))
+            self.assertAlmostEqual(math.radians(points[9][arm+'_joints_deg'][-1]),away[-1])
+            self.assertEqual(points[-1][arm+'_joints_deg'],self.obs[arm+'_joints_deg'])
+            other='right' if arm=='left' else 'left'
+            for point in points:
+                self.assertEqual(point[other+'_joints_deg'],self.obs[other+'_joints_deg'])
+                for side in ('left','right'):self.assertEqual(point[side+'_gripper'],self.obs[side+'_gripper'])
+
     def test_both_joint_paths_and_preservation(self):
         for arm in ('left','right'):
             for delta in (-.03,.03):
@@ -115,7 +128,9 @@ class BridgeRegression(unittest.TestCase):
         p.api.get_session=lambda *a:session;p.api.get_robot_observation=lambda *a:deepcopy(obs)
         obs['homed']=False
         with self.assertRaisesRegex(RuntimeError,'startup Home'):p._verify_startup_home()
-        obs['homed']=True;p._verify_startup_home();obs['homed']=False
+        obs['homed']=True;verified=p._verify_startup_home()
+        self.assertEqual(verified,obs);self.assertEqual(p._startup_observed_at,obs['observed_at'])
+        obs['homed']=False
         obs['right_joints_deg'][-1]+=math.degrees(.08)
         item=self.item();p._pending=item;p._queue.put(item)
         self.assertEqual(len(p.build_trajectory('offline after Home',deepcopy(obs),0)),10)
