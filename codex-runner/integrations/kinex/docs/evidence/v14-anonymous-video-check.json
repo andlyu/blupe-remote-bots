@@ -1,0 +1,10 @@
+{
+  "http_status": 206,
+  "content_type": "video/mp4",
+  "content_range": "bytes 0-15/1109477",
+  "received_bytes": 16,
+  "mp4_ftyp": true,
+  "runtime_s": 0.3500057499986724,
+  "cookie_sent": false,
+  "authorization_sent": false
+}
