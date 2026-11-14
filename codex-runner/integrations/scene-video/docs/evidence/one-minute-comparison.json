@@ -1,0 +1,47 @@
+{
+  "previous": {
+    "projected_grid_fraction": [
+      0.7469135802469136,
+      0.6234567901234568
+    ],
+    "camera_span_m": [
+      [
+        0.11900022603593008,
+        1.5521884938474173e-07,
+        1.9302203518867245e-07
+      ],
+      [
+        0.11900022607679428,
+        1.5505591827169596e-07,
+        1.9277114471361045e-07
+      ]
+    ],
+    "camera_path_length_m": [
+      0.11900022603631022,
+      0.11900022607717356
+    ]
+  },
+  "revised": {
+    "projected_grid_fraction": [
+      1.0,
+      1.0
+    ],
+    "camera_span_m": [
+      [
+        0.2107135457566528,
+        0.16427009548681615,
+        0.11415997634661329
+      ],
+      [
+        0.2091815493179175,
+        0.16471811619188098,
+        0.11522360235961898
+      ]
+    ],
+    "camera_path_length_m": [
+      0.8424827411979072,
+      0.8009547227527972
+    ]
+  },
+  "limitation": "Projection test of synthetic grid only; ignores occlusion and does not certify physical coverage or reconstruction."
+}

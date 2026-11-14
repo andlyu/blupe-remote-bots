@@ -1,0 +1,9 @@
+{
+  "original_episode": "ep_11d0dcff60b448ba",
+  "original_run_status": "error_after_120_executed_waypoints",
+  "cause": "Completion validation incorrectly required at-Home after forward motion and compared next cursor to last dispatched cursor",
+  "fix": "Require Home only before initial dispatch; require final next cursor=last_step+1, same episode/lease, settled/safe/fresh state and measured endpoint tolerance",
+  "regression": "1 failed / 6 passed before; 7 passed after",
+  "physical_retry": false,
+  "source": "scene_video.py"
+}

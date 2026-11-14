@@ -1,0 +1,30 @@
+{
+  "camera_order": [
+    "left",
+    "top",
+    "right"
+  ],
+  "fps": 10,
+  "frames": 846,
+  "duration_s": 84.6,
+  "missing_frame_ticks": 2,
+  "held_camera_ticks": 369,
+  "missing_camera_ticks": 6,
+  "render_version": 7,
+  "unavailable_ticks_removed": 0,
+  "trimmed_tail_s": 0,
+  "episode_id": "ep_47151c9fe197419d",
+  "robot_id": "yam-1",
+  "samples_sha256": "a5c1dc33e591351d0b73c20f35fd97e4fa506cab91fa61cad5e18c595f0d56e0",
+  "image_index_sha256": "2a3870f71aace28bb4d877def508a4f407eeb41bf45e984c1607fbfcbb6f3e3c",
+  "sha256": "874a8892362b0031216b304956a26cff1647113f7ccfb7f237b5d20d983b9769",
+  "bytes": 7339042,
+  "preview": false,
+  "render_source_sha256": {
+    "training_video.py": "c8a71ce647cb5dd28c1e187c159bae0c21cc457be97cd0f27a7085d67b7fd647",
+    "direct_episode_storage.py": "3c576d59cc79fb51b2eb12f493285d819d1f45289a8d938465da2cf7643bc0fe"
+  },
+  "elapsed_s": 8.391239415970631,
+  "capture_errors": 0,
+  "training_valid_rows": 812
+}
