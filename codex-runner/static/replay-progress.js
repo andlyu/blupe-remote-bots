@@ -78,8 +78,9 @@
         observe(state,robot,csrf);
         if(state.session_id && ['queued','preparing','running'].includes(state.status)) activeSession=state.session_id;
         if(state.session_id===activeSession && terminal.has(state.status) && valid(state.episode_id)
-            && !completed.has(state.session_id) && dialog.open) {
-          completed.add(state.session_id);begin(state.episode_id,robot);
+            && !completed.has(state.session_id)) {
+          completed.add(state.session_id);
+          if(dialog.open && !review.ownsQuick?.(state.episode_id)) begin(state.episode_id,robot);
         }
       };
     }
