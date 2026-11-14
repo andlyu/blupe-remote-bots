@@ -1,0 +1,12 @@
+{
+  "scenario": "real pinned RunnerController queued->Stop lifecycle; synthetic transport; no model/hardware",
+  "red": {
+    "exit_code": 1,
+    "output": "AttributeError: 'RunnerController' object has no attribute 'busy'\ntest_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch (test_kinex_worker.WorkerLifecycle.test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch) ... FAIL\n\n======================================================================\nFAIL: test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch (test_kinex_worker.WorkerLifecycle.test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/kinex-robohouse-release/codex-runner/tests/test_kinex_worker.py\", line 59, in test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch\n    self.assertEqual([u['status'] for u in updates],['preparing','queued_robot','stopped'])\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: Lists differ: ['preparing', 'queued_robot', 'failed'] != ['preparing', 'queued_robot', 'stopped']\n\nFirst differing element 2:\n'failed'\n'stopped'\n\n- ['preparing', 'queued_robot', 'failed']\n?                                ^^^^\n\n+ ['preparing', 'queued_robot', 'stopped']\n?                                ^^^^^\n\n\n----------------------------------------------------------------------\nRan 1 test in 2.149s\n\nFAILED (failures=1)\n"
+  },
+  "green": {
+    "exit_code": 0,
+    "output": "test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch (test_kinex_worker.WorkerLifecycle.test_real_controller_queued_stop_no_model_spawn_or_actuator_dispatch) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.626s\n\nOK\n"
+  },
+  "physical_commands_sent": 0
+}

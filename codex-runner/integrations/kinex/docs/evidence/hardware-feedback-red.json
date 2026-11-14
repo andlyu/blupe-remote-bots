@@ -1,0 +1,8 @@
+{
+  "old_revision": "87bdffaef794f69d552c516455d874787a5eae70",
+  "old_function": "KinexAdapter.validate_trajectory_final",
+  "exit_code": 1,
+  "runtime_s": 0.28857754199998453,
+  "output": "test_gateway_final_without_source_requires_independent_fresh_hardware (test_kinex.BridgeRegression.test_gateway_final_without_source_requires_independent_fresh_hardware) ... ERROR\n\n======================================================================\nERROR: test_gateway_final_without_source_requires_independent_fresh_hardware (test_kinex.BridgeRegression.test_gateway_final_without_source_requires_independent_fresh_hardware)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/kinex-robohouse-release/codex-runner/tests/test_kinex.py\", line 90, in test_gateway_final_without_source_requires_independent_fresh_hardware\n    self.assertEqual(p.validate_trajectory_final(gateway)['source'],'hardware')\n                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^\n  File \"<string>\", line 5, in validate_trajectory_final\nRuntimeError: Kinex final feedback must be settled hardware\n\n----------------------------------------------------------------------\nRan 1 test in 0.021s\n\nFAILED (errors=1)\n",
+  "physical_commands_sent": 0
+}

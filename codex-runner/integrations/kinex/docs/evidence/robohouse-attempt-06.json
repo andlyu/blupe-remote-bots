@@ -1,0 +1,1256 @@
+{
+  "site_url": "https://kinex-blupe.andlyu.chatgpt.site",
+  "site_job": "612ea0de-4b21-4a45-899d-98e92d80e119",
+  "source_site": "5d662e6c68f644f9c701208e71abe17f32b0ce6e",
+  "runtime_gate": "preflight-multisample.json",
+  "session_id": "sess_41916c66094a46f5",
+  "episode_id": "ep_bfdd8d9771014e40",
+  "approach": "Kinex",
+  "underlying_model": "gpt-6-astra",
+  "reasoning_effort": "low",
+  "runner": "andrew",
+  "execution_mode": "automated_verification",
+  "confirmed_packets": 3,
+  "confirmed_waypoints": 100,
+  "task_success": "partial",
+  "outcome": "All3 native buffers completed once; final joints and grippers meet unchanged0.05rad/0.02fraction endpoint tolerances. Interior gripper0/0.6 and wrist extrema were not independently settled/measured. This does not certify full requested intermediate targets or object manipulation.",
+  "trajectory_results": [
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "status": "accepted",
+      "reported_at": 1794565306.5675688,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "status": "completed",
+      "reported_at": 1794565313.0375574,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "status": "accepted",
+      "reported_at": 1794565323.4137232,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "status": "completed",
+      "reported_at": 1794565325.812225,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "status": "accepted",
+      "reported_at": 1794565336.7754908,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_result",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "status": "completed",
+      "reported_at": 1794565339.1670394,
+      "step_id": null,
+      "code": null,
+      "message": null,
+      "details": {}
+    }
+  ],
+  "trajectory_progress": [
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 0,
+      "executed_at": 1794565306.574137
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 1,
+      "executed_at": 1794565306.6774812
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 2,
+      "executed_at": 1794565306.780584
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 3,
+      "executed_at": 1794565306.8807416
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 4,
+      "executed_at": 1794565306.9837632
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 5,
+      "executed_at": 1794565307.0861707
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 6,
+      "executed_at": 1794565307.1888998
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 7,
+      "executed_at": 1794565307.2903335
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 8,
+      "executed_at": 1794565307.391092
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 9,
+      "executed_at": 1794565307.4947999
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 10,
+      "executed_at": 1794565307.594662
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 11,
+      "executed_at": 1794565307.6961114
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 12,
+      "executed_at": 1794565307.7973049
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 13,
+      "executed_at": 1794565307.898014
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 14,
+      "executed_at": 1794565307.9989688
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 15,
+      "executed_at": 1794565308.1002812
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 16,
+      "executed_at": 1794565308.205281
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 17,
+      "executed_at": 1794565308.3100367
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 18,
+      "executed_at": 1794565308.4065163
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 19,
+      "executed_at": 1794565308.50843
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 20,
+      "executed_at": 1794565308.6151109
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 21,
+      "executed_at": 1794565308.709997
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 22,
+      "executed_at": 1794565308.8110187
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 23,
+      "executed_at": 1794565308.9119976
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 24,
+      "executed_at": 1794565309.0136924
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 25,
+      "executed_at": 1794565309.1148164
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 26,
+      "executed_at": 1794565309.216716
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 27,
+      "executed_at": 1794565309.318364
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 28,
+      "executed_at": 1794565309.4197228
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 29,
+      "executed_at": 1794565309.5215044
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 30,
+      "executed_at": 1794565309.6231017
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 31,
+      "executed_at": 1794565309.7244756
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 32,
+      "executed_at": 1794565309.8289611
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 33,
+      "executed_at": 1794565309.9270775
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 34,
+      "executed_at": 1794565310.0289567
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 35,
+      "executed_at": 1794565310.1307104
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 36,
+      "executed_at": 1794565310.2346497
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 37,
+      "executed_at": 1794565310.3339462
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 38,
+      "executed_at": 1794565310.4354987
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 39,
+      "executed_at": 1794565310.5412612
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 40,
+      "executed_at": 1794565310.6430922
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 41,
+      "executed_at": 1794565310.7441046
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 42,
+      "executed_at": 1794565310.847909
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 43,
+      "executed_at": 1794565310.9492462
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 44,
+      "executed_at": 1794565311.0512815
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 45,
+      "executed_at": 1794565311.1523964
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 46,
+      "executed_at": 1794565311.2540805
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 47,
+      "executed_at": 1794565311.3568914
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 48,
+      "executed_at": 1794565311.4609838
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 49,
+      "executed_at": 1794565311.562955
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 50,
+      "executed_at": 1794565311.6668103
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 51,
+      "executed_at": 1794565311.7661295
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 52,
+      "executed_at": 1794565311.8672545
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 53,
+      "executed_at": 1794565311.9697058
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 54,
+      "executed_at": 1794565312.0699942
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 55,
+      "executed_at": 1794565312.1727314
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 56,
+      "executed_at": 1794565312.2748015
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 57,
+      "executed_at": 1794565312.378596
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 58,
+      "executed_at": 1794565312.4805372
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_0",
+      "step_id": 59,
+      "executed_at": 1794565312.580705
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 60,
+      "executed_at": 1794565323.418048
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 61,
+      "executed_at": 1794565323.5243878
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 62,
+      "executed_at": 1794565323.6223881
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 63,
+      "executed_at": 1794565323.7226288
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 64,
+      "executed_at": 1794565323.8238852
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 65,
+      "executed_at": 1794565323.9252288
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 66,
+      "executed_at": 1794565324.0280688
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 67,
+      "executed_at": 1794565324.129543
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 68,
+      "executed_at": 1794565324.2305386
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 69,
+      "executed_at": 1794565324.3324108
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 70,
+      "executed_at": 1794565324.4344106
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 71,
+      "executed_at": 1794565324.53675
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 72,
+      "executed_at": 1794565324.6384027
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 73,
+      "executed_at": 1794565324.7405424
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 74,
+      "executed_at": 1794565324.8461864
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 75,
+      "executed_at": 1794565324.9481356
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 76,
+      "executed_at": 1794565325.0522277
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 77,
+      "executed_at": 1794565325.1550686
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 78,
+      "executed_at": 1794565325.2556686
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_60",
+      "step_id": 79,
+      "executed_at": 1794565325.3603816
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 80,
+      "executed_at": 1794565336.7806413
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 81,
+      "executed_at": 1794565336.882
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 82,
+      "executed_at": 1794565336.9874606
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 83,
+      "executed_at": 1794565337.085565
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 84,
+      "executed_at": 1794565337.1886976
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 85,
+      "executed_at": 1794565337.289321
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 86,
+      "executed_at": 1794565337.3903964
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 87,
+      "executed_at": 1794565337.4922752
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 88,
+      "executed_at": 1794565337.5960736
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 89,
+      "executed_at": 1794565337.7009535
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 90,
+      "executed_at": 1794565337.7992656
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 91,
+      "executed_at": 1794565337.9012496
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 92,
+      "executed_at": 1794565338.0040848
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 93,
+      "executed_at": 1794565338.1048555
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 94,
+      "executed_at": 1794565338.2071729
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 95,
+      "executed_at": 1794565338.3079138
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 96,
+      "executed_at": 1794565338.409708
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 97,
+      "executed_at": 1794565338.5115213
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 98,
+      "executed_at": 1794565338.6124375
+    },
+    {
+      "schema_version": 1,
+      "type": "trajectory_progress",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "lease_id": "lease_6cbe3a814cdc44b2",
+      "trajectory_id": "traj_ep_bfdd8d9771014e40_80",
+      "step_id": 99,
+      "executed_at": 1794565338.714325
+    }
+  ],
+  "lifecycle": [
+    {
+      "schema_version": 1,
+      "event_id": "evt_dd03ff1cbba1445a",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "state": "preparing",
+      "previous_state": "queued",
+      "timestamp": 1794565290.102864,
+      "actor": "system",
+      "reason": "jetson_leased"
+    },
+    {
+      "schema_version": 1,
+      "event_id": "evt_beec7ce7deda4624",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "state": "running",
+      "previous_state": "preparing",
+      "timestamp": 1794565290.2414575,
+      "actor": "jetson",
+      "reason": "first_observation"
+    },
+    {
+      "schema_version": 1,
+      "event_id": "evt_af83acbecc394582",
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "state": "stopped",
+      "previous_state": "running",
+      "timestamp": 1794565354.6681962,
+      "actor": "runner",
+      "reason": "policy_complete"
+    }
+  ],
+  "observations": [
+    {
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "step_id": 0,
+      "observed_at": 1794565290.1863992,
+      "left_joints_deg": [
+        -1.2130601064225444,
+        45.53893210326815,
+        35.39731247479849,
+        -21.474442424507405,
+        -0.7103505127697548,
+        -0.44806724651643526
+      ],
+      "right_joints_deg": [
+        -1.3223448006948455,
+        45.45150434785031,
+        35.59402492448863,
+        -21.605584057633966,
+        -1.1693462287136238,
+        -0.7103505127697548
+      ],
+      "left_gripper": 0.9989190747279665,
+      "right_gripper": 0.9987137344576253,
+      "homed": true,
+      "settled": true
+    },
+    {
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "step_id": 60,
+      "observed_at": 1794565313.0466473,
+      "left_joints_deg": [
+        -1.2130601064225444,
+        45.53893210326815,
+        35.353598597089565,
+        -21.474442424507405,
+        -0.6884935739154981,
+        -0.44806724651643526
+      ],
+      "right_joints_deg": [
+        -1.3223448006948455,
+        45.45150434785031,
+        35.572167985634174,
+        -21.627440996488627,
+        -1.1693462287136238,
+        -1.14748928985896
+      ],
+      "left_gripper": 0.9988470130431649,
+      "right_gripper": 0.9987137344576253,
+      "homed": true,
+      "settled": true
+    },
+    {
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "step_id": 80,
+      "observed_at": 1794565325.8315387,
+      "left_joints_deg": [
+        -1.2130601064225444,
+        45.53893210326815,
+        35.353598597089565,
+        -21.474442424507203,
+        -0.6884935739154981,
+        -0.44806724651643526
+      ],
+      "right_joints_deg": [
+        -1.3223448006948455,
+        45.45150434785031,
+        35.572167985634174,
+        -21.64929793534309,
+        -1.1693462287136238,
+        -1.1912031675678805
+      ],
+      "left_gripper": 0.9988470130431649,
+      "right_gripper": 0.9984993568672288,
+      "homed": true,
+      "settled": true
+    },
+    {
+      "session_id": "sess_41916c66094a46f5",
+      "episode_id": "ep_bfdd8d9771014e40",
+      "step_id": 100,
+      "observed_at": 1794565339.1865413,
+      "left_joints_deg": [
+        -1.2130601064225444,
+        45.53893210326815,
+        35.353598597089565,
+        -21.474442424507405,
+        -0.6884935739154981,
+        -0.44806724651643526
+      ],
+      "right_joints_deg": [
+        -1.3223448006948455,
+        45.45150434785031,
+        35.572167985634174,
+        -21.64929793534309,
+        -1.1693462287136238,
+        -0.5573519407887366
+      ],
+      "left_gripper": 0.9988470130431649,
+      "right_gripper": 0.9984993568672288,
+      "homed": true,
+      "settled": true
+    }
+  ],
+  "replay": {
+    "url": "https://playground.blupe.io/api/quick-replays/ep_bfdd8d9771014e40/feffddd407d85857b49c71f4b1b10fb0c0da5128c5daf928985ad5526dee7d61.mp4",
+    "first_ready_lookup_at_s": 1794565405.329,
+    "stop_at_s": 1794565354.5522308,
+    "ready_delay_after_stop_s": 50.776769161224365,
+    "preview_speed": 2,
+    "duration_s": 33.5,
+    "observed_browser_result": "Played and sought to0:08/0:33 through Site controls; matchingKinex/andrew episode, labelled2x edited replay. Availability was delayed, not immediate."
+  },
+  "timing": "robohouse-run06-timing.json"
+}

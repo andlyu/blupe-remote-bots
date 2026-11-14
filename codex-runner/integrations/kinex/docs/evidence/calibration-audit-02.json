@@ -1,0 +1,75 @@
+{
+  "checked_at": "2026-11-13T16:41:20.478748+00:00",
+  "previous_goal_turn": "progress",
+  "consecutive_calibration_audit": 2,
+  "worker_handle_confirmed_live": 22809,
+  "checks": {
+    "site": {
+      "http_status": 200,
+      "runtime_s": 0.38554766699962784,
+      "result": {
+        "runner": {
+          "ready": false,
+          "message": "Cannot verify fresh station connection, calibration and queue readiness. Restore the station before running.",
+          "approach": "Kinex",
+          "underlying_model": "gpt-6-astra",
+          "online": true
+        },
+        "run_count": 6,
+        "active": []
+      }
+    },
+    "queue": {
+      "http_status": 200,
+      "runtime_s": 0.41629395900235977,
+      "result": {
+        "generated_at": 1794588080.4535851,
+        "stations": [
+          {
+            "jetson_id": "robot-ba8413962083809c",
+            "connected": true,
+            "available": false,
+            "queue_ready": true,
+            "source": "hardware",
+            "mode": "DISABLED",
+            "observed_at": 1794588080.2329166,
+            "fault_notification": null
+          }
+        ],
+        "entries": []
+      }
+    },
+    "observation": {
+      "http_status": 200,
+      "runtime_s": 0.38707983299536863,
+      "result": {
+        "jetson_id": "robot-ba8413962083809c",
+        "source": "hardware",
+        "observed_at": 1794588080.2329166,
+        "mode": "DISABLED",
+        "queue_ready": true,
+        "homed": false,
+        "settled": false,
+        "safety": {
+          "ok": false,
+          "estop_engaged": false,
+          "reason": "hardware_not_initialized"
+        }
+      }
+    },
+    "calibration": {
+      "http_status": 503,
+      "runtime_s": 0.5000062079998315,
+      "result": {
+        "error": {
+          "code": "calibration_unavailable",
+          "message": "Selected operator calibration is unavailable or switching",
+          "status": 503
+        }
+      }
+    }
+  },
+  "new_queue_entries": 0,
+  "new_model_calls": 0,
+  "new_physical_commands": 0
+}

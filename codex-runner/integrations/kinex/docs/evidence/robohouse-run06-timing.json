@@ -1,0 +1,57 @@
+{
+  "attempt": 6,
+  "job_id": "612ea0de-4b21-4a45-899d-98e92d80e119",
+  "session_id": "sess_41916c66094a46f5",
+  "episode_id": "ep_bfdd8d9771014e40",
+  "run_click_bounds_s": [
+    1794565282.046,
+    1794565282.322
+  ],
+  "queue_entry": {
+    "session_id": "sess_41916c66094a46f5",
+    "robot_id": "robot-ba8413962083809c",
+    "created_at": 1794565284.5039928,
+    "status": "queued",
+    "position": 1
+  },
+  "admission": {
+    "schema_version": 1,
+    "event_id": "evt_dd03ff1cbba1445a",
+    "session_id": "sess_41916c66094a46f5",
+    "episode_id": "ep_bfdd8d9771014e40",
+    "state": "preparing",
+    "previous_state": "queued",
+    "timestamp": 1794565290.102864,
+    "actor": "system",
+    "reason": "jetson_leased"
+  },
+  "excluded_queue_s": 5.598871231079102,
+  "home_completed_observed_at_s": 1794565290.1863992,
+  "first_observed_method_motion_s_bounds": [
+    1794565306.556,
+    1794565307.93
+  ],
+  "visual_evidence": [
+    "run06-before-motion.jpg",
+    "run06-observed-motion.jpg"
+  ],
+  "full_run_to_motion_s_bounds": [
+    24.233999967575073,
+    25.884000062942505
+  ],
+  "queue_adjusted_run_to_motion_s_bounds": [
+    18.63512873649597,
+    20.285128831863403
+  ],
+  "post_home_to_motion_s_bounds": [
+    16.369600772857666,
+    17.743600845336914
+  ],
+  "run_budget_outcome": "pass",
+  "post_home_outcome": "missed target",
+  "both_limits_pass": false,
+  "exception": "none",
+  "clock_correlation": "Run and screenshots use local wall-clock bounds. Matched server queue/admission/Home timestamps have a small uncalibrated clock lead, bounded by the existing0.5s clock-wait safeguard. Retain acquisition uncertainty; backend progress is not substituted for visual onset.",
+  "capture": "437 sequential camera/actions pairs in two windows, with an explicit gap; no continuous full-run film claimed. Onset bounds use start of unchanged frame00182 and end of clearly changed frame00190.",
+  "queue_exclusion_reason": "Actual matched queue entry to first jetson_leased grant only. Home5290.186 occurs after admission5290.103; no post-admission Home time is excluded."
+}
