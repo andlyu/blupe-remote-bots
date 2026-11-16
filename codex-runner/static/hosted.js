@@ -1581,6 +1581,10 @@ function createRunLaunchGuard() {
     });
   }
   function modelRunResult(live) {
+    if (live?.error === 'Dream1 rejected this prompt.' && !['preparing', 'queued', 'running'].includes(live.status)) {
+      return {label: 'Dream1 rejected this prompt', tone: 'warning', attribution: '', promptRejected: true,
+        summary: live.task || '', detail: ''};
+    }
     if (!live || live.error || !['stopped', 'completed'].includes(live.status)) return null;
     const latest = [...(live.events || [])].reverse()
       .find(event => ['model_request', 'model_response', 'model_error'].includes(event.kind));
@@ -1608,6 +1612,7 @@ function createRunLaunchGuard() {
     $('runOutcomeTitle').textContent = result?.label || '';
     $('runOutcomeAttribution').textContent = result?.attribution || '';
     $('runOutcomeSummary').textContent = result?.summary || '';
+    $('runOutcomeSummary').hidden = !result?.promptRejected || !result?.summary;
     $('runOutcomeDetail').textContent = result?.detail || '';
     $('runOutcomeDetail').hidden = !result?.detail;
     return result;
@@ -1748,9 +1753,11 @@ function createRunLaunchGuard() {
     let output = live?.reviewing_prompt ? 'Reviewing your prompt…' : progress ? publicUpdate + progress + (note ? '\n\nPrevious decision: ' + note : '') : note || (summary ? 'Public summary: '+summary.message : '') || (live
       ? (running ? `Waiting for ${liveModelName}’s first note…` : `No ${liveModelName} note was recorded for this run.`)
       : `${liveModelName}’s next note will appear here.`);
-    if (live?.error) output += '\n\n' + (live.error === 'Run reached time limit' ? 'Run stopped: ' : 'Run error: ') + live.error;
+    if (live?.error === 'Dream1 rejected this prompt.') output = live.error + (live.task ? '\n\n' + live.task : '');
+    else if (live?.error) output += '\n\n' + (live.error === 'Run reached time limit' ? 'Run stopped: ' : 'Run error: ') + live.error;
     if (live?.display_error) output += '\n\nPlayground error: ' + live.display_error;
     const body = $('astraStreamOutput');
+    body.hidden = live?.error === 'Dream1 rejected this prompt.' && !!$('runOutcome');
     if (body.textContent !== output) {
       body.textContent = output;
       body.scrollTop = 0;
@@ -1844,13 +1851,13 @@ function createRunLaunchGuard() {
       taskTitle.hidden = taskState.hidden = !heading.task;
     }
     text('conversationState',failure ? failure.label+' · '+failure.reason : live?.reviewing_prompt ? 'Reviewing your prompt…' :
-      (result?.label || live?.status || 'Waiting for a run').replaceAll('_', ' ') + (live?.error ? ' · ' + live.error : ''));
+      (result?.label || live?.status || 'Waiting for a run').replaceAll('_', ' ') + (live?.error && !result ? ' · ' + live.error : ''));
     if(identity(live) !== identity(previous) || live?.reviewing_prompt) renderCurrentConversation.errorTimes=new Map();
     const errorTimes=renderCurrentConversation.errorTimes ||= new Map();
     const events = [...(live?.events || [])];
     for (const [speaker, reason, kind] of [
-      [live?.error === 'Run reached time limit' ? 'Run stopped' : 'Run error', live?.error,
-        live?.error === 'Run reached time limit' ? 'run_notice' : 'model_error'],
+      [live?.error === 'Dream1 rejected this prompt.' ? 'Dream1' : live?.error === 'Run reached time limit' ? 'Run stopped' : 'Run error', live?.error,
+        ['Run reached time limit', 'Dream1 rejected this prompt.'].includes(live?.error) ? 'run_notice' : 'model_error'],
       ['Playground error', live?.display_error, 'model_error']]) {
       if (reason && !events.some(event => event.kind === kind && event.message === reason)) {
         const key=JSON.stringify([speaker,reason]);
