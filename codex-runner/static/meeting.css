@@ -347,7 +347,7 @@
 .meetingConsole .meetingRoom .meetingReactions .reactionDock button:hover:not(:disabled) { background:#515457; }
 .meetingConsole .meetingRoom .meetingSocialOverlay { position:absolute; z-index:30; left:20px; right:20px; bottom:calc(var(--meeting-dock-height,150px) + 92px); height:0; pointer-events:none; }
 @media(max-width:600px),(max-width:1000px) and (max-height:500px) {
-  .meetingBar { display:flex; justify-content:center; gap:6px; }
+  .meetingBar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; }
   .meetingInfo { display:none; }
   .meetingCallControls { gap:6px; }
   .meetingConsole .meetingRoom #meetingNotes { width:auto; min-width:64px; padding:11px 12px; gap:6px; border-radius:24px; }
