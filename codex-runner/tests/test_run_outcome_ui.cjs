@@ -56,6 +56,23 @@ test('Dream1 rejection shows the submitted prompt as a normal warning result', (
   assert.equal(nodes.runOutcomeSummary.textContent, '');
 });
 
+test('Dream1 rejection avoids task-failed and run-error banners while retaining robot faults', () => {
+  const {nodes, context} = fixture();
+  vm.runInContext(source.slice(source.indexOf('function taskRunFailure('),
+    source.indexOf('// End of shared task helpers.')), context);
+  vm.runInContext(source.slice(source.indexOf('  function renderPublicRunNotice('),
+    source.indexOf('  function render(state)')), context);
+  const run = {status:'failed', error:'Dream1 rejected this prompt.', runner_name:'Fixture', task:'pick up the block'};
+  assert.equal(context.taskRunFailure(run), null);
+  context.renderPublicRunNotice({public_run:run});
+  assert.equal(nodes.publicRunError.dataset.tone, 'warning');
+  assert.equal(nodes.publicRunError.textContent, 'Fixture — Dream1 rejected this prompt.');
+  assert.doesNotMatch(nodes.publicRunError.textContent, /run error|Task failed/);
+  context.renderPublicRunNotice({public_run:run, robot_fault:'Joint fault'});
+  assert.equal(nodes.publicRunError.dataset.tone, 'error');
+  assert.equal(nodes.publicRunError.textContent, 'Robot error: Joint fault');
+});
+
 test('authored code policy exposes progress and detailed pre-motion camera failure', () => {
   const {nodes, context} = fixture();
   const note = 'Observing the scene from fresh RGB-D cameras';
