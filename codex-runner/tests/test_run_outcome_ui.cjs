@@ -40,6 +40,22 @@ test('give-up reasons remain visible without being presented as success', () => 
   assert.equal(context.astraStreamNote(run.events[0], true), 'Could not complete: The target is outside the workspace.');
 });
 
+test('Dream1 rejection shows the submitted prompt as a normal warning result', () => {
+  const {nodes, context} = fixture();
+  const task = 'pick up the "orange" block\n<img src=x onerror=alert(1)>';
+  const run = {status:'failed', error:'Dream1 rejected this prompt.', task};
+  const result = context.renderModelRunResult(run);
+  assert.equal(result.label, 'Dream1 rejected this prompt');
+  assert.equal(nodes.runOutcome.hidden, false);
+  assert.equal(nodes.runOutcome.dataset.tone, 'warning');
+  assert.equal(nodes.runOutcomeSummary.textContent, task);
+  assert.equal(nodes.runOutcomeSummary.hidden, false);
+  assert.equal(nodes.runOutcomeDetail.hidden, true);
+  context.renderModelRunResult({...run, status:'preparing', error:null});
+  assert.equal(nodes.runOutcome.hidden, true);
+  assert.equal(nodes.runOutcomeSummary.textContent, '');
+});
+
 test('authored code policy exposes progress and detailed pre-motion camera failure', () => {
   const {nodes, context} = fixture();
   const note = 'Observing the scene from fresh RGB-D cameras';
