@@ -153,9 +153,9 @@
   const callControls = document.createElement('div'); callControls.className = 'meetingCallControls';
   callControls.append(views);
   if (audio) callControls.append(audio);
-  callControls.append(notes, reactions, stop);
+  callControls.append(notes, reactions, visitors);
   const peopleControls = document.createElement('div'); peopleControls.className = 'meetingPeopleControls';
-  peopleControls.append(visitors);
+  peopleControls.append(stop);
   bar.append(roomInfo, callControls, peopleControls); room.append(bar);
   const mobile = window.matchMedia('(max-width:600px), (max-width:1000px) and (max-height:500px)');
   const observerStage = $('liveViewer').closest('.videoPanel');
@@ -169,12 +169,6 @@
   }
   placeComposer();
   mobile.addEventListener('change', placeComposer);
-  function arrangeControls() {
-    if (mobile.matches) callControls.insertBefore(visitors, stop);
-    else { callControls.prepend(views); peopleControls.append(visitors); }
-    peopleControls.hidden = mobile.matches;
-  }
-  arrangeControls(); mobile.addEventListener('change', arrangeControls);
   document.addEventListener('click', event => {
     if (!reactions.contains(event.target)) reactions.open = false;
   });
