@@ -5,6 +5,33 @@ from remote_yam.past_runs import public_robot_error, run_timed_out, public_runne
 from remote_yam.public_task_progress import public_text
 
 
+DREAM_PROMPT_REJECTED = 'Dream1 rejected this prompt.'
+
+
+def dream_prompt_rejected(state):
+    """Recognize a request refusal, never infer one from a transport fault."""
+    error, safety = state.get('error'), state.get('safety_error') or {}
+    if not error and not safety:
+        return False
+    if error == DREAM_PROMPT_REJECTED:
+        return True  # Public snapshots may pass through this filter again.
+    details = safety.get('details') or {}
+    if details.get('native_code'):
+        return False  # A robot rejection keeps its own diagnostic.
+    failures = [details.get('provider') or {}]
+    failures.extend(event.get('details') or {} for event in
+        (state.get('interactions') or {}).get('events', [])
+        if event.get('kind') == 'model_failure')
+    if any(failure.get('error_type') == 'DreamBadRequest'
+           and failure.get('code') == 'DA-4000' for failure in failures):
+        return True
+    # The hosted adapter raises this fixed, sanitized status tuple. Do not
+    # match arbitrary provider text mentioning "reject" or the user's prompt.
+    return isinstance(error, str) and re.fullmatch(
+        r'(?:RuntimeError: )?Dream request failed \(DA-4000; DreamBadRequest'
+        r'(?:; [a-z_]+)?\)', error) is not None
+
+
 def public_error_detail(state):
     """Retain unknown exception messages instead of hiding their cause."""
     safety = state.get('safety_error') or {}
@@ -37,6 +64,8 @@ def public_run_error(state):
     diagnostic = public_runner_diagnostic(state)
     if diagnostic:
         return diagnostic
+    if dream_prompt_rejected(state):
+        return DREAM_PROMPT_REJECTED
     error = state.get('error')
     safety = state.get('safety_error') or {}
     observation = (safety.get('details') or {}).get('observation') or {}
