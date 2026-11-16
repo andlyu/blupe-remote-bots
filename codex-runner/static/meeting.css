@@ -491,3 +491,8 @@
   .meetingCallControls { gap:2px; }
   .meetingConsole .meetingStopAction { width:52px; }
 }
+
+/* Keep the main-screen controls clear of an opened recording sidebar. */
+@media(min-width:901px) {
+  .meetingConsole.runSidebarOpen .meetingBar { margin-inline-end:var(--run-sidebar-width); }
+}
