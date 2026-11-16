@@ -1757,7 +1757,7 @@ function createRunLaunchGuard() {
     else if (live?.error) output += '\n\n' + (live.error === 'Run reached time limit' ? 'Run stopped: ' : 'Run error: ') + live.error;
     if (live?.display_error) output += '\n\nPlayground error: ' + live.display_error;
     const body = $('astraStreamOutput');
-    body.hidden = live?.error === 'Dream1 rejected this prompt.' && !!$('runOutcome');
+    body.hidden = live?.error === 'Dream1 rejected this prompt.' && !live.display_error && !!$('runOutcome');
     if (body.textContent !== output) {
       body.textContent = output;
       body.scrollTop = 0;
@@ -1890,11 +1890,13 @@ function createRunLaunchGuard() {
     const notice = error === generic ? 'Run failed without a recorded error detail.' : error || warning;
     const timeLimit = !state.robot_fault && notice === 'Run reached time limit';
     const inconclusive = !state.robot_fault && /^(?:RuntimeError: )?Motion completed; placement verification was inconclusive$/.test(notice || '');
+    const promptRejected = !state.robot_fault && notice === 'Dream1 rejected this prompt.';
     const element = $('publicRunError');
     element.hidden = !notice;
-    element.dataset.tone = timeLimit || inconclusive ? 'neutral' : error ? 'error' : 'warning';
+    element.dataset.tone = timeLimit || inconclusive ? 'neutral' : promptRejected ? 'warning' : error ? 'error' : 'warning';
     element.textContent = notice ? (state.robot_fault
       ? `Robot error: ${notice}`
+      : promptRejected ? `${run?.runner_name || state.runner_name || 'Anonymous'} — ${notice}`
       : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : inconclusive ? 'Verification inconclusive' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
@@ -3420,6 +3422,7 @@ function currentTaskRun(run,state) {
 
 function taskRunFailure(run) {
   if(!run) return null;
+  if(run.error === 'Dream1 rejected this prompt.') return null; // The rejection result owns this message.
   const updates = run.task_progress?.updates || [];
   const isBlocked = update => /^Task blocked\.?$/.test(update?.happened || '');
   const blocked = [...updates].reverse().find(isBlocked)?.changed;
