@@ -351,3 +351,37 @@ def test_exhausted_transient_camera_batch_is_not_yet_terminal():
                           http_status=503, retryable=True)
     assert executor.status()['observation_status'] == dict(
         state='retrying', field='camera_right', http_status=503)
+
+
+
+def test_capacity_wait_is_nonterminal_visible_and_cleared_after_a_prediction():
+    class Recovering(Adapter):
+        def build_trajectory(self,*args):
+            self.interaction_sink('model_progress','Dream is at capacity; retrying in 3 seconds',
+                reason='pool_full',retry_after_s=3,private='must not escape')
+            status=executor.status()
+            assert status['state']=='predicting'
+            assert status['provider_retry']==dict(reason='pool_full',retry_after_s=3)
+            assert not submitted and not sent
+            return super().build_trajectory(*args)
+    op,executor,request,submitted,sent,adapters=setup(adapter_factory=Recovering)
+    executor.trajectory={'result':{'status':'rejected','code':'predicted_collision'}}
+    executor.request(request)
+    assert finish(executor)=='completed'
+    assert len(submitted)==1 and executor.status()['provider_retry'] is None
+    assert executor.status()['failure'] is None
+
+
+def test_runner_explains_capacity_wait_and_clears_message_on_recovery(monkeypatch):
+    from remote_yam.controller_executor import ControllerExecutorPolicy
+    states=iter([dict(state='predicting'),
+        dict(state='predicting',provider_retry=dict(reason='pool_full',retry_after_s=3)),
+        dict(state='executing',provider_retry=None),dict(state='completed')])
+    monkeypatch.setattr('remote_yam.controller_executor.execution_request',
+        lambda *args,**kwargs:dict(status='completed',result=next(states)))
+    monkeypatch.setattr('remote_yam.controller_executor.time.sleep',lambda _:None)
+    policy,events=ControllerExecutorPolicy(),[]
+    policy.interaction_sink=lambda kind,message:events.append(message)
+    assert policy.run_session('move',{},None,{},lambda:False)['state']=='completed'
+    assert events[1]=='Dream is at capacity; retrying in 3 seconds'
+    assert events[2]=='Controller Dream: executing'

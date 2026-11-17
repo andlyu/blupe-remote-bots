@@ -741,7 +741,12 @@ class DreamAdapter:
                         progress_type='status', recovery_attempt=session_recoveries, **diagnostics)
                 began = time.monotonic()
                 continue
-            if reply.get('reason') != 'pool_warming' or time.monotonic() >= deadline:
+            # SDK 1.0.0 leaves capacity backoff to the caller; see
+            # docs/refs/dreamlabs/client.md, DreamServerError status envelope.
+            pool_full = (reply.get('error_type') == 'DreamServerError'
+                         and reply.get('code') == 'DA-2000'
+                         and reply.get('reason') == 'pool_full')
+            if (reply.get('reason') != 'pool_warming' and not pool_full) or time.monotonic() >= deadline:
                 if self.interaction_sink:
                     self.interaction_sink('model_failure', 'Dream prediction request failed', **diagnostics)
                 detail = '; '.join(str(diagnostics[key]) for key in
@@ -753,13 +758,17 @@ class DreamAdapter:
                         detail += '; ' + diagnostics[key]
                 raise RuntimeError('Dream request failed (' + (detail or 'unknown error') + ')')
             delay = reply.get('retry_after_s')
-            delay = max(1, float(delay)) if type(delay) in (int, float) and math.isfinite(delay) else 5
+            delay = 3. if pool_full else (max(1, float(delay))
+                if type(delay) in (int, float) and math.isfinite(delay) else 5)
             if self.interaction_sink:
-                self.interaction_sink('model_progress', 'Dream model is warming', progress_type='status')
+                self.interaction_sink('model_progress',
+                    'Dream is at capacity; retrying in 3 seconds' if pool_full else 'Dream model is warming',
+                    progress_type='status', reason='pool_full' if pool_full else 'pool_warming',
+                    retry_after_s=delay)
             until = time.monotonic() + delay
             while time.monotonic() < until:
                 if self._cancelled():
-                    raise RuntimeError('Dream warming cancelled')
+                    raise RuntimeError('Dream capacity wait cancelled')
                 self._stop.wait(min(.1, until - time.monotonic()))
             began = time.monotonic()
 
