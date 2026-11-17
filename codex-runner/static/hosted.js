@@ -3400,8 +3400,7 @@ function sharedTaskRun(run) {
 }
 function currentTaskRun(run,state) {
   run=sharedTaskRun(run);
-  const publicError = run?.attempt_id && run.attempt_id === state?.attempt_id &&
-    run.error !== 'The run encountered a model or runner error.' ? run.error : null;
+  const publicError = publicRunErrorForAttempt(run,state);
   const own = state?.provider?.task_progress;
   if(own) return {
     task:own.task || run?.task,status:state.status,task_progress:own,error:publicError || state.error,display_error:run?.display_error,
@@ -3418,6 +3417,13 @@ function currentTaskRun(run,state) {
       next_action:'Waiting for shared progress for this request.'}]}};
   }
   return run;
+}
+
+function publicRunErrorForAttempt(run,state) {
+  // The owner status can retain a native wrapper after the public projection
+  // has identified the actual failure. Only borrow that diagnosis for this run.
+  return run?.attempt_id && run.attempt_id === state?.attempt_id &&
+    run.error !== 'The run encountered a model or runner error.' ? run.error : null;
 }
 
 function taskRunFailure(run) {
