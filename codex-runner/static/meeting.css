@@ -492,7 +492,15 @@
   .meetingConsole .meetingStopAction { width:52px; }
 }
 
-/* Keep the main-screen controls clear of an opened recording sidebar. */
-@media(min-width:901px) {
-  .meetingConsole.runSidebarOpen .meetingBar { margin-inline-end:var(--run-sidebar-width); }
+/* Stop belongs to the main camera, including its expanded view. */
+.meetingConsole .cameraDialog figure:has(>.meetingStopAction) { position:relative; }
+.meetingConsole .meetingRoom #liveViewer.cameras .meetingStopAction,
+.meetingConsole .cameraDialog figure .meetingStopAction {
+  position:absolute; right:12px; bottom:12px; z-index:6; pointer-events:auto;
 }
+@media(max-width:600px) {
+  .meetingBar { position:static; display:flex; justify-content:center; }
+  .meetingConsole .meetingRoom #liveViewer.cameras .meetingStopAction,
+  .meetingConsole .cameraDialog figure .meetingStopAction { right:8px; bottom:8px; }
+}
+

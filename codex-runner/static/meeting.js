@@ -154,9 +154,7 @@
   callControls.append(views);
   if (audio) callControls.append(audio);
   callControls.append(notes, reactions, visitors);
-  const peopleControls = document.createElement('div'); peopleControls.className = 'meetingPeopleControls';
-  peopleControls.append(stop);
-  bar.append(roomInfo, callControls, peopleControls); room.append(bar);
+  bar.append(roomInfo, callControls); room.append(bar);
   const mobile = window.matchMedia('(max-width:600px), (max-width:1000px) and (max-height:500px)');
   const observerStage = $('liveViewer').closest('.videoPanel');
   function placeComposer() {
@@ -202,7 +200,10 @@
   document.addEventListener('blupe-compose-task', () => {
     room.scrollIntoView({block:'start',behavior:'instant'}); $('prompt').focus({preventScroll:true});
   });
-  stop.addEventListener('click', () => { if (!$('stop').disabled) $('stop').click(); });
+  stop.addEventListener('click', event => {
+    event.stopPropagation();
+    if (!$('stop').disabled) $('stop').click();
+  });
   views.addEventListener('click', () => {
     const hidden = room.classList.toggle('meetingCamerasHidden');
     views.setAttribute('aria-pressed', String(!hidden));
@@ -280,11 +281,20 @@
     const figures = [...$('liveViewer').querySelectorAll('figure[data-camera-role]')];
     const main = figures.find(node => node.dataset.cameraRole === 'observer') || figures.find(node => node.dataset.cameraRole === 'top') || figures[0];
     for (const figure of figures) figure.toggleAttribute('data-meeting-main', figure === main);
+    const fullscreen = document.fullscreenElement;
+    const expanded = figures.find(figure => figure === fullscreen || figure.contains(fullscreen));
+    const cameraDialog = document.querySelector('.cameraDialog[open] figure[data-camera-role]');
+    const stopHost = cameraDialog || expanded || main || $('liveViewer');
+    if (stop.parentElement !== stopHost) stopHost.append(stop);
     $('liveViewer').style.setProperty('--meeting-side-count', Math.max(1, figures.length - 1));
     $('liveViewer').dataset.meetingCount = String(figures.length);
     views.disabled = figures.length < 2;
   }
   new MutationObserver(updateCameras).observe($('liveViewer'), {childList:true});
+  document.addEventListener('fullscreenchange', updateCameras);
+  document.addEventListener('toggle', event => {
+    if (event.target.matches?.('.cameraDialog')) updateCameras();
+  }, true);
   // The startup preview assigns roles to existing figures before live video starts.
   new MutationObserver(updateCameras).observe($('liveViewer'), {
     subtree: true, attributes: true, attributeFilter: ['data-camera-role']
@@ -307,3 +317,4 @@
   updateControls(); updateCameras(); updateQuietStatus();
   setPanel(!mobile.matches, false, false);
 })();
+
