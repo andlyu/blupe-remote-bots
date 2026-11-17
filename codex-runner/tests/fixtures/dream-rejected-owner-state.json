@@ -1,0 +1,20 @@
+{
+  "provenance": "Public run fields read from playground.blupe.io on 2026-11-17 UTC; owner.error is the exact text reported by the user. The minimal owner status is reconstructed for replay, not a captured full owner response.",
+  "public_run": {
+    "run_id": "run_198c15bfaa104a549e4a6f0ca738bfd7",
+    "episode_id": "ep_4b9b09115ddc49c5",
+    "task": "Do a backflip",
+    "status": "safety_aborted",
+    "error": "Dream1 rejected this prompt.",
+    "attempt_id": "fdce4ad1bb424677a38937331bd38747",
+    "runner_name": "Andrew",
+    "events": []
+  },
+  "owner_status": {
+    "attempt_id": "fdce4ad1bb424677a38937331bd38747",
+    "status": "safety_aborted",
+    "error": "controller_executor_failed: Controller Dream execution failed",
+    "provider": null,
+    "interactions": {"events": []}
+  }
+}
