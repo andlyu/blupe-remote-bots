@@ -354,6 +354,9 @@ class RunNames:
             result, reason = 'Stopped', 'Run reached time limit'
         elif state.get('safety_error'):
             result, reason = 'Failure', 'Robot safety check stopped the run'
+            from .run_errors import dream_prompt_rejected, DREAM_PROMPT_REJECTED
+            if dream_prompt_rejected(state):
+                reason = DREAM_PROMPT_REJECTED
             errors = reason
         elif state.get('error'):
             from .run_errors import public_run_error
