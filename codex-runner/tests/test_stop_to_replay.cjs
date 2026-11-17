@@ -2,14 +2,15 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const all=fs.readFileSync(process.env.REPLAY_HISTORY_SOURCE||path.join(__dirname,'../static/replay-history.js'),'utf8');
 const source=all.slice(all.indexOf('/* Personal public-run history'));
 function setup(){
- const nodes=new Map(),events={},requests=[],timers=new Map(),opened=[];let seq=0,clock=10000;
+ const nodes=new Map(),events={},requests=[],timers=new Map(),opened=[];let seq=0,clock=10000,stopSent=false;
  const element=()=>({dataset:{},listeners:{},children:[],hidden:false,open:false,value:'',parentElement:{hidden:false},
-  addEventListener(n,f){(this.listeners[n]||=[]).push(f)},emit(n){for(const f of this.listeners[n]||[])f({})},
+  addEventListener(n,f,capture=false){(this.listeners[n]||=[]).push({f,capture})},emit(n){for(const {f} of [...(this.listeners[n]||[])].sort((a,b)=>Number(b.capture)-Number(a.capture)))f({})},
   append(...x){this.children.push(...x)},replaceChildren(){this.children=[]},after(){},remove(){},pause(){},load(){},removeAttribute(){},
   showModal(){this.open=true},close(){this.open=false;this.emit('close')},scrollIntoView(){},focus(){}});
  const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)};
- const window={addEventListener(n,f){events[n]=f},history:{replaceState(){}},yamRunSidebar:{open(){get('pastRunDialog').open=true}},
+ const window={addEventListener(n,f){events[n]=f},history:{replaceState(){}},yamRunSidebar:{open(){assert.equal(stopSent,true,'dispatch native Stop before rendering the replay');get('pastRunDialog').open=true}},
   yamReplayHistory:{openRun(run){opened.push(run);window.yamReplayReview.ready()},refresh(){}}};
+ get('stop').addEventListener('click',()=>{stopSent=true});
  const document={body:{dataset:{postRunReplay:'auto'}},visibilityState:'visible',getElementById:get,createElement:element};
  vm.runInNewContext(source,{window,document,location:{search:'',href:'https://playground.blupe.io/'},URL,URLSearchParams,
   Date:{now:()=>clock},renderRunMetrics(){},renderStepMetricsChart(){},

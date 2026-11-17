@@ -396,7 +396,7 @@
     delete dialog.dataset.firstPlayingAt; delete dialog.dataset.stopToPlayingMs;
     delete dialog.dataset.firstPresentedAt; delete dialog.dataset.stopToPresentedMs;
     openEpisode(state.episode_id,{...saved[0],runner_name:state.runner_name || $('runnerName')?.value},true);
-  }, true);
+  });
   player.addEventListener('playing', () => {
     if (!dialog.dataset.stopRequestedAt || dialog.dataset.firstPlayingAt) return;
     dialog.dataset.firstPlayingAt=String(Date.now());
