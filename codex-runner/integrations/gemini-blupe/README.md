@@ -100,3 +100,9 @@ Gemini queue creation uses a dedicated no-email endpoint under the owner's
 no-email instruction. See [no-email admission](docs/NO-EMAIL-QUEUE.md). The
 canonical validator/source-image files are unchanged; the backend overlay is active (Session API deployment60). The new worker
 remains prepared pending access and actual qualification.
+
+Prepared [physical lifecycle](docs/PHYSICAL-LIFECYCLE.md) now reuses the canonical
+controller and recorder with source-bound staging, original Start and explicit
+cleanup. Required72-case offline gate and separate10-case recorder suite pass.
+This source is not connected to public robot Run or physically qualified; worker
+store/capture/replay composition and all current unchecked acceptance remain open.

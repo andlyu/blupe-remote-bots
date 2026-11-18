@@ -1,0 +1,16 @@
+[lat] model=5002.9/5002.9ms n=1
+test_capture_start_failure_stops_the_created_session_without_motion (test_physical_run.PhysicalRunTests.test_capture_start_failure_stops_the_created_session_without_motion) ... FAIL
+
+======================================================================
+FAIL: test_capture_start_failure_stops_the_created_session_without_motion (test_physical_run.PhysicalRunTests.test_capture_start_failure_stops_the_created_session_without_motion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/andrew/.codex/worktrees/gemini-blupe/blupe-remote-yam/codex-runner/integrations/gemini-blupe/tests/test_physical_run.py", line 124, in test_capture_start_failure_stops_the_created_session_without_motion
+    self.assertEqual(len(api.create_requests),1);self.assertTrue(status['cleanup_confirmed'])
+                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 1 test in 5.006s
+
+FAILED (failures=1)

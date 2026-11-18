@@ -711,3 +711,20 @@ unverified acceptance remain open. No checkbox changed; full objective unchanged
 Existing Session API deployment60 is ACTIVE, image62/digestacb46843a957a10fa7c1eb2c21d23a67b564fe3073d0058d652bc02a53343b66. Read-only public contracts match all21 tested schemas; private environment/command/ports and public endpoint/health-check compare unchanged to deployment59 except image. YAM1 calibration remains9773d518; connected Robo-house recovered DISABLED. YAM1 has no connected station. Source495fd611 introduced the no-email canonical queue client; required56-test packaging gate passes. No identity/queue POST, real email, model retry or robot command occurred. See docs/NO-EMAIL-QUEUE.md and evidence/no-email-queue/production-api.json.
 
 Site7 remains published; a fresh browser reload rendered Gemini, camera tabs, prompt/library and disabled Run/Simulate. A Python HTTP probe received403 and is retained accurately rather than counted as browser failure/success. The new worker is packaged, not deployed (production e075e8d3). Google credits, worker SSH access and station connectivity remain unresolved. Physical orchestration, matched task-scene/contact, generated-model task, onset and physical replay are still open. Checklist remains1/17; full objective unchanged.
+
+## Canonical physical lifecycle source — 2026-11-18 23:04UTC
+
+Prepared PhysicalRun now owns the canonical preparation/controller/capture
+threads without resetting the original website Start. Retained simulation source
+is staged separately and rebound at actual process launch; no restart after
+uncertainty. Native Stop precedes channel close. Existing camera recorder accepts
+Gemini Robotics attribution and preserves it through capture/publish/recovery;
+RoboHarness defaults remain covered. Required72offline tests and separate full
+10-case recorder suite pass, using mock station/synthetic frames/real encoding.
+See docs/PHYSICAL-LIFECYCLE.md for exact evidence and unfinished composition.
+
+The package includes canonical runtime/staging assets/dependencies, but no new
+host deployment or robot route activation occurred. Google credits, SSH access
+and YAM1 source remain unresolved. No model/queue/identity/email/motor request.
+Full worker/store/Stop-watcher/gateway/physical replay composition, task-scene and
+actual model/physical/timing/final-UI acceptance remain open; checklist1/17.

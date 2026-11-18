@@ -161,4 +161,22 @@ class ReplayTests(unittest.TestCase):
                 self.assertEqual(self.publisher.recover_pending(),[]);publish.assert_not_called()
         self.publisher.source.fetch.assert_not_called()
 
+    def test_gemini_capture_publish_and_recovery_keep_actual_approach(self):
+        self.publisher=PublicCameraReplay(self.root/'clips',robot_id=ROBOT,model='Gemini Robotics')
+        self.publisher.source.fetch=Mock(side_effect=lambda *args:CameraFrame('top',self.jpeg,self.clock[0],source_captured_at=self.clock[0]))
+        with patch('remote_yam.roboharness_replay.StreamingCameraEncoder.finish',side_effect=subprocess.TimeoutExpired(['ffmpeg'],30)):
+            self.follow()
+        pending=list(self.publisher.root.glob('.pending-*'));self.assertEqual(len(pending),1)
+        job=json.loads((pending[0]/'capture.json').read_text());self.assertEqual(job['model'],'Gemini Robotics')
+        other=PublicCameraReplay(self.publisher.root,robot_id=ROBOT)
+        with patch.object(other,'publish') as publish:
+            self.assertEqual(other.recover_pending(),[]);publish.assert_not_called()
+        self.publisher.source.fetch.reset_mock()
+        self.assertEqual(self.publisher.recover_pending(),[EPISODE]);self.publisher.source.fetch.assert_not_called()
+        self.assertEqual(json.loads((self.publisher.root/(EPISODE+'.json')).read_text())['model'],'Gemini Robotics')
+
+    def test_replay_attribution_rejects_missing_or_control_characters(self):
+        for model in ('', ' ', 'bad\nname', 'x'*81, None):
+            with self.assertRaises(ValueError):PublicCameraReplay(self.root,robot_id=ROBOT,model=model)
+
 if __name__=='__main__':unittest.main()

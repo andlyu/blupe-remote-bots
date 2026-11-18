@@ -40,12 +40,14 @@ class GeneratedControllerProvider:
     trajectory_cadence_hz = 10
     supports_workspace_replanning = False
 
-    def __init__(self, runner_root, channel, *, controller_sha256, capture=None):
+    def __init__(self, runner_root, channel, *, controller_sha256, capture=None, recording_path=None):
         if not isinstance(controller_sha256, str) or re.fullmatch(r'[a-f0-9]{64}', controller_sha256) is None:
             raise ValueError('An exact generated-controller SHA256 is required')
         self.compiler = YamCommands(runner_root)
         self.channel, self.controller_sha256 = channel, controller_sha256
+        if callable(getattr(channel,"bind_controller",None)):channel.bind_controller(controller_sha256)
         self.capture = capture
+        self.recording_path = str(recording_path) if recording_path is not None else None
         self.cancelled = lambda: False
         self.refresh_observation = None
         self.interaction_sink = None
@@ -55,12 +57,14 @@ class GeneratedControllerProvider:
         self.completed = False
 
     def public_config(self):
-        return dict(provider=self.provider_name, model='Gemini Robotics',
+        config = dict(provider=self.provider_name, model='Gemini Robotics',
                     display_name='Gemini Robotics', coding_model='gemini-4-hydrogen',
                     controller_sha256=self.controller_sha256,
                     native_safety_sha256=SAFETY_SHA256,
                     execution='Isolated generated controller via canonical RunnerController',
                     api_key_configured=False)
+        if self.recording_path is not None:config['recording_path']=self.recording_path
+        return config
 
     def infer(self, *_):
         raise BridgeProtocolError('Generated controllers require the canonical trajectory transport')

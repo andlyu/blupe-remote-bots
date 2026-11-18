@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/Users/andrew/Projects/blupe-evals/public-projects/blupe-remote-yam/codex-runner/.venv/bin/python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/Users/andrew/.codex/worktrees/gemini-blupe/blupe-remote-yam/codex-runner/tests",
+    "-p",
+    "test_roboharness_replay.py",
+    "-v"
+  ],
+  "exit_code": 0,
+  "wall_s": 36.80370416700316,
+  "scope": "Existing canonical recorder suite, synthetic frames/real ffmpeg, no robot/model/camera network"
+}

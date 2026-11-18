@@ -79,9 +79,12 @@ class StreamingCameraEncoder:
 
 
 class PublicCameraReplay:
-    def __init__(self,root,*,robot_id,origin=API):
+    def __init__(self,root,*,robot_id,origin=API,model="RoboHarness"):
         if origin!=API or robot_id not in ROBOTS:
             raise ValueError('Public replay requires a registered BluPe station and fixed camera origin')
+        if not isinstance(model,str) or not model.strip() or len(model)>80 or any(ord(c)<32 or ord(c)==127 for c in model):
+            raise ValueError("Replay requires the actual approach name")
+        self.model=model.strip()
         self.root=Path(root).resolve();self.robot_id=robot_id
         self.source=CameraFrameSource(API,timeout_s=1,camera_names=('top',))
         self.url=API+'/v1/robots/'+robot_id+'/cameras/top.jpg'
@@ -129,7 +132,7 @@ class PublicCameraReplay:
             work=Path(tempfile.mkdtemp(prefix='.pending-',dir=self.root))
             capture_lock=(work/'.encode-lock').open('a+b')
             fcntl.flock(capture_lock,fcntl.LOCK_EX)
-            job=dict(capture_status='capturing',episode_id=episode,robot_id=self.robot_id,model='RoboHarness',
+            job=dict(capture_status='capturing',episode_id=episode,robot_id=self.robot_id,model=self.model,
                 started_at=state.get('run_started_at'),ended_at=None,partial=False,frames=[])
             self._save_manifest(work,job)
             event('replay_capture','Recording actual overhead footage and preparing playback during this run')
@@ -246,7 +249,7 @@ class PublicCameraReplay:
             if target.stat().st_size!=len(data) or hashlib.sha256(target.read_bytes()).hexdigest()!=digest:raise ValueError('Existing immutable replay differs')
         else:(work/'clip.partial').replace(target)
         first=frames[0].get('video_at',frames[0]['received_at']);last=frames[-1].get('video_at',frames[-1]['received_at'])
-        metadata=dict(episode_id=episode,robot_id=self.robot_id,model='RoboHarness',bytes=len(data),
+        metadata=dict(episode_id=episode,robot_id=self.robot_id,model=self.model,bytes=len(data),
             started_at=started_at,ended_at=ended_at,locally_ready_at=time.time(),original_available=False,
             capture_source='public_top_camera',capture_partial=bool(partial),frames=frames,
             presentation='2Hz wall-clock slots; original source and receive UTC retained; holds are labelled in metadata',
@@ -270,7 +273,7 @@ class PublicCameraReplay:
                 if path.is_symlink():continue
                 if path.stat().st_size>1024*1024:continue
                 job=json.loads(path.read_text());episode=job.get('episode_id')
-                if job.get('robot_id')!=self.robot_id or job.get('model')!='RoboHarness' or not EPISODE.fullmatch(episode or ''):continue
+                if job.get('robot_id')!=self.robot_id or job.get('model')!=self.model or not EPISODE.fullmatch(episode or ''):continue
                 if not 1<=len(job.get('frames',[]))<=1220:continue
                 for frame in job['frames']:
                     if not re.fullmatch(r'[0-9]{6}\.jpg',frame['file']) or (work/frame['file']).is_symlink():raise ValueError('Invalid recovery frame')

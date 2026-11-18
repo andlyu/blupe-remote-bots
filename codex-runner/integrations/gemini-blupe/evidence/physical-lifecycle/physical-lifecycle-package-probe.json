@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "seconds": 0.4690734159958083,
+  "archive_sha256": "a00d13b64bd52dddce09f7bc9fc8545ecefdedc6ecbfe6817683eb3abbc4b00f",
+  "files": 184,
+  "all_manifest_hashes_match": true,
+  "probe": {
+    "canonical_imports_from_archive_only": true,
+    "no_session_created": true,
+    "gemini_recorder_instantiated": true,
+    "native_compiler_initialized": true,
+    "generated_process_started": false
+  },
+  "no_remote_deployment": true
+}

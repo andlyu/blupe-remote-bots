@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/private/tmp/gemini-blupe-mujoco-playground/.venv/bin/python",
+    "/Users/andrew/Projects/blupe-evals/outputs/gemini-hosted-01a1ec3f/capture-start-red-check.py",
+    "/Users/andrew/.codex/worktrees/gemini-blupe/blupe-remote-yam/codex-runner/integrations/gemini-blupe"
+  ],
+  "exit_code": 1,
+  "wall_s": 5.291766249996726,
+  "variant": "Reconstructed preceding prepared source without recorder-start Stop handler; not a deployed revision",
+  "expected_failure": true,
+  "all_test_threads_cleaned_up": true
+}

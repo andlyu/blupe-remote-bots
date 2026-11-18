@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/private/tmp/gemini-blupe-mujoco-playground/.venv/bin/python",
+    "/Users/andrew/Projects/blupe-evals/outputs/gemini-hosted-01a1ec3f/missing-physical-coverage-check.py",
+    "/Users/andrew/.codex/worktrees/gemini-blupe/blupe-remote-yam/codex-runner/integrations/gemini-blupe/tools/preflight.py",
+    "--runner-root",
+    "/Users/andrew/.codex/worktrees/gemini-blupe/blupe-remote-yam/codex-runner"
+  ],
+  "wall_s": 0.5267887079971842,
+  "exit_code": 1,
+  "expected_failure": true,
+  "reason": "Required command/readiness coverage is missing",
+  "no_source_mutated": true
+}

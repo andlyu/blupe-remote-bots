@@ -1,5 +1,8 @@
 """Rootless stdio transport; generated code never executes in the API process."""
 import json
+import hashlib
+import re
+from simulation_artifacts import read_regular
 import os
 import selectors
 import subprocess
@@ -19,11 +22,25 @@ class RootlessControllerChannel:
         self.cleanup_confirmed = False
         self.cancelled = lambda:False
         self.closed = False
+        self.expected_controller_sha256 = None
+
+    def bind_controller(self, digest):
+        if self.process is not None or self.closed:
+            raise RuntimeError('An existing controller channel cannot be rebound')
+        if not isinstance(digest,str) or re.fullmatch(r'[a-f0-9]{64}',digest) is None:
+            raise ValueError('Expected an exact controller source hash')
+        if self.expected_controller_sha256 not in (None,digest):
+            raise RuntimeError('The controller channel is already source-bound')
+        self.expected_controller_sha256=digest
 
     def start(self, cancelled=lambda:False):
-        if self.process is not None:
+        if self.closed or self.process is not None:
             raise RuntimeError('Generated controller channel cannot be restarted')
         self.cancelled = cancelled
+        if self.expected_controller_sha256 is not None:
+            code=read_regular(self.executor.workspace/'controller.py',160000)
+            if hashlib.sha256(code).hexdigest()!=self.expected_controller_sha256:
+                raise RuntimeError('Staged controller changed before launch; no queue or process started')
         command = self.executor.command()
         command = command[:-1] + ['--interactive', '--entrypoint=python', command[-1],
                                   '/workspace/controller-runtime/controller_entry.py']
@@ -91,9 +108,13 @@ class RootlessControllerChannel:
             except BlockingIOError: time.sleep(.01)
 
     def close(self):
-        if self.closed or self.process is None:
+        if self.closed:
             return
         self.closed = True
+        if self.process is None:
+            self.cleanup_confirmed = True
+            self.selector.close()
+            return
         # Removing this named container cannot target another job. It is never
         # restarted after timeout or an unknown execution outcome.
         try:

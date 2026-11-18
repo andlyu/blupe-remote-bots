@@ -1,0 +1,18 @@
+test_active_or_out_of_scope_recovery_manifest_is_not_consumed (test_roboharness_replay.ReplayTests.test_active_or_out_of_scope_recovery_manifest_is_not_consumed) ... ok
+test_capture_gaps_and_missing_source_timestamp_are_explicit_partial_frames (test_roboharness_replay.ReplayTests.test_capture_gaps_and_missing_source_timestamp_are_explicit_partial_frames) ... ok
+test_encoder_failure_publishes_no_media_and_fixed_inline_diagnostic (test_roboharness_replay.ReplayTests.test_encoder_failure_publishes_no_media_and_fixed_inline_diagnostic) ... ok
+test_failed_finalize_retains_frames_and_recovery_never_reads_camera (test_roboharness_replay.ReplayTests.test_failed_finalize_retains_frames_and_recovery_never_reads_camera) ... ok
+test_gemini_capture_publish_and_recovery_keep_actual_approach (test_roboharness_replay.ReplayTests.test_gemini_capture_publish_and_recovery_keep_actual_approach) ... ok
+test_long_clip_is_encoded_during_capture_with_actual_wall_clock_duration (test_roboharness_replay.ReplayTests.test_long_clip_is_encoded_during_capture_with_actual_wall_clock_duration) ... /Users/andrew/Projects/blupe-evals/public-projects/blupe-remote-yam/codex-runner/.venv/lib/python3.14/site-packages/PIL/ImageFont.py:221: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10b433e20>
+  def __init__(
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_public_timeline_route_filters_unknown_fields_and_station (test_roboharness_replay.ReplayTests.test_public_timeline_route_filters_unknown_fields_and_station) ... ok
+test_real_encoder_immutable_clip_range_reader_and_public_privacy (test_roboharness_replay.ReplayTests.test_real_encoder_immutable_clip_range_reader_and_public_privacy) ... ok
+test_replay_attribution_rejects_missing_or_control_characters (test_roboharness_replay.ReplayTests.test_replay_attribution_rejects_missing_or_control_characters) ... ok
+test_wrong_station_origin_and_changed_attempt_are_zero_camera_reads (test_roboharness_replay.ReplayTests.test_wrong_station_origin_and_changed_attempt_are_zero_camera_reads) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 36.481s
+
+OK

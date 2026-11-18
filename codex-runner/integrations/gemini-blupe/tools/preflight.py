@@ -1,6 +1,7 @@
 """Required local release gate. Never contacts a model or robot."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,17 @@ started = time.monotonic()
 os.environ['GEMINI_TEST_RUNNER_ROOT'] = str(args.runner_root.resolve())
 os.environ['GEMINI_SKILLS_ROOT'] = str(args.skills_root.resolve())
 suite = unittest.defaultTestLoader.discover(str(root / 'tests'), pattern='test_*.py')
+# Reused recorder behavior belongs to this release gate. The separate
+# RoboHarness app's UI imports its own OpenCV policy stack; that app is covered
+# by its full suite in the existing native environment, not shipped by Gemini.
+sys.path.insert(0,str(args.runner_root))
+recorder_tests=args.runner_root/'tests/test_roboharness_replay.py'
+if not recorder_tests.is_file():raise SystemExit('Canonical replay coverage is missing')
+spec=importlib.util.spec_from_file_location('gemini_native_replay_tests',recorder_tests)
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+replay_cases=[case for case in unittest.defaultTestLoader.getTestCaseNames(module.ReplayTests)
+              if case!='test_public_timeline_route_filters_unknown_fields_and_station']
+suite.addTests(module.ReplayTests(case) for case in replay_cases)
 # Missing contract modules must not silently turn a release green with zero tests.
 def names(test):
     if isinstance(test, unittest.TestSuite):
@@ -56,6 +68,14 @@ required += ('QuietSessionTests.test_real_serializer_uses_same_queue_with_identi
              'QuietSessionTests.test_unsupported_or_contradictory_contract_sends_no_identity_or_queue_post',
              'QuietSessionTests.test_rollback_after_capability_read_never_falls_back_to_email_endpoint',
              'QuietSessionTests.test_ambiguous_queue_creation_timeout_is_not_retried')
+required += ('PhysicalRunTests.test_capture_start_failure_stops_the_created_session_without_motion',
+             'PhysicalRunTests.test_canonical_worker_preserves_start_records_packets_and_never_restarts',
+             'PhysicalRunTests.test_stop_revokes_canonical_session_before_channel_close',
+             'PhysicalRunTests.test_preparation_cancel_and_cleanup_uncertainty_are_not_completion',
+             'PhysicalRunTests.test_staging_uses_retained_bound_source_and_rejects_changed_inputs',
+             'PhysicalRunTests.test_bound_rootless_source_changed_or_closed_is_zero_process_and_queue',
+             'ReplayTests.test_gemini_capture_publish_and_recovery_keep_actual_approach',
+             'ReplayTests.test_real_encoder_immutable_clip_range_reader_and_public_privacy')
 if any(not any(name.endswith(case) for name in cases) for case in required):
     raise SystemExit('Required command/readiness coverage is missing')
 result = unittest.TextTestRunner(verbosity=2).run(suite)
@@ -70,10 +90,13 @@ script = page.split('<script>', 1)[1].split('</script>', 1)[0]
 with tempfile.TemporaryDirectory(prefix='gemini-preflight-') as directory:
     file = Path(directory) / 'browser.js'; file.write_text(script)
     subprocess.run(['node', '--check', str(file)], check=True)
-receipt = dict(scope='Offline packet compiler, real RunnerController/client serializer, bimanual geometry/Google IK, worker persistence/readiness and gateway; no physical or model task qualification',
+receipt = dict(scope='Offline packet compiler, canonical lifecycle/serializer, synthetic real-encoded recorder/recovery, bimanual geometry/Google IK, worker and gateway; no physical or model task qualification',
                passed=True, python=sys.version.split()[0], tests=result.testsRun,
                elapsed_wall_s=round(time.monotonic()-started, 4),
-               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','backend/quiet_session.py','tests/test_simulation_binding.py','tests/test_quiet_session.py','site/worker.js','site/page.html','tools/preflight.py')},
+               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/physical_run.py','backend/controller_channel.py','tests/test_physical_run.py','backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','backend/quiet_session.py','tests/test_simulation_binding.py','tests/test_quiet_session.py','site/worker.js','site/page.html','tools/preflight.py')},
+               native_replay_tests=len(replay_cases),
+               native_replay_sha256=hashlib.sha256((args.runner_root/'src/remote_yam/roboharness_replay.py').read_bytes()).hexdigest(),
+               native_replay_tests_sha256=hashlib.sha256(recorder_tests.read_bytes()).hexdigest(),
                validator_sha256=hashlib.sha256((args.runner_root / 'src/remote_yam/session.py').read_bytes()).hexdigest(),
                native_safety_sha256=hashlib.sha256((args.runner_root / 'config/controller-workspaces/native-both-20260929.safety.json').read_bytes()).hexdigest())
 if args.receipt:
