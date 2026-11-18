@@ -604,3 +604,5 @@ are implemented; hosted image build and actual isolation qualification are in
 progress. A separate account/resource slice on the inspected existing worker
 avoids new compute provisioning. No physical session has been submitted.
 All unchecked final acceptance requirements remain open.
+
+November18 follow-up: version2 source1e492d6e7cdfbd93ca63c4d527053fb51f3a8a48 is public and connected to the actual Python worker. Browser verification shows editable known identity defaults and honest pending simulation/physical status. Cloudflare rejects redirect:error before network dispatch; camera regression reproduces503 and passes200 after manual-mode repair. Direct canonical JPEG probes pass, while RGB-D transfers have failures; no camera/robot services were changed. Hosted isolation verification remains unfinished: cold rootless image preparation exceeded45s, then the reference scene exposed a missing ALOHA asset. Rebuilt both exact pinned assets; qualification is pending. Real API-key transfer was rejected by automatic approval review and remains unperformed while explicit approval is requested. No physical session or model-backed hosted task has run.

@@ -7,10 +7,10 @@ RUN git init && git remote add origin https://github.com/google-deepmind/mujoco_
 RUN uv sync --frozen --group cpu --no-default-groups --python /usr/local/bin/python
 WORKDIR /opt/robotics
 RUN git init && git remote add origin https://github.com/google-deepmind/robotics-antigravity-plugin.git && git fetch --depth=1 origin 9cb7f624c4d7c50859a39f1d49d088990429a83d && git checkout --detach FETCH_HEAD
-# Cache this exact asset revision where the upstream loader expects its HEAD
-# checkout. Runtime networking is disabled, so assets cannot silently update.
+# Preload both the robot and the table at the exact asset revision through the
+# upstream local-repository mapping. Runtime cannot fetch additional assets.
 WORKDIR /opt/mujoco_menagerie
-RUN git init && git remote add origin https://github.com/google-deepmind/mujoco_menagerie.git && git sparse-checkout set i2rt_yam && git fetch --filter=blob:none --depth=1 origin 370c43965323c0944b433b202aac5058b5f907a9 && git checkout --detach FETCH_HEAD
+RUN git init && git remote add origin https://github.com/google-deepmind/mujoco_menagerie.git && git sparse-checkout set i2rt_yam aloha && git fetch --filter=blob:none --depth=1 origin 370c43965323c0944b433b202aac5058b5f907a9 && git checkout --detach FETCH_HEAD
 ENV PATH=/opt/playground/.venv/bin:$PATH MUJOCO_GL=osmesa OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1
 COPY simulation_entry.py /opt/gemini/simulation_entry.py
 WORKDIR /workspace
