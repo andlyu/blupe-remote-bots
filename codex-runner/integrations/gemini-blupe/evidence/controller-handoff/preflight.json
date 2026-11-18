@@ -1,0 +1,18 @@
+{
+  "scope": "Offline packet compiler, real RunnerController/client serializer, bimanual geometry/Google IK, worker persistence/readiness and gateway; no physical or model task qualification",
+  "passed": true,
+  "python": "3.12.9",
+  "tests": 51,
+  "elapsed_wall_s": 2.9756,
+  "integration_source_sha256": {
+    "backend/executor.py": "d368c164a7d35543e20335484551d3a840bf35f2a4f2d227d054b7c294a9b04c",
+    "backend/gemini_worker.py": "c1f27ad6c10e099f5bf943bdfb8c53b54984681c0f5e8bb44ebbb7c1f48dd521",
+    "backend/simulation_artifacts.py": "2be49c23ffa90945087e0d44e9b430c5207ffe58962821ef8913b82aa3a51496",
+    "tests/test_simulation_binding.py": "7882642a33304b87eae4de9f72b48560ea0fd4c4f0402d59b8befbde6be1071b",
+    "site/worker.js": "74301f4eb426a034feeff51f57c87e7113e560d28d43d9fa53dd5fa1d02fbeae",
+    "site/page.html": "fde68022229d5eac6b0b7afaae7b59c2eca029539232969358bbed54cbfe12d5",
+    "tools/preflight.py": "ee3ff6522bc12ab3c5470074781b1c2811bfd085bf8d50fadf3de96796ccf05b"
+  },
+  "validator_sha256": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb",
+  "native_safety_sha256": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f"
+}

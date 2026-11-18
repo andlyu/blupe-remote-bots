@@ -24,8 +24,10 @@ from fastapi import FastAPI, HTTPException, Request
 
 try:
     from .executor import SimulationExecutor
+    from .simulation_artifacts import current_controller_matches, read_regular, write_private
 except ImportError:
     from executor import SimulationExecutor
+    from simulation_artifacts import current_controller_matches, read_regular, write_private
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -121,6 +123,21 @@ class Store:
         events = data['events'] + [dict(stage=stage, message=message, at=time.time())]
         return self.update(ident, state=stage, progress=message, events=events)
 
+    def retain_execution(self, ident, receipt):
+        data=self.get(ident)
+        if any(item.get('execution_id')==receipt['id'] for item in data['artifacts']):return
+        attempts=data['configuration'].get('simulation_attempts',[])
+        attempt=len(attempts)+1
+        records=[dict(**item,kind='simulation',execution_id=receipt['id'],attempt=attempt,
+                      url=f"/api/runs/{ident}/executions/{receipt['id']}/artifacts/{item['name']}")
+                 for item in receipt['artifacts']]
+        inputs=[a for a in data['artifacts'] if a.get('kind')=='input']
+        older=[a for a in data['artifacts'] if a.get('kind')!='input']
+        config={**data['configuration'],'simulation_attempts':[*attempts,
+            {key:receipt[key] for key in ('id','created_at','image','variant','exit_code',
+                'cleanup_confirmed','binding_passed','rejections','controller_sha256','station_snapshot_sha256')}]}
+        return self.update(ident,artifacts=inputs+records+older,configuration=config)
+
     def owned(self, ident, owner):
         with self.connect() as db:
             row = db.execute('SELECT owner FROM runs WHERE id=?', (ident,)).fetchone()
@@ -209,23 +226,37 @@ async def run_agent(store, ident, skills):
         return (Path(__file__).resolve().parents[1] / 'docs/YAM1-CONTROLLER-API.md').read_text()
     async def write_controller(code: str) -> str:
         """Write controller.py defining run(env) using the adapted YAM1 API from read_station_reference."""
+        nonlocal last_execution
         import ast
         if len(code.encode()) > 160000:
             raise ValueError('Controller is too large')
         ast.parse(code)
         async with tool_lock:
             path = workspace / 'controller.py'
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(fd, 'w') as file:
-                file.write(code)
+            try:unchanged=read_regular(path,160000)==code.encode()
+            except (OSError,ValueError):unchanged=False
+            if not unchanged:last_execution=None
+            write_private(path,code.encode())
         store.event(ident, 'generating', 'Controller written; preparing its actual simulation')
         return 'controller.py saved'
     async def simulate_controller() -> dict:
         """Run controller.py in isolated bimanual YAM1 MuJoCo and return actual results and limitations."""
         nonlocal last_execution
         async with tool_lock:
+            if getattr(executor,'active_invocation',False):
+                raise RuntimeError('Previous simulation cleanup is unverified; no new execution started')
+            last_execution=None
+            # Every attempt starts with the host's originally captured scene,
+            # never a station file that generated code changed in a prior run.
+            station=read_regular(store.root/'input-evidence'/ident/'station.json',64000)
+            if hashlib.sha256(station).hexdigest()!=store.get(ident)['configuration']['station_snapshot_sha256']:
+                raise RuntimeError('Original captured station evidence changed; no simulation started')
+            write_private(workspace/'station.json',station)
             store.event(ident, 'simulating', 'Running the generated controller in MuJoCo and recording its behavior')
-            last_execution = await executor.run(timeout_s=min(90, max(1, job['created_at'] + job['duration_s'] - time.time())))
+            try:
+                last_execution = await executor.run(timeout_s=min(90, max(1, job['created_at'] + job['duration_s'] - time.time())))
+            finally:
+                if executor.last_execution:store.retain_execution(ident,executor.last_execution)
         return last_execution
     # Official SDK custom-tool/skills interface; all builtin tools disabled.
     # Only generated code in a keyless, offline per-run container can execute.
@@ -302,20 +333,13 @@ async def run_agent(store, ident, skills):
                 return
             raise TimeoutError('Run duration expired during controller generation/simulation')
         result = inference.result()
-        artifacts = [item for item in store.get(ident)['artifacts'] if item.get('kind')=='input']
-        for name in ('controller.py', 'simulation.mp4', 'report.json'):
-            file = workspace / name
-            if file.is_file() and not file.is_symlink():
-                artifacts.append(dict(name=name, url=f'/api/runs/{ident}/artifacts/{name}', bytes=file.stat().st_size,
-                    sha256=hashlib.sha256(file.read_bytes()).hexdigest()))
         # A model's text alone is not a successful simulation or task pass.
-        actual_report = workspace / 'report.json'
-        retained = {item['name'] for item in artifacts}
-        if not last_execution or last_execution['exit_code'] != 0 or not {'report.json', 'simulation.mp4'}.issubset(retained) or actual_report.stat().st_size > 64000:
-            store.update(ident, artifacts=artifacts, result=dict(summary=result, verified=False))
-            raise RuntimeError('Controller preparation ended without a retained simulation report and video')
-        report = json.loads(actual_report.read_text())
-        store.update(ident, artifacts=artifacts, result=dict(summary=result, report=report, verified=False))
+        receipt=last_execution.get('execution') if last_execution else None
+        if not last_execution or not current_controller_matches(workspace,receipt):
+            store.update(ident,result=dict(summary=result,verified=False))
+            raise RuntimeError('Saved controller has no matching completed simulation; simulate the current source before handoff')
+        report = last_execution['report']
+        store.update(ident,result=dict(summary=result,report=report,execution_id=receipt['id'],verified=False))
         store.event(ident, 'complete', 'Simulation finished; report and video are available for review')
     except asyncio.CancelledError:
         inference.cancel()
@@ -403,16 +427,22 @@ def create_app(state_root=None, skills_root=None):
             store.event(str(ident), 'cancelled', 'Stopped by the runner')
         return {'ok': True}
     @app.get('/api/runs/{ident}/artifacts/{name}')
-    async def artifact(ident: uuid.UUID, name: str, request: Request):
+    @app.get('/api/runs/{ident}/executions/{execution}/artifacts/{name}')
+    async def artifact(ident: uuid.UUID, name: str, request: Request, execution: uuid.UUID | None = None):
         authenticate(request)
-        if name not in {'controller.py', 'simulation.mp4', 'report.json','station.json','input-top.jpg','input-left.jpg','input-right.jpg'}:
+        if name not in {'controller.py', 'simulation.mp4', 'report.json','station.json','input-top.jpg','input-left.jpg','input-right.jpg','execution.json','commands.json','simulation.log'}:
             raise HTTPException(404)
         job = store.get(str(ident))
-        record = next((a for a in job['artifacts'] if a['name'] == name), None)
-        file = ((store.root/'input-evidence'/str(ident)) if record and record.get('kind')=='input' else (store.root/str(ident))) / name
+        record = next((a for a in job['artifacts'] if a['name'] == name and
+                       (execution is None or a.get('execution_id')==execution.hex)), None)
+        directory=store.root/str(ident)
+        if record and record.get('kind')=='input':directory=store.root/'input-evidence'/str(ident)
+        if record and record.get('kind')=='simulation':
+            directory=store.root/'simulation-evidence'/str(ident)/uuid.UUID(record['execution_id']).hex
+        file = directory / name
         if not record or not file.is_file() or file.is_symlink() or hashlib.sha256(file.read_bytes()).hexdigest() != record['sha256']:
             raise HTTPException(404, 'Retained artifact unavailable')
-        return FileResponse(file, media_type={'py':'text/plain','mp4':'video/mp4','json':'application/json','jpg':'image/jpeg'}[name.rsplit('.',1)[1]])
+        return FileResponse(file, media_type={'py':'text/plain','log':'text/plain','mp4':'video/mp4','json':'application/json','jpg':'image/jpeg'}[name.rsplit('.',1)[1]])
     return app
 
 

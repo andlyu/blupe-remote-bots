@@ -86,3 +86,12 @@ These are offline engineering results, not a model-generated manipulation task.
 Production Google credits remain depleted. YAM1's source peer is offline and
 its public joints are stale. Physical Run stays unavailable. The complete
 integration checklist remains1/17 checked.
+
+## Host-bound controller/replay handoff
+
+The current source retains original inputs and all execution attempts outside
+the generated-code mount and rejects changed source without a matching replay.
+See [controller handoff](docs/CONTROLLER-HANDOFF.md) for the reproduced old bug,
+regressions and precise evidence limits. This host update is prepared, not yet
+deployed; real worker qualification remains pending SSH access. Existing image
+runtime source is unchanged. Model/task-scene/physical acceptance remains open.

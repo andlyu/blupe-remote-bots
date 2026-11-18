@@ -26,7 +26,19 @@ function loadCamera(img,cam){
 }
 function cameras(){loadCamera($('mainCamera'),role);loadCamera($('leftCamera').querySelector('img'),'left');loadCamera($('rightCamera').querySelector('img'),'right')}
 for(const cam of ['left','right'])$(cam+'Camera').onclick=()=>{role=role===cam?'top':cam;for(const c of ['left','right'])$(c+'Camera').setAttribute('aria-pressed',String(role===c));cameras()};cameras();
-function artifacts(run){const list=run?.artifacts||[],video=list.find(a=>a.name==='simulation.mp4');$('simVideo').hidden=!video;$('simulationEmpty').hidden=!!video;if(video&&$('simVideo').getAttribute('src')!==video.url)$('simVideo').src=video.url;if(!video)$('simVideo').removeAttribute('src');$('simLinks').replaceChildren();for(const a of list.filter(a=>a.name!=='simulation.mp4')){if(!a.url.startsWith('/api/runs/'+run.id+'/artifacts/'))continue;const p=node('p'),link=node('a',a.name);link.href=a.url;link.target='_blank';link.rel='noopener';p.append(link);$('simLinks').append(p)}}
+let shownArtifacts='';
+function artifacts(run){
+ const list=run?.artifacts||[],key=JSON.stringify([run?.id,list]);if(key===shownArtifacts)return;shownArtifacts=key;
+ const video=list.find(a=>a.name==='simulation.mp4');
+ $('simVideo').hidden=!video;$('simulationEmpty').hidden=false;
+ $('simulationEmpty').textContent=video?(video.attempt?'Attempt '+video.attempt+' · MuJoCo simulation':'MuJoCo simulation replay'):'Simulation video appears here after a real MuJoCo execution.';
+ if(video&&$('simVideo').getAttribute('src')!==video.url)$('simVideo').src=video.url;
+ if(!video)$('simVideo').removeAttribute('src');$('simLinks').replaceChildren();
+ for(const a of list.filter(a=>a!==video)){
+  if(!a.url.startsWith('/api/runs/'+run.id+'/')||!/^\/api\/runs\/[a-f0-9-]+\/(?:executions\/[a-f0-9-]+\/)?artifacts\//.test(a.url))continue;
+  const p=node('p'),link=node('a',(a.attempt?'Attempt '+a.attempt+' · ':'')+a.name);link.href=a.url;link.target='_blank';link.rel='noopener';p.append(link);$('simLinks').append(p)
+ }
+}
 function detail(run){$('events').replaceChildren();$('notesEmpty').hidden=!!run?.events?.length;for(const e of run?.events||[]){const li=node('li',e.message);li.append(node('time',when(e.at)));$('events').append(li)}artifacts(run);$('resultContent').replaceChildren();$('resultsEmpty').hidden=!!run;if(run){for(const [label,value]of [['Task',run.prompt],['Runner',run.runner_name],['State',run.state],['Approach',run.configuration?.approach],['Model',run.configuration?.model],['Mode',run.mode]]){const p=node('p');p.append(node('strong',label+': '),document.createTextNode(value||'—'));$('resultContent').append(p)}if(run.result?.summary)$('resultContent').append(node('p',run.result.summary));if(run.result?.verified===false)$('resultContent').append(node('p','Outcome requires review; agent self-report is not task-success verification.','muted'))}}
 function render(){
  const w=state.worker||{},active=state.runs.find(r=>r.owned&&!terminal.has(r.state));
@@ -36,7 +48,7 @@ function render(){
  if(actionError)$('progress').textContent=actionError;
  else if(!busy)$('progress').textContent=active?.progress||[w.message,w.simulation_scope,w.physical_message].filter(Boolean).join(' · ')||'Worker connection is being configured';
  $('historyEmpty').hidden=!!state.runs.length;$('historyEmpty').textContent='No retained runs yet.';$('runList').replaceChildren();
- for(const r of state.runs){const b=node('button',undefined,'run-card');b.type='button';b.append(node('small',when(r.created_at)+' · '+(r.mode==='simulation'?'Simulation':'Physical')),node('strong',r.prompt),node('small',r.runner_name+' · '+r.state));b.onclick=()=>{selected=r.id;detail(r);tabs(r.artifacts?.length?'simulation':'notes')};$('runList').append(b)}
+ for(const r of state.runs){const b=node('button',undefined,'run-card');b.type='button';b.append(node('small',when(r.created_at)+' · '+(r.mode==='simulation'?'Simulation':'Physical')),node('strong',r.prompt),node('small',r.runner_name+' · '+r.state));b.onclick=()=>{selected=r.id;detail(r);const view=r.artifacts?.length?'simulation':'notes';tabs(view);$(view+'Tab').scrollIntoView({block:'nearest'});$(view+'Tab').focus({preventScroll:true})};$('runList').append(b)}
  const chosen=state.runs.find(r=>r.id===(selected||active?.id));if(chosen)detail(chosen)
 }
 async function refresh(){try{state=await api('/api/state');render()}catch(e){$('workerBadge').textContent='Worker unavailable';$('progress').textContent=e.message;$('progress').classList.add('error');$('run').disabled=true;$('simulate').disabled=true}}

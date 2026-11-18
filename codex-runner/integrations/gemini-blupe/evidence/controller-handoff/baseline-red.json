@@ -1,0 +1,19 @@
+{
+  "scope": "Exact baseline worker with current mutation regression and scripted local SDK/engine; no Google or robot call",
+  "source_revision": "23a1aac5",
+  "worker_sha256": "2128029464d0f0284f00005cff510ba4459b66afc2ea16d346b668b78678adb0",
+  "test_sha256": "7882642a33304b87eae4de9f72b48560ea0fd4c4f0402d59b8befbde6be1071b",
+  "reproducer_sha256": "c8491ada2a4683ea5429a6533596884e3b576315e16d2507b4e74ee4373ea802",
+  "command": [
+    "/private/tmp/gemini-blupe-mujoco-playground/.venv/bin/python",
+    "/private/tmp/gemini-controller-handoff/tools/reproduce_unbound_handoff.py",
+    "--worker-file",
+    "/private/tmp/gemini-binding-baseline-worker.py",
+    "--runner-root",
+    "/Users/andrew/.codex/worktrees/gemini-blupe/blupe-remote-yam/codex-runner"
+  ],
+  "exit_code": 1,
+  "wall_s": 0.70034358400153,
+  "old_code_incorrectly_completed": true,
+  "output": "controller-handoff-baseline-red.txt"
+}

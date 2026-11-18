@@ -13,7 +13,7 @@ p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True)
 p.add_argument('--runner-root',type=Path,default=root.parents[1]);a=p.parse_args()
 subprocess.run([sys.executable,str(root/'tools/preflight.py'),'--runner-root',str(a.runner_root)],check=True)
 files={str(path.relative_to(root)):path for path in (root/'backend').glob('*.py')}
-for name in ('README.md','docs/YAM1-CONTROLLER-API.md'):
+for name in ('README.md','docs/YAM1-CONTROLLER-API.md','docs/CONTROLLER-HANDOFF.md'):
     files[name]=root/name
 for name in ('__init__.py','session.py','cadence.py','cameras.py'):
     files['runner/src/remote_yam/'+name]=a.runner_root/'src/remote_yam'/name

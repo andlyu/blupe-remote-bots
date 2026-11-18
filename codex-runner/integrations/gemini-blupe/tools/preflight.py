@@ -46,11 +46,20 @@ required += ('Yam1SimulationTests.test_shared_compiler_packet_is_identical_befor
              'StationInputsTests.test_current_scene_uses_real_camera_parser_and_sdk_image_parts_without_contact_or_lease',
              'WorkerTests.test_only_matching_yam1_image_variant_can_be_ready',
              'WorkerTests.test_retained_input_artifact_uses_host_evidence_not_generated_workspace')
+required += ('SimulationBindingTests.test_edit_after_simulation_cannot_complete_using_previous_replay',
+             'SimulationBindingTests.test_resimulation_preserves_each_attempt_and_protected_history_artifacts',
+             'ExecutorBindingTests.test_changed_inputs_or_forged_report_never_bind_even_with_zero_exit',
+             'ExecutorBindingTests.test_cleanup_failure_cannot_promote_simulation_or_copy_live_outputs',
+             'SimulationBindingTests.test_identical_source_write_reuses_valid_execution_without_extra_simulation',
+             'SimulationBindingTests.test_resimulation_restores_host_scene_after_generated_workspace_mutation')
 if any(not any(name.endswith(case) for name in cases) for case in required):
     raise SystemExit('Required command/readiness coverage is missing')
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 if not result.wasSuccessful():
     raise SystemExit(1)
+if any(any(test.id().endswith(case) for case in required)
+       for test,reason in [*result.skipped,*result.expectedFailures]):
+    raise SystemExit('Required command/readiness coverage did not pass')
 subprocess.run(['node', str(root / 'tests/test_gateway.mjs')], check=True)
 page = (root / 'site/page.html').read_text()
 script = page.split('<script>', 1)[1].split('</script>', 1)[0]
@@ -60,6 +69,7 @@ with tempfile.TemporaryDirectory(prefix='gemini-preflight-') as directory:
 receipt = dict(scope='Offline packet compiler, real RunnerController/client serializer, bimanual geometry/Google IK, worker persistence/readiness and gateway; no physical or model task qualification',
                passed=True, python=sys.version.split()[0], tests=result.testsRun,
                elapsed_wall_s=round(time.monotonic()-started, 4),
+               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','tests/test_simulation_binding.py','site/worker.js','site/page.html','tools/preflight.py')},
                validator_sha256=hashlib.sha256((args.runner_root / 'src/remote_yam/session.py').read_bytes()).hexdigest(),
                native_safety_sha256=hashlib.sha256((args.runner_root / 'config/controller-workspaces/native-both-20260929.safety.json').read_bytes()).hexdigest())
 if args.receipt:

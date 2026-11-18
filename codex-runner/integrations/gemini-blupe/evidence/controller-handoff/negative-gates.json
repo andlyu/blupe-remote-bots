@@ -1,0 +1,18 @@
+[
+  {
+    "scope": "Offline source-binding required-coverage gate",
+    "mode": "missing",
+    "exit_code": 1,
+    "wall_s": 0.6511095839960035,
+    "matched": true,
+    "stderr_tail": "Required command/readiness coverage is missing\n"
+  },
+  {
+    "scope": "Offline source-binding required-coverage gate",
+    "mode": "skipped",
+    "exit_code": 1,
+    "wall_s": 2.9192123750108294,
+    "matched": true,
+    "stderr_tail": "ands.CommandContractTests.test_invalid_requests_are_rejected_before_any_transport) ... ok\n\n----------------------------------------------------------------------\nRan 51 tests in 2.384s\n\nOK (skipped=1)\nRequired command/readiness coverage did not pass\n"
+  }
+]

@@ -13,6 +13,11 @@ import re
 import shutil
 import uuid
 
+try:
+    from .simulation_artifacts import input_snapshot, retain_execution, write_private
+except ImportError:
+    from simulation_artifacts import input_snapshot, retain_execution, write_private
+
 
 class SimulationExecutor:
     def __init__(self, workspace: Path):
@@ -21,6 +26,9 @@ class SimulationExecutor:
         self.image = os.environ.get('GEMINI_SIM_IMAGE', '')
         self.variant = os.environ.get('GEMINI_SIM_VARIANT', 'yam1')
         self.container = 'gemini-sim-' + uuid.uuid4().hex
+        self.cleanup_confirmed = False
+        self.last_execution = None
+        self.active_invocation = False
 
     @staticmethod
     def configured():
@@ -41,12 +49,32 @@ class SimulationExecutor:
                 '--workdir=/workspace', '--env=HOME=/tmp', '--env=GEMINI_SIM_VARIANT='+self.variant, self.image]
 
     async def stop(self):
+        if self.cleanup_confirmed and not self.active_invocation:return
+        self.cleanup_confirmed = False
         process = await asyncio.create_subprocess_exec(
             self.engine, 'rm', '--force', '--time=1', self.container,
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
-        await process.wait()
+        try:await asyncio.wait_for(process.wait(),timeout=6)
+        except TimeoutError:
+            process.kill();await process.wait()
+            raise RuntimeError('Simulation container removal timed out; handoff is unverified')
+        exists=await asyncio.create_subprocess_exec(
+            self.engine,'container','exists',self.container,
+            stdout=asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.DEVNULL)
+        try:code=await asyncio.wait_for(exists.wait(),timeout=3)
+        except TimeoutError:
+            exists.kill();await exists.wait()
+            raise RuntimeError('Simulation container cleanup could not be confirmed')
+        self.cleanup_confirmed=code==1
+        if not self.cleanup_confirmed:
+            raise RuntimeError('Simulation container cleanup could not be confirmed')
+        self.active_invocation=False
 
     async def run(self, timeout_s=90):
+        if self.active_invocation:
+            raise RuntimeError('Previous simulation cleanup is unverified; no new execution started')
+        before=input_snapshot(self.workspace,self.variant)
+        self.last_execution=None
         # Remove only the previous outputs of this run before another attempt.
         for name in ('simulation.mp4', 'report.json', 'commands.json'):
             path = self.workspace / name
@@ -55,6 +83,7 @@ class SimulationExecutor:
         process = await asyncio.create_subprocess_exec(
             *self.command(), stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT)
+        self.active_invocation=True
         output = bytearray()
         async def consume():
             while chunk := await process.stdout.read(8192):
@@ -62,17 +91,22 @@ class SimulationExecutor:
                 if len(output) > 64000:
                     del output[:-64000]
             await process.wait()
+        failure=None
         try:
             await asyncio.wait_for(consume(), timeout=timeout_s)
+        except BaseException as exc:
+            failure=exc
         finally:
-            await asyncio.shield(self.stop())
-            if process.returncode is None:
-                process.kill()
-                await process.wait()
+            try:await asyncio.shield(self.stop())
+            finally:
+                if process.returncode is None:
+                    process.kill()
+                    await process.wait()
         log = output.decode(errors='replace')
-        fd = os.open(self.workspace / 'simulation.log', os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, 'w') as file:
-            file.write(log)
-        report = self.workspace / 'report.json'
+        write_private(self.workspace/'simulation.log',log.encode())
+        self.last_execution,report=retain_execution(
+            self.workspace,before,image=self.image,variant=self.variant,
+            exit_code=process.returncode,log=log,cleanup_confirmed=self.cleanup_confirmed)
+        if failure is not None:raise failure
         return dict(exit_code=process.returncode, output=log[-12000:],
-                    report=json.loads(report.read_text()) if report.is_file() and not report.is_symlink() and report.stat().st_size < 64000 else None)
+                    report=report,execution=self.last_execution)

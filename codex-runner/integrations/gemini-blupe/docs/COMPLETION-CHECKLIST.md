@@ -663,3 +663,22 @@ not deployed. Existing SSH access is unreachable, and temporary current-network
 access approval is pending. Approved key remains installed; Google funding and
 station connectivity remain pending. All previously unchecked acceptance items
 are still unchecked (1/17 checked); no model/robot request or email was sent.
+
+## Controller handoff source checkpoint — November18,2026
+
+Actual old run_agent accepted a controller edited after its simulation. The
+scripted SDK/engine regression reproduces this (baseline23a1aac5,exit1); current
+source retains original controller/station and all attempt artifacts outside
+the generated mount, binds report/source hashes, preserves identical-source
+evidence and restores host scene inputs on resimulation. Cleanup uncertainty
+cannot qualify/restart that execution. Required preflight now passes51tests plus gateway/JS. Removing or skipping
+required binding coverage fails release. Authenticated artifact history and
+per-attempt replay UI are prepared for publication.
+
+Local UI fixture played the prior handwritten4.3s engineering replay and showed
+current/older attempt links. This is not a new real model or physical run. New
+host executor still needs actual Podman qualification after SSH returns; all
+eight source files in the previously qualified runtime image remain unchanged.
+Production API stays e075e8d3; no key transfer, model retry, spending, queue entry,
+robot command or email. Full task-scene, model and physical acceptance remain
+unchecked; checklist1/17. See docs/CONTROLLER-HANDOFF.md.

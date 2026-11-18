@@ -28,6 +28,14 @@ try{
  response=await worker.fetch(new Request('https://gemini.example/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/artifacts/input-top.jpg',{headers:{Cookie:'gemini-visitor='+'a'.repeat(64)}}),{BACKEND_ORIGIN:'https://worker.example/gemini-worker/',BACKEND_TOKEN:'synthetic-worker-token'});
  assert.equal(response.status,200,'Retained station evidence must use the authenticated gateway');
  assert.equal(requests.at(-1).init.headers.get('X-Gemini-Site-Token'),'synthetic-worker-token');
+ for(const name of ['controller.py','report.json','execution.json','commands.json','simulation.log','simulation.mp4']){
+  const path='/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/executions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/artifacts/'+name;
+  response=await worker.fetch(new Request('https://gemini.example'+path),{BACKEND_ORIGIN:'https://worker.example/gemini-worker/',BACKEND_TOKEN:'synthetic-worker-token'});
+  assert.equal(response.status,200,'Every retained simulation attempt must be reachable');
+  assert.equal(requests.at(-1).url,'https://worker.example/gemini-worker/'+path.slice(1));
+ }
+ response=await worker.fetch(new Request('https://gemini.example/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/executions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/artifacts/private.env'),{});
+ assert.equal(response.status,404);
  response=await worker.fetch(new Request('https://gemini.example/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/artifacts/private.env'),{});
  assert.equal(response.status,404);
  console.log('Gateway camera, redirect, origin and anonymous identity checks passed');
