@@ -45,6 +45,7 @@ class RunInput(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
     duration_s: int = Field(default=180, ge=60, le=600)
     mode: Literal['simulation', 'robot']
+    execution_mode: Literal['interactive', 'automated test'] = 'interactive'
 
 
 class Store:
@@ -70,8 +71,9 @@ class Store:
                     mode=spec.mode, duration_s=spec.duration_s, state='queued',
                     created_at=now, updated_at=now, progress='Waiting for the Gemini worker',
                     events=[], artifacts=[], result=None,
-                    configuration=dict(approach=APPROACH, model=MODEL,
-                        robot_id='yam-1', execution_mode='interactive',
+                    configuration=dict(approach=APPROACH, model=APPROACH,
+                        underlying_models=dict(planning=MODEL, vision=MODEL, coding=MODEL, resolved=None),
+                        robot_id='yam-1', execution_mode=spec.execution_mode,
                         variant='Antigravity Robotics adapted to BluPe',
                         source_revision=os.environ.get('GEMINI_SOURCE_REVISION'),
                         simulation_image=os.environ.get('GEMINI_SIM_IMAGE'),
@@ -79,11 +81,13 @@ class Store:
                         mujoco_playground='c9de052f099a36be915af38344f427aacdbf3abe'))
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            old = db.execute('SELECT owner,data FROM runs WHERE id=?', (data['id'],)).fetchone()
+            old = db.execute('SELECT owner,email,data FROM runs WHERE id=?', (data['id'],)).fetchone()
             if old:
                 if not hmac.compare_digest(old[0], owner):
                     raise HTTPException(409, 'Request identifier belongs to another visitor')
-                retained = json.loads(old[1])
+                retained = json.loads(old[2])
+                if old[1] != email or retained['configuration']['execution_mode'] != spec.execution_mode:
+                    raise HTTPException(409, 'Request identifier was already used for different attribution')
                 if any(retained[k] != data[k] for k in ('prompt', 'mode', 'duration_s', 'runner_name')):
                     raise HTTPException(409, 'Request identifier was already used for different settings')
                 return retained

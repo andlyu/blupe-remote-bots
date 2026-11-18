@@ -44,6 +44,19 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(w.HTTPException):self.store.create(self.spec,'b'*64)
         with self.assertRaises(w.HTTPException):self.store.create(self.spec.model_copy(update={'prompt':'Different task'}),'a'*64)
 
+    def test_run_approach_and_execution_mode_are_separate_from_human_identity(self):
+        row=self.store.create(self.spec.model_copy(update={'execution_mode':'automated test'}),'a'*64)
+        self.assertEqual(row['runner_name'],'Test researcher')
+        self.assertEqual(row['configuration']['model'],'Gemini Robotics')
+        self.assertEqual(row['configuration']['underlying_models']['coding'],'gemini-4-hydrogen')
+        self.assertEqual(row['configuration']['execution_mode'],'automated test')
+
+    def test_request_id_does_not_silently_replace_email_or_execution_mode(self):
+        self.store.create(self.spec,'a'*64)
+        for update in ({'email':'other@example.test'},{'execution_mode':'automated test'}):
+            with self.assertRaises(w.HTTPException):
+                self.store.create(self.spec.model_copy(update=update),'a'*64)
+
     def test_private_email_is_not_in_public_run_fields(self):
         row=self.store.create(self.spec,'a'*64)
         self.assertNotIn('email',json.dumps({k:row[k] for k in w.PUBLIC_FIELDS}))
