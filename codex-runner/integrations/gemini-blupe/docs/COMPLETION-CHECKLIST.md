@@ -161,7 +161,7 @@ below; underlying model/checkpoint selections remain separate metadata.
 
 ## Completion requirements
 
-- [ ] A usable website exists, with an associated repository containing the
+- [x] A usable website exists, with an associated repository containing the
   website's source code. Record both links and the deployed source revision.
 - [ ] Everything in the playground demo is public by default, including the
   website, source repository, runs/results, live demos, recordings, replays/history,
@@ -608,3 +608,5 @@ All unchecked final acceptance requirements remain open.
 November18 follow-up: version2 source1e492d6e7cdfbd93ca63c4d527053fb51f3a8a48 is public and connected to the actual Python worker. Browser verification shows editable known identity defaults and honest pending simulation/physical status. Cloudflare rejects redirect:error before network dispatch; camera regression reproduces503 and passes200 after manual-mode repair. Direct canonical JPEG probes pass, while RGB-D transfers have failures; no camera/robot services were changed. Hosted isolation verification remains unfinished: cold rootless image preparation exceeded45s, then the reference scene exposed a missing ALOHA asset. Rebuilt both exact pinned assets; qualification is pending. Real API-key transfer was rejected by automatic approval review and remains unperformed while explicit approval is requested. No physical session or model-backed hosted task has run.
 
 Runtime qualification now passes: image5ad3bffb35b8d926dd0f83c86f9f90b378d64ed55df842330b71ea76edd7518e, eight real isolation checks,18renderedframes/1.8simseconds,36.617s in-container and40.164s executor wall. Public supporting evidence is in evidence/runtime; the hold controller is handwritten, not generated. Site version3 camera repair is publishing. Model API-key installation awaits explicit approval following automatic review rejection. Physical acceptance remains unverified.
+
+Website evidence: https://gemini-blupe.andlyu.chatgpt.site, public Sites version4/source172689646798353fb32d751992c4c3ad615e7988; canonical source4e3c6c2d; API58e4922a. Actual browser shows current overhead and both wrist views, preserved layout, working tabs, editable known identity and honest pending model/physical stages. Screenshot evidence/runtime/site.jpg excludes private contacts. Only the website-existence requirement is checked; every remaining unverified requirement stays open, including full generated-controller workflow, actual YAM1 method run, command contract, matched scene, representative outcome, startup timing and retained physical replay. No visibility exceptions were requested. The active goal is not complete.
