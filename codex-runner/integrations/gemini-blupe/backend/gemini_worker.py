@@ -21,6 +21,11 @@ from typing import Literal
 import uuid
 
 from fastapi import FastAPI, HTTPException, Request
+
+try:
+    from .executor import SimulationExecutor
+except ImportError:
+    from executor import SimulationExecutor
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -95,6 +100,8 @@ class Store:
             if not row:
                 raise HTTPException(404, 'Run not found')
             data = json.loads(row[0])
+            if data['state'] in TERMINAL and values.get('state', data['state']) != data['state']:
+                return data
             data.update(values, updated_at=time.time())
             db.execute('UPDATE runs SET data=? WHERE id=?', (json.dumps(data), ident))
         return data
@@ -123,34 +130,82 @@ def runtime_status(skills: Path):
         except importlib.metadata.PackageNotFoundError:
             versions[package] = None
     skills_ready = (skills / 'mujoco-playground' / 'SKILL.md').is_file()
-    # Import/install presence is a setup check, never physical qualification.
-    simulation_ready = bool(os.environ.get('GEMINI_API_KEY') and skills_ready and all(versions.values()))
+    proof = {}
+    try:
+        proof = json.loads(Path(os.environ.get('GEMINI_EXECUTOR_PROOF', '/nonexistent')).read_text())
+    except (OSError, ValueError):
+        pass
+    executor_ready = bool(proof.get('isolation_passed') and proof.get('simulation_passed')
+                          and proof.get('image') == os.environ.get('GEMINI_SIM_IMAGE'))
+    simulation_ready = bool(os.environ.get('GEMINI_API_KEY') and skills_ready
+                            and versions['google-antigravity'] and executor_ready)
     return dict(online=True, simulation_ready=simulation_ready, physical_ready=False,
                 model=MODEL, approach=APPROACH, versions=versions, skills_ready=skills_ready,
-                message=('Simulation worker ready' if simulation_ready else 'Simulation runtime is being prepared'),
+                executor_ready=executor_ready, simulation_scope='Official single-arm reference; YAM1 matching pending',
+                message=('Reference simulation worker ready' if simulation_ready else 'Simulation runtime is being prepared'),
                 physical_message='YAM 1 adapter qualification is pending')
 
 
 async def run_agent(store, ident, skills):
-    from google.antigravity import Agent, LocalAgentConfig
+    from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+    from google.antigravity.policy import deny, allow
+    from google.antigravity.types import BudgetConfig, RetryConfig, ModelAPIRetryConfig, ModelOutputRetryConfig
     job = store.get(ident)
     workspace = store.root / ident
     workspace.mkdir(mode=0o700, exist_ok=True)
     stop = asyncio.Event()
     store.event(ident, 'generating', 'Hydrogen is preparing the controller and simulation')
-    # Follow the official SDK skills/workspaces interface. The hosted process
-    # must run inside its dedicated container; this is not a Python sandbox.
+    executor = SimulationExecutor(workspace)
+    tool_lock = asyncio.Lock()
+    last_execution = None
+    async def read_robotics_reference(path: str) -> str:
+        """Read a path relative to the installed Google Robotics skills directory."""
+        file = (skills / path).resolve()
+        if not file.is_relative_to(skills.resolve()) or file.suffix not in {'.md', '.py', '.json', '.xml'} or not file.is_file() or file.stat().st_size > 160000:
+            raise ValueError('Choose a reference file inside the installed Robotics skills')
+        return file.read_text()
+    async def write_controller(code: str) -> str:
+        """Write controller.py defining run(env), using the official PlaygroundSim2Real API."""
+        import ast
+        if len(code.encode()) > 160000:
+            raise ValueError('Controller is too large')
+        ast.parse(code)
+        async with tool_lock:
+            path = workspace / 'controller.py'
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as file:
+                file.write(code)
+        store.event(ident, 'generating', 'Controller written; preparing its actual simulation')
+        return 'controller.py saved'
+    async def simulate_controller() -> dict:
+        """Run controller.py in the isolated single-arm reference MuJoCo scene and return actual results."""
+        nonlocal last_execution
+        async with tool_lock:
+            store.event(ident, 'simulating', 'Running the generated controller in MuJoCo and recording its behavior')
+            last_execution = await executor.run(timeout_s=min(90, max(1, job['created_at'] + job['duration_s'] - time.time())))
+        return last_execution
+    # Official SDK custom-tool/skills interface; all builtin tools disabled.
+    # Only generated code in a keyless, offline per-run container can execute.
+    names = ['read_robotics_reference', 'write_controller', 'simulate_controller']
     config = LocalAgentConfig(model=MODEL, api_key=os.environ['GEMINI_API_KEY'],
-                              workspaces=[str(workspace)], skills_paths=[str(skills)],
-                              system_instructions=(
-        'You are the Gemini Robotics worker for BluPe YAM 1. Use the installed Robotics skills. '
-        'This job is a simulation execution. Use measured public scene/calibration inputs when available; '
-        'label assumptions explicitly. Write controller.py, run it in MuJoCo, retain a simulation.mp4 '
-        'and report.json containing the task outcome and actual tests. Keep code and artifacts in the '
-        'workspace. Do not access physical hardware or create a robot lease in simulation mode. '
-        'The controller must use a DeviceLayer for sim/real composition, with observable images and '
-        'joint feedback, not privileged object poses. Preserve requested model choice. '
-        'Report failures honestly. Do not include credentials or private contact details in output.'))
+        capabilities=CapabilitiesConfig(enabled_tools=[], enable_subagents=False),
+        tools=[read_robotics_reference, write_controller, simulate_controller],
+        policies=[deny('*'), *[allow(name) for name in names]],
+        budget_config=BudgetConfig(max_model_calls=12, max_total_tokens=64000),
+        retry_config=RetryConfig(api_retry=ModelAPIRetryConfig(max_retries=0), model_output_retry=ModelOutputRetryConfig(max_retries=0)),
+        workspaces=[str(workspace)], skills_paths=[str(skills)],
+        system_instructions=(
+            'You are the Gemini Robotics worker. Use the installed Google Robotics skills, starting '
+            'with mujoco-playground/SKILL.md via read_robotics_reference. Write a controller.py '
+            'defining run(env), where env is the official PlaygroundSim2Real YAM environment in simulation. '
+            'Use write_controller and simulate_controller to execute and inspect actual results; fix failures. '
+            'This deployment currently provides the official single-arm reference scene, not a calibrated '
+            'bimanual BluPe YAM1 digital twin. Explain this limit and do not claim physical/task qualification. '
+            'The run environment uses mode=sim, control_period_s=.1, reset_to_hover=False. '
+            'Use observable images and joint feedback, not privileged object poses. Keep simulation '
+            'bounded to 60 simulated seconds. No physical hardware or network is available in execution. '
+            'The container handles report.json and simulation.mp4 recording. Never fabricate evidence. '
+            'Summarize actual results, remaining gaps and assumptions without hidden reasoning.'))
     async def cancelled():
         while True:
             if store.get(ident)['state'] == 'cancelled':
@@ -185,7 +240,8 @@ async def run_agent(store, ident, skills):
                     sha256=hashlib.sha256(file.read_bytes()).hexdigest()))
         # A model's text alone is not a successful simulation or task pass.
         actual_report = workspace / 'report.json'
-        if not actual_report.is_file() or not (workspace / 'simulation.mp4').is_file():
+        retained = {item['name'] for item in artifacts}
+        if not last_execution or last_execution['exit_code'] != 0 or not {'report.json', 'simulation.mp4'}.issubset(retained) or actual_report.stat().st_size > 64000:
             store.update(ident, artifacts=artifacts, result=dict(summary=result, verified=False))
             raise RuntimeError('Controller preparation ended without a retained simulation report and video')
         report = json.loads(actual_report.read_text())
@@ -206,12 +262,19 @@ async def run_agent(store, ident, skills):
     finally:
         watcher.cancel()
         await asyncio.gather(watcher, return_exceptions=True)
+        await asyncio.shield(executor.stop())
 
 
 def create_app(state_root=None, skills_root=None):
     store = Store(Path(state_root or os.environ.get('GEMINI_STATE_DIR', '/tmp/gemini-blupe-state')))
     skills = Path(skills_root or os.environ.get('GEMINI_SKILLS_ROOT', '/opt/robotics/plugins/robotics/skills'))
     active = {}
+    semaphore = asyncio.Semaphore(1)
+    async def queued_run(ident):
+        async with semaphore:
+            if store.get(ident)['state'] != 'queued':
+                return
+            await run_agent(store, ident, skills)
     @asynccontextmanager
     async def lifespan(app):
         # Restart never replays a possibly dispatched run.
@@ -252,7 +315,7 @@ def create_app(state_root=None, skills_root=None):
             raise HTTPException(503, 'Simulation dependencies or model access are not configured')
         job = store.create(spec, who)
         if job['id'] not in active and job['state'] == 'queued':
-            task = asyncio.create_task(run_agent(store, job['id'], skills))
+            task = asyncio.create_task(queued_run(job['id']))
             active[job['id']] = task
             task.add_done_callback(lambda _: active.pop(job['id'], None))
         return {k:job[k] for k in PUBLIC_FIELDS}

@@ -10,6 +10,7 @@ import sys
 from unittest.mock import patch
 import uuid
 
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 spec=importlib.util.spec_from_file_location('gemini_worker',Path(__file__).resolve().parents[1]/'backend/gemini_worker.py')
 w=importlib.util.module_from_spec(spec);sys.modules[spec.name]=w;spec.loader.exec_module(w)
 
@@ -66,5 +67,20 @@ class WorkerTests(unittest.TestCase):
         with patch.dict(os.environ,{'GEMINI_SITE_TOKEN':'test-secret'}):
             status,_=asyncio.run(request(app,'/api/state'))
         self.assertEqual(status,403)
+
+    def test_stop_wins_over_late_completion_or_failure(self):
+        row=self.store.create(self.spec,'a'*64)
+        self.store.event(row['id'],'cancelled','Stopped by the runner')
+        self.store.event(row['id'],'complete','Late provider result')
+        self.store.event(row['id'],'failed','Late error')
+        self.assertEqual(self.store.get(row['id'])['state'],'cancelled')
+        self.assertEqual(self.store.get(row['id'])['progress'],'Stopped by the runner')
+
+    def test_installed_dependencies_do_not_claim_executor_readiness(self):
+        root=Path(self.temp.name)
+        (root/'mujoco-playground').mkdir()
+        (root/'mujoco-playground'/'SKILL.md').write_text('reference')
+        with patch.dict(os.environ,{'GEMINI_API_KEY':'configured','GEMINI_EXECUTOR_PROOF':'/nonexistent'}):
+            self.assertFalse(w.runtime_status(root)['simulation_ready'])
 
 if __name__=='__main__':unittest.main()

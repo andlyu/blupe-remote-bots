@@ -585,3 +585,22 @@ model entitlement/latency, public source/site checks, real task, onset timings,
 identity defaults, immediate/historical replay and all other unchecked acceptance
 requirements remain open. Physical Run is temporarily unavailable rather than
 routed to a different method. The intended final scope remains unchanged.
+
+## Progress — November18,2026 UTC
+
+Public site https://gemini-blupe.andlyu.chatgpt.site deployed version1 at Sites
+source722dd952cdf1234ee2c9cb3a136b6bc1cb079fca; logged-out homepage and state200.
+Public integration source branch codex/gemini-blupe at19ce5192. No private contact
+fields or credentials are in these public sources.
+
+Selected Hydrogen API transport passed5.839s using SDK0.1.23 with no tools,
+synthetic text only and confirmed Andrew Lyubovsky attribution. This does not
+verify controller generation or vision. Official single-arm simulation rendered
+20frames over2simseconds,5.303s wall. It does not establish YAM1 scene matching.
+
+Eight real Store/HTTP regressions pass, including Stop winning over late
+completion. Custom SDK tools and keyless network-disabled rootless execution
+are implemented; hosted image build and actual isolation qualification are in
+progress. A separate account/resource slice on the inspected existing worker
+avoids new compute provisioning. No physical session has been submitted.
+All unchecked final acceptance requirements remain open.
