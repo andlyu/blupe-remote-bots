@@ -19,12 +19,14 @@ class SimulationExecutor:
         self.workspace = workspace.resolve()
         self.engine = os.environ.get('GEMINI_CONTAINER_ENGINE', 'podman')
         self.image = os.environ.get('GEMINI_SIM_IMAGE', '')
+        self.variant = os.environ.get('GEMINI_SIM_VARIANT', 'yam1')
         self.container = 'gemini-sim-' + uuid.uuid4().hex
 
     @staticmethod
     def configured():
         return bool(shutil.which(os.environ.get('GEMINI_CONTAINER_ENGINE', 'podman'))
-                    and re.fullmatch(r'sha256:[a-f0-9]{64}', os.environ.get('GEMINI_SIM_IMAGE', '')))
+                    and re.fullmatch(r'sha256:[a-f0-9]{64}', os.environ.get('GEMINI_SIM_IMAGE', ''))
+                    and os.environ.get('GEMINI_SIM_VARIANT', 'yam1') in ('yam1','reference'))
 
     def command(self):
         if not self.configured() or not self.workspace.is_dir() or self.workspace.is_symlink():
@@ -36,7 +38,7 @@ class SimulationExecutor:
                 '--ulimit=fsize=134217728:134217728',
                 '--tmpfs=/tmp:rw,nosuid,nodev,size=256m',
                 '--volume', str(self.workspace) + ':/workspace:rw',
-                '--workdir=/workspace', '--env=HOME=/tmp', self.image]
+                '--workdir=/workspace', '--env=HOME=/tmp', '--env=GEMINI_SIM_VARIANT='+self.variant, self.image]
 
     async def stop(self):
         process = await asyncio.create_subprocess_exec(

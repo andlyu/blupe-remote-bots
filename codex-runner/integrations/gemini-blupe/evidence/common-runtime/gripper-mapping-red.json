@@ -1,0 +1,21 @@
+{
+  "scope": "No-load simulation mapping regression, no physical motion",
+  "command": [
+    "/private/tmp/gemini-blupe-mujoco-playground/.venv/bin/python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/private/tmp/gemini-blupe-files/tests",
+    "-p",
+    "test_yam1_simulation.py",
+    "-v"
+  ],
+  "returncode": 1,
+  "wall_s": 0.5563792079919949,
+  "source_sha256": {
+    "yam1_scene.py": "a9b57fc7fabc4a22e2118a16edb526998e0c9cff9d2b2dd3734b65fdb20ea37b",
+    "yam1_simulation.py": "ccf885e61301cb7122dae56a29de5cbdafaffa34c938a22e9156bfd84f769fa2"
+  },
+  "outcome": "FAIL expected: holding0.375 drifts by0.06306555099074951 with stock preload mapping"
+}

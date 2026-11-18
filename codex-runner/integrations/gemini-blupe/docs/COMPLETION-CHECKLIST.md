@@ -625,3 +625,24 @@ Actual offline rootless scene rollout:60frames/6simseconds,87.544s in-container/
 The generated-controller host bridge now composes with real RunnerController/serializer in offline tests, preserving queue/lease/Home/feedback/Stop ownership. Actual rootless stdio completion also passed against a zero-network serializer spy; cancellation/oversized-output qualification is being retained separately. The API key/capability/private contacts are absent from this container interface. The new adapter is source-only until full deployment/state/capture/contact qualification. All current unchecked checklist items remain open; the final scope is unchanged.
 
 Final source-bound channel matrix passes normal/cancel/oversized:2/0/0packets, exact close/open endpoints, all named containers removed. Evidence/controller-channel retains code hashes and timings. Canonical required preflight passes28tests(test0.381s, gate1.4041s) plus gateway and inline JS; removing the geometry/IK test module fails release preflight(exit1). Harness adoption check is current/preserved. Checklist remains1/17 checked; no new physical/model readiness claim.
+
+## Common runtime source checkpoint — November18,2026
+
+Production remains APIe075e8d3/Sites4 while the new bimanual common-controller
+release is prepared. The user-approved key remains installed; billing is
+unchanged/unavailable. Actual handwritten runtime image65f9521a passed ten
+isolation/runtime checks and43frames/4.3simseconds (37.528s executor wall).
+Forty required offline tests/gateway/JS pass; removing station-input coverage
+fails release. Evidence/common-runtime retains the first failing response,
+red/green mapping regression and repaired rollout/report/source hashes.
+
+Read-only live input collection rejects stale source joints before model calls.
+YAM1 mesh peer is offline; cached joints last observed07:28:40UTC are not current
+robot/support/torque evidence. No queue entry, robot command or email occurred.
+Existing host SSH is currently unreachable while public API remains healthy;
+no firewall changes were made. Site freshness labels are prepared separately.
+
+Only website existence is verified. Model-generated YAM1 task, matched task
+scene/contact, production physical composition, native Cartesian/contact checks,
+representative manipulation, timing and retained physical replay remain open.
+No checkboxes changed and full objective is unchanged.

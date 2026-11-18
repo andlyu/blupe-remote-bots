@@ -1,0 +1,149 @@
+{
+  "image": "sha256:f3e3d919a1e656fd0a14484f79129dfa85e5ca9db41ceb751d4fa0c4e12553a1",
+  "variant": "yam1",
+  "isolation_passed": true,
+  "isolation_checks": {
+    "nonroot": true,
+    "host_file_hidden": true,
+    "key_absent": true,
+    "root_read_only": true,
+    "network_disabled": true,
+    "memory_limit": true,
+    "pids_limit": true,
+    "cpu_limit": true,
+    "runtime_files_match": true,
+    "variant_matches": true
+  },
+  "simulation_passed": true,
+  "simulation_report": {
+    "scope": "Adapted bimanual YAM1 common-controller simulation; contact/task-scene qualification pending",
+    "physical": false,
+    "task_success_verified": false,
+    "geometry_qualified": false,
+    "robot_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+    "scene_source_sha256": "7f82c3ff37df703978064b74c0dfb637449613640211e2e27a25dc6b10072f1b",
+    "installed_tool_sha256": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652",
+    "native_safety_sha256": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f",
+    "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+    "native_joint_calibration_id": "6b24647ab8fe4b87dcee2cfb0100b1df8a7b8133ac8839bb37b0ba1cf37260df",
+    "base_geometry": {
+      "spacing_m": 0.5,
+      "convention": "Parallel level arm bases; common world midpoint; left y=+spacing/2, right y=-spacing/2.",
+      "independently_surveyed": false
+    },
+    "model_nq": 16,
+    "arm_qpos_indices": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "right": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "finger_qpos_indices": {
+      "left": [
+        6,
+        7
+      ],
+      "right": [
+        14,
+        15
+      ]
+    },
+    "limitations": [
+      "Camera extrinsics retain source provisional accuracy; no new physical calibration.",
+      "Pinhole images do not reproduce captured Brown lens distortion.",
+      "Arm inertias/gains are nominal canonical values; finger gains are the Google YAM Pro simulation assumption.",
+      "Arm visuals remain collision-disabled and finger meshes use convex contacts; this is not a qualified manipulation collision model.",
+      "Support plane is illustrative; native workspace/contact guards are unchanged."
+    ],
+    "controller_completed": true,
+    "error": null,
+    "frames": 23,
+    "controller_sha256": "d4f84fc48717d517eb2d51aa55cc1ea9bcf9aa750393dac2961cd5e73dd672cc",
+    "station_snapshot_sha256": "1218ea0a7c470d4ac0d22455d40a6efc87e5a3e85ab84867fbd081e889e6dad1",
+    "initial_observation_source": "engineering_fixture",
+    "initial_observed_at": null,
+    "simulated_seconds": 2.2999999999999683,
+    "wall_seconds": 24.57,
+    "video_camera": "top",
+    "video_resolution": [
+      320,
+      180
+    ],
+    "video_fps": 10,
+    "completion_semantics": "Simulated packet integration; native physical settling/contact qualification remains open",
+    "warning_counts": {},
+    "final_simulated_observation": {
+      "source": "simulation",
+      "observed_at": 1794991805.4905293,
+      "sim_time_s": 2.2999999999999683,
+      "left_joints_deg": [
+        11.45913914534128,
+        95.3353721471238,
+        64.58496912979261,
+        -47.13158250620595,
+        5.622305695843329,
+        -11.458098513477866
+      ],
+      "left_gripper": 0.6992140533585105,
+      "right_joints_deg": [
+        -10.295899196570522,
+        89.2423105173547,
+        70.13743074805434,
+        -53.13244303581319,
+        -5.634107439574705,
+        17.189839438514092
+      ],
+      "right_gripper": 0.7263712993414315
+    }
+  },
+  "executor_wall_s": 27.06825255113654,
+  "checked_at": 1794991805.8914328,
+  "controller": "Handwritten common-API engineering qualification, not Hydrogen generated",
+  "runtime_manifest": {
+    "scope": "YAM1 adapted common-controller runtime; contact qualification pending",
+    "variant": "yam1",
+    "files": {
+      "simulation_entry.py": "8cbe7be13f926df98587a1e0bc238dfadbb3e33c3a02e886495372defbbbead8",
+      "reference_simulation_entry.py": "5ae43f4318dd5993f0447d68892078cc04cb57b27d8ed907cb7418fbba608ddf",
+      "yam1_simulation_entry.py": "b59bdc508bdaa89e22acf7509685a31ec2afc702532cae16d1a7f7e11cbb2bb8",
+      "yam1_simulation.py": "ccf885e61301cb7122dae56a29de5cbdafaffa34c938a22e9156bfd84f769fa2",
+      "yam1_scene.py": "a9b57fc7fabc4a22e2118a16edb526998e0c9cff9d2b2dd3734b65fdb20ea37b",
+      "yam1_kinematics.py": "0653818b3d99443a2dd946eee54b8127ae4fb964b636d930f97846ce4c124b19",
+      "yam1_environment.py": "fa059cc8514b3637e2e28481730eb51456a22a2551341a09434df9a3d36fdfd1",
+      "yam_commands.py": "f8bbc3bce57b18a0a89ecd978219f52715521b0a6171e4ea11161909e8347172",
+      "controller_entry.py": "c2e68d1ab8589259ff5c17bfc2479cb0fc2bcddfaabf5b9cabc4f697022b4437",
+      "Containerfile": "ee257b4acb96f600be2a7204e89ca3d9cbf559a5509d10532ab8dde728628697",
+      "station-runner/src/remote_yam/__init__.py": "3e8ed4e4b6e2197a29a1017ae10aa5e0b572b79159ecfeea5fa319097d7041ee",
+      "station-runner/src/remote_yam/session.py": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb",
+      "station-runner/src/remote_yam/cadence.py": "24c65d34c3ffb6c64a7156fdd86fe5a2776224d5c3ebd2d825c14995e6380390",
+      "station-runner/models/yam/assets/base.stl": "7d57efce4cd31db5e461e1bc83362943a7dbe0e8e101cdb94c29de0a72f3ff0f",
+      "station-runner/models/yam/assets/link1.stl": "2283bab1300cfdd1a04aaf09503093d7d6d19bf2144abf3429d563b596920903",
+      "station-runner/models/yam/assets/link2.stl": "4fd4df2916be71391c6c6ea6ffbdb3c270ce67c71c2bb7d42d44736c0be2af98",
+      "station-runner/models/yam/assets/link3.stl": "5b51658509771514738d0f2271df5f271cd8ae0b6a4bf3787d8463d5ab582593",
+      "station-runner/models/yam/assets/link4.stl": "f6e980b8064a1396b17e87065de50286abf616f94b55e1ccff92e889218de220",
+      "station-runner/models/yam/assets/link5.stl": "b32ece2e963cd028d68290a904223826070be52ce8f0988e3ad36bf75be3582f",
+      "station-runner/models/yam_bimanual/yam_bimanual.xml": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+      "station-runner/models/yam_bimanual/scene.xml": "7f82c3ff37df703978064b74c0dfb637449613640211e2e27a25dc6b10072f1b",
+      "station-runner/config/controller-workspaces/native-both-20260929.safety.json": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f",
+      "station-assets/linear4310/gripper.stl": "d949c401186197d842ca8f9b23bfcbf24bed8461b421df06093c65e4ead21f5d",
+      "station-assets/linear4310/tip_left.stl": "03d94f53d7b5e9e1871ea6f3925c68d7a2f894b08e0c575fa0b9ed4024684ff7",
+      "station-assets/linear4310/tip_right.stl": "8f620aae9c15e00e2ea4e5bf5e9a49e7edb2d23128b8955cfacc0da8da45c72f",
+      "station-assets/linear4310/linear_4310.xml": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652",
+      "station-assets/linear4310/LICENSE": "7cd0a0224a287ebd6c45703eb6623d264c7810f8958d65de8f99e87ccd9f4891",
+      "station-assets/linear4310/PROVENANCE.md": "cd4e3604c8a7ec80cfbc97bf9384c1aa4293303f7cf3e0d02571029ec4292cb1"
+    }
+  },
+  "physical": false
+}

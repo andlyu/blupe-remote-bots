@@ -144,6 +144,14 @@ class Arm:
         self.env._sync_fk()
         return self.env.kinematics.solve(self.name, pos_world, target_rot_world=target_rot_world)
 
+    def fk_world_ee(self):
+        self.env._sync_fk()
+        data, model = self.env.scene.data, self.env.scene.model
+        site = model.site(self.name + '_installed_grasp_site').id
+        transform = np.eye(4); transform[:3, :3] = data.site_xmat[site].reshape(3, 3)
+        transform[:3, 3] = data.site_xpos[site]
+        return transform
+
 
 class Yam1Environment:
     def __init__(self, scene, device_layer, skills_root):
@@ -163,5 +171,18 @@ class Yam1Environment:
         arms = {side:getattr(self,side).q_arm for side in ARMS}
         grippers = {side:getattr(self,side).gripper for side in ARMS}
         self.scene.set_configuration(arms, grippers)
+
+    def camera_opencv(self, name='top'):
+        if name not in ('top','left','right') or name not in self.measurements:
+            raise ValueError('A measured top, left or right RGB frame is required')
+        self._sync_fk()
+        rgb = self.measurements[name]
+        camera = self.scene.model.camera(name).id
+        k, *_ = self.kinematics.google.camera_intrinsics_from_model(self.scene.model, camera, rgb.shape[1], rgb.shape[0])
+        transform = self.kinematics.google.camera_world_pose_opencv(self.scene.data, camera)
+        return dict(rgb=rgb, K=k, T_world_cam=transform,
+                    captured_at=self.measurements.get(name + '/captured_at'),
+                    calibration_id=self.scene.calibration['calibration_id'],
+                    limitations='Pinhole calibration; source extrinsics remain provisional')
 
     def close(self): self.device_layer.end_stepping()

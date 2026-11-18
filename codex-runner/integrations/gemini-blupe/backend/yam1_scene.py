@@ -155,7 +155,7 @@ def build_xml(runner_root, gripper_dir, calibration):
                     element.set('mesh', 'installed_' + element.get('mesh'))
                 if element.tag == 'joint':
                     # Google Playground's published nominal finger dynamics.
-                    element.set('armature', '.1'); element.set('damping', '150')
+                    element.set('armature', '.1')
                     element.set('frictionloss', '.1')
                 if element.tag == 'site':
                     # Calibration/IK markers are frames, not visible objects
@@ -169,7 +169,7 @@ def build_xml(runner_root, gripper_dir, calibration):
         ET.SubElement(equality, 'joint', name=side + '_finger_coupling',
                       joint1=side + '_installed_joint7', joint2=side + '_installed_joint8', polycoef='0 1 0 0 0')
         ET.SubElement(actuator, 'position', name=side + '_gripper', joint=side + '_installed_joint7',
-                      kp='2000', kv='150', ctrlrange='-.005 .0475', ctrllimited='true')
+                      kp='2000', kv='150', ctrlrange='0 .0475', ctrllimited='true')
         camera = calibration['cameras'][side]
         if camera['parent_frame'] != side + '_grasp':
             raise ValueError('Wrist camera must use the canonical native grasp frame')
@@ -182,6 +182,12 @@ def build_xml(runner_root, gripper_dir, calibration):
     if not np.allclose(poses[0], poses[1], atol=1e-8, rtol=0):
         raise ValueError('Overhead camera arm-relative transforms disagree in common world')
     add_camera(world, 'top', top, poses[0])
+    # Installed i2rt MotorChainRobot uses gravity compensation by default;
+    # Google's reference also sets gravcomp on moving robot links. Keep world
+    # gravity for task objects; compensate only this robot's CAD body weights.
+    for body in world.iter('body'):
+        if body.get('name','').startswith(('left_', 'right_')):
+            body.set('gravcomp','1')
     return ET.tostring(root, encoding='unicode'), safety
 
 
@@ -217,7 +223,7 @@ class Yam1Scene:
         self.data.qvel[:] = 0
         for side in ARMS:
             self.data.ctrl[self.actuators[side]] = q[self.arm_qpos[side]]
-            self.data.ctrl[self.model.actuator(side + '_gripper').id] = -.005 + float(grippers[side]) * .0525
+            self.data.ctrl[self.model.actuator(side + '_gripper').id] = float(grippers[side]) * FINGER_TRAVEL_M
         mujoco.mj_forward(self.model, self.data)
 
     def receipt(self):
@@ -229,6 +235,8 @@ class Yam1Scene:
                     native_joint_calibration_id=self.calibration['native_joint_calibration']['calibration_id'],
                     base_geometry=self.calibration['base_geometry'], model_nq=self.model.nq,
                     arm_qpos_indices=self.arm_qpos, finger_qpos_indices=self.finger_qpos,
+                    gripper_command_mapping='Native inverse linear command/readback: fraction times0.0475metres per jaw; no stock preload offset',
+                    gravity_compensation='Ideal1x CAD weight on robot bodies only, approximating installed i2rt compensation mode',
                     limitations=['Camera extrinsics retain source provisional accuracy; no new physical calibration.',
                                  'Pinhole images do not reproduce captured Brown lens distortion.',
                                  'Arm inertias/gains are nominal canonical values; finger gains are the Google YAM Pro simulation assumption.',

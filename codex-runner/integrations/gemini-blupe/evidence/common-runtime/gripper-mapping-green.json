@@ -1,0 +1,21 @@
+{
+  "scope": "No-load simulation mapping regression, not measured hardware gap/force",
+  "command": [
+    "/private/tmp/gemini-blupe-mujoco-playground/.venv/bin/python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/private/tmp/gemini-blupe-files/tests",
+    "-p",
+    "test_yam1_simulation.py",
+    "-v"
+  ],
+  "returncode": 0,
+  "wall_s": 0.3631984579988057,
+  "source_sha256": {
+    "yam1_scene.py": "6d5818afc513cec3437c9db3da3fd69cb3854b33589b9a422d3ed69a1b1c6810",
+    "yam1_simulation.py": "21e7d94fafe39dd086343e3eec5493abaa06d5be5d6bf30d2ffdd8c06daa3ffb"
+  },
+  "outcome": "PASS"
+}

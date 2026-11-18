@@ -10,7 +10,7 @@ import mujoco
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from yam1_scene import Yam1Scene
+from yam1_scene import Yam1Scene, FINGER_TRAVEL_M
 from yam1_kinematics import Yam1Kinematics
 
 
@@ -42,7 +42,7 @@ def main():
             for arm, sign in (('left', 1), ('right', -1)):
                 target = initial[arm].copy(); target[0] += sign * offset
                 s.data.ctrl[s.actuators[arm]] = target
-                s.data.ctrl[s.model.actuator(arm + '_gripper').id] = -.005 + grip * .0525
+                s.data.ctrl[s.model.actuator(arm + '_gripper').id] = grip * FINGER_TRAVEL_M
             for _ in range(50):
                 mujoco.mj_step(s.model, s.data)
             images = []

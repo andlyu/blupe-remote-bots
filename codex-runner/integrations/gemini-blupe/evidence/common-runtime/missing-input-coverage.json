@@ -1,0 +1,8 @@
+{
+  "scope": "Offline required-coverage negative gate; removing live station input tests",
+  "exit_code": 1,
+  "elapsed_s": 0.6294175840012031,
+  "missing_test_module": "test_station_inputs.py",
+  "rejected": true,
+  "stderr": "Required command/readiness coverage is missing\n"
+}

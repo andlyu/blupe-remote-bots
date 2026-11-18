@@ -1,5 +1,6 @@
 """Real persistence and HTTP-boundary regressions; no provider or robot calls."""
 import asyncio
+import hashlib
 import importlib.util
 import json
 import os
@@ -15,17 +16,21 @@ spec=importlib.util.spec_from_file_location('gemini_worker',Path(__file__).resol
 w=importlib.util.module_from_spec(spec);sys.modules[spec.name]=w;spec.loader.exec_module(w)
 
 
-async def request(app, path, method='GET', payload=None, headers=None):
+async def request(app, path, method='GET', payload=None, headers=None, as_json=True):
     sent=[];body=b'' if payload is None else json.dumps(payload).encode(); consumed=False
     async def receive():
         nonlocal consumed
-        if consumed:return {'type':'http.disconnect'}
+        if consumed:
+            # A connected test client keeps receiving until the response ends.
+            # Immediate disconnect cancels real FileResponse streaming.
+            await asyncio.Event().wait()
         consumed=True;return {'type':'http.request','body':body,'more_body':False}
     async def send(message):sent.append(message)
     hs={'content-type':'application/json',**(headers or {})}
     scope={'type':'http','asgi':{'version':'3.0'},'http_version':'1.1','method':method,'scheme':'http','path':path,'raw_path':path.encode(),'query_string':b'','root_path':'','server':('test',80),'client':('test',1),'headers':[(k.encode(),v.encode()) for k,v in hs.items()]}
     await app(scope,receive,send)
-    return next(x['status'] for x in sent if x['type']=='http.response.start'),json.loads(b''.join(x.get('body',b'') for x in sent if x['type']=='http.response.body'))
+    data=b''.join(x.get('body',b'') for x in sent if x['type']=='http.response.body')
+    return next(x['status'] for x in sent if x['type']=='http.response.start'),json.loads(data) if as_json else data
 
 
 class WorkerTests(unittest.TestCase):
@@ -107,5 +112,29 @@ class WorkerTests(unittest.TestCase):
         (root/'mujoco-playground'/'SKILL.md').write_text('reference')
         with patch.dict(os.environ,{'GEMINI_API_KEY':'configured','GEMINI_EXECUTOR_PROOF':'/nonexistent'}):
             self.assertFalse(w.runtime_status(root)['simulation_ready'])
+
+    def test_only_matching_yam1_image_variant_can_be_ready(self):
+        root=Path(self.temp.name);(root/'mujoco-playground').mkdir();(root/'mujoco-playground/SKILL.md').write_text('reference')
+        proof=root/'proof.json';image='sha256:'+'c'*64
+        with patch.dict(os.environ,{'GEMINI_API_KEY':'synthetic-key','GEMINI_SIM_IMAGE':image,'GEMINI_EXECUTOR_PROOF':str(proof),'GEMINI_SIM_VARIANT':'yam1'}):
+            for variant,expected in ((None,False),('reference',False),('yam1',True)):
+                proof.write_text(json.dumps(dict(image=image,variant=variant,isolation_passed=True,simulation_passed=True)))
+                self.assertEqual(w.runtime_status(root)['simulation_ready'],expected)
+            proof.write_text(json.dumps(dict(image='sha256:'+'d'*64,variant='yam1',isolation_passed=True,simulation_passed=True)))
+            self.assertFalse(w.runtime_status(root)['simulation_ready'])
+
+    def test_retained_input_artifact_uses_host_evidence_not_generated_workspace(self):
+        row=self.store.create(self.spec,'a'*64);ident=row['id'];name='input-top.jpg'
+        evidence=self.store.root/'input-evidence'/ident;evidence.mkdir(parents=True)
+        data=b'host-retained-camera-bytes';(evidence/name).write_bytes(data)
+        workspace=self.store.root/ident;workspace.mkdir();(workspace/name).write_bytes(b'generated-forgery')
+        self.store.update(ident,artifacts=[dict(name=name,kind='input',sha256=hashlib.sha256(data).hexdigest())])
+        app=w.create_app(self.temp.name)
+        with patch.dict(os.environ,{'GEMINI_SITE_TOKEN':'test-secret'}):
+            status,body=asyncio.run(request(app,f'/api/runs/{ident}/artifacts/{name}',headers={'x-gemini-site-token':'test-secret'},as_json=False))
+            self.assertEqual(status,200);self.assertEqual(body,data)
+            (evidence/name).write_bytes(b'changed')
+            status,_=asyncio.run(request(app,f'/api/runs/{ident}/artifacts/{name}',headers={'x-gemini-site-token':'test-secret'}))
+            self.assertEqual(status,404)
 
 if __name__=='__main__':unittest.main()

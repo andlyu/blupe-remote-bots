@@ -1,8 +1,8 @@
 # YAM1 adapter — engineering evidence, physical qualification open
 
-The shipped website still runs the official single-arm reference when model
-access is available. These new bimanual components are not yet selected by
-the production worker. Physical Run remains unavailable.
+The production API remains e075e8d3 with the earlier single-arm image and
+depleted Google credits. The new common bimanual runtime is packaged pending
+restoration of existing SSH access. Physical Run remains unavailable.
 
 `backend/yam1_scene.py` composes the hash-pinned canonical arm geometry with
 the captured installed linear4310 fingers. Both arm roots and base visuals
@@ -86,3 +86,41 @@ acceptance with every required timing/live/history evidence item. Scope is
 unchanged and unchecked checklist requirements remain open.
 
 Final source-bound channel matrix (evidence/controller-channel): normal1.214s ready/1.613s total, cancel1.217s/2.757s, oversized1.259s/2.609s. Normal produced2packets/4waypoints; both negative cases produced0packets. All three named containers were confirmed removed. Exact runtime/host/client source hashes match this checkpoint. This measures offline channel behavior, not native physical Stop latency.
+
+## Common MuJoCo backend and runtime qualification
+
+`yam1_simulation.py` implements the same DeviceLayer/command compiler as the
+host RPC bridge. It integrates actual MuJoCo state, preserves untouched fields
+in full packets and rejects invalid inputs before changing state/time/cursor.
+Native-default joint settling advances simulation time and retained frames.
+
+Actual runtime exposed copied stock-Pro assumptions that were wrong for the
+installed tool: Google DAMPING150 belongs only to actuator kv, and installed
+i2rt normalized command/readback mappings are inverse linear. Double-applied
+finger damping and the stock preload offset were removed; the finger command
+is fraction times0.0475m per jaw. A no-load0.375 hold drifted0.06306555 before
+repair and passes the numerical hold regression after repair. The simulation
+now applies nominal robot-only CAD gravity compensation while preserving
+world gravity for future objects. No native hardware gains or limits changed.
+
+Image65f9521ae13c7d3cd087487d6cc3ade2860a79c2fc2797d313feb2f5f6029e84
+passes ten isolation/runtime checks and a handwritten common-controller
+rollout:43frames/4.3simseconds,34.652s in-container/37.528s executor wall, no
+numerical warnings. Actual final grips were0.9972433 and0.9982549. Cold rootless
+preparation first exceeded120s; after process/container termination was verified,
+a warm offline retry passed. Existing isolation/resource limits were preserved.
+The prior image/rollout and failing/passing regression remain retained under
+`evidence/common-runtime`. These results do not certify physical force/contact
+accuracy, object geometry, task success or the15s/30s onset requirements.
+
+`station_inputs.py` uses the canonical read-only observation/calibration and
+bounded JPEG transport, then constructs actual SDK Image parts. Source feedback
+must retain the native freshness window. Trusted original input files and
+hashes live outside generated-code workspaces; forged workspace copies cannot
+replace public artifacts. The actual live probe stopped before images/model
+on stale joints; source mesh peer blupe-jetson is offline. No session was made.
+
+Required preflight now passes40tests plus gateway/inline-JS checks. Removing
+station-input coverage makes it fail. The older channel matrix remains historical
+evidence; its source hashes predate current scene/environment refinements and
+must be requalified before claiming the updated physical path validated.

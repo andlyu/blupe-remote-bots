@@ -39,6 +39,13 @@ required = ('CommandContractTests.test_all_twelve_joint_numeric_endpoints_and_pr
             'ControllerBridgeTests.test_stop_during_channel_read_discards_late_command_before_transport',
             'Yam1EnvironmentTests.test_gripper_only_preserves_joint_fields_and_exact_endpoints',
             'Yam1EnvironmentTests.test_wrong_completion_identity_or_unknown_outcome_does_not_replay')
+required += ('Yam1SimulationTests.test_shared_compiler_packet_is_identical_before_physics_dispatch',
+             'Yam1SimulationTests.test_invalid_requests_leave_simulation_cursor_time_and_state_unchanged',
+             'Yam1SimulationTests.test_no_load_partial_grip_hold_has_no_mapping_induced_drift',
+             'Yam1SimulationTests.test_nominal_robot_gravity_hold_preserves_global_object_gravity',
+             'StationInputsTests.test_current_scene_uses_real_camera_parser_and_sdk_image_parts_without_contact_or_lease',
+             'WorkerTests.test_only_matching_yam1_image_variant_can_be_ready',
+             'WorkerTests.test_retained_input_artifact_uses_host_evidence_not_generated_workspace')
 if any(not any(name.endswith(case) for name in cases) for case in required):
     raise SystemExit('Required command/readiness coverage is missing')
 result = unittest.TextTestRunner(verbosity=2).run(suite)

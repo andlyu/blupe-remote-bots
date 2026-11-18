@@ -122,6 +122,8 @@ class Yam1SceneTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'constraints unmet'):
                     adapter.solve(arm, p + [.1, 0, 0], target_rot_world=r)
             with self.assertRaises(ValueError): adapter.solve(arm, [float('nan'), 0, 0])
+            with self.assertRaises(ValueError): adapter.solve(arm, [True, False, False])
+            with self.assertRaises(ValueError): adapter.solve(arm, p, target_rot_world=np.eye(3,dtype=bool))
             with self.assertRaises(ValueError): adapter.solve(arm, p, target_rot_world=np.diag([1, 1, -1]))
 
 

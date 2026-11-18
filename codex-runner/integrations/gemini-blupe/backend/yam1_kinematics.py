@@ -36,14 +36,16 @@ class Yam1Kinematics:
         """
         if arm not in ARMS:
             raise ValueError('Choose left or right arm')
-        p = np.asarray(pos_world, dtype=float)
-        if p.shape != (3,) or not np.isfinite(p).all():
+        p = np.asarray(pos_world)
+        if p.shape != (3,) or p.dtype.kind not in 'fi' or not np.isfinite(p).all():
             raise ValueError('IK position must have three finite world metres')
-        r = None if target_rot_world is None else np.asarray(target_rot_world, dtype=float)
-        if r is not None and (r.shape != (3, 3) or not np.isfinite(r).all()
+        p = p.astype(float)
+        r = None if target_rot_world is None else np.asarray(target_rot_world)
+        if r is not None and (r.shape != (3, 3) or r.dtype.kind not in 'fi' or not np.isfinite(r).all()
                               or not np.allclose(r.T @ r, np.eye(3), atol=1e-8, rtol=0)
                               or not np.isclose(np.linalg.det(r), 1, atol=1e-8, rtol=0)):
             raise ValueError('IK orientation must be a proper rotation')
+        if r is not None: r = r.astype(float)
         m, context = self.scene.model, self.scene.data.qpos.copy()
         i = ARMS.index(arm) * 6
         q_min = np.asarray(self.scene.safety['joint_lower_rad'][i:i+6])

@@ -12,6 +12,10 @@ RUN git init && git remote add origin https://github.com/google-deepmind/robotic
 WORKDIR /opt/mujoco_menagerie
 RUN git init && git remote add origin https://github.com/google-deepmind/mujoco_menagerie.git && git sparse-checkout set i2rt_yam aloha && git fetch --filter=blob:none --depth=1 origin 370c43965323c0944b433b202aac5058b5f907a9 && git checkout --detach FETCH_HEAD
 ENV PATH=/opt/playground/.venv/bin:$PATH MUJOCO_GL=osmesa OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1
-COPY simulation_entry.py /opt/gemini/simulation_entry.py
+COPY *.py /opt/gemini/
+COPY station-runner /opt/runner/
+COPY station-assets /opt/gemini/assets/
+COPY runtime-manifest.json /opt/gemini/runtime-manifest.json
+ENV PYTHONPATH=/opt/gemini:/opt/runner/src GEMINI_SIM_VARIANT=yam1
 WORKDIR /workspace
 ENTRYPOINT ["python", "/opt/gemini/simulation_entry.py"]

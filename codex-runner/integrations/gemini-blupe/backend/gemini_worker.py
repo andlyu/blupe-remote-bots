@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 APPROACH = 'Gemini Robotics'
 MODEL = os.environ.get('GEMINI_MODEL', 'gemini-4-hydrogen')
+SIMULATION_VARIANT = 'yam1'
 TERMINAL = {'complete', 'failed', 'cancelled'}
 PUBLIC_FIELDS = ('id', 'runner_name', 'prompt', 'mode', 'state', 'created_at',
                  'updated_at', 'duration_s', 'progress', 'events', 'artifacts',
@@ -77,6 +78,7 @@ class Store:
                         variant='Antigravity Robotics adapted to BluPe',
                         source_revision=os.environ.get('GEMINI_SOURCE_REVISION'),
                         simulation_image=os.environ.get('GEMINI_SIM_IMAGE'),
+                        simulation_variant=SIMULATION_VARIANT,
                         robotics_plugin='9cb7f624c4d7c50859a39f1d49d088990429a83d',
                         mujoco_playground='c9de052f099a36be915af38344f427aacdbf3abe'))
         with self.connect() as db:
@@ -165,7 +167,9 @@ def runtime_status(skills: Path, state_root: Path | None = None):
     except (OSError, ValueError):
         pass
     executor_ready = bool(proof.get('isolation_passed') and proof.get('simulation_passed')
-                          and proof.get('image') == os.environ.get('GEMINI_SIM_IMAGE'))
+                          and proof.get('image') == os.environ.get('GEMINI_SIM_IMAGE')
+                          and proof.get('variant') == SIMULATION_VARIANT
+                          and os.environ.get('GEMINI_SIM_VARIANT','yam1') == SIMULATION_VARIANT)
     provider_code = None
     try:
         retained = json.loads(((state_root or Path(os.environ.get('GEMINI_STATE_DIR', '/tmp/gemini-blupe-state'))) / 'provider-status.json').read_text())
@@ -177,8 +181,8 @@ def runtime_status(skills: Path, state_root: Path | None = None):
                             and versions['google-antigravity'] and executor_ready)
     return dict(online=True, simulation_ready=simulation_ready, physical_ready=False,
                 model=MODEL, approach=APPROACH, versions=versions, skills_ready=skills_ready,
-                executor_ready=executor_ready, provider_error=provider_code, source_revision=os.environ.get('GEMINI_SOURCE_REVISION'), simulation_scope='Official single-arm reference; YAM1 matching pending',
-                message=('Google API credits are depleted; the owner needs to restore billing' if provider_code else ('Reference simulation worker ready' if simulation_ready else ('Model access awaits the owner’s approval' if not os.environ.get('GEMINI_API_KEY') else 'Simulation runtime is being prepared'))),
+                executor_ready=executor_ready, provider_error=provider_code, source_revision=os.environ.get('GEMINI_SOURCE_REVISION'), simulation_variant=SIMULATION_VARIANT, simulation_scope='YAM1 adapted bimanual simulator; task-scene/contact qualification pending',
+                message=('Google API credits are depleted; the owner needs to restore billing' if provider_code else ('YAM1 simulation worker ready; task-scene/contact qualification pending' if simulation_ready else ('Gemini API key is not configured' if not os.environ.get('GEMINI_API_KEY') else 'Simulation runtime is being prepared'))),
                 physical_message='YAM 1 adapter qualification is pending')
 
 
@@ -200,8 +204,11 @@ async def run_agent(store, ident, skills):
         if not file.is_relative_to(skills.resolve()) or file.suffix not in {'.md', '.py', '.json', '.xml'} or not file.is_file() or file.stat().st_size > 160000:
             raise ValueError('Choose a reference file inside the installed Robotics skills')
         return file.read_text()
+    async def read_station_reference() -> str:
+        """Read the exact adapted bimanual YAM1 controller API and frame/limit notes."""
+        return (Path(__file__).resolve().parents[1] / 'docs/YAM1-CONTROLLER-API.md').read_text()
     async def write_controller(code: str) -> str:
-        """Write controller.py defining run(env), using the official PlaygroundSim2Real API."""
+        """Write controller.py defining run(env) using the adapted YAM1 API from read_station_reference."""
         import ast
         if len(code.encode()) > 160000:
             raise ValueError('Controller is too large')
@@ -214,7 +221,7 @@ async def run_agent(store, ident, skills):
         store.event(ident, 'generating', 'Controller written; preparing its actual simulation')
         return 'controller.py saved'
     async def simulate_controller() -> dict:
-        """Run controller.py in the isolated single-arm reference MuJoCo scene and return actual results."""
+        """Run controller.py in isolated bimanual YAM1 MuJoCo and return actual results and limitations."""
         nonlocal last_execution
         async with tool_lock:
             store.event(ident, 'simulating', 'Running the generated controller in MuJoCo and recording its behavior')
@@ -222,22 +229,23 @@ async def run_agent(store, ident, skills):
         return last_execution
     # Official SDK custom-tool/skills interface; all builtin tools disabled.
     # Only generated code in a keyless, offline per-run container can execute.
-    names = ['read_robotics_reference', 'write_controller', 'simulate_controller']
+    names = ['read_robotics_reference', 'read_station_reference', 'write_controller', 'simulate_controller']
     config = LocalAgentConfig(model=MODEL, api_key=os.environ['GEMINI_API_KEY'],
         capabilities=CapabilitiesConfig(enabled_tools=[], enable_subagents=False),
-        tools=[read_robotics_reference, write_controller, simulate_controller],
+        tools=[read_robotics_reference, read_station_reference, write_controller, simulate_controller],
         policies=[deny('*'), *[allow(name) for name in names]],
         budget_config=BudgetConfig(max_model_calls=12, max_total_tokens=64000),
         retry_config=RetryConfig(api_retry=ModelAPIRetryConfig(max_retries=0), model_output_retry=ModelOutputRetryConfig(max_retries=0)),
         workspaces=[str(workspace)], skills_paths=[str(skills)],
         system_instructions=(
             'You are the Gemini Robotics worker. Use the installed Google Robotics skills, starting '
-            'with mujoco-playground/SKILL.md via read_robotics_reference. Write a controller.py '
-            'defining run(env), where env is the official PlaygroundSim2Real YAM environment in simulation. '
+            'with mujoco-playground/SKILL.md via read_robotics_reference, then read_station_reference. Write a controller.py '
+            'defining run(env), where env is the adapted bimanual YAM1 environment with env.left and env.right. '
             'Use write_controller and simulate_controller to execute and inspect actual results; fix failures. '
-            'This deployment currently provides the official single-arm reference scene, not a calibrated '
-            'bimanual BluPe YAM1 digital twin. Explain this limit and do not claim physical/task qualification. '
-            'The run environment uses mode=sim, control_period_s=.1, reset_to_hover=False. '
+            'The model has the installed arm/tool geometry, native joint limits and provisional camera calibration. '
+            'Robot dynamics are nominal, and current object/contact reconstruction is pending. Explain these limits '
+            'and do not claim physical or manipulation qualification. Do not silently use the stock single-arm API. '
+            'The run uses10Hz canonical packets, native-default simulated joint settling, no automatic hover or park. '
             'Use observable images and joint feedback, not privileged object poses. Keep simulation '
             'bounded to 60 simulated seconds. No physical hardware or network is available in execution. '
             'The container handles report.json and simulation.mp4 recording. Never fabricate evidence. '
@@ -249,8 +257,34 @@ async def run_agent(store, ident, skills):
                 return
             await asyncio.sleep(.2)
     async def infer():
+        try:
+            from .station_inputs import collect_station_inputs, sdk_prompt
+        except ImportError:
+            from station_inputs import collect_station_inputs, sdk_prompt
+        store.event(ident, 'generating', 'Reading current YAM1 cameras, joints and calibration')
+        station, frames = await asyncio.to_thread(collect_station_inputs)
+        if stop.is_set() or store.get(ident)['state']=='cancelled':
+            raise asyncio.CancelledError()
+        if time.time()>=job['created_at']+job['duration_s']:
+            raise TimeoutError('Run duration expired during station observation')
+        evidence=store.root/'input-evidence'/ident
+        evidence.mkdir(parents=True,exist_ok=True,mode=0o700)
+        blobs={'station.json':(json.dumps(station,indent=2)+'\n').encode()}
+        blobs.update({'input-'+f.name+'.jpg':f.jpeg for f in frames})
+        input_artifacts=[]
+        for name,data in blobs.items():
+            fd=os.open(evidence/name,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600)
+            with os.fdopen(fd,'wb') as file:file.write(data)
+            input_artifacts.append(dict(name=name,kind='input',url=f'/api/runs/{ident}/artifacts/{name}',bytes=len(data),sha256=hashlib.sha256(data).hexdigest()))
+        fd=os.open(workspace/'station.json',os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'wb') as file:file.write(blobs['station.json'])
+        configuration={**job['configuration'], 'calibration_id':station['calibration']['calibration_id'],
+                       'station_snapshot_sha256':hashlib.sha256(blobs['station.json']).hexdigest(),
+                       'input_cameras':station['camera_frames']}
+        store.update(ident,configuration=configuration,artifacts=input_artifacts)
+        store.event(ident,'generating','Current scene captured; Hydrogen is preparing the controller')
         async with Agent(config) as agent:
-            response = await agent.chat(job['prompt'])
+            response = await agent.chat(sdk_prompt(job['prompt'],station,frames))
             text = ''
             async for token in response:
                 text += token
@@ -268,7 +302,7 @@ async def run_agent(store, ident, skills):
                 return
             raise TimeoutError('Run duration expired during controller generation/simulation')
         result = inference.result()
-        artifacts = []
+        artifacts = [item for item in store.get(ident)['artifacts'] if item.get('kind')=='input']
         for name in ('controller.py', 'simulation.mp4', 'report.json'):
             file = workspace / name
             if file.is_file() and not file.is_symlink():
@@ -371,14 +405,14 @@ def create_app(state_root=None, skills_root=None):
     @app.get('/api/runs/{ident}/artifacts/{name}')
     async def artifact(ident: uuid.UUID, name: str, request: Request):
         authenticate(request)
-        if name not in {'controller.py', 'simulation.mp4', 'report.json'}:
+        if name not in {'controller.py', 'simulation.mp4', 'report.json','station.json','input-top.jpg','input-left.jpg','input-right.jpg'}:
             raise HTTPException(404)
         job = store.get(str(ident))
         record = next((a for a in job['artifacts'] if a['name'] == name), None)
-        file = store.root / str(ident) / name
+        file = ((store.root/'input-evidence'/str(ident)) if record and record.get('kind')=='input' else (store.root/str(ident))) / name
         if not record or not file.is_file() or file.is_symlink() or hashlib.sha256(file.read_bytes()).hexdigest() != record['sha256']:
             raise HTTPException(404, 'Retained artifact unavailable')
-        return FileResponse(file, media_type={'py':'text/plain','mp4':'video/mp4','json':'application/json'}[name.rsplit('.',1)[1]])
+        return FileResponse(file, media_type={'py':'text/plain','mp4':'video/mp4','json':'application/json','jpg':'image/jpeg'}[name.rsplit('.',1)[1]])
     return app
 
 
