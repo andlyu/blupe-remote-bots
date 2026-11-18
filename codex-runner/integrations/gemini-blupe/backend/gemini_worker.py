@@ -130,7 +130,28 @@ class Store:
         return [json.loads(row[0]) for row in rows]
 
 
-def runtime_status(skills: Path):
+def provider_failure_code(message):
+    """Classify only the observed billing failure; never expose provider bodies."""
+    text = message.lower()
+    if ('http 402' in text or 'error 402' in text) and ('prepayment credits' in text or 'prepay' in text):
+        return 'google_prepay_depleted'
+    return None
+
+
+def retain_provider_failure(root, ident, message):
+    code = provider_failure_code(message)
+    if code:
+        record = dict(code=code, run_id=ident, observed_at=time.time())
+        temp = root / ('.provider-' + secrets.token_hex(8))
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as file:
+            json.dump(record, file)
+        os.replace(temp, root / 'provider-status.json')
+        print('[gemini-worker] ' + json.dumps(dict(event='provider_unavailable', code=code, run_id=ident)), flush=True)
+    return code
+
+
+def runtime_status(skills: Path, state_root: Path | None = None):
     versions = {}
     for package in ('google-antigravity', 'mujoco', 'playground', 'reaf', 'reaf-sim'):
         try:
@@ -145,12 +166,19 @@ def runtime_status(skills: Path):
         pass
     executor_ready = bool(proof.get('isolation_passed') and proof.get('simulation_passed')
                           and proof.get('image') == os.environ.get('GEMINI_SIM_IMAGE'))
-    simulation_ready = bool(os.environ.get('GEMINI_API_KEY') and skills_ready
+    provider_code = None
+    try:
+        retained = json.loads(((state_root or Path(os.environ.get('GEMINI_STATE_DIR', '/tmp/gemini-blupe-state'))) / 'provider-status.json').read_text())
+        if retained.get('code') == 'google_prepay_depleted':
+            provider_code = retained['code']
+    except (OSError, ValueError):
+        pass
+    simulation_ready = bool(not provider_code and os.environ.get('GEMINI_API_KEY') and skills_ready
                             and versions['google-antigravity'] and executor_ready)
     return dict(online=True, simulation_ready=simulation_ready, physical_ready=False,
                 model=MODEL, approach=APPROACH, versions=versions, skills_ready=skills_ready,
-                executor_ready=executor_ready, source_revision=os.environ.get('GEMINI_SOURCE_REVISION'), simulation_scope='Official single-arm reference; YAM1 matching pending',
-                message=('Reference simulation worker ready' if simulation_ready else ('Model access awaits the owner’s approval' if not os.environ.get('GEMINI_API_KEY') else 'Simulation runtime is being prepared')),
+                executor_ready=executor_ready, provider_error=provider_code, source_revision=os.environ.get('GEMINI_SOURCE_REVISION'), simulation_scope='Official single-arm reference; YAM1 matching pending',
+                message=('Google API credits are depleted; the owner needs to restore billing' if provider_code else ('Reference simulation worker ready' if simulation_ready else ('Model access awaits the owner’s approval' if not os.environ.get('GEMINI_API_KEY') else 'Simulation runtime is being prepared'))),
                 physical_message='YAM 1 adapter qualification is pending')
 
 
@@ -262,7 +290,10 @@ async def run_agent(store, ident, skills):
     except Exception as exc:
         # Provider bodies/tracebacks may echo credentials; retain a bounded class
         # and our own known error messages only in public status.
+        provider_code = retain_provider_failure(store.root, ident, str(exc))
         message = str(exc) if type(exc) in (TimeoutError, RuntimeError, json.JSONDecodeError) else type(exc).__name__
+        if provider_code:
+            message = 'Google API credits are depleted; the owner needs to restore billing'
         key = os.environ.get('GEMINI_API_KEY', '')
         if key:
             message = message.replace(key, '[redacted]')
@@ -307,20 +338,21 @@ def create_app(state_root=None, skills_root=None):
         return value
     @app.get('/health')
     async def health():
-        return runtime_status(skills)
+        return runtime_status(skills, store.root)
     @app.get('/api/state')
     async def state(request: Request):
         authenticate(request)
         who = request.headers.get('x-gemini-visitor', '')
-        return dict(worker=runtime_status(skills), runs=[{**{k:j[k] for k in PUBLIC_FIELDS}, 'owned':store.owned(j['id'], who)} for j in store.recent()])
+        return dict(worker=runtime_status(skills, store.root), runs=[{**{k:j[k] for k in PUBLIC_FIELDS}, 'owned':store.owned(j['id'], who)} for j in store.recent()])
     @app.post('/api/runs')
     async def start(spec: RunInput, request: Request):
         authenticate(request)
         who = owner(request)
         if spec.mode == 'robot':
             raise HTTPException(503, 'YAM 1 adapter qualification is pending; no robot request submitted')
-        if not runtime_status(skills)['simulation_ready']:
-            raise HTTPException(503, 'Simulation dependencies or model access are not configured')
+        status = runtime_status(skills, store.root)
+        if not status['simulation_ready']:
+            raise HTTPException(503, status['message'])
         job = store.create(spec, who)
         if job['id'] not in active and job['state'] == 'queued':
             task = asyncio.create_task(queued_run(job['id']))

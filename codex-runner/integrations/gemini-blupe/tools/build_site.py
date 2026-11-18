@@ -1,8 +1,8 @@
 """Build the Sites ESM artifact from the public canonical integration source."""
 from pathlib import Path
-import argparse,json,shutil
+import argparse,json,shutil,subprocess,sys,os
 p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--project-id',required=True);args=p.parse_args()
-root=Path(__file__).resolve().parents[1];out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
+root=Path(__file__).resolve().parents[1];subprocess.run([os.environ.get('GEMINI_PREFLIGHT_PYTHON',sys.executable),str(root/'tools/preflight.py')],check=True);out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
 (out/'worker').mkdir(exist_ok=True);(out/'dist/server').mkdir(parents=True,exist_ok=True);(out/'.openai').mkdir(exist_ok=True)
 page=json.dumps((root/'site/page.html').read_text());source=(root/'site/worker.js').read_text().replace("import {PAGE} from './page.js';",'const PAGE = '+page+';')
 (out/'worker/index.js').write_text(source);(out/'dist/server/index.js').write_text(source)

@@ -75,6 +75,18 @@ class WorkerTests(unittest.TestCase):
             status,_=asyncio.run(request(app,'/api/runs/'+row['id']+'/stop','POST',{}, {'x-gemini-site-token':'test-secret','x-gemini-visitor':'a'*64}));self.assertEqual(status,200)
             status,data=asyncio.run(request(app,'/api/state',headers={'x-gemini-site-token':'test-secret','x-gemini-visitor':'a'*64}));self.assertEqual(status,200);self.assertTrue(data['runs'][0]['owned']);self.assertNotIn('private@example.test',json.dumps(data));self.assertEqual(data['runs'][0]['state'],'cancelled')
 
+    def test_billing_failure_is_specific_persistent_and_contains_no_provider_body(self):
+        message='System step error (HTTP 402): Your prepayment credits are depleted. secret-provider-body'
+        code=w.retain_provider_failure(self.store.root,str(self.spec.request_id),message)
+        self.assertEqual(code,'google_prepay_depleted')
+        retained=json.loads((self.store.root/'provider-status.json').read_text())
+        self.assertNotIn('secret-provider-body',json.dumps(retained))
+        with patch.dict(os.environ,{'GEMINI_API_KEY':'synthetic-key'}):
+            status=w.runtime_status(Path(self.temp.name),self.store.root)
+        self.assertFalse(status['simulation_ready']);self.assertEqual(status['provider_error'],code)
+        self.assertIn('credits are depleted',status['message'])
+        self.assertIsNone(w.provider_failure_code('HTTP 429 RESOURCE_EXHAUSTED rate limit'))
+
     def test_worker_requires_site_authentication(self):
         app=w.create_app(self.temp.name)
         with patch.dict(os.environ,{'GEMINI_SITE_TOKEN':'test-secret'}):

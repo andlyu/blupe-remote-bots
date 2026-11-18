@@ -41,3 +41,16 @@ not yet a calibrated bimanual YAM1 twin. The physical adapter remains pending.
 Build backend/Containerfile, configure GEMINI_SIM_IMAGE to its sha256 image ID
 and GEMINI_EXECUTOR_PROOF to the private qualification receipt. The API itself
 needs only backend/requirements.txt; simulation dependencies remain in the image.
+
+## Required release preflight
+
+Run `python tools/preflight.py` using the backend environment before every release.
+The Site builder enforces this too; set GEMINI_PREFLIGHT_PYTHON to that environment
+when building with a different Python. See docs/COMMAND-CONTRACT.md for the
+partial command coverage and explicit remaining integration/physical gaps.
+
+Google HTTP402/prepaid-credit exhaustion is persisted as model unavailability.
+The API key was installed with explicit user approval. Current inference is
+blocked by depleted Google credits; no model or spending fallback is selected.
+After the owner restores billing, retain the original failure and perform a
+bounded actual provider check before clearing that unavailable state.

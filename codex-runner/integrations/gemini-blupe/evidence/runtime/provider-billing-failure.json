@@ -1,0 +1,16 @@
+{
+  "run_id": "af6e3759-c012-4452-b910-7ff329548cf5",
+  "runner_name": "Andrew Lyubovsky",
+  "execution_mode": "automated test",
+  "approach": "Gemini Robotics",
+  "underlying_model": "gemini-4-hydrogen",
+  "source_revision": "5f05a9c1",
+  "provider_status": 402,
+  "provider_code": "google_prepay_depleted",
+  "observed_failure_at": 1794986258.2434452,
+  "evidence": "Credential-redacted gemini-blupe service journal; first inference rejected before tool execution",
+  "controller_generated": false,
+  "simulation_started": false,
+  "robot_session_created": false,
+  "notification_sent": false
+}
