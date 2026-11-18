@@ -1,0 +1,28 @@
+{
+  "image": "sha256:5ad3bffb35b8d926dd0f83c86f9f90b378d64ed55df842330b71ea76edd7518e",
+  "isolation_passed": true,
+  "isolation_checks": {
+    "nonroot": true,
+    "host_file_hidden": true,
+    "key_absent": true,
+    "root_read_only": true,
+    "network_disabled": true,
+    "memory_limit": true,
+    "pids_limit": true,
+    "cpu_limit": true
+  },
+  "simulation_passed": true,
+  "simulation_report": {
+    "scope": "Google official single-arm reference; bimanual YAM1 matching pending",
+    "physical": false,
+    "task_success_verified": false,
+    "controller_completed": true,
+    "error": null,
+    "frames": 18,
+    "simulated_seconds": 1.8,
+    "wall_seconds": 36.617
+  },
+  "probe_wall_seconds": 40.164,
+  "checked_at": 1794984476.8806584,
+  "scope": "Official single-arm reference runtime; no generated-controller task or physical qualification"
+}

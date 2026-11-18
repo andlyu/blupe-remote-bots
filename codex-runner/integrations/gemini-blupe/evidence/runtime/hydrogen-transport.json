@@ -1,0 +1,15 @@
+{
+  "approach": "Gemini Robotics",
+  "model_requested": "gemini-4-hydrogen",
+  "runner_name": "Andrew Lyubovsky",
+  "identity_source": "authenticated Sites owner profile",
+  "execution_mode": "automated transport check",
+  "robot_session_created": false,
+  "email_submitted": false,
+  "input": "synthetic text only; no robot frames/state",
+  "sdk": "0.1.23",
+  "success": true,
+  "response": "READY",
+  "immutable_model_version": "not exposed by this check",
+  "wall_seconds": 5.839
+}

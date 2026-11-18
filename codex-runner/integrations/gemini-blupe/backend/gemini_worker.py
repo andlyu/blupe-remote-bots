@@ -72,7 +72,11 @@ class Store:
                     events=[], artifacts=[], result=None,
                     configuration=dict(approach=APPROACH, model=MODEL,
                         robot_id='yam-1', execution_mode='interactive',
-                        variant='Antigravity Robotics adapted to BluPe'))
+                        variant='Antigravity Robotics adapted to BluPe',
+                        source_revision=os.environ.get('GEMINI_SOURCE_REVISION'),
+                        simulation_image=os.environ.get('GEMINI_SIM_IMAGE'),
+                        robotics_plugin='9cb7f624c4d7c50859a39f1d49d088990429a83d',
+                        mujoco_playground='c9de052f099a36be915af38344f427aacdbf3abe'))
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             old = db.execute('SELECT owner,data FROM runs WHERE id=?', (data['id'],)).fetchone()
@@ -141,8 +145,8 @@ def runtime_status(skills: Path):
                             and versions['google-antigravity'] and executor_ready)
     return dict(online=True, simulation_ready=simulation_ready, physical_ready=False,
                 model=MODEL, approach=APPROACH, versions=versions, skills_ready=skills_ready,
-                executor_ready=executor_ready, simulation_scope='Official single-arm reference; YAM1 matching pending',
-                message=('Reference simulation worker ready' if simulation_ready else 'Simulation runtime is being prepared'),
+                executor_ready=executor_ready, source_revision=os.environ.get('GEMINI_SOURCE_REVISION'), simulation_scope='Official single-arm reference; YAM1 matching pending',
+                message=('Reference simulation worker ready' if simulation_ready else ('Model access awaits the owner’s approval' if not os.environ.get('GEMINI_API_KEY') else 'Simulation runtime is being prepared')),
                 physical_message='YAM 1 adapter qualification is pending')
 
 
