@@ -1,0 +1,12 @@
+{
+  "site": "https://gemini-blupe.andlyu.chatgpt.site",
+  "version": 7,
+  "site_source": "bcb436df2455765665ad3c51b7a8ee10bc97a2b2",
+  "deployment_id": "appgdep_6afe150d5848819196c2d0847deaf591",
+  "status": "succeeded",
+  "updated_at": "2026-11-18T21:13:53.535699+00:00",
+  "shared_source": "8ae29dd43274bfab02ed6c03d58651c7c832c0c9",
+  "production_api": "e075e8d3",
+  "physical_ready": false,
+  "scope": "Website/history UI update; new host executor packaged but not deployed"
+}

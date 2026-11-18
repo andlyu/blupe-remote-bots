@@ -682,3 +682,11 @@ eight source files in the previously qualified runtime image remain unchanged.
 Production API stays e075e8d3; no key transfer, model retry, spending, queue entry,
 robot command or email. Full task-scene, model and physical acceptance remain
 unchecked; checklist1/17. See docs/CONTROLLER-HANDOFF.md.
+
+Publication checkpoint21:15UTC: public Site7/sourcebcb436df2455765665ad3c51b7a8ee10bc97a2b2
+deployed successfully. Actual published history selection shows original failed
+provider-credit events and disabled actions; cropped proof/site receipt are in
+evidence/controller-handoff. New host source8ae29dd4/archive remains prepared,
+not deployed. Canonical51-test preflight passes; no checkboxes changed. Current
+provider state remains credits depleted; no funding, SSH-access or station reply.
+No further model call, spending, key transfer, queue entry, robot action or email.
