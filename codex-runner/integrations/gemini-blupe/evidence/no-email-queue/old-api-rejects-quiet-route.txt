@@ -1,0 +1,8 @@
+[queue] {"event":"coordinator_started","instance_id":"d8ba2198bf3a441787e1e668019b9a0a","timestamp":1795039841.073449,"time_utc":"2026-11-18T22:10:41.073449+00:00"}
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+test_unknown_quiet_route_never_queues_or_sends (__main__.LegacyQueueEmailContractTests) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.008s
+
+OK

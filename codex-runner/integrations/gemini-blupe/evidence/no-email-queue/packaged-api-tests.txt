@@ -1,0 +1,16 @@
+[queue] {"event":"coordinator_started","instance_id":"c37528bc52b4427e809b924acc2f87e8","timestamp":1795039843.745069,"time_utc":"2026-11-18T22:10:43.745069+00:00"}
+[queue-email] published
+[queue-email] published
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+test_malformed_flags_rejected_before_queue_and_notification (__main__.QueueEmailContractTests) ... ok
+test_omitted_or_true_flag_preserves_existing_mock_email_behavior (__main__.QueueEmailContractTests) ... ok
+test_queue_opt_out_does_not_change_fault_alert_path (__main__.QueueEmailContractTests) ... ok
+test_quiet_endpoint_defaults_to_no_email_and_rejects_conflicting_requests (__main__.QueueEmailContractTests) ... ok
+test_quiet_endpoint_refreshes_existing_registry_and_preserves_registration (__main__.QueueEmailContractTests) ... ok
+test_quiet_join_keeps_identity_without_publishing_email (__main__.QueueEmailContractTests) ... ok
+test_schema_and_round_trip_keep_default_and_other_duration_rules (__main__.QueueEmailContractTests) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.293s
+
+OK

@@ -95,3 +95,8 @@ See [controller handoff](docs/CONTROLLER-HANDOFF.md) for the reproduced old bug,
 regressions and precise evidence limits. This host update is prepared, not yet
 deployed; real worker qualification remains pending SSH access. Existing image
 runtime source is unchanged. Model/task-scene/physical acceptance remains open.
+
+Gemini queue creation uses a dedicated no-email endpoint under the owner's
+no-email instruction. See [no-email admission](docs/NO-EMAIL-QUEUE.md). The
+canonical validator/source-image files are unchanged; the backend overlay and
+new worker still require their deployment/actual qualification steps.

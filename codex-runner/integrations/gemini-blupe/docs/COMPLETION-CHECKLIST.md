@@ -690,3 +690,18 @@ evidence/controller-handoff. New host source8ae29dd4/archive remains prepared,
 not deployed. Canonical51-test preflight passes; no checkboxes changed. Current
 provider state remains credits depleted; no funding, SSH-access or station reply.
 No further model call, spending, key transfer, queue entry, robot action or email.
+
+## No-email queue prerequisite — November18,2026
+
+Live contracts and deployed image audit show queue-arrival emails are enabled
+and independent of email_run_video. No physical queue request has been made.
+Prepared dedicated no-email API endpoint preserves normal admission/auth/default
+notifications and fault alerts. The existing image rejects this endpoint before
+queue/mail; the patched image passes7offline ASGI/Mock-publisher checks. The
+Gemini client retains actual human attribution through the canonical serializer
+and has no email-endpoint fallback across unsupported versions, rollback or
+ambiguous POST outcomes. Five client/transport-spy checks pass.
+
+No new model, robot, identity submission or real email occurred. Backend extension
+and worker are not activated yet; physical orchestration and all previously
+unverified acceptance remain open. No checkbox changed; full objective unchanged.

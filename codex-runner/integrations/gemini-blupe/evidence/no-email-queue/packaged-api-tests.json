@@ -1,0 +1,18 @@
+[
+  {
+    "scope": "Packaged ASGI, local Mock publisher, no network/real queue/email/robot",
+    "label": "legacy-endpoint-safe",
+    "image": "sha256:505e10705c7c3f6fe756d9dcce7d591299359746cd206cf4f74bae7bffc4dfdc",
+    "exit_code": 0,
+    "wall_s": 2.6358838340092916,
+    "output": "queue-legacy-endpoint-safe.txt"
+  },
+  {
+    "scope": "Packaged ASGI, local Mock publisher, no network/real queue/email/robot",
+    "label": "quiet-endpoint-green",
+    "image": "sha256:bbf615cbea25b17f779272f08c7f3108474b7b91bd20f2fa4d33512d4e207237",
+    "exit_code": 0,
+    "wall_s": 2.945269375006319,
+    "output": "queue-quiet-endpoint-green.txt"
+  }
+]

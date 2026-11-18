@@ -1,3 +1,4 @@
 google-antigravity==0.1.23
 fastapi==0.163.2
 uvicorn==0.54.0
+websocket-client==1.9.0

@@ -52,6 +52,10 @@ required += ('SimulationBindingTests.test_edit_after_simulation_cannot_complete_
              'ExecutorBindingTests.test_cleanup_failure_cannot_promote_simulation_or_copy_live_outputs',
              'SimulationBindingTests.test_identical_source_write_reuses_valid_execution_without_extra_simulation',
              'SimulationBindingTests.test_resimulation_restores_host_scene_after_generated_workspace_mutation')
+required += ('QuietSessionTests.test_real_serializer_uses_same_queue_with_identity_and_both_emails_disabled',
+             'QuietSessionTests.test_unsupported_or_contradictory_contract_sends_no_identity_or_queue_post',
+             'QuietSessionTests.test_rollback_after_capability_read_never_falls_back_to_email_endpoint',
+             'QuietSessionTests.test_ambiguous_queue_creation_timeout_is_not_retried')
 if any(not any(name.endswith(case) for name in cases) for case in required):
     raise SystemExit('Required command/readiness coverage is missing')
 result = unittest.TextTestRunner(verbosity=2).run(suite)
@@ -69,7 +73,7 @@ with tempfile.TemporaryDirectory(prefix='gemini-preflight-') as directory:
 receipt = dict(scope='Offline packet compiler, real RunnerController/client serializer, bimanual geometry/Google IK, worker persistence/readiness and gateway; no physical or model task qualification',
                passed=True, python=sys.version.split()[0], tests=result.testsRun,
                elapsed_wall_s=round(time.monotonic()-started, 4),
-               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','tests/test_simulation_binding.py','site/worker.js','site/page.html','tools/preflight.py')},
+               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','backend/quiet_session.py','tests/test_simulation_binding.py','tests/test_quiet_session.py','site/worker.js','site/page.html','tools/preflight.py')},
                validator_sha256=hashlib.sha256((args.runner_root / 'src/remote_yam/session.py').read_bytes()).hexdigest(),
                native_safety_sha256=hashlib.sha256((args.runner_root / 'config/controller-workspaces/native-both-20260929.safety.json').read_bytes()).hexdigest())
 if args.receipt:
