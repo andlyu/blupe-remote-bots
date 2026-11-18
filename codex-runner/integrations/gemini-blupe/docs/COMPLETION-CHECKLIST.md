@@ -646,3 +646,20 @@ Only website existence is verified. Model-generated YAM1 task, matched task
 scene/contact, production physical composition, native Cartesian/contact checks,
 representative manipulation, timing and retained physical replay remain open.
 No checkboxes changed and full objective is unchanged.
+
+## Public website checkpoint — 2026-11-18 16:08 UTC
+
+Existing public Gemini Site version6 deployed successfully, source
+4e31dd1ee58e1c2f3e20dd1743472b42aa2403c0, at
+https://gemini-blupe.andlyu.chatgpt.site . Actual browser confirms retained BluPe
+layout, simulation/results panel, editable identity defaults, disabled Run/Simulate
+when unavailable, preserved failed-run history and working camera view switching.
+Offline camera empty states no longer show broken-image icons or retry flicker.
+Cropped screenshot evidence/common-runtime/site-v6.png excludes private contacts.
+No current physical or model success is implied by the screenshot.
+
+Production API remains e075e8d3; the new source-bound worker archive is prepared,
+not deployed. Existing SSH access is unreachable, and temporary current-network
+access approval is pending. Approved key remains installed; Google funding and
+station connectivity remain pending. All previously unchecked acceptance items
+are still unchecked (1/17 checked); no model/robot request or email was sent.
