@@ -26,8 +26,16 @@ Seven packaged ASGI tests use a Mock publisher with networking disabled; the old
 image separately rejects the new route with zero queue/email calls. No real
 queue or email was used to test this.
 
-The backend extension is prepared, not yet activated. Gemini's new worker release
-is not deployed while SSH access is pending. Its original model-key approval
+The backend extension is active: existing Session API deployment60/image62,
+manifest acb46843a957a10fa7c1eb2c21d23a67b564fe3073d0058d652bc02a53343b66.
+Public health/contracts match the tested21-schema image. Existing environment,
+commands, ports and endpoint/health check compare equal to deployment59 except
+the image. Calibration is unchanged; the connected Robo-house station recovered
+and reported DISABLED. No queue/identity POST was needed for verification.
+
+Gemini's new worker release is not deployed while SSH access is pending. Its original model-key approval
 remains valid, but Google credits and YAM1 source connectivity are unresolved.
 Physical Run stays unavailable. This is a protocol/notification prerequisite,
 not physical/model/task-scene/contact/timing or replay qualification.
+
+Production receipt: [evidence/no-email-queue/production-api.json](../evidence/no-email-queue/production-api.json). A plain Python site request received403; the actual browser reload rendered the published Gemini page and unavailable Run/Simulate controls. This is not a model or physical result. The worker archive now includes its pinned requirements and this protocol reference; installing a source package alone does not qualify a physical workflow.

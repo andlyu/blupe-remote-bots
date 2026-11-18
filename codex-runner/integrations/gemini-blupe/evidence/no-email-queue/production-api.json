@@ -1,0 +1,67 @@
+{
+  "observed_at": "2026-11-18T22:44:06.425834+00:00",
+  "deployment": 60,
+  "active": true,
+  "image": ":yam-session-api.gemini-no-email-20261118.62",
+  "digest": "sha256:acb46843a957a10fa7c1eb2c21d23a67b564fe3073d0058d652bc02a53343b66",
+  "public_health": {
+    "ok": true,
+    "schema_version": 1
+  },
+  "contracts_match_tested_image": true,
+  "contracts_count": 21,
+  "other_existing_contracts_unchanged_except_optional_email_flag": true,
+  "environment_command_ports_healthcheck_unchanged": true,
+  "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+  "queues": [
+    {
+      "robot_id": "robot-3652c537a175cbae",
+      "queued": 0,
+      "stations": []
+    },
+    {
+      "robot_id": "robot-8b211688074deeb5",
+      "queued": 0,
+      "stations": []
+    },
+    {
+      "robot_id": "robot-abecb4cd868ab24b",
+      "queued": 0,
+      "stations": []
+    },
+    {
+      "robot_id": "robot-ba8413962083809c",
+      "queued": 0,
+      "stations": [
+        {
+          "connected": true,
+          "mode": "DISABLED",
+          "observed_at": 1795041845.2288394
+        }
+      ]
+    },
+    {
+      "robot_id": "robot-d587bd418fe66942",
+      "queued": 0,
+      "stations": []
+    },
+    {
+      "robot_id": "yam-1",
+      "queued": 0,
+      "stations": []
+    }
+  ],
+  "gemini_site_urllib_status": 403,
+  "site_browser_proof": "Fresh CUA browser reload rendered Gemini title, prompt/library, camera tabs and unavailable Run/Simulate controls; no form submission",
+  "worker": {
+    "online": true,
+    "simulation_ready": false,
+    "physical_ready": false,
+    "source_revision": "e075e8d3",
+    "provider_error": "google_prepay_depleted"
+  },
+  "no_queue_or_identity_submitted": true,
+  "no_email_or_robot_or_model_request": true,
+  "seconds": 4.8744065840000985,
+  "site_browser_verified_recorded_at": "2026-11-18T22:44:47.869192+00:00"
+}

@@ -705,3 +705,9 @@ ambiguous POST outcomes. Five client/transport-spy checks pass.
 No new model, robot, identity submission or real email occurred. Backend extension
 and worker are not activated yet; physical orchestration and all previously
 unverified acceptance remain open. No checkbox changed; full objective unchanged.
+
+## No-email API activation — 2026-11-18 22:44UTC
+
+Existing Session API deployment60 is ACTIVE, image62/digestacb46843a957a10fa7c1eb2c21d23a67b564fe3073d0058d652bc02a53343b66. Read-only public contracts match all21 tested schemas; private environment/command/ports and public endpoint/health-check compare unchanged to deployment59 except image. YAM1 calibration remains9773d518; connected Robo-house recovered DISABLED. YAM1 has no connected station. Source495fd611 introduced the no-email canonical queue client; required56-test packaging gate passes. No identity/queue POST, real email, model retry or robot command occurred. See docs/NO-EMAIL-QUEUE.md and evidence/no-email-queue/production-api.json.
+
+Site7 remains published; a fresh browser reload rendered Gemini, camera tabs, prompt/library and disabled Run/Simulate. A Python HTTP probe received403 and is retained accurately rather than counted as browser failure/success. The new worker is packaged, not deployed (production e075e8d3). Google credits, worker SSH access and station connectivity remain unresolved. Physical orchestration, matched task-scene/contact, generated-model task, onset and physical replay are still open. Checklist remains1/17; full objective unchanged.

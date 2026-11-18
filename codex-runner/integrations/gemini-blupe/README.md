@@ -98,5 +98,5 @@ runtime source is unchanged. Model/task-scene/physical acceptance remains open.
 
 Gemini queue creation uses a dedicated no-email endpoint under the owner's
 no-email instruction. See [no-email admission](docs/NO-EMAIL-QUEUE.md). The
-canonical validator/source-image files are unchanged; the backend overlay and
-new worker still require their deployment/actual qualification steps.
+canonical validator/source-image files are unchanged; the backend overlay is active (Session API deployment60). The new worker
+remains prepared pending access and actual qualification.
