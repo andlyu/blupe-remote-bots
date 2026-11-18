@@ -2,7 +2,7 @@
  * This preserves A/V timing through WebRTC and HLS, including stalls/seeks.
  * Browser policy: docs/refs/browser-audio/INDEX.md. No browser microphone input.
  */
-function createRobotAudio({button, status, streamFor, enabled = true,
+function createRobotAudio({button, status, streamFor, enabled = false,
   visible = true, remember = () => {}}) {
   let robot = '', media = null, hasAudio = false, wanted = enabled;
   let generation = 0, needsAction = null;
@@ -72,9 +72,9 @@ if (typeof window !== 'undefined') {
     button.type = 'button'; button.id = 'robotAudioToggle'; button.className = 'robotAudioToggle';
     status.id = 'robotAudioStatus'; status.setAttribute('role', 'status');
     host.append(' ', button, ' ', status);
-    let streams = {}, enabled = true;
+    let streams = {}, enabled = false;
     const preferenceKey = 'blupe-robot-audio';
-    try { enabled = localStorage.getItem(preferenceKey) !== 'muted'; } catch (_) {}
+    try { enabled = localStorage.getItem(preferenceKey) === 'enabled'; } catch (_) {}
     const control = createRobotAudio({button, status, enabled, visible:!document.hidden,
       streamFor: robot => streams[robot],
       remember: value => { try { localStorage.setItem(preferenceKey, value ? 'enabled' : 'muted'); } catch (_) {} }
@@ -86,7 +86,7 @@ if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => control.setVisible(false));
     window.addEventListener('pageshow', () => control.setVisible(!document.hidden));
     window.addEventListener('storage', event => {
-      if (event.key === preferenceKey) control.setEnabled(event.newValue !== 'muted');
+      if (event.key === preferenceKey) control.setEnabled(event.newValue === 'enabled');
     });
     fetch('/synchronized/audio-config.json', {cache:'no-store', credentials:'same-origin', signal:AbortSignal.timeout(5000)})
       .then(response => response.ok ? response.json() : null).then(config => {
