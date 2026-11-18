@@ -1,0 +1,66 @@
+{
+  "scope": "Installed bimanual YAM1 kinematics, articulated fingers and provisional pinhole camera transforms",
+  "physical": false,
+  "task_success_verified": false,
+  "geometry_qualified": false,
+  "robot_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+  "scene_source_sha256": "7f82c3ff37df703978064b74c0dfb637449613640211e2e27a25dc6b10072f1b",
+  "installed_tool_sha256": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652",
+  "native_safety_sha256": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f",
+  "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+  "native_joint_calibration_id": "6b24647ab8fe4b87dcee2cfb0100b1df8a7b8133ac8839bb37b0ba1cf37260df",
+  "base_geometry": {
+    "spacing_m": 0.5,
+    "convention": "Parallel level arm bases; common world midpoint; left y=+spacing/2, right y=-spacing/2.",
+    "independently_surveyed": false
+  },
+  "model_nq": 16,
+  "arm_qpos_indices": {
+    "left": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "right": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ]
+  },
+  "finger_qpos_indices": {
+    "left": [
+      6,
+      7
+    ],
+    "right": [
+      14,
+      15
+    ]
+  },
+  "limitations": [
+    "Camera extrinsics retain source provisional accuracy; no new physical calibration.",
+    "Pinhole images do not reproduce captured Brown lens distortion.",
+    "Arm inertias/gains are nominal canonical values; finger gains are the Google YAM Pro simulation assumption.",
+    "Arm visuals remain collision-disabled and finger meshes use convex contacts; this is not a qualified manipulation collision model.",
+    "Support plane is illustrative; native workspace/contact guards are unchanged."
+  ],
+  "controller": "Handwritten engineering rollout; not Hydrogen generated",
+  "frames": 60,
+  "simulated_seconds": 5.999999999999561,
+  "wall_seconds": 87.544,
+  "mujoco_version": "4.0.1",
+  "warning_counts": {},
+  "video": "yam1-engineering.mp4",
+  "camera_order": [
+    "top",
+    "left",
+    "right"
+  ],
+  "pinhole_K_error_max_px": 1.9310899460833753e-05
+}

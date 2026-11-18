@@ -23,8 +23,8 @@ the private worker environment. Run uvicorn backend.gemini_worker:app on a
 loopback/private interface. Public website proxy configuration uses BACKEND_ORIGIN
 and BACKEND_TOKEN through Sites environment variables, never browser code.
 
-No model key, runner email, private state, recording or worker token belongs in
-source. Simulation runs retain actual controller/report/video with checksums;
+No model key, runner email, private operational state or worker token belongs in
+source. Public demo evidence is published under the harness contract. Simulation runs retain actual controller/report/video with checksums;
 agent self-report is not physical or task-success verification.
 
 ## Isolated reference simulation
@@ -44,7 +44,10 @@ needs only backend/requirements.txt; simulation dependencies remain in the image
 
 ## Required release preflight
 
-Run `python tools/preflight.py` using the backend environment before every release.
+Run `python tools/preflight.py` using the isolated Python3.12 Google Playground
+MuJoCo4 environment plus backend requirements before every release. Set
+GEMINI_SKILLS_ROOT to the pinned plugin skills directory. The API-only backend
+environment does not contain simulation dependencies.
 The Site builder enforces this too; set GEMINI_PREFLIGHT_PYTHON to that environment
 when building with a different Python. See docs/COMMAND-CONTRACT.md for the
 partial command coverage and explicit remaining integration/physical gaps.
@@ -54,3 +57,10 @@ The API key was installed with explicit user approval. Current inference is
 blocked by depleted Google credits; no model or spending fallback is selected.
 After the owner restores billing, retain the original failure and perform a
 bounded actual provider check before clearing that unavailable state.
+
+## Bimanual adapter checkpoint
+
+The offline installed-geometry/Google-IK adapter and isolated generated-controller
+bridge are implemented and tested; see [YAM1 adapter evidence](docs/YAM1-ADAPTER.md).
+They are not enabled in the production worker yet. Physical Run, model-generated
+YAM1 simulation, contact qualification and full checklist acceptance remain open.

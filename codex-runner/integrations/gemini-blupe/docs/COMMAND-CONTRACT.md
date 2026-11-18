@@ -36,3 +36,16 @@ the compiler/client boundary, not native predictive-contact behavior, a full
 RunnerController/Google controller composition, Cartesian mapping, matched
 bimanual dynamics, physical onset or manipulation/replay success. These required
 integration checks remain open; physical Run stays unavailable.
+
+## Bimanual bridge continuation
+
+The required release preflight now also exercises installed two-arm/finger FK,
+provisional pinhole calibration, Google generic IK/residual validation and the
+container RPC facade. Real RunnerController mock-station tests pass through the
+actual canonical HTTP serializer, including local no-dispatch rejection/new-request
+revision, exact gripper endpoints, Stop discarding late packets, request cursors
+and matching settled completion. A real network-disabled container protocol proof
+is retained separately. These remain offline software proofs: native contact
+behavior, fresh physical calibration/state binding, Cartesian endpoint-to-dispatch
+coverage, manipulation, onset timing and live/history acceptance are not passed.
+See [YAM1 adapter](YAM1-ADAPTER.md). Physical Run remains unavailable.

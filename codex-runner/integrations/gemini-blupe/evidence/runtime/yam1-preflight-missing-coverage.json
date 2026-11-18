@@ -1,0 +1,6 @@
+{
+  "scope": "Negative required-preflight check: remove YAM1 scene/IK test module",
+  "returncode": 1,
+  "output": "Required command/readiness coverage is missing\n",
+  "expected_failure": true
+}

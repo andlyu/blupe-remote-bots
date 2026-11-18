@@ -1,0 +1,9 @@
+{
+  "scope": "Offline packet compiler, real RunnerController/client serializer, bimanual geometry/Google IK, worker persistence/readiness and gateway; no physical or model task qualification",
+  "passed": true,
+  "python": "3.12.9",
+  "tests": 28,
+  "elapsed_wall_s": 1.4041,
+  "validator_sha256": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb",
+  "native_safety_sha256": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f"
+}

@@ -1,0 +1,27 @@
+{
+  "scope": "Actual rootless channel, host compiler and canonical HTTP serializer to a zero-network transport spy",
+  "mode": "oversized",
+  "passed": true,
+  "physical": false,
+  "model_called": false,
+  "image": "sha256:5ad3bffb35b8d926dd0f83c86f9f90b378d64ed55df842330b71ea76edd7518e",
+  "ready_wall_s": 1.259419150883332,
+  "wall_s": 2.6087164899799973,
+  "packets": 0,
+  "waypoints": 0,
+  "complete": false,
+  "rejection": "Controller JSON line exceeded its packet bound",
+  "controller": "Handwritten engineering proof",
+  "commands": [],
+  "cleanup_confirmed": true,
+  "source_sha256": {
+    "controller_entry.py": "c2e68d1ab8589259ff5c17bfc2479cb0fc2bcddfaabf5b9cabc4f697022b4437",
+    "yam1_environment.py": "0d408301d7bb45d0ef1506f6c57d345b921369c661569b8f48ac51133aa37c75",
+    "yam1_scene.py": "a9b57fc7fabc4a22e2118a16edb526998e0c9cff9d2b2dd3734b65fdb20ea37b",
+    "yam1_kinematics.py": "d359b82d73a10e796804a0f166f29616adc8258c76e0eeb9ae997273c52462f1",
+    "controller.py": "6a0e291d9cac79c51b8e53feff66193550af87f6b443a205fdb9d882d3c01506",
+    "host_channel.py": "6b6158a03ce7710f0ef79afb4c783d5c87563ca9010aa04fd6245cc2b71c8fe9",
+    "host_compiler.py": "f8bbc3bce57b18a0a89ecd978219f52715521b0a6171e4ea11161909e8347172",
+    "canonical_validator.py": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb"
+  }
+}
