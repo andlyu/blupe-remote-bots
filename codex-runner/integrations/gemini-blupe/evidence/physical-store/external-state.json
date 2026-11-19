@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-11-19T01:19:10.775588+00:00",
+  "worker": {
+    "online": true,
+    "source_revision": "e075e8d3",
+    "simulation_ready": false,
+    "physical_ready": false,
+    "provider_error": "google_prepay_depleted",
+    "model": "gemini-4-hydrogen"
+  },
+  "yam1_stations": [],
+  "yam1_queue_entries": 0,
+  "scope": "GET public readiness and queue only; no identity, model, queue POST, motor or email",
+  "google_balance": "not queried; provider_error is retained failure state"
+}

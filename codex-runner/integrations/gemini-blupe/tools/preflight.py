@@ -76,6 +76,18 @@ required += ('PhysicalRunTests.test_capture_start_failure_stops_the_created_sess
              'PhysicalRunTests.test_bound_rootless_source_changed_or_closed_is_zero_process_and_queue',
              'ReplayTests.test_gemini_capture_publish_and_recovery_keep_actual_approach',
              'ReplayTests.test_real_encoder_immutable_clip_range_reader_and_public_privacy')
+required += ('PhysicalStoreTests.test_real_pipeline_retains_quiet_identity_original_start_and_authenticated_video_range',
+             'PhysicalStoreTests.test_http_stop_remains_pending_until_real_controller_and_recorder_close',
+             'PhysicalStoreTests.test_cleanup_failure_still_retains_finished_camera_footage_without_claiming_completion',
+             'PhysicalStoreTests.test_scripted_sdk_handoff_calls_physical_composition_only_for_matching_source',
+             'PhysicalStoreTests.test_simulation_mode_cannot_reach_any_physical_factory',
+             'PhysicalStoreTests.test_stop_and_late_progress_are_atomic_and_typed_projection_excludes_private_fields',
+             'PhysicalStoreTests.test_start_timestamp_idempotence_and_old_rows_remain_readable',
+             'PhysicalStoreTests.test_stop_before_handoff_is_zero_identity_queue_or_process',
+             'PhysicalStoreTests.test_missing_or_wrong_capture_is_a_retained_gap_not_fake_physical_video',
+             'PhysicalStoreTests.test_store_transactions_close_connections_and_keep_durable_state',
+             'PhysicalStoreTests.test_native_rejection_corrected_dispatch_and_measured_completion_reach_store_once',
+             'PhysicalStoreTests.test_native_event_projection_never_exposes_native_text_details_or_nonfinite_clock')
 if any(not any(name.endswith(case) for name in cases) for case in required):
     raise SystemExit('Required command/readiness coverage is missing')
 result = unittest.TextTestRunner(verbosity=2).run(suite)
@@ -93,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix='gemini-preflight-') as directory:
 receipt = dict(scope='Offline packet compiler, canonical lifecycle/serializer, synthetic real-encoded recorder/recovery, bimanual geometry/Google IK, worker and gateway; no physical or model task qualification',
                passed=True, python=sys.version.split()[0], tests=result.testsRun,
                elapsed_wall_s=round(time.monotonic()-started, 4),
-               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/physical_run.py','backend/controller_channel.py','tests/test_physical_run.py','backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','backend/quiet_session.py','tests/test_simulation_binding.py','tests/test_quiet_session.py','site/worker.js','site/page.html','tools/preflight.py')},
+               integration_source_sha256={name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in ('backend/station_inputs.py','backend/physical_store.py','backend/physical_evidence.py','tests/test_physical_store.py','backend/physical_run.py','backend/controller_channel.py','tests/test_physical_run.py','backend/executor.py','backend/gemini_worker.py','backend/simulation_artifacts.py','backend/quiet_session.py','tests/test_simulation_binding.py','tests/test_quiet_session.py','site/worker.js','site/page.html','tools/preflight.py')},
                native_replay_tests=len(replay_cases),
                native_replay_sha256=hashlib.sha256((args.runner_root/'src/remote_yam/roboharness_replay.py').read_bytes()).hexdigest(),
                native_replay_tests_sha256=hashlib.sha256(recorder_tests.read_bytes()).hexdigest(),

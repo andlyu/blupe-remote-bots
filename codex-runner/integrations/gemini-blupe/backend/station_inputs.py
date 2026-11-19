@@ -17,11 +17,16 @@ from urllib.parse import urljoin
 API_ORIGIN = 'https://yam-session-api.n5hthc3gj4cqy.us-east-1.cs.amazonlightsail.com'
 
 
-def transport_classes():
+def runner_root():
     packaged = Path(__file__).resolve().parents[1] / 'runner'
     root = Path(os.environ.get('GEMINI_RUNNER_ROOT', packaged if packaged.is_dir() else Path(__file__).resolve().parents[3]))
     if not (root/'src/remote_yam/session.py').is_file():
         raise RuntimeError('Canonical station transport is not installed')
+    return root
+
+
+def transport_classes():
+    root=runner_root()
     sys.path.insert(0,str(root/'src'))
     from remote_yam.session import HttpSessionAPI
     from remote_yam.cameras import CameraFrameSource

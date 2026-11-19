@@ -98,6 +98,11 @@ class PhysicalRun:
             cleanup_confirmed=getattr(self.channel,'cleanup_confirmed',False) is True,
             cleanup_error=self.cleanup_error,station_stop_error=self.station_stop_error)
 
+    def native_events(self):
+        # Private host-only snapshot; the Store observer projects a fixed subset.
+        journal=self.controller._interactions
+        return id(journal),journal.snapshot()['events']
+
     def stop(self,reason='user_requested'):
         # Revoke station motion first, before waiting for generated execution.
         try:self.controller.stop(reason)
@@ -121,5 +126,7 @@ class PhysicalRun:
         except Exception:
             self.cleanup_error=True
             raise
-        if self.replay_thread is not None:self.replay_thread.join(max(0,deadline-time.monotonic()))
+        finally:
+            # A failed controller cleanup must not abandon retained footage.
+            if self.replay_thread is not None:self.replay_thread.join(max(0,deadline-time.monotonic()))
         return self.status()

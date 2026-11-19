@@ -1,0 +1,32 @@
+{
+  "scope": "Offline packet compiler, canonical lifecycle/serializer, synthetic real-encoded recorder/recovery, bimanual geometry/Google IK, worker and gateway; no physical or model task qualification",
+  "passed": true,
+  "python": "3.12.9",
+  "tests": 84,
+  "elapsed_wall_s": 40.75,
+  "integration_source_sha256": {
+    "backend/station_inputs.py": "af4e512c7e52c6b82849920efcd783443bb9d3a6571cc894deb835f413f0521f",
+    "backend/physical_store.py": "abef9d32e0632c9f57d92a84f89bd53f8b590206ec4a64f37139c54ef02b4dbb",
+    "backend/physical_evidence.py": "5683ffac302ff4d81a7bb76f9993bcee1dd1376504ebc6065c514d242bbdce19",
+    "tests/test_physical_store.py": "cae1b9944461253bf2d5709f8b8d0e927c056a5bc6eb2eef21fdcc0e94b59be6",
+    "backend/physical_run.py": "5aa47b1199e5cabbba544ebccbae0a9886674754ac8f91c3732aa750453394c4",
+    "backend/controller_channel.py": "cc51383d75eaa9be4cc3656d6a661e79cf87453b883cef983aaa0712497be393",
+    "tests/test_physical_run.py": "d5e3d0b2cc7cae755185906dd88190785e25adbdf64a97b2c0d829e65c4edf80",
+    "backend/executor.py": "d368c164a7d35543e20335484551d3a840bf35f2a4f2d227d054b7c294a9b04c",
+    "backend/gemini_worker.py": "e351e7d271204be1480dbee2d853710e368c0c0259a3232c08cc0f0f0eb6edc0",
+    "backend/simulation_artifacts.py": "2be49c23ffa90945087e0d44e9b430c5207ffe58962821ef8913b82aa3a51496",
+    "backend/quiet_session.py": "16e5adeeeb12de8d84a727c6680c040c51086ed18bcbe2bb3e204c714c3fcbaa",
+    "tests/test_simulation_binding.py": "7882642a33304b87eae4de9f72b48560ea0fd4c4f0402d59b8befbde6be1071b",
+    "tests/test_quiet_session.py": "02a2f9a41db71b94b75e5ad05010040eb6c8020bb7df4f54c2cb503559fe3d53",
+    "site/worker.js": "5f6ee597379371d0e47ad28c5635180c6011f69a5937e38405f13c65b27e6a40",
+    "site/page.html": "75a6f5c2e4378b29f455ca7e4fd9591eab328f8785d4398e3f926cc3b4e12c44",
+    "tools/preflight.py": "38d41cfd38402108ecf7fc533da382df2703c48c485ccb004ac8c89154ab19f9"
+  },
+  "native_replay_tests": 9,
+  "native_replay_sha256": "6cdef1c5ce935a9ab95f54502b548356d2936f202a5329589748aad4c277bebf",
+  "native_replay_tests_sha256": "a1d02fbabce7db4f7f86843d3f934955b57da0a0b8967c0a18fb690391c87760",
+  "validator_sha256": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb",
+  "native_safety_sha256": "9a305c10a44e1093ebd21d138e992443263edb8dc5c06c3004c62371f2d3c69f",
+  "command_wall_s": 41.545,
+  "command_exit_code": 0
+}

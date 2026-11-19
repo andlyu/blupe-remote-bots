@@ -1,0 +1,29 @@
+{
+  "scope": "Actual Chrome UI over loopback-only labelled synthetic fixture; no physical/model/backend connection",
+  "browser": "Chrome",
+  "desktop_width": 1672,
+  "mobile_width": 390,
+  "mobile_scroll_width": 390,
+  "physical_clip_duration_s": 3,
+  "physical_clip_reached_end": true,
+  "playback_survived_polling": true,
+  "separate_simulation_tab": true,
+  "missing_recording_has_inline_gap": true,
+  "stop_pending_then_acknowledged": true,
+  "fixture_run_posts": 2,
+  "retry_request_id_preserved": true,
+  "retry_original_start_preserved": true,
+  "original_start": 1795049384.833,
+  "first_received_at": 1795049384.83769,
+  "viewport_reset": true,
+  "physical-store-desktop.jpg": {
+    "sha256": "52b3132e50f2fd36495e181c2d7006a6cb3fac8a6f36825d7db0cb892b722ac3",
+    "scope": "Synthetic offline UI fixture; local artifact"
+  },
+  "physical-store-mobile.jpg": {
+    "sha256": "533e2ae831148ebaa7cade10636a4f663097293a562e4be7976b08579cfa1182",
+    "scope": "Synthetic offline UI fixture; local artifact"
+  },
+  "final_own_run_status_persists_after_polling": true,
+  "actual_model_or_robot_proof": false
+}

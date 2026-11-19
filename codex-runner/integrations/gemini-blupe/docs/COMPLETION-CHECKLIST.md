@@ -728,3 +728,51 @@ host deployment or robot route activation occurred. Google credits, SSH access
 and YAM1 source remain unresolved. No model/queue/identity/email/motor request.
 Full worker/store/Stop-watcher/gateway/physical replay composition, task-scene and
 actual model/physical/timing/final-UI acceptance remain open; checklist1/17.
+
+## Current completion audit — 2026-11-19 01:20UTC
+
+Public Site8/source d12b741ae79dd092d3729a89391e0a4c028c0b93 is deployed at
+https://gemini-blupe.andlyu.chatgpt.site (deployment appgdep_6afe4cf6fd408191992b7f3b0394069c).
+Existing public audience and runtime environment revision1 are preserved.
+Final native Chrome inspection shows Gemini, the three tabs, model unavailable,
+Google funding failure and disabled Run/Simulate. No form was submitted. The
+existing key remains installed privately; no new transfer or inference occurred.
+
+Prepared Store composition, original browser Start negotiation, native fixed
+progress messages, atomic pending Stop and hash-checked physical recording/Range
+routes now pass84 required offline cases. Twelve cases specifically use the real
+Store/quiet serializer/controller with a mock station and synthetic real encoder.
+Source-to-archive186-file hashes match. Package remains local: production worker
+still e075e8d3 and is not physical-ready. See [evidence](../evidence/physical-store/)
+and [lifecycle scope](PHYSICAL-LIFECYCLE.md). Offline footage is not robot proof.
+
+| Requirement (ordered as above) | Current evidence and unmet acceptance |
+| --- | --- |
+| 1 Website/source | Passed: Site8 and public shared integration source; publication receipt |
+| 2 All public demo materials | Site/source/evidence public; real method simulation and physical artifacts not produced |
+| 3 Actual approach labels | Gemini Robotics source/run records; real selected-method execution still unverified |
+| 4 Model choice/provenance | User selected Hydrogen; official pinned refs retained; prior402, no actually resolved successful model run |
+| 5 Editable human identity | UI fields and offline fixture verified; current final page fields empty; real attributed queue path not exercised |
+| 6 Run context | Private attribution and public method separated in tested serializer; actual physical run missing |
+| 7 User/system attribution | Confirmed-human path retained; synthetic offline identities explicitly test-only; no new real queue admission |
+| 8 Command contract |84 required cases pass through canonical validator/compiler/serializer; actual new worker deployment/qualification pending |
+| 9 Representative task | No verified manipulation/object outcome; scene/contact reconstruction remains open |
+| 10 Physical website execution | Public robot API503 before dispatch; YAM1 has no connected station |
+| 11 Live arms during method | Final page shows camera gaps; no active method/physical run |
+| 12 Immediate physical replay | Source/fixture playback tested; no matching real execution/footage |
+| 13 Historical physical replay | History/fixture selection tested; no real physical history |
+| 14 Corresponding simulation review | Retained bound attempts/UI implemented; no successful selected-model task simulation |
+| 15 Run/Home-to-motion targets | Original Start retained; no actual Home/onset/correlated physical clocks; targets unverified |
+| 16 Persistent real waits | Offline native boundaries, pending Stop and final status verified; actual deployed model/robot lifecycle missing |
+| 17 Final normal-UI physical audit | Not run; external prerequisites unresolved |
+
+Checklist remains **1/17**; no visibility or acceptance exceptions adopted.
+At01:19UTC public health reports online/e075e8d3, google_prepay_depleted and both
+readiness flags false; canonical YAM1 station list is empty. This is retained
+provider failure state, not a fresh billing-balance query. Last SSH no-op timed
+out on the existing front22 route. Automatic review denied the external public-IP
+lookup/persistence for SSH repair as unapproved network-address disclosure; no
+lookup or firewall change occurred. Google funding, station recovery and the
+requested temporary SSH-repair authorization remain unanswered. These same
+external blockers persisted across at least three consecutive goal turns.
+No model substitution/retry, spending, identity/queue POST, motor command or email.

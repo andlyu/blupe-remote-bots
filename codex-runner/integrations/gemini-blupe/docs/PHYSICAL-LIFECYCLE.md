@@ -2,7 +2,7 @@
 
 This is source preparation, not a physical readiness claim. Public robot Run
 still returns503 before persistence/dispatch. Production worker remains e075e8d3;
-Site7 is unchanged. Session API60 provides the dedicated no-email admission.
+The current production worker has not received the prepared composition. Session API60 provides the dedicated no-email admission.
 Google funding, worker SSH access and YAM1 connectivity remain unresolved.
 
 The host PhysicalRun composes the existing GeneratedControllerProvider with the
@@ -50,11 +50,32 @@ public staging assets and license notices instead of only four read transports.
 Packaging executes the required gate. These files are built from their owning
 shared repository; no editable source was copied into the private repository.
 
-Still required: compose this lifecycle with the worker run store/Stop watcher and
-quiet attributed session client after source-bound simulation; expose retained
-physical receipts/video through authenticated gateway/history/UI; qualify the
-actual host executor/encoder; establish fresh matched task-scene/contact and
-native-control evidence; run the selected model and representative manipulation;
-verify original-Start/queue/Home/observed-motion timings and final normal-UI live
-and immediate/historical replay. Those remaining items are neither replaced by
-these tests nor checked off. The full checklist remains1/17.
+The worker Store now composes this lifecycle after the current source-bound
+simulation, using the dedicated no-email queue serializer with the actual runner
+identity retained privately. Stop is persisted atomically and remains pending
+until canonical acknowledgement, worker exit and recording cleanup. Native local
+rejection/dispatch/acceptance/measured-completion boundaries reach public progress
+once, retaining their native timestamps through a fixed message allowlist. Native
+config, free text, paths, capabilities and contacts are not published.
+
+The browser retains its first Run click across ambiguous retries, negotiating the
+new timestamp field with the worker for legacy compatibility. Server receipt is a
+separate clock; legacy rows keep an explicitly missing browser Start. Physical
+video and a verified recording/timing receipt are retained outside generated
+mounts and served through the existing authenticated, hash-checked Range routes.
+Results places physical playback before metadata; simulation remains separate.
+Missing/mismatched capture leaves an explicit receipt and gap. Outcome, settled
+Home, observed motion and timing targets remain unverified.
+
+The composition tests exercise the actual Store, ASGI Stop/artifact handlers,
+canonical no-email serializer/controller/validator and synthetic real ffmpeg
+recording with a mock station. Browser fixtures exercise Stop transitions,
+history selection, playback stability, mobile layout and retry timestamps. They
+contact no live model/robot/identity endpoint and establish no physical success.
+
+Still required: deploy and qualify the actual worker executor/encoder; restore
+selected-model access and YAM1 connectivity; establish fresh matched task-scene/
+contact and native-control evidence; run the selected model and representative
+manipulation; verify original-Start/queue/Home/observed-motion timings and final
+normal-UI live and immediate/historical replay. All remain unchecked. The public
+robot API guard stays503 before persistence/dispatch. Full checklist remains1/17.

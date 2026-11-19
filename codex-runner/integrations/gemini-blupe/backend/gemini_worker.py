@@ -6,11 +6,12 @@ Physical readiness is supplied only by the separately qualified BluPe bridge.
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager,contextmanager
 import hashlib
 import hmac
 import importlib.metadata
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -35,7 +36,7 @@ APPROACH = 'Gemini Robotics'
 MODEL = os.environ.get('GEMINI_MODEL', 'gemini-4-hydrogen')
 SIMULATION_VARIANT = 'yam1'
 TERMINAL = {'complete', 'failed', 'cancelled'}
-PUBLIC_FIELDS = ('id', 'runner_name', 'prompt', 'mode', 'state', 'created_at',
+PUBLIC_FIELDS = ('launch_requested_at','stop_requested_at','id', 'runner_name', 'prompt', 'mode', 'state', 'created_at',
                  'updated_at', 'duration_s', 'progress', 'events', 'artifacts',
                  'configuration', 'result')
 
@@ -43,6 +44,7 @@ PUBLIC_FIELDS = ('id', 'runner_name', 'prompt', 'mode', 'state', 'created_at',
 class RunInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
     request_id: uuid.UUID
+    launch_requested_at: float | None = None
     runner_name: str = Field(min_length=1, max_length=80)
     email: str = Field(min_length=3, max_length=200)
     prompt: str = Field(min_length=1, max_length=4000)
@@ -60,8 +62,12 @@ class Store:
             db.execute('CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, owner TEXT NOT NULL, email TEXT NOT NULL, data TEXT NOT NULL)')
         os.chmod(self.db, 0o600)
 
+    @contextmanager
     def connect(self):
-        return sqlite3.connect(self.db, timeout=10)
+        db=sqlite3.connect(self.db,timeout=10)
+        try:
+            with db:yield db
+        finally:db.close()
 
     def create(self, spec: RunInput, owner: str):
         name, email, prompt = spec.runner_name.strip(), spec.email.strip(), spec.prompt.strip()
@@ -70,11 +76,15 @@ class Store:
         if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or not prompt:
             raise HTTPException(400, 'Enter a valid email and task')
         now = time.time()
-        data = dict(id=str(spec.request_id), runner_name=name, prompt=prompt,
+        if spec.launch_requested_at is not None and not math.isfinite(spec.launch_requested_at):
+            raise HTTPException(400, 'Start timestamp must be finite')
+        data = dict(launch_requested_at=spec.launch_requested_at,
+                    stop_requested_at=None,id=str(spec.request_id), runner_name=name, prompt=prompt,
                     mode=spec.mode, duration_s=spec.duration_s, state='queued',
                     created_at=now, updated_at=now, progress='Waiting for the Gemini worker',
                     events=[], artifacts=[], result=None,
                     configuration=dict(approach=APPROACH, model=APPROACH,
+                        start_clock_source='browser' if spec.launch_requested_at is not None else 'server_received_legacy',
                         underlying_models=dict(planning=MODEL, vision=MODEL, coding=MODEL, resolved=None),
                         robot_id='yam-1', execution_mode=spec.execution_mode,
                         variant='Antigravity Robotics adapted to BluPe',
@@ -90,6 +100,8 @@ class Store:
                 if not hmac.compare_digest(old[0], owner):
                     raise HTTPException(409, 'Request identifier belongs to another visitor')
                 retained = json.loads(old[2])
+                if spec.launch_requested_at is not None and spec.launch_requested_at != retained.get('launch_requested_at',retained['created_at']):
+                    raise HTTPException(409, 'Request identifier retains its original Start timestamp')
                 if old[1] != email or retained['configuration']['execution_mode'] != spec.execution_mode:
                     raise HTTPException(409, 'Request identifier was already used for different attribution')
                 if any(retained[k] != data[k] for k in ('prompt', 'mode', 'duration_s', 'runner_name')):
@@ -105,23 +117,78 @@ class Store:
             raise HTTPException(404, 'Run not found')
         return json.loads(row[0])
 
-    def update(self, ident, **values):
+    def _edit(self,ident,change):
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            row = db.execute('SELECT data FROM runs WHERE id=?', (ident,)).fetchone()
-            if not row:
-                raise HTTPException(404, 'Run not found')
-            data = json.loads(row[0])
-            if data['state'] in TERMINAL and values.get('state', data['state']) != data['state']:
-                return data
-            data.update(values, updated_at=time.time())
-            db.execute('UPDATE runs SET data=? WHERE id=?', (json.dumps(data), ident))
+            row=db.execute('SELECT data FROM runs WHERE id=?',(ident,)).fetchone()
+            if not row:raise HTTPException(404,'Run not found')
+            data=json.loads(row[0])
+            if change(data):
+                data['updated_at']=time.time()
+                db.execute('UPDATE runs SET data=? WHERE id=?',(json.dumps(data),ident))
         return data
 
-    def event(self, ident, stage, message):
-        data = self.get(ident)
-        events = data['events'] + [dict(stage=stage, message=message, at=time.time())]
-        return self.update(ident, state=stage, progress=message, events=events)
+    @staticmethod
+    def _transition_allowed(data,state):
+        if data['state'] in TERMINAL and state!=data['state']:return False
+        if data['mode']=='robot' and data.get('stop_requested_at') is not None:
+            return state in {'stopping','cancelled','failed'}
+        return True
+
+    def update(self,ident,**values):
+        def change(data):
+            if 'state' in values and not self._transition_allowed(data,values['state']):return False
+            data.update(values);return True
+        return self._edit(ident,change)
+
+    def event(self,ident,stage,message):
+        def change(data):
+            if not self._transition_allowed(data,stage):return False
+            data.update(state=stage,progress=message)
+            data['events'].append(dict(stage=stage,message=message,at=time.time()))
+            return True
+        return self._edit(ident,change)
+
+    def note(self,ident,stage,message,at):
+        def change(data):
+            data['events'].append(dict(stage=stage,message=message,at=at));return True
+        return self._edit(ident,change)
+
+    def request_stop(self,ident):
+        def change(data):
+            if data['state'] in TERMINAL or data.get('stop_requested_at') is not None:return False
+            stamp=time.time();data['stop_requested_at']=stamp
+            pending=data['mode']=='robot' and data['state']!='queued'
+            stage='stopping' if pending else 'cancelled'
+            message=('Requesting Stop; waiting for controller acknowledgement and recording' if pending
+                     else 'Stopped before execution' if data['mode']=='robot' else 'Stopped by the runner')
+            data.update(state=stage,progress=message)
+            data['events'].append(dict(stage=stage,message=message,at=stamp))
+            return True
+        return self._edit(ident,change)
+
+    def stop_requested(self,ident):
+        row=self.get(ident)
+        return row.get('stop_requested_at') is not None or row['state'] in {'stopping','cancelled'}
+
+    def private_email(self,ident):
+        with self.connect() as db:row=db.execute('SELECT email FROM runs WHERE id=?',(ident,)).fetchone()
+        if not row:raise HTTPException(404,'Run not found')
+        return row[0]
+
+    def physical_status(self,ident,status):
+        from physical_evidence import public_status
+        public=public_status(status)
+        def change(data):
+            if data['configuration'].get('physical')==public:return False
+            data['configuration']['physical']=public;return True
+        return self._edit(ident,change)
+
+    def retain_physical(self,ident,artifacts):
+        def change(data):
+            data['artifacts']=[a for a in data['artifacts'] if a.get('kind')!='physical']+artifacts
+            return True
+        return self._edit(ident,change)
 
     def retain_execution(self, ident, receipt):
         data=self.get(ident)
@@ -196,7 +263,7 @@ def runtime_status(skills: Path, state_root: Path | None = None):
         pass
     simulation_ready = bool(not provider_code and os.environ.get('GEMINI_API_KEY') and skills_ready
                             and versions['google-antigravity'] and executor_ready)
-    return dict(online=True, simulation_ready=simulation_ready, physical_ready=False,
+    return dict(online=True, client_start_supported=True, simulation_ready=simulation_ready, physical_ready=False,
                 model=MODEL, approach=APPROACH, versions=versions, skills_ready=skills_ready,
                 executor_ready=executor_ready, provider_error=provider_code, source_revision=os.environ.get('GEMINI_SOURCE_REVISION'), simulation_variant=SIMULATION_VARIANT, simulation_scope='YAM1 adapted bimanual simulator; task-scene/contact qualification pending',
                 message=('Google API credits are depleted; the owner needs to restore billing' if provider_code else ('YAM1 simulation worker ready; task-scene/contact qualification pending' if simulation_ready else ('Gemini API key is not configured' if not os.environ.get('GEMINI_API_KEY') else 'Simulation runtime is being prepared'))),
@@ -208,6 +275,8 @@ async def run_agent(store, ident, skills):
     from google.antigravity.policy import deny, allow
     from google.antigravity.types import BudgetConfig, RetryConfig, ModelAPIRetryConfig, ModelOutputRetryConfig
     job = store.get(ident)
+    if store.stop_requested(ident):return
+    physical_started=False
     workspace = store.root / ident
     workspace.mkdir(mode=0o700, exist_ok=True)
     stop = asyncio.Event()
@@ -283,7 +352,7 @@ async def run_agent(store, ident, skills):
             'Summarize actual results, remaining gaps and assumptions without hidden reasoning.'))
     async def cancelled():
         while True:
-            if store.get(ident)['state'] == 'cancelled':
+            if store.stop_requested(ident):
                 stop.set()
                 return
             await asyncio.sleep(.2)
@@ -292,9 +361,10 @@ async def run_agent(store, ident, skills):
             from .station_inputs import collect_station_inputs, sdk_prompt
         except ImportError:
             from station_inputs import collect_station_inputs, sdk_prompt
+        if store.stop_requested(ident):raise asyncio.CancelledError()
         store.event(ident, 'generating', 'Reading current YAM1 cameras, joints and calibration')
         station, frames = await asyncio.to_thread(collect_station_inputs)
-        if stop.is_set() or store.get(ident)['state']=='cancelled':
+        if stop.is_set() or store.stop_requested(ident):
             raise asyncio.CancelledError()
         if time.time()>=job['created_at']+job['duration_s']:
             raise TimeoutError('Run duration expired during station observation')
@@ -330,6 +400,7 @@ async def run_agent(store, ident, skills):
             inference.cancel()
             await asyncio.gather(inference, return_exceptions=True)
             if stop.is_set():
+                if job['mode']=='robot':store.event(ident,'cancelled','Stopped before robot queue admission')
                 return
             raise TimeoutError('Run duration expired during controller generation/simulation')
         result = inference.result()
@@ -340,8 +411,17 @@ async def run_agent(store, ident, skills):
             raise RuntimeError('Saved controller has no matching completed simulation; simulate the current source before handoff')
         report = last_execution['report']
         store.update(ident,result=dict(summary=result,report=report,execution_id=receipt['id'],verified=False))
-        store.event(ident, 'complete', 'Simulation finished; report and video are available for review')
+        if store.stop_requested(ident):
+            store.event(ident,'cancelled','Stopped before robot queue admission')
+        elif job['mode']=='robot':
+            from physical_store import run_physical
+            physical_started=True
+            await run_physical(store,ident,receipt)
+        else:
+            store.event(ident, 'complete', 'Simulation finished; report and video are available for review')
     except asyncio.CancelledError:
+        if job['mode']=='robot' and not physical_started and store.stop_requested(ident):
+            store.event(ident,'cancelled','Stopped before robot queue admission')
         inference.cancel()
         await asyncio.gather(inference, return_exceptions=True)
         raise
@@ -401,7 +481,7 @@ def create_app(state_root=None, skills_root=None):
     async def state(request: Request):
         authenticate(request)
         who = request.headers.get('x-gemini-visitor', '')
-        return dict(worker=runtime_status(skills, store.root), runs=[{**{k:j[k] for k in PUBLIC_FIELDS}, 'owned':store.owned(j['id'], who)} for j in store.recent()])
+        return dict(worker=runtime_status(skills, store.root), runs=[{**{k:j.get(k) for k in PUBLIC_FIELDS}, 'owned':store.owned(j['id'], who)} for j in store.recent()])
     @app.post('/api/runs')
     async def start(spec: RunInput, request: Request):
         authenticate(request)
@@ -416,7 +496,7 @@ def create_app(state_root=None, skills_root=None):
             task = asyncio.create_task(queued_run(job['id']))
             active[job['id']] = task
             task.add_done_callback(lambda _: active.pop(job['id'], None))
-        return {k:job[k] for k in PUBLIC_FIELDS}
+        return {k:job.get(k) for k in PUBLIC_FIELDS}
     @app.post('/api/runs/{ident}/stop')
     async def stop(ident: uuid.UUID, request: Request):
         authenticate(request)
@@ -424,19 +504,20 @@ def create_app(state_root=None, skills_root=None):
             raise HTTPException(403, 'This browser does not own the run')
         job = store.get(str(ident))
         if job['state'] not in TERMINAL:
-            store.event(str(ident), 'cancelled', 'Stopped by the runner')
+            store.request_stop(str(ident))
         return {'ok': True}
     @app.get('/api/runs/{ident}/artifacts/{name}')
     @app.get('/api/runs/{ident}/executions/{execution}/artifacts/{name}')
     async def artifact(ident: uuid.UUID, name: str, request: Request, execution: uuid.UUID | None = None):
         authenticate(request)
-        if name not in {'controller.py', 'simulation.mp4', 'report.json','station.json','input-top.jpg','input-left.jpg','input-right.jpg','execution.json','commands.json','simulation.log'}:
+        if name not in {'controller.py', 'simulation.mp4', 'report.json','station.json','input-top.jpg','input-left.jpg','input-right.jpg','execution.json','commands.json','simulation.log','physical.mp4','physical.json'}:
             raise HTTPException(404)
         job = store.get(str(ident))
         record = next((a for a in job['artifacts'] if a['name'] == name and
                        (execution is None or a.get('execution_id')==execution.hex)), None)
         directory=store.root/str(ident)
         if record and record.get('kind')=='input':directory=store.root/'input-evidence'/str(ident)
+        if record and record.get('kind')=='physical':directory=store.root/'physical-evidence'/str(ident)
         if record and record.get('kind')=='simulation':
             directory=store.root/'simulation-evidence'/str(ident)/uuid.UUID(record['execution_id']).hex
         file = directory / name

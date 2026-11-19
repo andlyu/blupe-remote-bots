@@ -34,6 +34,13 @@ try{
   assert.equal(response.status,200,'Every retained simulation attempt must be reachable');
   assert.equal(requests.at(-1).url,'https://worker.example/gemini-worker/'+path.slice(1));
  }
+ for(const name of ['physical.mp4','physical.json']){
+  const path='/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/artifacts/'+name;
+  response=await worker.fetch(new Request('https://gemini.example'+path,{headers:{Range:'bytes=0-63',Cookie:'gemini-visitor='+'b'.repeat(64)}}),{BACKEND_ORIGIN:'https://worker.example/gemini-worker/',BACKEND_TOKEN:'synthetic-worker-token'});
+  assert.equal(response.status,200,'Physical receipts/replay require the same authenticated gateway');
+  assert.equal(requests.at(-1).init.headers.get('Range'),'bytes=0-63');
+  assert.equal(requests.at(-1).init.headers.get('X-Gemini-Visitor'),'b'.repeat(64));
+ }
  response=await worker.fetch(new Request('https://gemini.example/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/executions/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/artifacts/private.env'),{});
  assert.equal(response.status,404);
  response=await worker.fetch(new Request('https://gemini.example/api/runs/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/artifacts/private.env'),{});
