@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "physical_connection": false,
+  "actuator_submissions": 0,
+  "duration_s": 60,
+  "frames": 600,
+  "cadence_hz": 10,
+  "forward_reach_m": 0.47,
+  "forward_extension_from_home_m": 0.17002899999999999,
+  "max_joint_step_rad": 0.02858870837491745,
+  "hardware_guard_swept_samples": 1076,
+  "canonical_serializer_packets": 2,
+  "grippers_held": true,
+  "projected_in_frame_grid_fraction_per_arm": [
+    1.0,
+    1.0
+  ],
+  "camera_position_span_m": [
+    [
+      0.2107135457566528,
+      0.16427009548681615,
+      0.11415997634661329
+    ],
+    [
+      0.2091815493179175,
+      0.16471811619188098,
+      0.11522360235961898
+    ]
+  ],
+  "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+  "source_sha256": "27275aa055a24862cf4cebb6c68cf7acc2ea1322f54c52d899aa2d053eef6f1c",
+  "limitations": [
+    "Synthetic grid projection ignores occlusion; current physical obstacles/coverage not verified",
+    "Pinhole render approximates calibrated intrinsics; distortion included in visibility metrics",
+    "Kinematic simulation, not a motor-tracking or reconstruction-quality certificate"
+  ],
+  "video": "/Users/andrew/Projects/blupe-evals/public-projects/blupe-remote-yam/outputs/yam-scene-video-01a1a7cc/minute-capture/simulation/viewpoint-simulation.mp4",
+  "video_sha256": "6b40503c00c16d7e20c004392962d700ac215fde358fb95562ed58e35a330cf7",
+  "decoded_frames": 600,
+  "seek_verified": true,
+  "elapsed_s": 12.954951332998462,
+  "minute_regressions_passed": true,
+  "regression_command_s": 2.813270500046201,
+  "launch_source_sha256": {
+    "minute_policy.py": "76979979deee8c99e4cd24294fe66804eb165ff3e97fb5afce3834be59b41e98",
+    "viewpoint_sim.py": "27275aa055a24862cf4cebb6c68cf7acc2ea1322f54c52d899aa2d053eef6f1c",
+    "scene_video.py": "2e76d3e1b190039fade69221337f17d16c7621ee70136a8b187a08448b3e6116"
+  },
+  "runner_revision": "7ba2427ba960ad30af99c8fedd05c5196685295a",
+  "controller_revision": "d1f9e8d588b18810d13c0edbe34646763dc8f257"
+}

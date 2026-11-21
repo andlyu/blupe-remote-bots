@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "physical_connection": false,
+  "actuator_submissions": 0,
+  "policy_sha256": "2e76d3e1b190039fade69221337f17d16c7621ee70136a8b187a08448b3e6116",
+  "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+  "mujoco_version": "3.12.0",
+  "canonical_validator_sha256": "e999473c4d080ef48651c764d38972300e01bb9407720210010c0a90d942fdeb",
+  "hardware_guard_swept_samples": 120,
+  "away_from_home_completion": true,
+  "next_command_cursor_verified": true,
+  "completed_sweep_dispatches_again": false,
+  "serializer_spy_packets": 4,
+  "invalid_zero_dispatch_cases": 9,
+  "waypoints": 120,
+  "duration_s": 12,
+  "fps": 10,
+  "camera_views": 3,
+  "distance_m": [
+    0.1199998552517702,
+    0.11999985525177015
+  ],
+  "max_joint_step_rad": 0.004870990345418713,
+  "grippers_held_exactly": true,
+  "camera_orientation": "down/forward over tabletop throughout",
+  "video": "Reproduce with run.py verify; generated simulation.mp4 not included in source.",
+  "video_sha256": "e5408cef08da47fa5fcfe729dd32755606445c955d96ee1004895cae2557e4b0",
+  "elapsed_s": 2.9313650131225586,
+  "limitations": [
+    "Synthetic scene, not a current physical-scene collision survey",
+    "Kinematic rendering, not dynamic motor tracking; physical gateway swept collision checks remain required"
+  ],
+  "completion_regressions_passed": true,
+  "regression_command_s": 0.7290065420093015,
+  "runner_revision": "7ba2427ba960ad30af99c8fedd05c5196685295a",
+  "controller_revision": "d1f9e8d588b18810d13c0edbe34646763dc8f257",
+  "verification_script_sha256": "20e5c2699b58148066e869771e5e8a632dfdb756886e6a50c08bc38be6285545"
+}

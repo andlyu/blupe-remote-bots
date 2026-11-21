@@ -1,0 +1,17 @@
+{
+  "episode_id": "ep_47151c9fe197419d",
+  "commit": "554a4f99e057d1cf5b198edb797cfaab56ef8302",
+  "video_sha256": "874a8892362b0031216b304956a26cff1647113f7ccfb7f237b5d20d983b9769",
+  "samples_sha256": "a5c1dc33e591351d0b73c20f35fd97e4fa506cab91fa61cad5e18c595f0d56e0",
+  "duration_s": 84.6,
+  "published_at": 1793827560.7313344,
+  "training_archive_published": false,
+  "video_url": "https://huggingface.co/datasets/andlyu/Public-YAM-runs/resolve/main/videos/ep_47151c9fe197419d.mp4",
+  "browser_playback": {
+    "duration": 84.6,
+    "currentTime": 4.0032,
+    "readyState": 4,
+    "paused": false
+  },
+  "browser_history_selection_verified": true
+}

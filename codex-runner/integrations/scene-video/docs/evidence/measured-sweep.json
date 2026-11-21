@@ -1,0 +1,16 @@
+{
+  "measured_displacement_m": [
+    [
+      0.1152152833186817,
+      -0.0006985997836690405,
+      -0.007821443505657777
+    ],
+    [
+      0.11616544429952824,
+      -0.0003713581965869295,
+      -0.005853407148148859
+    ]
+  ],
+  "max_final_joint_target_error_rad": 0.018320590236469703,
+  "evidence": "First leased measured observation and last saved station numeric sample, canonical native FK; model prediction, not surveyed metric accuracy"
+}

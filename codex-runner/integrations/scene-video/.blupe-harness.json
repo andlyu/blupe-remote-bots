@@ -1,0 +1,13 @@
+{
+  "checklist": "docs/COMPLETION-CHECKLIST.md",
+  "contract": "docs/BLUPE-HARNESS-CONTRACT.md",
+  "contract_sha256": "42a4857a8a964241add18a75e43a1f8e6902c93c93e5ba6ef9de93c5d3da9666",
+  "contract_source": "https://github.com/andlyu/blupe-remote-bots/blob/main/codex-runner/integration-harness/COMPLETION-CHECKLIST.md#authorization-granted-by-using-this-harness",
+  "controls": "docs/CONTROL-CONTRACT.md",
+  "controls_sha256": "504f52d34a7d873e90ea3a22a6899f0bcbe3ec8ee613356f042e28b7bcce2d39",
+  "helper_sha256": "cea1565363db858237cba4154917f6874e579c52e0d6e8babe55fd0c417495b4",
+  "instructions_sha256": "3eb213e7dd28303e90411aaa22e0d22d72925ae012a3f68d5573dacc33e88392",
+  "schema": 1,
+  "source": "https://github.com/andlyu/blupe-remote-bots/tree/main/codex-runner/integration-harness",
+  "template_sha256": "3e7eedcf510710c0c6fb2095babce7f865ef8332056669d28e11fc856fb620f4"
+}

@@ -1,0 +1,69 @@
+{
+  "layers": {
+    "capture": {
+      "status": "FAIL",
+      "detail": "Relay sampled missing/stale source at a public failure",
+      "roles": [
+        "right",
+        "top"
+      ]
+    },
+    "publication": {
+      "status": "UNVERIFIED",
+      "detail": "No usable evidence"
+    },
+    "api": {
+      "status": "FAIL",
+      "detail": "Public frames unavailable despite nearby fresh relay samples"
+    },
+    "client": {
+      "status": "FAIL",
+      "detail": "HTTP 200 accepted, but the body transfer did not complete",
+      "attempts": 5,
+      "partial_bytes": [
+        223120,
+        442031,
+        75662,
+        425647,
+        16023
+      ]
+    },
+    "calibration": {
+      "status": "UNVERIFIED",
+      "detail": "Sampled calibration IDs agree; no completed frame with a factory profile was inspected",
+      "calibration_id": "9773d518c8d8a2334dd2c61f9e5bff29e3934d810f1fa43c90d411f00b243958",
+      "calibration_id_status": "PASS",
+      "factory_profile_samples": 0,
+      "quality": "experimental_requires_fresh_validation"
+    }
+  },
+  "findings": [
+    {
+      "layer": "capture",
+      "reason": "source_missing_or_stale",
+      "next_check": "Inspect the existing relay/camera incident for these roles"
+    },
+    {
+      "layer": "API/client transfer",
+      "reason": "incomplete_response_body",
+      "next_check": "Compare public and private reads; inspect download time, socket queues, and link throughput"
+    },
+    {
+      "layer": "publication/API",
+      "reason": "delivery_failure_with_fresh_source",
+      "next_check": "Use publisher stage timings to distinguish upload/body delivery from validation or API scheduling"
+    },
+    {
+      "layer": "timing",
+      "reason": "slow_stage_observed",
+      "stage": "API/client body transfer",
+      "max_ms": 1635.4013329837471,
+      "next_check": "Headers arrived, but bodies timed out or were incomplete; compare public and private transfer paths"
+    }
+  ],
+  "requests": 14,
+  "failures": 11,
+  "source_samples": 5,
+  "source_error": null,
+  "failure_layer": "capture"
+}
