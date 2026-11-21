@@ -929,3 +929,69 @@ class DreamClient:
     if not fail:
         assert [r['session_id'] for r in predictions]==[None,'same-model-session','same-model-session',None]
         assert [r['frames'] for r in predictions]==[['1'],['1','2'],['1','2','3'],['4']]
+
+
+def capacity_reply(**changes):
+    return dict(dict(ok=False, error_type='DreamServerError', code='DA-2000',
+                     reason='pool_full', retryable=True, retry_after_s=.1), **changes)
+
+
+def test_full_pool_retries_after_three_seconds_with_fresh_input_and_same_step(tmp_path):
+    provider=adapter(tmp_path)
+    provider.worker_factory=SessionWorker
+    events=[]
+    provider.interaction_sink=lambda kind,message,**details: events.append((kind,message,details))
+    try:
+        provider.wait_ready(lambda:False)
+        provider._worker.responses=[capacity_reply()]
+        points=provider.build_trajectory('move',observation(),19)
+        calls=[payload for command,payload in provider._worker.calls if command=='predict']
+        assert len(calls)==2
+        assert calls[1]['ticks'][-1]['timestamp']-calls[0]['ticks'][-1]['timestamp']>=3
+        assert [call['first_step_id'] for call in calls]==[19,19]
+        assert all(call['commanded'] is None for call in calls)
+        assert points[0]['step_id']==19
+        assert not any(command=='reset' for command,_ in provider._worker.calls)
+        assert not any(kind=='model_failure' for kind,_,_ in events)
+        assert any(kind=='model_progress' and 'retrying in 3 seconds' in message
+                   and details.get('reason')=='pool_full' for kind,message,details in events)
+    finally:
+        provider.close_transport()
+
+
+@pytest.mark.parametrize('termination',['stop','run_timer'])
+def test_stop_or_expired_run_interrupts_capacity_wait_without_another_call(tmp_path,termination):
+    provider=adapter(tmp_path)
+    provider.worker_factory=SessionWorker
+    cancelled=threading.Event()
+    deadline=[float('inf')]
+    provider.cancelled=lambda: cancelled.is_set() or time.monotonic()>=deadline[0]
+    def event(kind,message,**details):
+        if details.get('reason')=='pool_full':
+            if termination=='stop':cancelled.set()
+            else:deadline[0]=time.monotonic()+.05
+    provider.interaction_sink=event
+    try:
+        provider.wait_ready(lambda:False)
+        provider._worker.responses=[capacity_reply()]
+        began=time.monotonic()
+        with pytest.raises(RuntimeError,match='cancelled'):
+            provider.build_trajectory('move',observation(),0)
+        assert time.monotonic()-began<1
+        assert len([c for c,_ in provider._worker.calls if c=='predict'])==1
+    finally:
+        provider.close_transport()
+
+
+@pytest.mark.parametrize('changes',[dict(code='DA-5000'),dict(reason='queue_timeout')])
+def test_capacity_retry_does_not_replay_other_provider_failures(tmp_path,changes):
+    provider=adapter(tmp_path)
+    provider.worker_factory=SessionWorker
+    try:
+        provider.wait_ready(lambda:False)
+        provider._worker.responses=[capacity_reply(**changes)]
+        with pytest.raises(RuntimeError,match='Dream request failed'):
+            provider.build_trajectory('move',observation(),0)
+        assert len([c for c,_ in provider._worker.calls if c=='predict'])==1
+    finally:
+        provider.close_transport()

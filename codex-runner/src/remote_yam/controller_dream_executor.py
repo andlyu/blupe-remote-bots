@@ -74,6 +74,7 @@ class DreamControllerExecutor:
         self.failure = None
         self.provider_failure = None
         self.observation_status = None
+        self.provider_retry = None
         self.owned_receipts = deque(maxlen=8192)
         self._send = operator.api_client.send
         operator.api_client.send = self.send
@@ -106,6 +107,7 @@ class DreamControllerExecutor:
                         predictions=self.predictions, predicted_waypoints=self.predicted_waypoints,
                         failure=deepcopy(self.failure),
                         observation_status=deepcopy(self.observation_status),
+                        provider_retry=deepcopy(self.provider_retry),
                         worker=self.pool.status())
 
     def request(self, payload):
@@ -148,6 +150,8 @@ class DreamControllerExecutor:
             self.failure = None
             self.provider_failure = None
             self.observation_status = None
+            self.provider_retry = None
+            self.trajectory = None
             self.thread = threading.Thread(target=self._run,
                 args=(deepcopy(prepared), payload['operation'] == 'predict'),
                 daemon=True, name='controller-dream')
@@ -165,6 +169,10 @@ class DreamControllerExecutor:
         return self.cancelled.is_set() or not self._owns(self.context)
 
     def _interaction(self, kind, message, **details):
+        if (kind == 'model_progress' and details.get('reason') == 'pool_full'
+                and details.get('retry_after_s') == 3):
+            with self.lock:
+                self.provider_retry = dict(reason='pool_full', retry_after_s=3)
         states = {'camera_retry': 'retrying', 'camera_failure': 'failed',
                   'camera_recovered': 'recovered', 'observation_retry': 'retrying',
                   'observation_failure': 'failed', 'observation_recovered': 'recovered'}
@@ -231,6 +239,7 @@ class DreamControllerExecutor:
                 if self._cancelled():
                     return
                 with self.lock:
+                    self.provider_retry = None
                     self.predictions += 1
                     self.predicted_waypoints += len(points)
                 if predict_only or not points:

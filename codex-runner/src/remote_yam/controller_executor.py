@@ -64,9 +64,12 @@ class ControllerExecutorPolicy:
         while not cancelled():
             phase = state.get('state')
             observation_state = (state.get('observation_status') or {}).get('state')
-            progress = (phase, observation_state)
+            capacity_wait = (phase == 'predicting'
+                and (state.get('provider_retry') or {}).get('reason') == 'pool_full')
+            progress = (phase, observation_state, capacity_wait)
             if progress != previous and self.interaction_sink:
-                message = ('Controller Dream: waiting for fresh camera/robot feedback; motion is paused'
+                message = ('Dream is at capacity; retrying in 3 seconds' if capacity_wait
+                           else 'Controller Dream: waiting for fresh camera/robot feedback; motion is paused'
                            if phase == 'predicting' and observation_state == 'retrying'
                            else 'Controller Dream: ' + str(phase))
                 self.interaction_sink('model_progress', message)
