@@ -159,7 +159,7 @@
         <select id="provider"><option value="openai" selected>ChatGPT</option><option value="anthropic">Claude</option><option value="local_raise_lower">No AI — just wiggle arms</option><option value="astra" hidden disabled>Astra · bring your key</option><option value="custom_endpoint" hidden disabled>Custom end-point</option></select>
         <div id="modelSettings">
           <label for="model">Model</label>
-          <input id="model" value="gpt-6-astra" list="availableModels" maxlength="128" spellcheck="false" autocapitalize="none" aria-describedby="modelCatalogStatus">
+          <input id="model" value="gpt-6.2-astra" list="availableModels" maxlength="128" spellcheck="false" autocapitalize="none" aria-describedby="modelCatalogStatus">
           <datalist id="availableModels"></datalist>
           <button id="refreshModels" type="button">Refresh models</button>
           <p id="modelCatalogStatus" class="help" role="status">Choose Astra or GPT 6.1+, or Claude Opus 5.5+. You can enter a new model ID directly.</p>

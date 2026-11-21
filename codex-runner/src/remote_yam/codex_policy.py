@@ -83,7 +83,7 @@ class FirstCallProgress:
             pass  # Display failures must not alter decision validation or Stop.
 
 
-DEFAULT_MODEL = 'gpt-6-astra'
+DEFAULT_MODEL = 'gpt-6.2-astra'
 MIN_VERSION = (0, 154, 0)
 PINNED_VERSION = '0.154.0'
 MAX_CODEX_INPUT_CHARS = 1_048_576

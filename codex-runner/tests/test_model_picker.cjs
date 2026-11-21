@@ -30,9 +30,9 @@ test('new provider models appear without changing the selected model', async () 
 test('Terra can be selected for API, local and sponsored Codex without changing defaults',async()=>{
   const f=fixture(async()=>({source:'fallback',models:[{id:'gpt-6-astra'},{id:'gpt-6.1-terra'}]}));
   for (const provider of ['openai','codex','guest_astra']) {
-    assert.deepEqual(f.picker.modelsFor(provider).map(row=>row.id),['gpt-6-astra','gpt-6.1-terra']);
+    assert.deepEqual(f.picker.modelsFor(provider).map(row=>row.id),['gpt-6.2-astra','gpt-6.1-terra']);
     f.choose(provider);await tick();
-    assert.equal(f.$('model').value,'gpt-6-astra');
+    assert.equal(f.$('model').value,'gpt-6.2-astra');
     f.picker.selectModel('gpt-6.1-terra');
     await f.picker.refresh(true);
     assert.equal(f.$('provider').value,provider);
@@ -97,7 +97,7 @@ test('Extra High is the default and reset value while manual effort is remembere
 });
 test('sponsored Astra keeps its model fixed while discovering supported effort levels',async()=>{
   const calls=[];const f=fixture(async(path,payload)=>{calls.push(payload);return {source:'codex_subscription',
-    models:[{id:'gpt-6-astra',label:'GPT-6 Astra',reasoning_efforts:['high','xhigh'],default_reasoning_effort:'high'}]};});
+    models:[{id:'gpt-6.2-astra',label:'GPT-6.2 Astra',reasoning_efforts:['high','xhigh'],default_reasoning_effort:'high'}]};});
   f.$('provider').value='guest_astra';f.picker.providerChanged({fixedModel:true});await tick();
   assert.equal(f.$('modelSettings').hidden,true);assert.equal(f.$('reasoningBar').hidden,false);
   assert.deepEqual(calls,[{provider:'guest_astra'}]);

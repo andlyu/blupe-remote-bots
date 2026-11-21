@@ -16,17 +16,19 @@ test('public entry prefers Dream beta where available, with Astra for other stat
   }
   for (const dream of [{value:'dream', hidden:true}, {value:'dream', disabled:true}]) {
     assert.deepEqual(entry('', choices('guest_astra', dream)),
-      {provider:'guest_astra', model:'gpt-6-astra'});
+      {provider:'guest_astra', model:'gpt-6.2-astra'});
   }
   assert.deepEqual(entry('', choices('guest_claude', 'guest_gemini', 'guest_astra')),
-    {provider:'guest_astra', model:'gpt-6-astra'});
+    {provider:'guest_astra', model:'gpt-6.2-astra'});
   assert.deepEqual(entry('', choices('guest_gemini', 'openai')),
-    {provider:'openai', model:'gpt-6-astra'});
+    {provider:'openai', model:'gpt-6.2-astra'});
 });
 
 test('explicit model links override Dream and Dream links use only an available provider', () => {
   const options = choices('dream', 'dream_flash', 'guest_astra', 'guest_gemini');
-  assert.deepEqual(entry('?model=astra', options), {provider:'guest_astra', model:'gpt-6-astra'});
+  assert.deepEqual(entry('?model=astra', options), {provider:'guest_astra', model:'gpt-6.2-astra'});
+  assert.deepEqual(entry('?model=gpt-6.2-astra', options), {provider:'guest_astra', model:'gpt-6.2-astra'});
+  assert.deepEqual(entry('?model=gpt-6-astra', options), {provider:'guest_astra', model:'gpt-6-astra'});
   assert.deepEqual(entry('?model=argon', options), {provider:'guest_gemini', model:'gemini-4-argon'});
   for (const model of ['dream', 'dream-1', 'dreamlabs/dream-1-beta']) {
     assert.deepEqual(entry('?model=' + model, options), {provider:'dream', model:'dreamlabs/dream-1-beta'});
@@ -54,7 +56,7 @@ test('Terra share links select the exact model through available existing routes
     {provider:'openai', model:'gpt-6.1-terra'});
   assert.equal(entry('?model=terra', choices('dream',{value:'guest_astra',disabled:true})), null);
   assert.equal(entry('?model=terra', choices('codex'), {local_runner:true,
-    configured_providers:{codex:{model:'gpt-6-astra'}}}), null);
+    configured_providers:{codex:{model:'gpt-6.2-astra'}}}), null);
   assert.equal(entry('?model=terra', choices('codex'), {station_local:true}), null);
 });
 
@@ -70,7 +72,7 @@ test('Fable 5.2 links prefer the available subscription route and retain the exa
 test('unknown and unavailable models fall back to available Astra, never enabling a provider', () => {
   for (const query of ['?model=unknown', '?model=__proto__', '?model=', '?model=argon']) {
     assert.deepEqual(entry(query, choices('guest_astra', {value:'guest_gemini', disabled:true})),
-      {provider:'guest_astra', model:'gpt-6-astra'});
+      {provider:'guest_astra', model:'gpt-6.2-astra'});
   }
   assert.equal(entry('?model=argon', choices({value:'gemini', hidden:true})), null);
 });
@@ -83,7 +85,7 @@ test('local launchers retain their default unless the link explicitly selects an
   assert.deepEqual(entry('?model=argon', options, {local_runner:true}),
     {provider:'gemini', model:'gemini-4-argon'});
   assert.deepEqual(entry('?model=astra', options, {local_runner:true}),
-    {provider:'codex', model:'gpt-6-astra'});
+    {provider:'codex', model:'gpt-6.2-astra'});
   assert.equal(entry('?model=argon', choices('codex'), {local_runner:true}), null);
   assert.equal(entry('?model=argon', options, {local_runner:true,
     configured_providers:{gemini:{model:'gemini-custom'}}}), null);
@@ -104,8 +106,8 @@ test('startup sets provider and model together, overriding an old saved model wi
   };
   vm.runInNewContext(block, context);
   assert.equal(nodes.provider.value, 'openai');
-  assert.equal(nodes.model.value, 'gpt-6-astra');
-  assert.deepEqual(selections, ['gpt-6-astra']);
+  assert.equal(nodes.model.value, 'gpt-6.2-astra');
+  assert.deepEqual(selections, ['gpt-6.2-astra']);
   assert.deepEqual(events, ['blupe-model-changed']);
 
   context.location.search='?model=argon';
