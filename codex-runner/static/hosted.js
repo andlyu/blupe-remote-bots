@@ -6,7 +6,7 @@ function playgroundEntryModel(search, options, session = {}) {
   const aliases = {dream:'dream', 'dream-1':'dream', 'dreamlabs/dream-1-beta':'dream',
     terra:'terra', 'gpt-6.1-terra':'terra',
     fable:'fable', 'claude-fable-5-2':'fable',
-    astra:'astra', 'gpt-6-astra':'astra', argon:'argon', 'gemini-4-argon':'argon'};
+    astra:'astra', 'gpt-6.2-astra':'astra', 'gpt-6-astra':'astra6', argon:'argon', 'gemini-4-argon':'argon'};
   const name = Object.hasOwn(aliases, requested) ? aliases[requested] : (session.local_runner ? null : 'dream');
   if (!name) return null;
   const available = new Set(Array.from(options).filter(option => !option.hidden && !option.disabled).map(option => option.value));
@@ -15,7 +15,8 @@ function playgroundEntryModel(search, options, session = {}) {
       (!session.configured_providers?.[value]?.model || session.configured_providers[value].model === model));
     return provider ? {provider, model} : null;
   };
-  const astra = () => select('gpt-6-astra', ['guest_astra', 'codex', 'openai']);
+  const astra = () => select('gpt-6.2-astra', ['guest_astra', 'codex', 'openai']);
+  if (name === 'astra6') return select('gpt-6-astra', ['guest_astra', 'codex', 'openai']);
   if (name === 'terra') return select('gpt-6.1-terra', ['guest_astra', 'codex', 'openai']);
   if (name === 'fable') return select('claude-fable-5-2', ['guest_claude', 'claude', 'anthropic']);
   return (name === 'dream' ? select('dreamlabs/dream-1-beta', ['dream'])
@@ -1295,7 +1296,7 @@ function createRunLaunchGuard() {
       $('providerFields').hidden = true;
       $('apiKey').value = ''; $('apiKey').required = false;
       $('forget').hidden = true;
-      $('model').value = claude ? claudeModel : 'gpt-6-astra';
+      $('model').value = claude ? claudeModel : 'gpt-6.2-astra';
       $('policyHelp').textContent = claude
         ? 'The selected Claude model runs through Claude Code using your Claude subscription.'
         : 'The selected OpenAI model runs through Codex using your ChatGPT subscription.';
@@ -1305,7 +1306,7 @@ function createRunLaunchGuard() {
     }
     $('forget').hidden = false;
     const anthropic = $('provider').value === 'anthropic';
-    $('model').value = anthropic ? 'claude-opus-5-5' : $('provider').value === 'astra' ? 'astra-default' : 'gpt-6-astra';
+    $('model').value = anthropic ? 'claude-opus-5-5' : $('provider').value === 'astra' ? 'astra-default' : 'gpt-6.2-astra';
     $('apiKeyLabel').textContent = anthropic ? 'Claude API key' : 'OpenAI API key';
     $('apiKeyCreditProvider').textContent = anthropic ? 'Anthropic' : 'OpenAI';
     $('apiKeyCreate').href = anthropic ? 'https://platform.claude.com/settings/keys' : 'https://platform.openai.com/api-keys';
@@ -1656,7 +1657,7 @@ function createRunLaunchGuard() {
       return m ? m[1][0].toUpperCase() + m[1].slice(1) + ' ' + m[2] + (m[3] ? '.' + m[3] : '') : 'Claude';
     }
     return provider === 'groot' ? 'GR00T' : provider === 'local_raise_lower' ? 'Built-in policy'
-      : $('model').value.trim() === 'gpt-6-astra' ? 'Astra' : $('model').value.trim();
+      : $('model').value.trim() === 'gpt-6.2-astra' ? 'Astra 6.2' : $('model').value.trim() === 'gpt-6-astra' ? 'Astra' : $('model').value.trim();
   }
   function recordedModel(live) {
     const requests = (live?.events || []).filter(event => event.kind === 'model_request');
@@ -2833,7 +2834,7 @@ function createRunLaunchGuard() {
         if ($('stationModelConnection') && stationProvider === 'openai') $('stationModelConnection').textContent = session.station_api_key_ready
           ? 'Astra API key saved on this Jetson · model access must be verified'
           : 'Astra API setup: run blupe-playground --set-api-key in a Jetson terminal.';
-        providerChanged(false); $('model').value = session.station_model || 'gpt-6-astra';
+        providerChanged(false); $('model').value = session.station_model || 'gpt-6.2-astra';
         window.yamModelPicker?.providerChanged({fixed:true});
       }
       const entryModel = playgroundEntryModel(location.search, $('provider').options, session);
@@ -3119,7 +3120,7 @@ function bindQuickTaskDraft(prompt, quick) {
   options.append(advanced, window.yamRunnerIdentity.editButton);
   function modelChoice(option, selectedId) {
     if (option?.dataset.model && option.dataset.label) return {id:option.dataset.model,label:option.dataset.label};
-    const defaults = {openai:'gpt-6-astra',codex:'gpt-6-astra',guest_astra:'gpt-6-astra',
+    const defaults = {openai:'gpt-6.2-astra',codex:'gpt-6.2-astra',guest_astra:'gpt-6.2-astra',
       anthropic:'claude-opus-5-5',claude:'claude-opus-5-5',guest_claude:'claude-opus-5-5',
       astra:'astra-default',groot:'groot-reviewed-step10000'};
     if (!option || !defaults[option.value]) return null;

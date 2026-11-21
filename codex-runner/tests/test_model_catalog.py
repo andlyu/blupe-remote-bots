@@ -12,7 +12,7 @@ from remote_yam import model_catalog as catalog
 class ModelCatalogTests(unittest.TestCase):
     def test_release_floors_include_future_models_without_a_release_allowlist(self):
         for provider in ('openai', 'codex'):
-            for model in ('gpt-6-astra', 'gpt-6-astra-2026-01-01', 'gpt-6.1-sol', 'gpt-6.1-terra',
+            for model in ('gpt-6-astra', 'gpt-6-astra-2026-01-01', 'gpt-6.2-astra', 'gpt-6.1-sol', 'gpt-6.1-terra',
                           'gpt-6.12-sol', 'gpt-7-sol', 'gpt-7-new-family'):
                 self.assertEqual(catalog.selected_model(provider, ' ' + model + ' '), model)
             for model in ('gpt-4.1', 'gpt-5.6-sol', 'gpt-6-sol', 'gpt-6-astra-fake',
@@ -71,8 +71,8 @@ class ModelCatalogTests(unittest.TestCase):
             for provider in ('openai', 'codex'):
                 result = catalog.discover_models(provider)
                 self.assertEqual(result['source'], 'fallback')
-                self.assertEqual([row['id'] for row in result['models']], ['gpt-6-astra','gpt-6.1-terra'])
-                self.assertEqual(catalog.selected_model(provider, ''), 'gpt-6-astra')
+                self.assertEqual([row['id'] for row in result['models']], ['gpt-6.2-astra','gpt-6.1-terra'])
+                self.assertEqual(catalog.selected_model(provider, ''), 'gpt-6.2-astra')
             fetch.assert_not_called()
 
     def test_terra_discovery_retains_provider_reasoning_metadata(self):

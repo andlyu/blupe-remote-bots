@@ -52,7 +52,7 @@ def model_display_name(provider):
             return match[1].title() + ' ' + match[2] + ('.' + match[3] if match[3] else '')
         return model or "Claude"
     return {"groot": "GR00T", "molmoact2": "MolmoAct2", "dreamzero": "DreamZero", "local_raise_lower": "Built-in policy"}.get(name,
-        'Astra' if not model or model == 'gpt-6-astra' else model)
+        'Astra 6.2' if model == 'gpt-6.2-astra' else 'Astra' if not model or model == 'gpt-6-astra' else model)
 
 
 class RequestError(Exception):
@@ -1252,8 +1252,8 @@ class HostedRunner:
                         provider = (MakerArmClaudeAdapter(model or CLAUDE_MODEL, **kwargs) if name == 'claude'
                                     else MakerArmAnthropicAdapter(key, model or CLAUDE_MODEL, **kwargs))
                     else:
-                        provider = (MakerArmCodexAdapter(model or 'gpt-6-astra', **kwargs) if name == 'codex'
-                                    else MakerArmOpenAIAdapter(key, model or 'gpt-6-astra', **kwargs))
+                        provider = (MakerArmCodexAdapter(model or 'gpt-6.2-astra', **kwargs) if name == 'codex'
+                                    else MakerArmOpenAIAdapter(key, model or 'gpt-6.2-astra', **kwargs))
                 except (RuntimeError, ValueError, KeyError) as exc:
                     raise RequestError(400, str(exc)) from None
                 provider._urlopen = request.build_opener(NoRedirect).open
@@ -1273,8 +1273,8 @@ class HostedRunner:
                         provider = (BimanualSO101ClaudeAdapter(model or CLAUDE_MODEL, **kwargs) if name == 'claude'
                                     else BimanualSO101AnthropicAdapter(key, model or CLAUDE_MODEL, **kwargs))
                     else:
-                        provider = (BimanualSO101CodexAdapter(model or 'gpt-6-astra', **kwargs) if name == 'codex'
-                                    else BimanualSO101OpenAIAdapter(key, model or 'gpt-6-astra', **kwargs))
+                        provider = (BimanualSO101CodexAdapter(model or 'gpt-6.2-astra', **kwargs) if name == 'codex'
+                                    else BimanualSO101OpenAIAdapter(key, model or 'gpt-6.2-astra', **kwargs))
                 except (RuntimeError, ValueError, OSError, KeyError) as exc:
                     raise RequestError(400, str(exc)) from None
                 provider._urlopen = request.build_opener(NoRedirect).open
@@ -1295,16 +1295,16 @@ class HostedRunner:
                         provider = (SO101ClaudeAdapter(model or CLAUDE_MODEL, **kwargs) if name == 'claude'
                                     else SO101AnthropicAdapter(key, model or CLAUDE_MODEL, **kwargs))
                     else:
-                        provider = (SO101CodexAdapter(model or 'gpt-6-astra', **kwargs) if name == 'codex'
-                                    else SO101OpenAIAdapter(key, model or 'gpt-6-astra', **kwargs))
+                        provider = (SO101CodexAdapter(model or 'gpt-6.2-astra', **kwargs) if name == 'codex'
+                                    else SO101OpenAIAdapter(key, model or 'gpt-6.2-astra', **kwargs))
                 except RuntimeError as exc:
                     raise RequestError(400, str(exc)) from None
                 provider._urlopen = request.build_opener(NoRedirect).open
             elif self.joint_counts != (6,6) and not self.provider_factory:
                 from remote_yam.joint_policy import JointPolicy, CodexJointPolicy
                 try:
-                    provider = (CodexJointPolicy(model or 'gpt-6-astra', joint_counts=self.joint_counts, camera_source=self.camera_source) if name == 'codex' else
-                        JointPolicy(key, model or 'gpt-6-astra', joint_counts=self.joint_counts, camera_source=self.camera_source))
+                    provider = (CodexJointPolicy(model or 'gpt-6.2-astra', joint_counts=self.joint_counts, camera_source=self.camera_source) if name == 'codex' else
+                        JointPolicy(key, model or 'gpt-6.2-astra', joint_counts=self.joint_counts, camera_source=self.camera_source))
                 except RuntimeError as exc:
                     raise RequestError(400, str(exc)) from None
                 provider._urlopen = request.build_opener(NoRedirect).open
@@ -1313,7 +1313,7 @@ class HostedRunner:
             elif name == 'codex':
                 from remote_yam.codex_policy import CodexAdapter
                 try:
-                    provider = CodexAdapter(model or 'gpt-6-astra', camera_source=self.camera_source,
+                    provider = CodexAdapter(model or 'gpt-6.2-astra', camera_source=self.camera_source,
                                             recording_root=visitor.directory)
                 except RuntimeError as exc:
                     raise RequestError(400, str(exc)) from None
@@ -1333,7 +1333,7 @@ class HostedRunner:
                 provider = RepeatingRaiseLowerAdapter(cycles=3)
             else:
                 kwargs = {"camera_source": self.camera_source, "recording_root": visitor.directory}
-                provider = (OpenAIAdapter(key, model or "gpt-6-astra", **kwargs) if name == "openai"
+                provider = (OpenAIAdapter(key, model or "gpt-6.2-astra", **kwargs) if name == "openai"
                             else AstraAdapter(key, model or "astra-default", self.astra_endpoint, **kwargs))
                 provider._urlopen = request.build_opener(NoRedirect).open
             if name in {'codex', 'claude'}:

@@ -2,7 +2,7 @@
 (function(root) {
   'use strict';
   function createModelPicker({$, api, storage, changed = () => {}, context = () => ''}) {
-    const defaults = {openai:'gpt-6-astra', codex:'gpt-6-astra', anthropic:'claude-opus-5-5', claude:'claude-opus-5-5', guest_astra:'gpt-6-astra', guest_claude:'claude-opus-5-5'};
+    const defaults = {openai:'gpt-6.2-astra', codex:'gpt-6.2-astra', anthropic:'claude-opus-5-5', claude:'claude-opus-5-5', guest_astra:'gpt-6.2-astra', guest_claude:'claude-opus-5-5'};
     const selected = new Map(), catalogs = new Map();
     let provider = null, fixed = false, lockedModel = false, generation = 0, loading = false, effortIdentity = null;
     const key = name => 'blupe-model:' + name;

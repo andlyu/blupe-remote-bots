@@ -14,7 +14,7 @@ import tempfile
 import time
 from urllib import parse, request
 
-DEFAULTS = {'openai': 'gpt-6-astra', 'codex': 'gpt-6-astra',
+DEFAULTS = {'openai': 'gpt-6.2-astra', 'codex': 'gpt-6.2-astra',
             'anthropic': 'claude-opus-5-5', 'claude': 'claude-opus-5-5'}
 FABLE_5_2 = 'claude-fable-5-2'
 TIMEOUT = 15

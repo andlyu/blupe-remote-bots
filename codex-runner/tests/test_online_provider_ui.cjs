@@ -14,7 +14,7 @@ test('online choice changes key issuer and model; no-AI removes key requirement'
  $('provider').value='local_raise_lower';change();
  assert.equal($('providerFields').hidden,true);assert.equal($('apiKey').required,false);assert.equal($('prompt').readOnly,true);
  $('provider').value='openai';change();
- assert.equal($('model').value,'gpt-6-astra');assert.equal($('prompt').readOnly,false);
+ assert.equal($('model').value,'gpt-6.2-astra');assert.equal($('prompt').readOnly,false);
  assert.equal($('apiKeyCreditProvider').textContent,'OpenAI');
  assert.equal($('apiKeyLabel').textContent,'OpenAI API key');assert.match($('apiKeyCreate').href,/platform.openai.com/);
  for (const provider of ['codex','claude']) {
