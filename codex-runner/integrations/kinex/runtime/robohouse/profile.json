@@ -1,0 +1,33 @@
+{
+  "robot_id": "robot-ba8413962083809c",
+  "display_name": "Robo-house YAM",
+  "source": "Saved controller configuration; gateway independently validates every leased command",
+  "model_calibration_id": "93c4db966dca49dbb831a2215f4dfc5fb83bf82eabfe99b3035a027aa7fc9275",
+  "coordinate_convention": "original_i2rt_model_corrected",
+  "base_spacing_m": 0.62,
+  "canonical_model_sha256": "273d44b2829b433f8913abaf883419ca88170762bda3d50faa33fe886b73b42c",
+  "offsets_rad": {
+    "left": [
+      0.0,
+      0.014912483108393418,
+      0.012307275465343557,
+      -0.008471929573933208,
+      -0.026210976390616005,
+      0.0
+    ],
+    "right": [
+      0.0,
+      0.01726894861620145,
+      0.01978552059540765,
+      -0.015132652029996599,
+      0.006786509759240255,
+      0.0
+    ]
+  },
+  "sha256": {
+    "scene.xml": "42d5f5b0213513e4bbda4645d4af513147ed492834fdb82ef5658ca3f05de18f",
+    "model.xml": "22ed2648615c1e2fa8dfb0428e1b62d75a7a363374d6ce4b7bafe09ed5987edf",
+    "safety.json": "172afc8a82d2b04fb03404e20ae5342a9272bdaae520b77e7caaa1e0c57bd965",
+    "hardware_safety.py": "b1d6b7bdda1b41d224487a9015d3fa85555f745ba6eff0032a1118c74e89d14f"
+  }
+}

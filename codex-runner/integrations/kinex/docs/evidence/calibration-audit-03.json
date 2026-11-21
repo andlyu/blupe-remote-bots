@@ -1,0 +1,75 @@
+{
+  "checked_at": "2026-11-13T16:49:12.344112+00:00",
+  "previous_goal_turn": "progress: deployed historical playback and anonymous media access verified",
+  "consecutive_calibration_audit": 3,
+  "worker_handle_confirmed_live": 22809,
+  "checks": {
+    "site": {
+      "http_status": 200,
+      "runtime_s": 0.540461292002874,
+      "result": {
+        "runner": {
+          "ready": false,
+          "message": "Cannot verify fresh station connection, calibration and queue readiness. Restore the station before running.",
+          "approach": "Kinex",
+          "underlying_model": "gpt-6-astra",
+          "online": true
+        },
+        "run_count": 6,
+        "active": []
+      }
+    },
+    "queue": {
+      "http_status": 200,
+      "runtime_s": 0.4588256659990293,
+      "result": {
+        "generated_at": 1794588552.34256,
+        "stations": [
+          {
+            "jetson_id": "robot-ba8413962083809c",
+            "connected": true,
+            "available": false,
+            "queue_ready": true,
+            "source": "hardware",
+            "mode": "DISABLED",
+            "observed_at": 1794588551.9293945,
+            "fault_notification": null
+          }
+        ],
+        "entries": []
+      }
+    },
+    "observation": {
+      "http_status": 200,
+      "runtime_s": 0.4532395829955931,
+      "result": {
+        "jetson_id": "robot-ba8413962083809c",
+        "source": "hardware",
+        "observed_at": 1794588551.9293945,
+        "mode": "DISABLED",
+        "queue_ready": true,
+        "homed": false,
+        "settled": false,
+        "safety": {
+          "ok": false,
+          "estop_engaged": false,
+          "reason": "hardware_not_initialized"
+        }
+      }
+    },
+    "calibration": {
+      "http_status": 503,
+      "runtime_s": 0.4810857090051286,
+      "result": {
+        "error": {
+          "code": "calibration_unavailable",
+          "message": "Selected operator calibration is unavailable or switching",
+          "status": 503
+        }
+      }
+    }
+  },
+  "new_run_submissions": 0,
+  "new_model_calls": 0,
+  "new_physical_commands": 0
+}

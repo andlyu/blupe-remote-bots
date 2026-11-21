@@ -1,0 +1,85 @@
+{
+  "approach": "Kinex",
+  "underlying_model": "gpt-6-astra",
+  "station": "robot-ba8413962083809c",
+  "runner": {
+    "ready": false,
+    "message": "Fresh station identity and safety feedback are required before queue admission.",
+    "approach": "Kinex",
+    "underlying_model": "gpt-6-astra",
+    "online": true
+  },
+  "runs": [
+    {
+      "id": "81581277-d1c5-4a34-a783-ed5b906a248a",
+      "runner": "andrew",
+      "prompt": "Read three live cameras and measured state, cycle each empty gripper from Home-open to 0.5 then open=1 with measured verification; move each sixth wrist joint +0.08 radians then return to its measured initial position, one actuator buffer at a time. Keep all other joints unchanged. This is a joint/gripper functionality test, not pick-and-place. First call kinex_start, then use devices to batch-read cameras and measured arms/grippers. Verify measured completion between writes, use the world clock to pace buffers, and stop without retry on unknown execution outcome. Keep the normal queue and Home behavior. Report honest measured outcomes. No object grasp is requested.",
+      "duration_s": 180,
+      "status": "failed",
+      "created_at": 1794493932584,
+      "updated_at": 1794493952133,
+      "stop_requested": false,
+      "stage": "Run stopped",
+      "message": "Kinex could not complete this run. No automatic retry.",
+      "configuration": {
+        "robot_id": "robot-ba8413962083809c",
+        "provider": "kinex",
+        "model": "Kinex",
+        "display_name": "Kinex",
+        "policy": "kinex_native_device_tools",
+        "underlying_models": {
+          "planning": "gpt-6-astra",
+          "vision": "gpt-6-astra",
+          "reasoning_effort": "low"
+        },
+        "host": "Codex 0.162.1 + official Kinex MCP/core 1.0.0",
+        "model_calls": 0,
+        "capabilities": [
+          "joint servo",
+          "normalized grippers",
+          "RGB cameras",
+          "measured feedback"
+        ],
+        "exclusions": [
+          "Cartesian goals",
+          "unrestricted Python",
+          "arbitrary shell",
+          "simultaneous/superseding actuator buffers"
+        ],
+        "predictive_collision_protection": "canonical_swept_controller_guard",
+        "runner_name": "andrew",
+        "execution_mode": "interactive",
+        "kinex_upstream_revision": "f68a8d7f1ddcae2b096f171b817c232d8730f3ec",
+        "agent_finished": false,
+        "task_success": "unverified"
+      },
+      "session_id": "sess_d1eae5a0bd8e40b7",
+      "metrics": {
+        "model_s": 0,
+        "execution_s": 0,
+        "left_path_m": 0,
+        "right_path_m": 0,
+        "model_calls": 0,
+        "execution_packets": 0,
+        "accepted_packets": 0,
+        "distance_waypoints": 0,
+        "confirmed_waypoints": 0
+      },
+      "events": [
+        {
+          "time": 1794493950.341363,
+          "kind": "run_configuration",
+          "message": "Configuration used for this run"
+        },
+        {
+          "time": 1794493950.341364,
+          "kind": "joined",
+          "message": "Joined the policy queue"
+        }
+      ],
+      "error": "'RunnerController' object has no attribute 'busy'",
+      "replay": null,
+      "owned": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "site": "https://kinex-blupe.andlyu.chatgpt.site",
+  "version": 14,
+  "source": "5270b2b6020ed8a7bb81c982890c7d66573105db",
+  "run_id": "612ea0de-4b21-4a45-899d-98e92d80e119",
+  "episode_id": "ep_bfdd8d9771014e40",
+  "through_normal_website_controls": true,
+  "playback_observed": {
+    "current_time_s": 0.1985,
+    "duration_s": 33.5,
+    "paused": false,
+    "ready_state": 3,
+    "media_error": null
+  },
+  "seeking_observed": {
+    "current_time_s": 8.039999,
+    "duration_s": 33.5,
+    "paused": true,
+    "ready_state": 4,
+    "media_error": null
+  },
+  "visual": "Actual Robo-house top/wrist footage; TOP16.1s EDITEDREPLAY at native player0:08/0:33, clearly2x preview and matchingKinex/andrew task.",
+  "new_physical_commands": 0,
+  "new_run_submissions": 0,
+  "limitation": "Historical archive playback validates the deployed proxy/player, not the new BUCKET camera recorder or immediate availability after a new physical run."
+}

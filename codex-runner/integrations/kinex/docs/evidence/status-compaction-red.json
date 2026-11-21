@@ -1,0 +1,8 @@
+{
+  "old_behavior": "Reintroduce original integer waypoints metadata in KinexAdapter.emit",
+  "exit_code": 1,
+  "runtime_s": 4.568790625002293,
+  "output": "test_native_tools_and_complete_packet_path (test_kinex_native.RoboHouseNativeCommandContract.test_native_tools_and_complete_packet_path) ... FAIL\n\n======================================================================\nFAIL: test_native_tools_and_complete_packet_path (test_kinex_native.RoboHouseNativeCommandContract.test_native_tools_and_complete_packet_path)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/kinex-robohouse-release/codex-runner/tests/test_kinex_native.py\", line 181, in test_native_tools_and_complete_packet_path\n    self.assertEqual(failures,[])\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^\nAssertionError: Lists differ: ['TypeError(\"\\'int\\' object is not subscriptable\")'] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n'TypeError(\"\\'int\\' object is not subscriptable\")'\n\n- ['TypeError(\"\\'int\\' object is not subscriptable\")']\n+ []\n\n----------------------------------------------------------------------\nRan 1 test in 4.233s\n\nFAILED (failures=1)\n",
+  "expected_failure": "'int' object is not subscriptable",
+  "physical_commands_sent": 0
+}

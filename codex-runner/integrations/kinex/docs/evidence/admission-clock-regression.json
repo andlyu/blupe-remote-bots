@@ -1,0 +1,17 @@
+{
+  "source_before": "dbb4f5c973d97683d45e471daf949d23638e425c",
+  "fixture": "Synthetic parked station with queue0.092s ahead, based on measured live response",
+  "old_result": [
+    false,
+    "Fresh station identity and safety feedback are required before queue admission."
+  ],
+  "new_result": [
+    true,
+    "Robo-house is parked and ready for the normal queue. The controller will initialize and Home the arms before Kinex can move."
+  ],
+  "elapsed_s": 0.09505566699954215,
+  "original_timestamp": 1794533148.6672268,
+  "local_time_after": 1794533148.670284,
+  "strict_original_windows_unchanged": true,
+  "physical_commands_sent": 0
+}

@@ -1,0 +1,20 @@
+{
+  "previous_revision": "6ef86ac21dac88662402c9fc90d488f604c9a95c",
+  "previous_source_sha256": "b1f88d6cc653b7516164aab1125019e6419649d4c6f4fcd5bd876615392407b1",
+  "physical_commands_sent": 0,
+  "model_requests": 0,
+  "records": [
+    {
+      "version": "before",
+      "runtime_s": 0.0009017909978865646,
+      "passed": false,
+      "output": "test_actual_queue_entry_and_first_admission_are_retained_without_changing_events (test_kinex_worker.WorkerLifecycle.test_actual_queue_entry_and_first_admission_are_retained_without_changing_events) ... ERROR\n\n======================================================================\nERROR: test_actual_queue_entry_and_first_admission_are_retained_without_changing_events (test_kinex_worker.WorkerLifecycle.test_actual_queue_entry_and_first_admission_are_retained_without_changing_events)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/andrew/Projects/blupe-evals/public-projects/blupe-remote-yam/codex-runner/tests/test_kinex_worker.py\", line 34, in test_actual_queue_entry_and_first_admission_are_retained_without_changing_events\n    facade.refresh_queue_entry();self.assertEqual(facade.queue_lifecycle['entered_at'],100.)\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/andrew/Projects/blupe-evals/public-projects/blupe-remote-yam/codex-runner/src/remote_yam/kinex_policy.py\", line 144, in __getattr__\nAttributeError: 'types.SimpleNamespace' object has no attribute 'refresh_queue_entry'\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (errors=1)\n"
+    },
+    {
+      "version": "after",
+      "runtime_s": 0.00014195800031302497,
+      "passed": true,
+      "output": "test_actual_queue_entry_and_first_admission_are_retained_without_changing_events (test_kinex_worker.WorkerLifecycle.test_actual_queue_entry_and_first_admission_are_retained_without_changing_events) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    }
+  ]
+}

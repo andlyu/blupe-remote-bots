@@ -1,0 +1,7 @@
+{
+  "old_revision": "b6d196727ac5fca24ff620c4d2a3d2df28c853aa",
+  "exit_code": 1,
+  "runtime_s": 0.2564365420039394,
+  "output": "test_small_remote_clock_lead_waits_without_widening_freshness_window (test_kinex.BridgeRegression.test_small_remote_clock_lead_waits_without_widening_freshness_window) ... ERROR\n\n======================================================================\nERROR: test_small_remote_clock_lead_waits_without_widening_freshness_window (test_kinex.BridgeRegression.test_small_remote_clock_lead_waits_without_widening_freshness_window)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/tmp/kinex-robohouse-release/codex-runner/tests/test_kinex.py\", line 91, in test_small_remote_clock_lead_waits_without_widening_freshness_window\n    result=p._read();self.assertLessEqual(result['observed_at'],time.time())\n  File \"<string>\", line 10, in _read\nRuntimeError: Fresh safe robot feedback unavailable\n\n----------------------------------------------------------------------\nRan 1 test in 0.019s\n\nFAILED (errors=1)\n",
+  "physical_commands_sent": 0
+}
