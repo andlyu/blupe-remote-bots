@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname,'../static/replay-history.js'),'utf8');
-function setup() {
+function setup(robot='yam-1') {
   const nodes=new Map(), events={}, requests=[], timers=new Map(), opened=[], stored={}, summaries=[], charts=[]; let timerId=0;
   function element(){return {children:[],dataset:{},value:'',hidden:false,open:false,listeners:{},parentElement:{hidden:false},
     addEventListener(name,fn){(this.listeners[name] ||= []).push(fn)}, emit(name,event={}){for(const fn of this.listeners[name]||[])fn(event)},
@@ -19,8 +19,8 @@ function setup() {
     fetch(url,options){return new Promise(resolve=>requests.push({url,options,resolve}))}});
   const flush=()=>new Promise(setImmediate);
   const answer=(req,runs=[])=>req.resolve({ok:true,json:async()=>({runs,next_offset:null})});
-  const state=(status,extras={})=>window.yamReplayReview.observe({session_id:'mine',status,episode_id:'ep_own',...extras},'yam-1','csrf-token');
-  events['blupe-robot-selected']({detail:'yam-1'});
+  const state=(status,extras={})=>window.yamReplayReview.observe({session_id:'mine',status,episode_id:'ep_own',...extras},robot,'csrf-token');
+  events['blupe-robot-selected']({detail:robot});
   return {nodes,events,requests,timers,opened,window,flush,answer,state,stored,summaries,charts,advance(delay){for(const [id,fn] of timers)if(fn.delay===delay){timers.delete(id);fn();break}}};
 }
 test('a public library replay keeps its recorded robot while live control stays elsewhere',async()=>{
@@ -31,8 +31,8 @@ test('a public library replay keeps its recorded robot while live control stays 
  c.answer(poll,[{episode_id:'ep_roboskills',robot_id:'yam-1',model:'RoboSkills',video_url:'/retained.mp4',video_duration_s:.8}]);await c.flush();
  assert.equal(c.opened[0].robot_id,'yam-1');assert.equal(c.opened[0].model,'RoboSkills');
 });
-test('own run waits exactly five seconds while preview request starts immediately, then opens processing review once',async()=>{
-  const c=setup(); c.state('idle',{public_run:{status:'running',episode_id:'ep_other'}});
+test('non-YAM review waits five seconds, then polls processing every second',async()=>{
+  const c=setup('so101'); c.state('idle',{public_run:{status:'running',episode_id:'ep_other'}});
   assert.equal(c.nodes.get('pastRunDialog').open,false);
   c.answer(c.requests[0]);await c.flush();
   c.state('running');c.state('stopped');
@@ -41,11 +41,24 @@ test('own run waits exactly five seconds while preview request starts immediatel
   assert.equal([...c.timers.values()][0].delay,5000);c.advance(5000);
   assert.equal(c.nodes.get('pastRunDialog').open,true);assert.equal(c.nodes.get('replayProcessing').hidden,false);
   const poll=c.requests.at(-1);c.answer(poll);await c.flush();
-  assert.equal(c.timers.size,1);
-  c.advance(5000);
-  const latest=c.requests.at(-1);c.answer(latest,[{episode_id:'ep_own',robot_id:'yam-1',video_url:'https://example/replay.mp4',video_duration_s:4}]);await c.flush();
+  assert.equal(c.timers.size,1);assert.equal([...c.timers.values()][0].delay,1000);
+  c.advance(1000);
+  const latest=c.requests.at(-1);c.answer(latest,[{episode_id:'ep_own',robot_id:'so101',video_url:'https://example/replay.mp4',video_duration_s:4}]);await c.flush();
   assert.equal(c.opened.length,1);assert.equal(c.nodes.get('replayProcessing').hidden,true);
   c.state('stopped');assert.equal(c.nodes.get('pastRunDialog').opens,1);
+});
+test('YAM replay starts immediately without the non-YAM assessment delay',async()=>{
+  for(const robot of ['yam-1','robot-ba8413962083809c']) {
+    const c=setup(robot);c.state('running');c.state('stopped');
+    assert.equal(c.nodes.get('pastRunDialog').open,true);
+    assert.equal(c.nodes.get('assessmentWindow').hidden,true);
+    assert.equal([...c.timers.values()].some(fn=>fn.delay===5000),false);
+    const request=c.requests.find(r=>r.url.includes('episode_id=ep_own'));
+    assert.match(request.url,/preview=1/);
+    assert.equal(request.options.headers['X-Blupe-Robot'],robot);
+    c.answer(request,[{episode_id:'ep_own',robot_id:robot,video_url:'https://example/replay.mp4',video_duration_s:1}]);
+    await c.flush();assert.equal(c.opened.length,1);
+  }
 });
 test('closing or switching robot prevents a late response reopening the replay',async()=>{
   for(const change of ['close','switch']){

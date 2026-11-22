@@ -120,12 +120,15 @@ class Visitor:
     saved_keys: dict[str, str] = field(default_factory=dict, repr=False)
     subscription_prompts: dict[str, str] = field(default_factory=dict)
     visitor_chat: object | None = field(default=None, repr=False)
+    prompt_batch: object = field(default=None, repr=False)
     retired: bool = False
     retain_recordings: bool = False
     assessment_session: str = field(default_factory=lambda: secrets.token_urlsafe(32), repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def close(self):
+        if self.prompt_batch is not None:
+            self.prompt_batch.cancel()
         with self.lock:
             self.retired = True
             self.saved_keys.clear()
@@ -436,6 +439,11 @@ class HostedRunner:
             self.frame_cache[name] = (url, time.monotonic(), frame)
             return frame
 
+    def visitor_expired(self, visitor, now):
+        if visitor.prompt_batch is not None and visitor.prompt_batch.active:
+            return False
+        return now - visitor.touched > self.idle_seconds or now - visitor.born > self.lifetime_seconds
+
     async def maintenance(self):
         while True:
             await asyncio.to_thread(self.refresh_monitor)
@@ -445,7 +453,7 @@ class HostedRunner:
                     await asyncio.to_thread(self.remember_assessment_owner, visitor)
             now = time.monotonic()
             expired = [key for key, item in self.visitors.items()
-                       if now - item.touched > self.idle_seconds or now - item.born > self.lifetime_seconds]
+                       if self.visitor_expired(item, now)]
             for key in expired:
                 visitor = self.visitors.pop(key)
                 self.retire(visitor)
@@ -473,6 +481,11 @@ class HostedRunner:
                             await self.task
                     visitors = list(self.visitors.values())
                     self.visitors.clear()
+                    batch_tasks = [v.prompt_batch.task for v in visitors
+                                   if v.prompt_batch is not None and v.prompt_batch.task is not None]
+                    for task in batch_tasks:
+                        task.cancel()
+                    await asyncio.gather(*batch_tasks, return_exceptions=True)
                     await asyncio.gather(*(asyncio.to_thread(v.close) for v in visitors))
                     if self.cleanups:
                         await asyncio.gather(*self.cleanups)
@@ -718,8 +731,7 @@ class HostedRunner:
         token = cookie.get(self.cookie_name)
         capability = token.value if token else ""
         visitor = self.visitors.get(capability)
-        if visitor and (time.monotonic() - visitor.born > self.lifetime_seconds
-                        or time.monotonic() - visitor.touched > self.idle_seconds):
+        if visitor and self.visitor_expired(visitor, time.monotonic()):
             self.visitors.pop(capability)
             self.retire(visitor)
             visitor = None
@@ -766,7 +778,13 @@ class HostedRunner:
         if method == "POST":
             if not secrets.compare_digest(headers.get("x-yam-runner-token", ""), visitor.csrf):
                 raise RequestError(403, "Invalid browser session token")
-            payload = await self.body(receive, max_bytes=600000 if path == '/api/run-data-chat' else 24000)
+            payload = await self.body(receive, max_bytes=600000 if path == '/api/run-data-chat' else 256000 if path == '/api/run' else 24000)
+            if path == '/api/run' and 'prompts' in payload:
+                result = await self.launch_prompt_batch(visitor, payload, cookie)
+                await self.json(send, 200, result)
+                return
+            if path == '/api/run' and visitor.prompt_batch is not None and visitor.prompt_batch.active:
+                raise RequestError(409, 'A prompt batch is active. Use Stop to cancel its remaining prompts.')
             if await self.action_extension(path, visitor, payload, cookie, send):
                 return
             if path == '/api/run-data-chat':
@@ -952,6 +970,8 @@ class HostedRunner:
             if self.queue is not None:
                 controller.update_queue_snapshot(self.queue)
             state = controller.status()
+            if visitor.prompt_batch is not None:
+                state['prompt_batch'] = visitor.prompt_batch.snapshot()
             # A browser's existing session deduplicates its tabs. Hidden tabs
             # must not clear a heartbeat sent by another visible tab.
             state['live_viewer_count'] = sum(
@@ -1115,6 +1135,48 @@ class HostedRunner:
         else:
             raise RequestError(404, "Not found")
 
+    async def launch_prompt_batch(self, visitor, payload, cookies):
+        from remote_yam.prompt_batches import PromptBatch, prompts_from
+        try:
+            prompts = prompts_from(payload)
+        except ValueError as exc:
+            raise RequestError(400, str(exc)) from None
+        self.validate_prompt_batch(visitor, payload, prompts)
+        with visitor.lock:
+            if visitor.retired:
+                raise RequestError(401, 'Browser session ended')
+            if (visitor.prompt_batch is not None and visitor.prompt_batch.active
+                    or visitor.controller.busy() or visitor.controller.status()['status'] in ACTIVE):
+                raise RequestError(409, 'Finish or stop the current run before queuing a batch')
+            limit = self.session_run_limit
+            if limit is not None and visitor.launches + len(prompts) > limit:
+                raise RequestError(429, 'This batch exceeds the browser session’s remaining run allowance')
+            async def submit(item):
+                responses = []
+                async def capture(event):
+                    responses.append(event)
+                if await self.action_extension('/api/run', visitor, item, cookies, capture):
+                    status = next(e['status'] for e in responses if e['type'] == 'http.response.start')
+                    body = json.loads(b''.join(e.get('body', b'') for e in responses if e['type'] == 'http.response.body'))
+                    if status >= 400:
+                        raise RequestError(status, body.get('error', 'Queue admission failed'))
+                    return body
+                return await asyncio.to_thread(self.launch, visitor, item)
+            batch = PromptBatch(visitor, payload, prompts, submit, self.remember_runner)
+            visitor.prompt_batch = batch
+        return await batch.start()
+
+    def validate_prompt_batch(self, visitor, payload, prompts):
+        """Hosted funding can reject an oversized batch before its first run."""
+
+    def check_prompt_batch(self, visitor):
+        from remote_yam.prompt_batches import submission_batch
+        batch = visitor.prompt_batch
+        current = submission_batch.get()
+        if (current is not None and (current is not batch or current.cancelled)
+                or batch is not None and batch.active and current is not batch):
+            raise RequestError(409, 'The prompt batch was stopped or is already active')
+
     def launch(self, visitor, payload, *, paid=False, provider_transform=None):
         self.remember_runner(visitor)
         self.validate_launch(visitor, payload, paid)
@@ -1126,6 +1188,7 @@ class HostedRunner:
         if selected_prompt is not None and (self.joint_counts != (6,6) or payload.get('use_api_depth', self.use_api_depth if payload.get('provider') == 'codex' else False)):
             raise RequestError(400, 'System prompt editing is available for Cartesian YAM model runs')
         with visitor.lock:
+            self.check_prompt_batch(visitor)
             if visitor.retired:
                 raise RequestError(401, "Browser session ended")
             if visitor.controller.busy() or visitor.controller.status()["status"] in ACTIVE:
@@ -1358,6 +1421,7 @@ class HostedRunner:
             visitor.launch_requested_at = time.time()
             visitor.launches += 1
             try:
+                self.check_prompt_batch(visitor)
                 visitor.controller._share_conversation = (self.share_conversation and share_conversation
                     and getattr(provider, "share_conversation", True))
                 # Record the effective model, including configured defaults/checkpoints.
@@ -1423,6 +1487,8 @@ class HostedRunner:
             return {'ok': True, **extra}
 
     def control(self, visitor, path):
+        if visitor.prompt_batch is not None:
+            visitor.prompt_batch.cancel()
         self.remember_runner(visitor)
         with visitor.lock:
             if visitor.retired:

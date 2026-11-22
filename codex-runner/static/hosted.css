@@ -1091,3 +1091,21 @@ body.cameraExpanded{overflow:hidden}
   .taskCloudDisplay[open] > summary::after{transform:translateY(2px) rotate(225deg)}
   .taskCloudDisplay > summary:focus-visible{outline:3px solid #326c4e;outline-offset:2px}
 }
+
+/* Batch prompts use the existing composer and form controls. */
+.promptBatch { margin-block: 8px; }
+.promptBatchRow { display: flex; align-items: start; gap: 8px; margin-block: 8px; }
+.promptBatchRow textarea { flex: 1; min-width: 0; min-height: 56px; height: 56px; margin: 0; }
+.promptBatchRow button { flex: none; }
+.promptBatch ol { max-height: 160px; overflow: auto; padding-inline-start: 24px; overflow-wrap: anywhere; }
+.promptBatch > div:first-child { max-height: 240px; overflow: auto; }
+.meetingConsole .promptBatch { color: #f1f3f4; }
+.meetingConsole .promptBatch button { color: #e8eaed; background: #3c4043; min-height: 44px; padding: 8px 12px; }
+.meetingConsole .promptBatch button:hover:not(:disabled) { background: #4a4e52; }
+.meetingConsole .promptBatch .help { color: #bdc1c6; }
+
+/* Keep the live viewer visible while a server-owned batch is active. */
+.promptBatchHeading{margin-block:4px}
+.promptBatch summary{cursor:pointer;min-height:44px;display:list-item;align-content:center}
+.promptBatch details ol{margin-block:0 8px;overflow-wrap:anywhere}
+.promptBatch [hidden]{display:none!important}

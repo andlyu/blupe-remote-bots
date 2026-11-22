@@ -144,6 +144,60 @@ function createViewerStreamResolver(load = fetch) {
   };
 }
 
+function createPromptBatchControl($) {
+  const box = document.createElement('div'), editor = document.createElement('div');
+  const add = document.createElement('button'), note = document.createElement('p');
+  const status = document.createElement('div');
+  box.className = 'promptBatch'; box.id = 'promptBatch';
+  add.type = 'button'; add.textContent = 'Add prompt';
+  note.className = 'help'; note.textContent = 'Prompts run in order with the same model and settings. Request replay emails in Settings. Stop cancels the remaining prompts.';
+  note.hidden = true; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+  box.append(editor, add, note, status); $('runForm').querySelector('.promptRow').after(box);
+  let busy = false, lastStatus = '';
+  const fields = () => [...editor.querySelectorAll('textarea')];
+  const refresh = () => {
+    fields().forEach((input, index) => { input.setAttribute('aria-label', `Prompt ${index + 2}`); });
+    editor.hidden = busy; add.hidden = busy; note.hidden = busy || !fields().length; add.disabled = busy || fields().length >= 9;
+  };
+  add.addEventListener('click', () => {
+    if (busy || fields().length >= 9) return;
+    const row = document.createElement('div'), input = document.createElement('textarea');
+    const remove = document.createElement('button');
+    row.className = 'promptBatchRow'; input.rows = 2; input.maxLength = 4000; input.required = true;
+    input.placeholder = 'Write the next prompt…'; remove.type = 'button'; remove.textContent = 'Remove';
+    remove.addEventListener('click', () => { row.remove(); refresh(); add.focus(); });
+    row.append(input, remove); editor.append(row); refresh(); input.focus();
+  });
+  return {
+    prompts() { return [$('prompt').value, ...fields().map(input => input.value)]; },
+    busy(value) {
+      busy = value; box.querySelectorAll('textarea,button').forEach(el => { el.disabled = value; }); refresh();
+    },
+    observe(batch) {
+      const next = JSON.stringify(batch || null);
+      if (next === lastStatus) return;
+      lastStatus = next;
+      const expanded = status.querySelector('details')?.open || false;
+      status.replaceChildren(); if (!batch) return;
+      const heading = document.createElement('p'); heading.className = 'promptBatchHeading';
+      const current = batch.jobs[batch.current - 1];
+      const phase = batch.phase === 'stopping' ? 'Stopping'
+        : ({running:'Running', preparing:'Preparing', queued:'Queued on the server', pending:'Waiting'})[current?.status] || 'Preparing';
+      heading.textContent = batch.error || (batch.phase === 'complete' ? 'All prompts finished.'
+        : batch.phase === 'cancelled' ? 'Batch stopped. Remaining prompts cancelled.'
+        : `Prompt ${batch.current} of ${batch.total} · ${phase}`);
+      const details = document.createElement('details'), summary = document.createElement('summary');
+      details.open = expanded; summary.textContent = `View ${batch.total} prompts`;
+      const list = document.createElement('ol');
+      for (const job of batch.jobs) {
+        const item = document.createElement('li'); item.textContent = `${job.prompt} — ${job.status}`;
+        list.append(item);
+      }
+      details.append(summary, list); status.append(heading, details);
+    }
+  };
+}
+
 function runComparisonBaseMetrics(run) {
   if (run.run_metrics) {
     const m = run.run_metrics;
@@ -1037,9 +1091,11 @@ function createRunLaunchGuard() {
     return path === '/api/status' ? runLaunchGuard.project(result) : result;
   }
   const runVideoEmail = createRunVideoEmailControl($);
+  window.yamPromptBatch = createPromptBatchControl($);
   window.yamRunVideoEmail = runVideoEmail;
   window.yamReplayEmail = createReplayEmailControl({$, send: api});
   function buttons() {
+    window.yamPromptBatch?.busy(active || submitting || ended);
     const readOnly = $('runForm').dataset?.readOnly === 'true';
     window.yamReactions?.setAvailable(!!csrf && !ended);
     $('run').disabled = readOnly || !csrf || ended || active || submitting;
@@ -1358,6 +1414,8 @@ function createRunLaunchGuard() {
     if (active) return;
     if ($('provider').value === 'custom_endpoint' && !$('customEndpoint').reportValidity()) return;
     if (!runVideoEmail.validate()) { $('email').reportValidity(); return; }
+    const batchPrompts = window.yamPromptBatch?.prompts() || [$('prompt').value];
+    if (batchPrompts.length > 1 && batchPrompts.some(p => !p.trim())) { message('Fill in each prompt before queuing the batch.', true); return; }
     window.yamRunnerIdentity.remember();
     contactRequested = false;
     let launchVersion = null, payload;
@@ -1389,6 +1447,7 @@ function createRunLaunchGuard() {
       email: $('email').value.trim(), email_run_video: runVideoEmail.enabled(), share_conversation: $('shareConversation').checked,
       prompt: $('prompt').value, run_duration_s:Number($('runDuration').value)*60, api_key: $('apiKey').value.trim(),
       ...window.yamSystemPrompt?.payload()};
+    if (batchPrompts.length > 1) payload.prompts = batchPrompts;
     if (payload.provider === 'custom_endpoint') {payload.endpoint = $('customEndpoint').value.trim(); payload.api_key = $('customEndpointKey').value.trim();}
     if (!$('apiDepthSettings').hidden) payload.use_api_depth = $('useApiDepth').checked;
     if (['codex', 'claude', 'guest_astra', 'guest_claude'].includes(payload.provider)) payload.reasoning_effort = $('reasoningEffort').value;
@@ -1399,6 +1458,7 @@ function createRunLaunchGuard() {
     const state = await api('/api/run', payload);
     if(!runLaunchGuard.accept(launchVersion,state.attempt_id,{status:state.status || 'queued',
       model_name:provisional.model_name})) return;
+    if (state.prompt_batch) { runLaunchGuard.reset(); window.yamPromptBatch?.observe(state.prompt_batch); }
     renderCurrentConversation(runLaunchGuard.conversation(null),state);
     updateSavedKey(state.saved_key_providers);window.yamAnalytics?.observe(state);
     $('apiKey').value = '';$('runSettings').open = true;$('localRunDialog').close();
@@ -1901,6 +1961,7 @@ function createRunLaunchGuard() {
       : `${run?.runner_name || state.runner_name || 'Anonymous'} — ${timeLimit ? 'Stopped' : inconclusive ? 'Verification inconclusive' : error ? 'run error' : 'connection warning'}: ${notice}`) : '';
   }
   function render(state) {
+    window.yamPromptBatch?.observe(state.prompt_batch);
     liveViewers?.render(state.live_viewer_count);
     window.yamRuntimeSteering?.update(state);
     if (state.subscription_setup?.setup_prompt) {
@@ -1921,7 +1982,7 @@ function createRunLaunchGuard() {
     syncStopwatch(state.public_run, state.queue_snapshot?.generated_at);
     renderActiveRunPrompt(state.public_run);
     const taskFailure = renderCurrentConversation(live,state);
-    active = ['queued', 'preparing', 'running'].includes(state.status);
+    active = ['queued', 'preparing', 'running'].includes(state.status) || state.prompt_batch?.active === true;
     ownRunLive = ['preparing', 'running'].includes(state.status);
     $('status').textContent = state.status.replaceAll('_', ' ');
     guideRunAttention(state);
