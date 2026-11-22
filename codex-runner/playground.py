@@ -1149,7 +1149,8 @@ class HostedRunner:
             if (visitor.prompt_batch is not None and visitor.prompt_batch.active
                     or visitor.controller.busy() or visitor.controller.status()['status'] in ACTIVE):
                 raise RequestError(409, 'Finish or stop the current run before queuing a batch')
-            if visitor.launches + len(prompts) > 20:
+            limit = self.session_run_limit
+            if limit is not None and visitor.launches + len(prompts) > limit:
                 raise RequestError(429, 'This batch exceeds the browser session’s remaining run allowance')
             async def submit(item):
                 responses = []

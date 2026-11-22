@@ -101,6 +101,19 @@ class PromptBatchTests(unittest.IsolatedAsyncioTestCase):
             release.set()
             await launch
 
+    async def test_batch_honors_configured_session_cap_and_unlimited_mode(self):
+        browser = await self.session()
+        owner = next(iter(self.app.visitors.values()))
+        self.app.session_run_limit = 2
+        self.assertEqual((await self.call('/api/run', method='POST', payload=self.payload(), **browser))[0], 429)
+        self.assertFalse(self.providers)
+        self.app.session_run_limit = None
+        owner.launches = 20
+        code, result, _ = await self.call('/api/run', method='POST', payload=self.payload(), **browser)
+        self.assertEqual(code, 200, result)
+        await self.call('/api/stop', method='POST', **browser)
+        await asyncio.wait_for(owner.prompt_batch.task, 3)
+
     async def test_safety_stop_never_retries_or_starts_the_next_prompt(self):
         browser = await self.session()
         self.assertEqual((await self.call('/api/run', method='POST', payload=self.payload(), **browser))[0], 200)
