@@ -17,7 +17,7 @@ A browser reload preserves a live batch on that server. A server restart ends it
 The user's November22 playground bug-fix and multi-prompt request, together with adopted AGENTS.md instructions, invokes the shared [authorization-by-use contract](../integration-harness/COMPLETION-CHECKLIST.md#authorization-granted-by-using-this-harness). Existing user-selected models are preserved; this feature introduces no new model or policy. Test attribution is explicitly synthetic and no physical model run or identity submission was used for offline verification. The owner's no-email-send instruction takes precedence; message validation uses drafts and mock delivery.
 
 - [x] Three real hosted MockSessionAPI sessions advance without browser polling and retain distinct identities and replay consent.
-- [x] Owner/CSRF isolation, input limits, cancellation, and eight concurrent Stops during provider preparation are covered.
+- [x] Owner/CSRF isolation, input limits, cancellation, eight concurrent Stops during provider preparation and eight late active events after an acknowledged Stop are covered.
 - [x] Normal time limits move to the next distinct prompt; safety stops do not retry or start another.
 - [x] Hosted guest batches use existing admission/accounting and reject insufficient allowance before starting.
 - [x] Desktop and390×844 browser controls support adding/removing/renumbering prompts; no console errors observed.

@@ -807,6 +807,8 @@ class RunnerController(HomeSceneStartup):
         if event_type == "snapshot":
             active_trajectory = payload.get("active_trajectory")
             with self._lock:
+                if self._stop_event.is_set() and payload.get('status') in {'queued', 'preparing', 'running'}:
+                    return
                 self._status = str(payload.get("status", self._status))
                 if payload.get("run_started_at") is not None:
                     self._run_started_at = payload["run_started_at"]
@@ -828,6 +830,8 @@ class RunnerController(HomeSceneStartup):
                 self._recover_finished_trajectory()
         elif event_type == "queue_update":
             with self._lock:
+                if self._stop_event.is_set():
+                    return
                 self._status = "queued"
                 self._queue_position = payload.get("position", self._queue_position)
         elif event_type == "lifecycle":
@@ -860,6 +864,8 @@ class RunnerController(HomeSceneStartup):
         self._interactions.add('lifecycle', f'Session {state}', reason=payload.get('reason'),
                                episode_id=event.get('episode_id') or self._episode_id)
         with self._lock:
+            if self._stop_event.is_set() and state in {'queued', 'preparing', 'running'}:
+                return
             self._status = state
             if state in {"preparing", "running"} and getattr(self, "_run_started_at", None) is None:
                 self._run_started_at = time.time()
