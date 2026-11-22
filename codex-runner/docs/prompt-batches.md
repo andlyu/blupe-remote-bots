@@ -24,4 +24,4 @@ The user's November22 playground bug-fix and multi-prompt request, together with
 - [ ] Final deployed physical batch and replay readiness verification: exact robot/model/prompts requested from the owner and pending.
 - [ ] Live replay-email inbox delivery: no email is sent by the agent under the owner's standing rule.
 
-Broader baseline limits are recorded in the private task report: one unchanged public-main replay-history assertion fails;11 hosted model/default/ASPIRE tests also fail with the pre-task hosted source. They are not evidence of this feature passing end to end on hardware.
+Broader baseline limits are recorded in the private task report:11 hosted model/default/ASPIRE tests also fail with the pre-task hosted source. The stale five-second replay test now explicitly covers a non-YAM robot, with separate immediate-replay checks for both YAM stations. They are not evidence of this feature passing end to end on hardware.
