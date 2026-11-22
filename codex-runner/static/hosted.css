@@ -1101,4 +1101,5 @@ body.cameraExpanded{overflow:hidden}
 .promptBatch > div:first-child { max-height: 240px; overflow: auto; }
 .meetingConsole .promptBatch { color: #f1f3f4; }
 .meetingConsole .promptBatch button { color: #e8eaed; background: #3c4043; min-height: 44px; padding: 8px 12px; }
+.meetingConsole .promptBatch button:hover:not(:disabled) { background: #4a4e52; }
 .meetingConsole .promptBatch .help { color: #bdc1c6; }
