@@ -73,6 +73,17 @@ class PromptBatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([j['status'] for j in owner.prompt_batch.jobs][1:], ['cancelled', 'cancelled'])
         self.assertEqual(len(self.providers), 1)
 
+    async def test_documented_character_limit_accepts_escaped_unicode_prompts(self):
+        browser = await self.session()
+        prompts = ['🦾' * 4000] * 4  # 16,000 characters, 192,000 escaped JSON bytes.
+        code, result, _ = await self.call('/api/run', method='POST',
+            payload={**self.payload(), 'prompts':prompts}, **browser)
+        self.assertEqual(code, 200, result)
+        owner = next(iter(self.app.visitors.values()))
+        self.assertEqual(owner.prompt_batch.jobs[0]['prompt'], prompts[0])
+        await self.call('/api/stop', method='POST', **browser)
+        await asyncio.wait_for(owner.prompt_batch.task, 3)
+
     async def test_invalid_batch_is_rejected_before_any_queue_or_provider_call(self):
         browser = await self.session()
         for prompts in ([], ['one'], ['okay', ' '], ['x', 42], ['x'] * 11, ['x' * 4000] * 5):

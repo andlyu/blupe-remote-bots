@@ -778,7 +778,7 @@ class HostedRunner:
         if method == "POST":
             if not secrets.compare_digest(headers.get("x-yam-runner-token", ""), visitor.csrf):
                 raise RequestError(403, "Invalid browser session token")
-            payload = await self.body(receive, max_bytes=600000 if path == '/api/run-data-chat' else 24000)
+            payload = await self.body(receive, max_bytes=600000 if path == '/api/run-data-chat' else 256000 if path == '/api/run' else 24000)
             if path == '/api/run' and 'prompts' in payload:
                 result = await self.launch_prompt_batch(visitor, payload, cookie)
                 await self.json(send, 200, result)
