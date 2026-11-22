@@ -34,6 +34,10 @@ class PromptBatchTests(unittest.IsolatedAsyncioTestCase):
         batch.poll_s = .01
         self.assertEqual(result['prompt_batch']['total'], 3)
         self.assertFalse(self.app.visitor_expired(owner, owner.born + 100000))
+        born = owner.born
+        owner.born -= self.app.lifetime_seconds + 1
+        self.assertEqual((await self.call('/api/status', **browser))[0], 200)
+        owner.born = born
         for index in range(3):
             await self.wait_for(lambda: batch.index == index and owner.controller.busy())
             state = owner.controller.status()

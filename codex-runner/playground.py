@@ -731,8 +731,7 @@ class HostedRunner:
         token = cookie.get(self.cookie_name)
         capability = token.value if token else ""
         visitor = self.visitors.get(capability)
-        if visitor and (time.monotonic() - visitor.born > self.lifetime_seconds
-                        or time.monotonic() - visitor.touched > self.idle_seconds):
+        if visitor and self.visitor_expired(visitor, time.monotonic()):
             self.visitors.pop(capability)
             self.retire(visitor)
             visitor = None
