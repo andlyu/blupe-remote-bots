@@ -153,7 +153,7 @@ function createPromptBatchControl($) {
   note.className = 'help'; note.textContent = 'Prompts run in order with the same model and settings. Request replay emails in Settings. Stop cancels the remaining prompts.';
   note.hidden = true; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   box.append(editor, add, note, status); $('runForm').querySelector('.promptRow').after(box);
-  let busy = false;
+  let busy = false, lastStatus = '';
   const fields = () => [...editor.querySelectorAll('textarea')];
   const refresh = () => {
     fields().forEach((input, index) => { input.setAttribute('aria-label', `Prompt ${index + 2}`); });
@@ -174,6 +174,9 @@ function createPromptBatchControl($) {
       busy = value; box.querySelectorAll('textarea,button').forEach(el => { el.disabled = value; }); refresh();
     },
     observe(batch) {
+      const next = JSON.stringify(batch || null);
+      if (next === lastStatus) return;
+      lastStatus = next;
       status.replaceChildren(); if (!batch) return;
       const heading = document.createElement('p');
       heading.textContent = batch.error || (batch.phase === 'complete' ? 'All prompts finished.'
