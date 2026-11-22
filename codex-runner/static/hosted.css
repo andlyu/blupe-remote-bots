@@ -1103,3 +1103,9 @@ body.cameraExpanded{overflow:hidden}
 .meetingConsole .promptBatch button { color: #e8eaed; background: #3c4043; min-height: 44px; padding: 8px 12px; }
 .meetingConsole .promptBatch button:hover:not(:disabled) { background: #4a4e52; }
 .meetingConsole .promptBatch .help { color: #bdc1c6; }
+
+/* Keep the live viewer visible while a server-owned batch is active. */
+.promptBatchHeading{margin-block:4px}
+.promptBatch summary{cursor:pointer;min-height:44px;display:list-item;align-content:center}
+.promptBatch details ol{margin-block:0 8px;overflow-wrap:anywhere}
+.promptBatch [hidden]{display:none!important}

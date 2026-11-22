@@ -157,7 +157,7 @@ function createPromptBatchControl($) {
   const fields = () => [...editor.querySelectorAll('textarea')];
   const refresh = () => {
     fields().forEach((input, index) => { input.setAttribute('aria-label', `Prompt ${index + 2}`); });
-    note.hidden = !fields().length; add.disabled = busy || fields().length >= 9;
+    editor.hidden = busy; add.hidden = busy; note.hidden = busy || !fields().length; add.disabled = busy || fields().length >= 9;
   };
   add.addEventListener('click', () => {
     if (busy || fields().length >= 9) return;
@@ -177,17 +177,23 @@ function createPromptBatchControl($) {
       const next = JSON.stringify(batch || null);
       if (next === lastStatus) return;
       lastStatus = next;
+      const expanded = status.querySelector('details')?.open || false;
       status.replaceChildren(); if (!batch) return;
-      const heading = document.createElement('p');
+      const heading = document.createElement('p'); heading.className = 'promptBatchHeading';
+      const current = batch.jobs[batch.current - 1];
+      const phase = batch.phase === 'stopping' ? 'Stopping'
+        : ({running:'Running', preparing:'Preparing', queued:'Queued on the server', pending:'Waiting'})[current?.status] || 'Preparing';
       heading.textContent = batch.error || (batch.phase === 'complete' ? 'All prompts finished.'
         : batch.phase === 'cancelled' ? 'Batch stopped. Remaining prompts cancelled.'
-        : `Prompt ${batch.current} of ${batch.total} · ${batch.phase === 'stopping' ? 'Stopping' : 'Queued on the server'}`);
+        : `Prompt ${batch.current} of ${batch.total} · ${phase}`);
+      const details = document.createElement('details'), summary = document.createElement('summary');
+      details.open = expanded; summary.textContent = `View ${batch.total} prompts`;
       const list = document.createElement('ol');
       for (const job of batch.jobs) {
         const item = document.createElement('li'); item.textContent = `${job.prompt} — ${job.status}`;
         list.append(item);
       }
-      status.append(heading, list);
+      details.append(summary, list); status.append(heading, details);
     }
   };
 }
